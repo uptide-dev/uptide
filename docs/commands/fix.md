@@ -187,8 +187,12 @@ repository, and there:
    where a new lint failure fails verification; for zod, compares v3 and v4 behavior of
    your schemas on generated inputs.
 
-The exit code is 0 only if no new type error remains and the tests pass. You get the branch
-as a ref in your repository and the run stored in `.git/uptide/`; your branch, files, hooks
+The exit code is 0 only if no new type error remains, the tests pass, and the exported branch
+has the exact Git tree that was verified. An export mismatch exits 1, keeps the complete clone,
+and never offers `uptide pr`. If a fresh migration branch already exists with different content, Uptide creates
+`uptide/<package>-<version>-2` (then `-3`, etc.), leaves the old branch intact, and prints
+the new name and its `uptide pr --branch` command. The new branch must pass the same tree check.
+You get the branch as a ref in your repository and the run stored in `.git/uptide/`; your branch, files, hooks
 and git config are compared before and after and must be identical. Nothing is pushed until
 you run `uptide pr` or pass `--pr --yes`.
 
@@ -220,13 +224,15 @@ as for a verified dependency.
 For a branch `fix` created that got new commits, or whose run predates a check you now want:
 
 ```sh
-git switch uptide/zod-4.6.5 && uptide verify
+git switch main
+uptide verify --branch uptide/zod-4.6.5
 ```
 
 It formats the files the migration edited, runs the related tests (fixing a test that fails
 for a known behavior change), type-checks and lints, all as new commits on top, in a
 temporary clone, never in your checkout. History is never rewritten; `--push --yes` pushes
-the new commits from the clone, fast-forward only. The stored run then records the new HEAD,
+the new commits only after their tree has been exported to your repository, fast-forward only.
+Keep the migration branch unchecked out so new commits can land without modifying your checkout. The stored run then records the new HEAD,
 so `uptide pr-body` can update the description. `--branch <name>` names a branch other than
 the one checked out; `--with-services --yes` and `--keep` work as in `fix`. Exit codes: **0**
 the branch verifies, **1** verification failed, **2** uptide could not answer.

@@ -517,6 +517,9 @@ export function summaryCells(report: FixReport): {
   const changes = !report.sites.length
     ? 'none: versions and lockfile only'
     : `${count(report.sites.length, 'site')} in ${new Set(report.sites.flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])])).size} file${new Set(report.sites.flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])])).size === 1 ? '' : 's'}${report.verificationPending ? ' · analysis only' : ` · ${BY.ruleDone(c.mechanical)} · ${BY.agentDone(c.agent)}${c.manual ? ` · ${c.manual} manual` : ''}`}`;
+  const changeSummary = report.changedFiles
+    ? `${count(report.sites.length, 'site')} · ${count(report.changedFiles.length, 'changed file')} · ${BY.ruleDone(c.mechanical)} · ${BY.agentDone(c.agent)}${c.manual ? ` · ${c.manual} manual` : ''}`
+    : changes;
   const messages = bs.flatMap((b) => b.messageChecks ?? []).filter((c) => c.status !== 'default');
   const messageSummary = messages.length
     ? ` · ${messages.filter((c) => c.status === 'identical').length}/${messages.length} custom-message assertions`
@@ -530,7 +533,7 @@ export function summaryCells(report: FixReport): {
         : '⚠️ not checked';
   return {
     risk: `${risk.level}: ${cell(risk.reason)}`,
-    changes,
+    changes: changeSummary,
     types: report.verificationPending
       ? '⚠️ verification pending'
       : report.verification.typesUnverified
@@ -870,6 +873,7 @@ export function renderMigration(
           ]
         : []),
       ...(report.head ? [`Verified commit: \`${report.head}\``] : []),
+      ...(report.verifiedTree ? [`Verified tree: \`${report.verifiedTree}\``] : []),
     ]),
     '',
   );

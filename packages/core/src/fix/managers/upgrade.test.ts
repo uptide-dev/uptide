@@ -157,3 +157,52 @@ it.each([
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+it.each(['10.9.3', '11.19.0'])(
+  'preserves npm %s libc only for the legacy serializer, before ci',
+  async (version) => {
+    const root = mkdtempSync(join(tmpdir(), 'uptide-libc-'));
+    const lock = {
+      lockfileVersion: 3,
+      packages: {
+        '': { dependencies: { binary: '1' } },
+        'node_modules/binary': {
+          version: '1.0.0',
+          integrity: 'sha512-identical',
+          libc: ['musl'],
+        } as Record<string, unknown>,
+      },
+    };
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: { binary: '1' } }));
+    writeFileSync(join(root, 'package-lock.json'), JSON.stringify(lock));
+    const command = vi.spyOn(process, 'command').mockImplementation(async (_root, _bin, args) => {
+      if (args[0] === '--version') return { code: 0, output: version, timeout: false };
+      if (args[0] === 'install') {
+        delete lock.packages['node_modules/binary'].libc;
+        writeFileSync(join(root, 'package-lock.json'), JSON.stringify(lock));
+      } else
+        expect(
+          JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8')).packages[
+            'node_modules/binary'
+          ].libc,
+        ).toEqual(['musl']);
+      return { code: 0, output: '', timeout: false };
+    });
+    try {
+      const result = upgradeInstall(root, {
+        name: 'target',
+        version: '2.0.0',
+        files: [],
+        workspaces: [],
+      });
+      if (version.startsWith('10.')) await expect(result).resolves.toMatchObject({ changed: [] });
+      else {
+        await expect(result).rejects.toThrow('npm 11.19.0: Install changed resolutions');
+        expect(command.mock.calls.some((c) => c[2][0] === 'ci')).toBe(false);
+      }
+    } finally {
+      command.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);

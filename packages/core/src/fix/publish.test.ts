@@ -10,6 +10,7 @@ const report = {
   branch: 'uptide/zod-4.6.5',
   verification: { passed: true },
   prBody: '/repo/.uptide/pr-body.md',
+  verifiedTree: 'abc',
 } as FixReport;
 function mock() {
   const calls: string[][] = [];
@@ -102,7 +103,7 @@ it('names what failed, and refuses a run produced by a dirty Uptide checkout', a
   await expect(publish({ ...report, uptideDirty: true }, true, m.io)).rejects.toThrow(
     /uncommitted changes/,
   );
-  expect(m.calls).toEqual([]);
+  expect(m.calls).toEqual([['git', 'rev-parse', '--verify', `refs/heads/${report.branch}^{tree}`]]);
 });
 it('treats gh empty search output as no label and creates it before pushing', async () => {
   const m = mock();
@@ -147,7 +148,7 @@ it("publishes a stored run from the user's repository: the fork itself by defaul
     'push',
     '--set-upstream',
     'origin',
-    'uptide/zod-4.6.5:uptide/zod-4.6.5',
+    'abc:refs/heads/uptide/zod-4.6.5',
   ]);
   // The branch is not checked out there, so the current branch is never consulted.
   expect(m.calls.some((c) => c[1] === 'branch')).toBe(false);
@@ -327,7 +328,7 @@ it('is idempotent: no second push of the verified commit, and an open PR gets it
   m.io.git = (root, ...args) =>
     args[0] === 'ls-remote'
       ? `${'abc'.padEnd(40, '0')}\trefs/heads/uptide/zod-4.6.5`
-      : args[0] === 'rev-parse'
+      : args[0] === 'rev-parse' && !args.at(-1)?.endsWith('^{tree}')
         ? 'abc'.padEnd(40, '0')
         : git(root, ...args);
   const url = await publish({ ...report, head: 'abc'.padEnd(40, '0') }, true, m.io, {
@@ -348,4 +349,25 @@ it('is idempotent: no second push of the verified commit, and an open PR gets it
   ]);
   expect(m.printed.join('\n')).toContain('already on origin at abc000000000; not pushed again.');
   expect(m.printed.join('\n')).toContain('its description was updated');
+});
+
+it.each([undefined, 'different-tree'])(
+  'refuses a missing or mismatched verified tree (%s) before remote calls',
+  async (verifiedTree) => {
+    const m = mock();
+    await expect(publish({ ...report, verifiedTree }, true, m.io)).rejects.toMatchObject({
+      code: 'VERIFIED_TREE_MISMATCH',
+    });
+    expect(
+      m.calls.every((call) => call[0] === 'git' && ['branch', 'rev-parse'].includes(call[1] ?? '')),
+    ).toBe(true);
+  },
+);
+
+it('reports a tree mismatch even when a successful run also came from a dirty build', async () => {
+  const m = mock();
+  await expect(
+    publish({ ...report, verifiedTree: 'different', uptideDirty: true }, true, m.io),
+  ).rejects.toMatchObject({ code: 'VERIFIED_TREE_MISMATCH' });
+  expect(m.calls.some((call) => call[0] === 'gh' || call.includes('push'))).toBe(false);
 });

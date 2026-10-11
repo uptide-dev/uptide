@@ -140,6 +140,14 @@ export async function reverify(
     verifiedAt: new Date().toISOString(),
     verificationTimingMs: Date.now() - started,
     head: git(root, 'rev-parse', 'HEAD'),
+    verifiedTree: git(root, 'rev-parse', 'HEAD^{tree}'),
+    ...(report.baseHead
+      ? {
+          changedFiles: git(root, 'diff', '--name-only', report.baseHead, 'HEAD')
+            .split('\n')
+            .filter(Boolean),
+        }
+      : {}),
     sites,
     verification: {
       ...report.verification,
@@ -164,6 +172,7 @@ export async function reverify(
     prBody: join(root, '.uptide/pr-body.md'),
   };
   delete result.verificationPending;
+  delete result.exportError;
   // Judged again from the stored baseline: a reason recorded by an earlier build may not hold.
   if (!unverified) delete result.verification.typesUnverified;
   delete result.publication;

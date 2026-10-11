@@ -1,4 +1,4 @@
-import type { ProgressEvent } from '@uptide/core';
+import { PeerPreflightError, type ProgressEvent } from '@uptide/core';
 import pc from 'picocolors';
 import type { Io, Ui } from './io.js';
 import { ellipsis } from './terminal.js';
@@ -21,7 +21,7 @@ export interface Progress {
    * Run one phase. It ends with exactly one line on stderr, `✔ label  detail (4.2s)`, or
    * `✖ label (4.2s)` when it throws. While it runs, a terminal shows a spinner with the
    * running time and anything else gets a line every ten seconds: never a silent minute.
-   * In quiet mode only the spinner and a failure line exist.
+   * In quiet mode only the spinner and a failure line exist; peer plans leave no failure line.
    */
   phase<T>(label: string, work: () => Promise<T>, detail?: (result: T) => string): Promise<T>;
   /** An indented line under the last phase. */
@@ -93,7 +93,8 @@ export function createProgress(io: Io, ui: Ui, options: ProgressOptions = {}): P
         return result;
       } catch (err) {
         clear();
-        io.err(`${colors.red('✖')} ${label} ${colors.dim(`(${since()})`)}\n`);
+        if (!(err instanceof PeerPreflightError))
+          io.err(`${colors.red('✖')} ${label} ${colors.dim(`(${since()})`)}\n`);
         throw err;
       }
     },

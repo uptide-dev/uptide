@@ -11,6 +11,7 @@ export interface PackageManager {
   /** Set when `bin` is corepack running the pinned Yarn (`args` then start with `yarn`); see availability.ts. */
   via?: 'corepack';
   requestedVersion?: string;
+  actualVersion?: string;
   /** Why this manager, when the repository could have meant another: other lockfiles present. */
   chosen?: string;
 }

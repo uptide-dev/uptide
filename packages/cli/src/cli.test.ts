@@ -355,7 +355,11 @@ describe('uptide fix', () => {
       },
     ];
     const next = 'npx uptide fix react plugin --target 19.3.0';
-    const error = new PeerPreflightError(peerConflicts, next, 'Peer blockers (before cloning)');
+    const error = new PeerPreflightError(
+      peerConflicts,
+      next,
+      `uptide fix · react 18.2.0 → 19.3.0 · 1 peer blocker to resolve first\nplugin 1.0.0  peers react, react-dom ^18  →  upgrade to 1.2.0 (accepts react 19, react-dom 19): add plugin to the command\n\nNext: ${next}`,
+    );
     const engine = fakeEngine({
       fix: async () => {
         throw error;
@@ -369,10 +373,37 @@ describe('uptide fix', () => {
       next,
     });
     expect(io.stderr()).not.toContain('error:');
-    const plain = memoryIo({ cwd: pnpmGitRepo() });
-    expect(await run(['fix', 'zod', '--no-llm'], plain, engine)).toBe(2);
-    expect(plain.stderr()).toContain(error.message);
+    for (const tty of [false, true]) {
+      const plain = memoryIo({ cwd: pnpmGitRepo(), outTty: tty, errTty: tty });
+      expect(await run(['fix', 'zod', '--no-llm'], plain, engine)).toBe(2);
+      expect(plain.stderr()).toContain(`${error.message}\n`);
+      expect(plain.stderr()).not.toMatch(/✖|error:|LLM spend:/);
+    }
+    expect(io.stderr()).not.toMatch(/✖|LLM spend:/);
   });
+
+  it.each([false, true])(
+    'reports unavailable spend only after an LLM attempt (%s)',
+    async (attempted) => {
+      const io = memoryIo({ cwd: pnpmGitRepo() });
+      const engine = fakeEngine({
+        fix: async (_request, onProgress) => {
+          onProgress?.({ phase: 'assist', package: 'zod', state: 'start' });
+          if (attempted)
+            onProgress?.({
+              phase: 'assist',
+              package: 'zod',
+              state: 'start',
+              detail: 'src/app.ts:1',
+            });
+          throw new Error('worker stopped');
+        },
+      });
+      expect(await run(['fix', 'zod'], io, engine)).toBe(2);
+      expect(io.stderr()).toContain('error: worker stopped');
+      expect(io.stderr().includes('LLM spend: unavailable')).toBe(attempted);
+    },
+  );
 
   it('prints the FixReport with --json', async () => {
     const io = memoryIo({ cwd: pnpmGitRepo() });
@@ -760,7 +791,7 @@ it('selects each provider from its key, passes model and the universal budget, a
     expect(io.stderr()).toContain(
       `LLM: ${provider}${provider === 'gemini' ? ' (experimental)' : ''} / ${model}`,
     );
-    expect(io.stderr()).toContain('LLM spend: no LLM calls.');
+    expect(io.stderr()).not.toContain('LLM spend:');
     expect(io.stderr()).not.toContain('test-key');
   }
 });
@@ -799,5 +830,34 @@ it('rejects key-like repository config before the engine, even with --no-llm', a
   expect(io.stderr()).toContain('key-like setting');
   expect(io.stderr()).not.toContain('PRIVATE_CREDENTIAL');
   expect(engine.calls).toEqual([]);
-  expect(io.stderr()).toContain('LLM spend: no LLM calls.');
+  expect(io.stderr()).not.toContain('LLM spend:');
+});
+
+it('exits 1 when verified work was not exported and never offers pr', async () => {
+  const io = memoryIo({ cwd: pnpmGitRepo() });
+  const engine = fakeEngine({
+    fix: async () => ({
+      ...fixReport(false),
+      exportError: 'repository tree does not match the recorded verified tree',
+      clone: { path: '/kept/clone', kept: true, reason: 'export failed' },
+    }),
+  });
+  expect(await run(['fix', 'zod', '--no-llm'], io, engine)).toBe(1);
+  expect(io.stdout()).toContain('Export failed:');
+  expect(io.stdout()).toContain('NOT exported');
+  expect(io.stdout() + io.stderr()).not.toMatch(/verification passed|uptide pr/);
+});
+
+it('exits 1 when pr refuses a tree that was not verified', async () => {
+  const io = memoryIo({ cwd: pnpmGitRepo() });
+  const engine = fakeEngine({
+    pr: async () => {
+      throw new UptideError(
+        'VERIFIED_TREE_MISMATCH',
+        'branch tree differs from the verified tree; nothing pushed',
+      );
+    },
+  });
+  expect(await run(['pr', '--branch', 'uptide/zod-4.6.5', '--yes'], io, engine)).toBe(1);
+  expect(io.stderr()).toContain('nothing pushed');
 });

@@ -13,6 +13,7 @@ import {
   selectLlm,
   TIER_LEGEND,
   testPack,
+  UptideError,
 } from '@uptide/core';
 import { Command, CommanderError } from 'commander';
 import { describeRepo, detectRepo, type Repo } from './detect.js';
@@ -162,8 +163,7 @@ export async function run(
   telemetry?: Telemetry,
 ): Promise<number> {
   let code: number = EXIT.ok;
-  let fixing = false,
-    fixEngineStarted = false;
+  let fixLlmAttempted = false;
   let fixSpend: FixReport['llm'] | undefined;
 
   /** Shared shape of every action: UI from the flags, failures rendered once, exit code kept. */
@@ -184,14 +184,21 @@ export async function run(
         cwd: resolve(io.cwd, flags.cwd ?? '.'),
       });
     } catch (err) {
-      if (flags.json && err instanceof PeerPreflightError)
-        emit({
-          error: { code: err.code, message: err.message },
-          peerConflicts: err.peerConflicts,
-          next: err.next,
-        });
-      else io.err(renderError(err, ui.color));
-      code = err instanceof CliError ? (err.options.exitCode ?? EXIT.error) : EXIT.error;
+      if (err instanceof PeerPreflightError) {
+        if (flags.json)
+          emit({
+            error: { code: err.code, message: err.message },
+            peerConflicts: err.peerConflicts,
+            next: err.next,
+          });
+        else io.err(`${err.message}\n`);
+      } else io.err(renderError(err, ui.color));
+      code =
+        err instanceof UptideError && err.code === 'VERIFIED_TREE_MISMATCH'
+          ? EXIT.breaking
+          : err instanceof CliError
+            ? (err.options.exitCode ?? EXIT.error)
+            : EXIT.error;
     }
   };
   const emit = (value: unknown): void => io.out(`${JSON.stringify(value, null, 2)}\n`);
@@ -235,7 +242,6 @@ export async function run(
     .allowExcessArguments(true);
 
   program.hook('preAction', async (_parent, command) => {
-    fixing = command.name() === 'fix';
     await telemetry?.begin(command.name(), command.optsWithGlobals()).catch(() => {});
   });
   shared(
@@ -925,7 +931,6 @@ ${PRIVACY}`,
               io.err(
                 `${only} has no migration pack (generic tier): every fix comes from the agent, up to $${(maxCost ?? 1).toFixed(2)} (--max-cost)\n`,
               );
-            fixEngineStarted = true;
             const report = await progress.phase(
               flags.pinCurrentApi
                 ? 'Pin of the Stripe API version (scan, edits, verification)'
@@ -952,12 +957,18 @@ ${PRIVACY}`,
                     ...(preflightShown ? { preflightShown: true } : {}),
                     yes: flags.yes,
                   },
-                  progress.event,
+                  (event) => {
+                    // The outer assist phase has no detail and can finish without calling the LLM.
+                    if (event.phase === 'assist' && event.state === 'start' && event.detail)
+                      fixLlmAttempted = true;
+                    progress.event(event);
+                  },
                 ),
               (r) => `verification ${r.verification.passed ? 'passed' : 'failed'}`,
             );
             if (quiet && !ui.interactive) io.err(`done in ${elapsed(io.now() - started)}\n`);
             fixSpend = report.llm;
+            fixLlmAttempted ||= report.sites.some((site) => site.attempts?.length);
             telemetry?.record(() => fixMetrics(report, repo.root));
             // The report as a page, next to the stored run; the summary points at it.
             try {
@@ -1128,7 +1139,7 @@ What it does:
 Examples:
   $ uptide pr --branch uptide/stripe-23.0.0          the plan, nothing pushed
   $ uptide pr --branch uptide/stripe-23.0.0 --yes    push and open the PR
-${EXIT_CODES('PR opened (or plan printed without --yes)', 'not used')}`,
+${EXIT_CODES('PR opened (or plan printed without --yes)', 'branch tree does not match the verified run')}`,
     )
     .action((flags: Shared & { branch?: string; repo?: string; draft?: boolean; yes?: boolean }) =>
       act(flags, async ({ cwd }) => {
@@ -1334,17 +1345,18 @@ ${EXIT_CODES('every pack passed', 'a false positive among breaking findings, a f
     // Help and --version are answers, not failures; anything else is a usage error.
     return err.exitCode === 0 ? EXIT.ok : EXIT.error;
   }
-  if (fixing)
+  if (
+    fixLlmAttempted ||
+    (fixSpend &&
+      (fixSpend.costUsd ||
+        fixSpend.unreportedCostUsd ||
+        fixSpend.inputTokens ||
+        fixSpend.outputTokens))
+  )
     io.err(
-      fixSpend &&
-        (fixSpend.costUsd ||
-          fixSpend.unreportedCostUsd ||
-          fixSpend.inputTokens ||
-          fixSpend.outputTokens)
+      fixSpend
         ? `LLM spend: $${fixSpend.costUsd.toFixed(2)}${fixSpend.unreportedCostUsd ? `; up to $${fixSpend.unreportedCostUsd.toFixed(2)} reserved for calls without usage` : ''}\n`
-        : fixEngineStarted && !fixSpend
-          ? 'LLM spend: unavailable (the run ended before returning a usage report).\n'
-          : 'LLM spend: no LLM calls.\n',
+        : 'LLM spend: unavailable (the run ended before returning a usage report).\n',
     );
   telemetry?.finish(code);
   return code;

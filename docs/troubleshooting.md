@@ -150,3 +150,17 @@ when every outside dependent still resolves the same contents. License metadata 
 allowed. The fix report and PR description show accepted moves in a collapsed **Lockfile
 housekeeping** section. Changed outside resolutions, removed packages, and executable or
 platform metadata changes remain blocked; a shared package name is not sufficient evidence.
+
+
+### npm 10 drops `libc` metadata from npm 11 lockfiles
+
+Both versions can write lockfileVersion 3, but npm 10's serializer omits `libc` on Linux
+optional packages (for example sharp, Next.js SWC and Braintrust binaries). That omission
+used to trigger the scope guard even when every version and integrity stayed identical.
+Uptide preserves the original `libc` restrictions when npm <11 omits them for the same
+package placement, name, version and nonempty integrity. It does not ignore platform changes.
+
+A different version, integrity, dependency resolution, or changed `libc`, `os` or `cpu`
+still stops the run. The error includes the package-manager version and rejected records.
+Use the repository's intended npm version and reconcile genuine changes separately; the
+scope guard is not disabled. pnpm and Yarn behavior is unchanged.

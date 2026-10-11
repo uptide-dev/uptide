@@ -141,3 +141,24 @@ it('lists packages re-resolved because a peer changed', () => {
   expect(out).toContain('Re-resolved because a peer changed');
   expect(out).toContain('plugin 1.1.0 → 1.2.0 · peers react');
 });
+
+it('uses the committed diff count instead of counting diagnostic-only files as changed', () => {
+  const report = {
+    ...fixReport(true),
+    changedFiles: ['package.json', 'package-lock.json', 'props.ts'],
+  };
+  expect(formatFixSummary(report, { color: false })).toContain('3 changed files');
+});
+
+it('explains the numbered export and points pr at the new branch', () => {
+  const report = {
+    ...fixReport(true),
+    branch: 'uptide/zod-4.6.5-2',
+    branchRenamedFrom: 'uptide/zod-4.6.5',
+  };
+  const text = formatFixSummary(report, { color: false });
+  expect(text).toContain(
+    'uptide/zod-4.6.5 already exists with different content; created uptide/zod-4.6.5-2.',
+  );
+  expect(text).toContain('npx uptide pr --branch uptide/zod-4.6.5-2');
+});

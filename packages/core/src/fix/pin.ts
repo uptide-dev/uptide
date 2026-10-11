@@ -135,6 +135,7 @@ export async function pinCurrentApi(
   if (git(root, 'status', '--porcelain', '--untracked-files=all'))
     throw new Error('baseline tests modified the working tree; review their changes before fixing');
   const baselineLint = await (services.lint ?? lintFiles)(root, affected);
+  const baseHead = git(root, 'rev-parse', 'HEAD');
   git(root, 'switch', '-c', branch);
   const sites: FixSite[] = [];
   const changed = new Set<string>();
@@ -202,6 +203,9 @@ export async function pinCurrentApi(
     ...tool,
     verifiedAt: new Date().toISOString(),
     head: git(root, 'rev-parse', 'HEAD'),
+    verifiedTree: git(root, 'rev-parse', 'HEAD^{tree}'),
+    baseHead,
+    changedFiles: git(root, 'diff', '--name-only', baseHead, 'HEAD').split('\n').filter(Boolean),
     branch,
     sites,
     verification: {
