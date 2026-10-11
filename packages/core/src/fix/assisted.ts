@@ -13,7 +13,7 @@ import { git } from './process.js';
 import { siteKey } from './report.js';
 import { safeFile } from './settle.js';
 import type { AssistedAttempt, FixDiagnostic, Fixer, FixReport, FixSite } from './types.js';
-import { newDiagnostics } from './verify.js';
+import { diagnosticKey, newDiagnostics } from './verify.js';
 
 /** Lines of using statements shown with an import site. */
 const IMPORT_USE_LINES = 160;
@@ -223,18 +223,16 @@ export async function assist(
         finding: site.finding,
         guide: pack.guide(site.finding, context),
         // The import the site must extend is shown exactly: a shared helper's module.
-        enclosingFunction: enclosingContext(
-          original,
-          diagnostic.line,
-          diagnostic.column,
-          (context?.helpers ?? []).flatMap((h) => Object.values(h.specifiers)),
-        ),
+        enclosingFunction: enclosingContext(original, diagnostic.line, diagnostic.column, [
+          pack.name,
+          ...(context?.helpers ?? []).flatMap((h) => Object.values(h.specifiers)),
+        ]),
         source: original,
         ...(declarations.length
           ? {
               relatedDeclarations: declarations.map((d) => ({
                 ...d,
-                source: enclosingContext(files.get(d.file)?.source ?? '', d.line, 1),
+                source: enclosingContext(files.get(d.file)?.source ?? '', d.line, 1, [pack.name]),
               })),
             }
           : {}),
@@ -335,14 +333,8 @@ export async function assist(
         const after = verify();
         log.after = after;
         const newErrors = newDiagnostics(before, after);
-        const same = (a: FixDiagnostic, b: FixDiagnostic) =>
-          a.file === b.file && a.code === b.code && a.message === b.message;
-        const targets = [...new Set(group.map((g) => g.diagnostic))];
-        const removed = targets.every(
-          (d) =>
-            after.filter((a) => same(a, d)).length <=
-            before.filter((a) => same(a, d)).length - targets.filter((a) => same(a, d)).length,
-        );
+        const remainingKeys = new Set(after.map(diagnosticKey));
+        const removed = group.every(({ diagnostic: d }) => !remainingKeys.has(diagnosticKey(d)));
         if (removed && newErrors.length === 0) {
           log.outcome = 'accepted';
           site.outcome = 'agent';

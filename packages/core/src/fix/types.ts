@@ -23,6 +23,8 @@ export interface FixDiagnostic {
    */
   expected?: string;
   relatedDeclarations?: RelatedDeclaration[];
+  /** Start locations from TypeScript relatedInformation; diagnostic wording is not identity. */
+  relatedLocations?: { file: string; line: number; column: number }[];
 }
 export interface FixSite {
   finding: Finding;

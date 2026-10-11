@@ -236,6 +236,13 @@ export function diagnostics(root: string, workspaces: string[]): FixDiagnostic[]
       const location = d.file?.getLineAndCharacterOfPosition(d.start ?? 0);
       const expected = expectedShape(compiler, program, d);
       const related = relatedDeclarations(root, compiler, d);
+      const relatedLocations = (d.relatedInformation ?? []).flatMap((info) => {
+        if (!info.file || info.start === undefined) return [];
+        const at = info.file.getLineAndCharacterOfPosition(info.start);
+        return [
+          { file: relative(root, info.file.fileName), line: at.line + 1, column: at.character + 1 },
+        ];
+      });
       const value: FixDiagnostic = {
         file: d.file ? relative(root, d.file.fileName) : join(workspace, 'tsconfig.json'),
         line: (location?.line ?? 0) + 1,
@@ -244,6 +251,7 @@ export function diagnostics(root: string, workspaces: string[]): FixDiagnostic[]
         message: ts.flattenDiagnosticMessageText(d.messageText, '\n').split(root).join('<repo>'),
         ...(expected ? { expected } : {}),
         ...(related.length ? { relatedDeclarations: related } : {}),
+        ...(relatedLocations.length ? { relatedLocations } : {}),
       };
       all.set(`${value.file}:${value.line}:${value.column}:${value.code}:${value.message}`, value);
     }
@@ -310,18 +318,25 @@ export function typeResolutionFailure(root: string, baseline: FixDiagnostic[]): 
   return `${errors} baseline error${errors === 1 ? '' : 's'} cannot see ${names.join(', ')}, which ${names.length === 1 ? 'is' : 'are'} declared and installed`;
 }
 
-const key = (d: FixDiagnostic) => `${d.file}|${d.code}|${d.message.replace(/\s+/g, ' ')}`;
-/** Multiset subtraction ignores shifted lines but retains duplicate diagnostics. */
+export function diagnosticKey(d: FixDiagnostic): string {
+  const position = (at: { file: string; line: number; column: number }) => [
+    at.file,
+    at.line,
+    at.column,
+  ];
+  return JSON.stringify([position(d), d.code, (d.relatedLocations ?? []).map(position).sort()]);
+}
+/** Position and code identify an error even when TypeScript expands its message chain. */
 export function newDiagnostics(
   baseline: FixDiagnostic[],
   target: FixDiagnostic[],
 ): FixDiagnostic[] {
   const counts = new Map<string, number>();
-  for (const d of baseline) counts.set(key(d), (counts.get(key(d)) ?? 0) + 1);
+  for (const d of baseline) counts.set(diagnosticKey(d), (counts.get(diagnosticKey(d)) ?? 0) + 1);
   return target.filter((d) => {
-    const n = counts.get(key(d)) ?? 0;
+    const n = counts.get(diagnosticKey(d)) ?? 0;
     if (n) {
-      counts.set(key(d), n - 1);
+      counts.set(diagnosticKey(d), n - 1);
       return false;
     }
     return true;

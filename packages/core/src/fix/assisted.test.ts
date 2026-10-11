@@ -465,3 +465,51 @@ it('waits on rate limits and rechecks the budget before the next HTTP request', 
   expect((llm.unreportedCostUsd ?? 0) + llm.costUsd).toBeLessThan(1);
   expect(f.sites[0]?.outcome).toBe('agent');
 }, 15000);
+
+it.each(['message', 'code', 'line', 'column', 'related'] as const)(
+  'gates a patch by diagnostic identity when the other error changes its %s',
+  async (change) => {
+    const f = fixture();
+    const existing: FixDiagnostic = {
+      file: 'src/other.ts',
+      line: 8,
+      column: 3,
+      code: 2322,
+      message: 'short',
+      relatedLocations: [{ file: 'src/props.ts', line: 2, column: 3 }],
+    };
+    const changed = {
+      ...existing,
+      message: 'short\n  Expanded explanation',
+      ...(change === 'code' ? { code: 2345 } : {}),
+      ...(change === 'line' ? { line: 9 } : {}),
+      ...(change === 'column' ? { column: 4 } : {}),
+      ...(change === 'related'
+        ? { relatedLocations: [{ file: 'src/props.ts', line: 3, column: 3 }] }
+        : {}),
+    };
+    await assist(
+      f.root,
+      f.sites,
+      zodPack,
+      {
+        id: 'mock',
+        estimate: () => 0,
+        fix: async () => ({ diff: patch('42'), inputTokens: 1, outputTokens: 1 }),
+      },
+      () => {
+        const own = f.verify();
+        return [...own, own.length ? existing : changed];
+      },
+    );
+    expect(f.sites[0]?.outcome).toBe(change === 'message' ? 'agent' : 'manual');
+    expect(f.sites[0]?.attempts).toHaveLength(change === 'message' ? 1 : 3);
+    expect(f.sites[0]?.attempts?.[0]?.explanation ?? '').toContain(
+      change === 'message' ? '' : 'newErrors',
+    );
+    expect(readFileSync(join(f.root, 'src/a.ts'), 'utf8')).toBe(
+      change === 'message' ? f.source.replace('"bad"', '42') : f.source,
+    );
+  },
+  15000,
+);

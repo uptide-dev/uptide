@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { isolatedPnpmWorkspace } from './test-fixture.js';
-import { diagnostics, typeResolutionFailure } from './verify.js';
+import { diagnostics, newDiagnostics, typeResolutionFailure } from './verify.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-verify-tests-'));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -49,4 +49,27 @@ it('calls a baseline that cannot see installed, declared types a resolution fail
       ),
     ]),
   ).toBeUndefined();
+});
+
+it('identifies diagnostics by start location, code and related location, never wording', () => {
+  const d = {
+    file: 'app.ts',
+    line: 5,
+    column: 10,
+    code: 2322,
+    message: 'short',
+    relatedLocations: [{ file: 'props.ts', line: 3, column: 3 }],
+  };
+  expect(
+    newDiagnostics([d], [{ ...d, message: 'short\n  TypeScript expanded its explanation' }]),
+  ).toEqual([]);
+  for (const changed of [
+    { ...d, code: 2345 },
+    { ...d, line: 6 },
+    { ...d, column: 11 },
+    { ...d, file: 'other.ts' },
+    { ...d, relatedLocations: [{ file: 'props.ts', line: 4, column: 3 }] },
+  ])
+    expect(newDiagnostics([d], [changed])).toEqual([changed]);
+  expect(newDiagnostics([d], [d, d])).toEqual([d]);
 });
