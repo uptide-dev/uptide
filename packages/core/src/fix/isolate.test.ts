@@ -714,7 +714,7 @@ it('exports every agent commit, including compiler-linked declarations in other 
   );
 }, 30_000);
 
-it('fails export on a divergent existing branch, keeps all verified commits, and never publishes', async () => {
+it.each([2, 3])('exports to suffix -%s without overwriting existing branches', async (suffix) => {
   const { root, services } = zodFixture(scratch);
   const branch = 'uptide/zod-4.6.5';
   const previous = git(
@@ -727,18 +727,44 @@ it('fails export on a divergent existing branch, keeps all verified commits, and
     'previous migration',
   );
   git(root, 'branch', branch, previous);
+  if (suffix === 3) git(root, 'branch', `${branch}-2`, previous);
+  const before = snapshot(root);
   const publish = vi.fn();
   const report = await isolatedFix(
-    { cwd: root, only: 'zod', tool: TOOL, pr: true, yes: true },
+    { cwd: root, only: 'zod', tool: TOOL, pr: true, yes: true, keep: true },
     { ...services, publish },
   );
   expect(report.verification.after).toEqual([]);
-  expect(report.verification.passed).toBe(false);
-  expect(report.exportError).toContain('does not match the recorded verified tree');
+  expect(report.verification.passed).toBe(true);
+  expect(report.exportError).toBeUndefined();
+  expect(report.branch).toBe(`${branch}-${suffix}`);
+  expect(report.branchRenamedFrom).toBe(branch);
+  expect(report.notes).toContain(
+    `${branch} already exists with different content; created ${report.branch}.`,
+  );
   expect(git(root, 'rev-parse', branch)).toBe(previous);
-  expect(git(report.clone?.path ?? '', 'rev-parse', 'HEAD^{tree}')).toBe(report.verifiedTree);
-  expect(report.clone?.kept).toBe(true);
-  expect(publish).not.toHaveBeenCalled();
-  const stored = JSON.parse(readFileSync(storedRunFile(root, branch) as string, 'utf8'));
-  expect(stored.exportError).toBe(report.exportError);
+  if (suffix === 3) expect(git(root, 'rev-parse', `${branch}-2`)).toBe(previous);
+  expect(changedSince(root, before)).toEqual([]);
+  expect(git(root, 'rev-parse', `${report.branch}^{tree}`)).toBe(report.verifiedTree);
+  expect(git(report.clone?.path ?? '', 'rev-parse', `${report.branch}^{tree}`)).toBe(
+    report.verifiedTree,
+  );
+  expect(publish).toHaveBeenCalledWith(
+    expect.objectContaining({ branch: report.branch }),
+    expect.anything(),
+  );
+  const stored = JSON.parse(readFileSync(storedRunFile(root, report.branch) as string, 'utf8'));
+  expect(stored.branch).toBe(report.branch);
+});
+
+it('reuses an existing identical tree without updating its branch ref', async () => {
+  const { root, services } = zodFixture(scratch);
+  const first = await isolatedFix({ cwd: root, only: 'zod', tool: TOOL }, services);
+  const second = await isolatedFix({ cwd: root, only: 'zod', tool: TOOL }, services);
+  expect(second.branch).toBe(first.branch);
+  expect(second.branchRenamedFrom).toBeUndefined();
+  expect(second.head).toBe(first.head);
+  expect(second.verification.passed).toBe(true);
+  expect(git(root, 'rev-parse', first.branch)).toBe(first.head);
+  expect(second.verifiedTree).toBe(first.verifiedTree);
 });

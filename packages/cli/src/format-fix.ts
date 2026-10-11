@@ -89,6 +89,12 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
       ? `in your repository, not checked out`
       : `in ${report.repo}`;
   lines.push(`${colors.bold('Branch')} ${report.branch} ${colors.dim(`(${where})`)}`);
+  if (report.branchRenamedFrom)
+    lines.push(
+      colors.dim(
+        `  ${report.branchRenamedFrom} already exists with different content; created ${report.branch}.`,
+      ),
+    );
   const base = report.base ?? 'main';
   if (!report.exportError) lines.push(`  git diff ${base}..${report.branch} --stat`);
   if (report.clone?.kept)

@@ -222,13 +222,14 @@ export function storedRunFile(source: string, branch: string): string | undefine
  * Hands the result back without touching the working tree: the run is stored inside `.git`,
  * and the branch becomes a ref in the user's repository when that needs no checkout change
  * (a new branch, or a fast-forward of one that is not checked out). A branch the user has
- * checked out is left alone. If its tree differs, export fails and the complete clone is kept.
+ * checked out is left alone. Fresh migrations use a numbered name when the tree differs.
  */
 function deliver(
   source: string,
   clone: string,
   report: FixReport,
   before: SourceSnapshot,
+  fresh = false,
 ): FixReport & { delivered: boolean } {
   const result: FixReport & { delivered: boolean } = {
     ...report,
@@ -242,33 +243,54 @@ function deliver(
   } catch (error) {
     result.exportError = (error as Error).message;
   }
-  if (result.exportError) notes.push(result.exportError);
-  else if (before.branch === report.branch)
-    notes.push(
-      `${report.branch} is checked out in your repository, so it was not moved; the new commits are in ${clone}.`,
-    );
-  else {
-    try {
-      git(
-        source,
-        'fetch',
-        '--quiet',
-        clone,
-        `refs/heads/${report.branch}:refs/heads/${report.branch}`,
-      );
-    } catch {
-      notes.push(
-        `${report.branch} already exists in your repository and has other commits; the new branch is in ${clone}.`,
-      );
-    }
-  }
   try {
-    if (!result.exportError) assertVerifiedTree(source, report);
-    result.delivered = !result.exportError;
+    if (!result.exportError) {
+      const existingTree = tryGit(
+        source,
+        'rev-parse',
+        '--verify',
+        `refs/heads/${report.branch}^{tree}`,
+      );
+      if (fresh && existingTree && existingTree !== report.verifiedTree) {
+        let suffix = 2;
+        while (tryGit(source, 'rev-parse', '--verify', `refs/heads/${report.branch}-${suffix}`))
+          suffix++;
+        result.branch = `${report.branch}-${suffix}`;
+        git(clone, 'branch', '-m', report.branch, result.branch);
+      }
+      if (fresh && existingTree === report.verifiedTree) {
+        result.head = git(source, 'rev-parse', `refs/heads/${result.branch}`);
+      } else if (fresh) {
+        // Fetch objects, then create the ref atomically: a concurrent export must never be overwritten.
+        git(source, 'fetch', '--quiet', clone, `refs/heads/${result.branch}`);
+        result.head = git(clone, 'rev-parse', `refs/heads/${result.branch}`);
+        git(source, 'update-ref', `refs/heads/${result.branch}`, result.head, '');
+      } else if (before.branch !== result.branch) {
+        git(
+          source,
+          'fetch',
+          '--quiet',
+          clone,
+          `refs/heads/${result.branch}:refs/heads/${result.branch}`,
+        );
+      } else {
+        notes.push(
+          `${report.branch} is checked out in your repository, so it was not moved; the new commits are in ${clone}.`,
+        );
+      }
+      assertVerifiedTree(source, result);
+      result.delivered = true;
+      if (result.branch !== report.branch) {
+        result.branchRenamedFrom = report.branch;
+        notes.push(
+          `${report.branch} already exists with different content; created ${result.branch}.`,
+        );
+      }
+    }
   } catch (error) {
     result.exportError = (error as Error).message;
-    notes.push(`Export failed: ${result.exportError}`);
   }
+  if (result.exportError) notes.push(`Export failed: ${result.exportError}`);
   if (result.exportError) result.verification = { ...result.verification, passed: false };
   const changed = changedSince(source, before);
   if (changed.length) {
@@ -522,7 +544,7 @@ export async function isolatedFix(
     if (!preflightShown) result.notes.push(...preflight.notes);
     return result;
   });
-  const delivered = deliver(source, clone, report, before);
+  const delivered = deliver(source, clone, report, before, true);
   if (base) delivered.base = base;
   if (options.base) delivered.prBase = options.base;
   const landed = delivered.delivered;

@@ -182,7 +182,9 @@ repository, and there:
 
 The exit code is 0 only if no new type error remains, the tests pass, and the exported branch
 has the exact Git tree that was verified. An export mismatch exits 1, keeps the complete clone,
-and never offers `uptide pr`. An existing divergent or checked-out branch is not overwritten.
+and never offers `uptide pr`. If a fresh migration branch already exists with different content, Uptide creates
+`uptide/<package>-<version>-2` (then `-3`, etc.), leaves the old branch intact, and prints
+the new name and its `uptide pr --branch` command. The new branch must pass the same tree check.
 You get the branch as a ref in your repository and the run stored in `.git/uptide/`; your branch, files, hooks
 and git config are compared before and after and must be identical. Nothing is pushed until
 you run `uptide pr` or pass `--pr --yes`.

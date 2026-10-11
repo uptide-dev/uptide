@@ -177,3 +177,26 @@ export function npmPeerReresolutions(
   }
   return results;
 }
+
+/** npm <11's serializer omits libc; retain the restriction for identical immutable contents. */
+export function preserveNpmLibc(beforeText: string, afterText: string): string {
+  const before = JSON.parse(beforeText),
+    after = JSON.parse(afterText);
+  let changed = false;
+  for (const [key, entry] of Object.entries(after.packages ?? {}) as [string, Entry][]) {
+    const old = before.packages?.[key];
+    if (
+      old?.libc !== undefined &&
+      entry.libc === undefined &&
+      old.name === entry.name &&
+      old.version === entry.version &&
+      typeof old.integrity === 'string' &&
+      old.integrity.length > 0 &&
+      old.integrity === entry.integrity
+    ) {
+      entry.libc = old.libc;
+      changed = true;
+    }
+  }
+  return changed ? `${JSON.stringify(after, null, 2)}\n` : afterText;
+}

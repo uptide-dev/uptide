@@ -6,7 +6,7 @@ import { command } from '../process.js';
 import { assertManagerAvailable } from './availability.js';
 import { assertLockScope, type LockDiff, type LockGraph, type Targets } from './lock-guard.js';
 import { type PackageManager, updateArgs } from './manager.js';
-import { npmGraph, npmPeerReresolutions } from './npm-lock.js';
+import { npmGraph, npmPeerReresolutions, preserveNpmLibc } from './npm-lock.js';
 import { pnpmGraph, yarnGraph } from './text-lock.js';
 export interface Upgrade {
   name: string;
@@ -95,16 +95,28 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
   }
   // Let the real manager reconcile the final manifest, including its original range operator.
   await run(root, pm, updateArgs(pm, root, upgrade.workspaces));
-  const afterText = readFileSync(lockfile, 'utf8');
+  const written = readFileSync(lockfile, 'utf8');
+  const afterText =
+    pm.kind === 'npm' && Number(pm.actualVersion?.split('.')[0]) < 11
+      ? preserveNpmLibc(beforeText, written)
+      : written;
   const scope = [...new Set([...names, ...(upgrade.allowedPeers ?? [])])];
   const after = lockGraph(pm, afterText, names);
   const peerReresolved = pm.kind === 'npm' ? npmPeerReresolutions(before, after, names, scope) : [];
-  const diff = assertLockScope(
-    before,
-    after,
-    scope,
-    peerReresolved.flatMap((p) => p.records),
-  );
+  let diff: LockDiff;
+  try {
+    diff = assertLockScope(
+      before,
+      after,
+      scope,
+      peerReresolved.flatMap((p) => p.records),
+    );
+  } catch (error) {
+    if (pm.kind === 'npm' && error instanceof UptideError && error.code === 'LOCKFILE_OUT_OF_SCOPE')
+      error.message = `${pm.kind} ${pm.actualVersion ?? '(version unknown)'}: ${error.message}`;
+    throw error;
+  }
+  if (afterText !== written) writeFileSync(lockfile, afterText);
   if (peerReresolved.length) diff.peerReresolved = peerReresolved;
   // Every package that moved resolved the version asked for, in every workspace declaring it.
   for (const workspace of upgrade.workspaces) {

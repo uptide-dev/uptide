@@ -160,6 +160,8 @@ export interface FixReport {
   verifiedTree?: string;
   /** Export failed; the verified work remains in the kept clone. */
   exportError?: string;
+  /** A fresh export used a numbered branch to preserve this existing branch. */
+  branchRenamedFrom?: string;
   baseHead?: string;
   changedFiles?: string[];
   verificationPending?: boolean;
