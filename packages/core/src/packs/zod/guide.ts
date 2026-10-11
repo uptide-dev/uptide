@@ -1,6 +1,8 @@
 // Maintained excerpts/paraphrases of https://zod.dev/v4/changelog, checked 2026-10-01.
 // Runtime never downloads migration instructions.
 export const zodGuide = {
+  record:
+    'Zod 4 removes the single-argument z.record overload. Use z.record(z.string(), valueSchema) to preserve string keys, retaining the existing Zod import binding. Leave explicit key/value schemas unchanged.',
   errors:
     'Zod 4 uses error for customization. required_error and invalid_type_error were removed. Distinguish missing input using issue.input === undefined; returning undefined delegates to the default error map. Do not combine the old keys with errorMap.',
   formats:

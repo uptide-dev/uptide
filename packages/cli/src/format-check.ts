@@ -410,7 +410,10 @@ export function nextCommands(rows: Row[], opts: FormatCheckOptions): [string, st
   const only = names.length ? ` ${names.map(quote).join(' ')}` : ' <package>';
   const planOnly = opts.repeat?.only ? ` --only ${quote(opts.repeat.only)}` : '';
   const targets = Object.entries(opts.repeat?.targets ?? {})
-    .map(([name, version]) => ` --target ${quote(`${name}@${version}`)}`)
+    .map(
+      ([name, version]) =>
+        ` --target ${quote(names.length === 1 && names[0] === name ? version : `${name}@${version}`)}`,
+    )
     .join('');
   if (rows.filter((r) => r.plan.length > 0).length > 1)
     commands.push([`${uptide} plan${planOnly}${cwd}`, 'the order to upgrade in, with the effort']);

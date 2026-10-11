@@ -330,8 +330,18 @@ describe('the Next block', () => {
       'npx uptide@next fix zod --target 4.6.5 --cwd ../storefront | migrate on a new branch, verify, no push',
       'npx uptide@next fix stripe --cwd ../storefront | migrate on a new branch, verify, no push',
       'npx uptide@next plan --only zod --cwd ../storefront | the order to upgrade in, with the effort',
-      'npx uptide@next check zod --target zod@4.6.5 --details --cwd ../storefront | every site and reason',
+      'npx uptide@next check zod --target 4.6.5 --details --cwd ../storefront | every site and reason',
     ]);
+  });
+
+  it('qualifies targets when repeating a check of multiple packages', () => {
+    const out = formatCheck(storefront, {
+      ...shown,
+      repeat: { only: 'zod,stripe', targets: { zod: '4.6.5', stripe: '18.0.0' } },
+    });
+    expect(next(out).at(-1)).toBe(
+      'npx uptide@next check zod stripe --target zod@4.6.5 --target stripe@18.0.0 --details | every site and reason',
+    );
   });
 
   it('offers fix only where fix can run, and --include-deprecated when that is all there is', () => {

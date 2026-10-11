@@ -352,7 +352,7 @@
         {
           "file": "packages/schema/src/config.ts",
           "line": 63,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
@@ -370,7 +370,7 @@
         {
           "file": "packages/schema/src/config.ts",
           "line": 102,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
@@ -388,7 +388,7 @@
         {
           "file": "packages/schema/src/interpolation.ts",
           "line": 124,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
@@ -400,7 +400,7 @@
         {
           "file": "packages/schema/src/nodes.ts",
           "line": 22,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
@@ -532,7 +532,7 @@
         {
           "file": "packages/schema/src/workflow-file.ts",
           "line": 25,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
@@ -562,19 +562,19 @@
         {
           "file": "packages/schema/test/builtin-registry.ts",
           "line": 22,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
           "file": "packages/schema/test/wire-step-plugins.test.ts",
           "line": 27,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
           "file": "packages/server/src/routes/post-runs.ts",
           "line": 12,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
@@ -592,7 +592,7 @@
         {
           "file": "packages/server/src/routes/put-workflow.ts",
           "line": 22,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
@@ -610,7 +610,7 @@
         {
           "file": "scripts/test/builtin-registry.ts",
           "line": 23,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         }
       ]
@@ -740,7 +740,7 @@
         {
           "file": "packages/sdk/src/platform/streaming/disconnectReason.ts",
           "line": 109,
-          "rule": "generic",
+          "rule": "record-key",
           "note": "compiler TS2554"
         },
         {
