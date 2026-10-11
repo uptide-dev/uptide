@@ -42,10 +42,10 @@ jobs:
         run: |
           echo "::error::Releases run only from main of a public repository (this is $VISIBILITY, $REF)."
           exit 1
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: What this run releases
@@ -65,7 +65,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app
         with:
           app-id: ${{ vars.RELEASE_APP_ID }}
@@ -78,7 +78,7 @@ jobs:
             echo "::error::The release app is '$SLUG'; DCO and the changeset check exempt only 'uptide-release[bot]' (scripts/bots.mjs)."
             exit 1
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ steps.app.outputs.token }}
           fetch-depth: 0
@@ -90,14 +90,14 @@ jobs:
           id="$(gh api "/users/${SLUG}%5Bbot%5D" --jq .id)"
           git config user.name "${SLUG}[bot]"
           git config user.email "${id}+${SLUG}[bot]@users.noreply.github.com"
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Open or update the Version Packages pull request
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
           version: pnpm changeset version
           title: Version Packages
@@ -130,7 +130,7 @@ jobs:
       UPTIDE_TELEMETRY_BUILD_KEY: ${{ secrets.UPTIDE_TELEMETRY_BUILD_KEY }}
       UPTIDE_TELEMETRY_BUILD_HOST: https://eu.i.posthog.com
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: The committed version is the one planned
@@ -138,8 +138,8 @@ jobs:
         env:
           VERSION: ${{ needs.plan.outputs.version }}
         run: node scripts/check-release-version.mjs
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -230,10 +230,10 @@ jobs:
       VERSION: ${{ needs.plan.outputs.version }}
       RELEASE_COMMIT: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       # gh creates the tag at the published SHA, never the moving main tip.
