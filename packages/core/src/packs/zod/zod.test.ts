@@ -1,7 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { ts } from 'ts-morph';
 import { describe, expect, it } from 'vitest';
 import type { Finding } from '../../domain/report.js';
+import { ruleFor } from '../contract.js';
 import { packFixability } from '../fixability.js';
+import { fixtureFinding, parseMarkers, runFixtures } from '../tooling/fixtures.js';
 import { zodPack } from './index.js';
 
 const context = { from: '3.25.76', to: '4.6.5', includeDeprecated: true };
@@ -136,4 +140,38 @@ it('check promises a mechanical fix only when the actual rule passes its safety 
       mechanical ? 'mechanical' : 'assisted',
     );
   }
+});
+
+it('record-key fixtures classify real finding shapes and preserve safe before/after edits', () => {
+  const fixtures = runFixtures(zodPack, fileURLToPath(new URL('.', import.meta.url)));
+  expect(fixtures.rewriteFailures).toEqual([]);
+  expect(fixtures.falsePositives).toEqual([]);
+  expect(fixtures.falseNegatives).toEqual([]);
+  expect(fixtures.rules['record-key']?.truePositives).toBe(4);
+  const file = 'fixtures/record-key/before.ts';
+  const text = readFileSync(new URL(file, import.meta.url), 'utf8');
+  for (const site of parseMarkers(text, 'record-key', file)) {
+    const finding = fixtureFinding(zodPack, site, text);
+    delete finding.rule;
+    finding.fixability = 'assisted';
+    expect(ruleFor(zodPack.rules, finding)?.id).toBe('record-key');
+    expect(packFixability(finding, text, zodPack).fixability).toBe(
+      site.keep ? 'assisted' : 'mechanical',
+    );
+    const transformed = zodPack.transform(text, finding, context);
+    expect(transformed.applied).toBe(!site.keep);
+    expect(zodPack.transform(transformed.text, finding, context).applied).toBe(false);
+  }
+});
+
+it('record matching leaves error options with the existing rule', () => {
+  const text =
+    "import { z } from 'zod'; z.record(z.string(), z.number(), { required_error: 'R' });";
+  const finding = at(text, 'z.record');
+  finding.change.path = 'record';
+  expect(ruleFor(zodPack.rules, finding)?.id).toBe('error-params');
+  expect(zodPack.transform(text, finding, context)).toMatchObject({
+    applied: true,
+    rule: 'error-params',
+  });
 });

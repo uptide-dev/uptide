@@ -12,7 +12,7 @@ import {
 import type { Finding } from '../../domain/report.js';
 import { satisfies } from '../../fetch/range.js';
 import { onReset } from '../../shared-state.js';
-import type { Pack, PackMeta } from '../contract.js';
+import { type Pack, type PackMeta, ruleFor } from '../contract.js';
 import type { PackContext, TransformResult } from '../types.js';
 import { zodGuide } from './guide.js';
 import { defaultMessageSites } from './messages.js';
@@ -171,6 +171,28 @@ function errorTransform(text: string, call: CallExpression): TransformResult | u
     reason: 'preserve missing/invalid input messages with error',
   };
 }
+function recordTransform(text: string, call: CallExpression): TransformResult | undefined {
+  const expression = call.getExpression();
+  if (
+    !Node.isPropertyAccessExpression(expression) ||
+    expression.getName() !== 'record' ||
+    !namespace(expression.getExpression())
+  )
+    return;
+  const args = call.getArguments();
+  const value = args[0];
+  if (args.length !== 1 || !value || Node.isSpreadElement(value))
+    return { text, applied: false, reason: 'record needs exactly one non-spread value schema' };
+  const start = value.getFullStart();
+  return {
+    text: edit(text, [
+      { start, end: start, text: `${expression.getExpression().getText()}.string(), ` },
+    ]),
+    applied: true,
+    rule: 'record-key',
+    reason: 'make the implicit string key schema explicit',
+  };
+}
 function formatTransform(text: string, call: CallExpression): TransformResult | undefined {
   const expression = call.getExpression();
   if (!Node.isPropertyAccessExpression(expression) || !formats.has(expression.getName())) return;
@@ -266,9 +288,7 @@ function atSite(
 function transform(text: string, finding: Finding, context: PackContext): TransformResult {
   if (!zodPack.supports(context.from, context.to))
     return { text, applied: false, reason: 'pack supports zod 3 to 4 only' };
-  const rule = zodPack.rules.find(
-    (r) => r.kinds.includes(finding.change.kind) && r.symbols.test(finding.change.path),
-  );
+  const rule = ruleFor(zodPack.rules, finding);
   if (!rule?.rewrite)
     return { text, applied: false, reason: 'no mechanical rule for this change kind and symbol' };
   return rule.rewrite(text, finding, context);
@@ -289,6 +309,16 @@ export const zodPack: Pack = {
   defaultTarget: '4.6.5',
   supports: (from, to) => satisfies(from, meta.from) && satisfies(to, meta.to),
   rules: [
+    {
+      id: 'record-key',
+      summary: 'z.record(valueSchema) requires an explicit string key schema',
+      severity: 'breaking',
+      kinds: ['signature', 'type', 'required'],
+      symbols: /(?:^TS2554$|(?:^|[:.])record$)/,
+      message: /Expected 2(?:-3)? arguments?, but got 1/,
+      guide: zodGuide.record,
+      rewrite: (text, finding) => atSite(text, finding, (call) => recordTransform(text, call)),
+    },
     {
       id: 'error-params',
       summary: 'required_error and invalid_type_error become one error callback',
@@ -339,9 +369,7 @@ export const zodPack: Pack = {
   ],
   instructions: zodGuide.generics,
   transform,
-  guide: (f) =>
-    zodPack.rules.find((r) => r.kinds.includes(f.change.kind) && r.symbols.test(f.change.path))
-      ?.guide ?? zodGuide.generics,
+  guide: (f) => ruleFor(zodPack.rules, f)?.guide ?? zodGuide.generics,
   scanContext: (root, workspaces) => ({ defaultMessages: defaultMessageSites(root, workspaces) }),
   testFollowUps({ root, failing, context, output }) {
     const edits = [];
