@@ -25,7 +25,7 @@ import { compileAgainstTargets } from './compile.js';
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-jsx-overlay-'));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
-it.each(['automatic', 'types', 'typeRoots', 'reference'])(
+it.each(['automatic', 'types', 'typeRoots', 'reference', 'reference-subpath'])(
   '%s type inclusion uses target React types and sends the missing JSX finding to the agent',
   async (mode) => {
     const dir = mkdtempSync(join(scratch, 'repo-'));
@@ -57,6 +57,9 @@ it.each(['automatic', 'types', 'typeRoots', 'reference'])(
       JSON.stringify({ name: '@types/react', version: '19.3.0', types: 'index.d.ts' }),
     );
     writeFileSync(join(target, 'index.d.ts'), next);
+    for (const path of [installed, target]) {
+      writeFileSync(join(path, 'experimental.d.ts'), "import './index.js';\n");
+    }
     writeFileSync(
       join(dir, 'package.json'),
       JSON.stringify({
@@ -73,12 +76,15 @@ it.each(['automatic', 'types', 'typeRoots', 'reference'])(
           noEmit: true,
           ...(mode === 'types' ? { types: ['react', 'other'] } : {}),
           ...(mode === 'typeRoots' ? { typeRoots: ['./node_modules/@types'] } : {}),
-          ...(mode === 'reference' ? { types: ['other'] } : {}),
+          ...(mode.startsWith('reference') ? { types: ['other'] } : {}),
         },
         include: ['app.ts'],
       }),
     );
-    const source = `${mode === 'reference' ? '/// <reference types="react" />\n' : ''}import type * as React from 'react';\nexport let icons: Record<string, JSX.Element>;\nexport let scoped: React.JSX.Element;\nexport const keep = ambientOther;\n`;
+    const reference = mode.startsWith('reference')
+      ? `/// <reference types="react${mode === 'reference-subpath' ? '/experimental' : ''}" />\n`
+      : '';
+    const source = `${reference}import type * as React from 'react';\nexport let icons: Record<string, JSX.Element>;\nexport let scoped: React.JSX.Element;\nexport const keep = ambientOther;\n`;
     writeFileSync(join(dir, 'app.ts'), source);
     const signal = await compileAgainstTargets({ dir }, [
       { name: '@types/react', specifier: 'react', dir: target },
@@ -142,7 +148,7 @@ it.each(['automatic', 'types', 'typeRoots', 'reference'])(
       reason: 'no mechanical rule',
     }));
     const requests: FixRequest[] = [];
-    const line = mode === 'reference' ? 2 : 1;
+    const line = reference ? 2 : 1;
     await assist(
       dir,
       sites,

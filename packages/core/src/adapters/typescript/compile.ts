@@ -588,7 +588,9 @@ function overlayProgram(
   host.resolveTypeReferenceDirectives = (names, containingFile, redirected, config, mode) =>
     names.map((reference) => {
       const name = typeof reference === 'string' ? reference : reference.fileName;
-      const target = [...overlayDirs.values()].includes(`@types/${name}`);
+      const target = [...overlayDirs.values()].some((pkg) =>
+        isPackageSpecifier(`@types/${name}`, pkg),
+      );
       return tsc.resolveTypeReferenceDirective(
         name,
         target ? probe : containingFile,
