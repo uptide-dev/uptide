@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { expect, it } from 'vitest';
 import { parse, stringify } from 'yaml';
 import { parseNpm, parsePnpm, parseYarn } from '../../adapters/typescript/lockfile.js';
@@ -20,10 +20,15 @@ it.runIf(process.env.UPTIDE_NETWORK === '1').each(
     { manager: 'npm', pin: undefined },
     { manager: 'pnpm', pin: 'pnpm@10.17.1' },
     { manager: 'yarn', pin: 'yarn@3.2.1' },
-    { manager: 'yarn', pin: 'yarn@4.7.0' },
-  ].flatMap((manager) => ['^19.0.0', '>=16.8'].map((range) => ({ ...manager, range }))),
+    { manager: 'yarn', pin: 'yarn@4.9.2' },
+  ].flatMap((manager) =>
+    ['^19.0.0', '>=16.8', ...(manager.manager === 'yarn' ? [old] : [])].map((range) => ({
+      ...manager,
+      range,
+    })),
+  ),
 )(
-  '$manager ($pin) installs the exact target while preserving compatible $range',
+  '$manager ($pin) installs the exact target from $range',
   async ({ manager, pin, range }) => {
     const root = mkdtempSync(join(tmpdir(), 'uptide-compatible-install-'));
     const read = (file: string) => readFileSync(join(root, file), 'utf8');
@@ -106,8 +111,12 @@ it.runIf(process.env.UPTIDE_NETWORK === '1').each(
       const parseLock = manager === 'npm' ? parseNpm : manager === 'pnpm' ? parsePnpm : parseYarn;
       const assertVersions = (version: string) => {
         for (const workspace of ['.', 'packages/app']) {
+          const manifest = JSON.parse(read(join(workspace, 'package.json')));
           const declared = new Map(
-            (workspace === '.' ? names : ['react']).map((name) => [name, range]),
+            (workspace === '.' ? names : ['react']).map((name) => [
+              name,
+              manifest.dependencies?.[name] ?? manifest.devDependencies?.[name],
+            ]),
           );
           const resolved = parseLock(read(pm.lockfile), { importer: workspace, declared });
           for (const name of declared.keys()) {
@@ -132,12 +141,14 @@ it.runIf(process.env.UPTIDE_NETWORK === '1').each(
         '-m',
         'baseline',
       );
-      for (const name of names) expect(bumpVersions(root, name, target).files).toEqual([]);
+      const files = names.flatMap((name) => bumpVersions(root, name, target).files);
+      if (range !== old) expect(files).toEqual([]);
+      else for (const file of originals.keys()) originals.set(file, read(file));
       await isolatedUpgrade(root, {
         name: 'react',
         version: target,
         also: [{ name: '@types/react', version: target }],
-        files: [],
+        files: files.map((file) => relative(root, file)),
         workspaces: ['.', 'packages/app'],
       });
       assertVersions(target);
@@ -146,6 +157,53 @@ it.runIf(process.env.UPTIDE_NETWORK === '1').each(
       await run(pm.bin, pm.args);
       expect(read(pm.lockfile)).toBe(upgradedLock);
       assertVersions(target);
+      if (manager === 'yarn') {
+        const lock = parse(upgradedLock);
+        for (const name of names) {
+          const descriptors = Object.keys(lock).filter((key) => key.startsWith(`${name}@`));
+          expect(descriptors).toEqual([`${name}@npm:${range === old ? target : range}`]);
+        }
+        expect(JSON.parse(read('package.json')).resolutions).toBeUndefined();
+        await run(pm.bin, [
+          ...(pm.via === 'corepack' ? ['yarn'] : []),
+          'up',
+          ...names.map((name) => `${name}@${target}`),
+          '--exact',
+          '--mode=skip-build',
+        ]);
+        const packages = (text: string) =>
+          Object.entries(parse(text))
+            .filter(([key]) => key !== '__metadata' && !key.includes('@workspace:'))
+            .map(([, record]) => record);
+        // Only the manifest range and descriptor differ from native `yarn up --exact`.
+        expect(packages(upgradedLock)).toEqual(packages(read(pm.lockfile)));
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+  180_000,
+);
+
+it.runIf(process.env.UPTIDE_NETWORK === '1').each(['2.4.3', '3.2.1', '4.9.2'])(
+  'Yarn %s accepts the selected build-suppression flag',
+  async (version) => {
+    const root = mkdtempSync(join(tmpdir(), 'uptide-yarn-flag-'));
+    try {
+      writeFileSync(
+        join(root, 'package.json'),
+        JSON.stringify({ name: 'build-flag', private: true, packageManager: `yarn@${version}` }),
+      );
+      writeFileSync(join(root, 'yarn.lock'), '');
+      writeFileSync(join(root, '.yarnrc.yml'), 'nodeLinker: node-modules\n');
+      const pm = await assertManagerAvailable(root);
+      for (const args of [updateArgs(pm, root, ['.']), pm.args]) {
+        const result = await command(root, pm.bin, args, 120_000, {
+          ...pm.env,
+          YARN_ENABLE_IMMUTABLE_INSTALLS: 'false',
+        });
+        expect(result.code, result.output).toBe(0);
+      }
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

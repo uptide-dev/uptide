@@ -32,6 +32,7 @@ const results = [];
 function expect(name, condition, detail) {
   if (condition) return;
   failures.push(`${name}${detail ? `\n${detail}` : ''}`);
+  console.error(failures.at(-1));
 }
 const has = (name, text, needle) =>
   expect(`${name}: expected "${needle}"`, text.includes(needle), text);

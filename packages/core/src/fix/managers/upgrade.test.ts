@@ -88,3 +88,72 @@ it('passes allowed-peer roots to the guard while keeping their manifest declarat
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+it.each([
+  ['^19.0.0', '^19.0.0', 'npm:19.2.0'],
+  ['>=16.8', '>=16.8', 'npm:19.2.0'],
+  ['npm:react@^19', 'npm:react@^19', 'npm:react@19.2.0'],
+  ['npm:@types/react@^19', 'npm:@types/react@^19', 'npm:@types/react@19.2.0'],
+  ['18.2.0', '19.2.0', undefined],
+  ['^18.2.0', '^19.2.0', undefined],
+  ['19.2.0', '19.2.0', undefined],
+  ['npm:react@19.2.0', 'npm:react@19.2.0', undefined],
+  ['^18', '^18', undefined],
+  ...[
+    'workspace:^19',
+    'catalog:',
+    'link:../react',
+    'file:../react',
+    'portal:../react',
+    'patch:react@npm%3A19.2.0#./react.patch',
+    'git+https://example.test/react.git',
+    'https://example.test/react.tgz',
+    'github:example/react',
+    'latest',
+  ].map((spec) => [spec, spec, undefined]),
+])('only pins unchanged compatible npm descriptors: %s → %s', async (before, spec, resolution) => {
+  const root = mkdtempSync(join(tmpdir(), 'uptide-berry-descriptor-'));
+  writeFileSync(
+    join(root, 'package.json'),
+    JSON.stringify({
+      packageManager: 'yarn@4.9.2',
+      dependencies: { react: spec },
+    }),
+  );
+  writeFileSync(join(root, 'yarn.lock'), '__metadata:\n  version: 8\n');
+  const baseline = vi
+    .spyOn(process, 'git')
+    .mockReturnValue(JSON.stringify({ dependencies: { react: before } }));
+  let installs = 0;
+  const command = vi.spyOn(process, 'command').mockImplementation(async (_root, _bin, args) => {
+    if (args[0] === '--version') return { code: 0, output: '4.9.2', timeout: false };
+    if (args[0] === 'install' && ++installs === 2) throw new Error('reconcile');
+    return { code: 0, output: '', timeout: false };
+  });
+  try {
+    await expect(
+      upgradeInstall(root, { name: 'react', version: '19.2.0', files: [], workspaces: ['.'] }),
+    ).rejects.toThrow('reconcile');
+    const pins = command.mock.calls.map((call) => call[2]).filter((args) => args[0] === 'set');
+    expect(pins).toEqual(
+      resolution
+        ? [
+            [
+              'set',
+              'resolution',
+              `react@${spec?.startsWith('npm:') ? spec : `npm:${spec}`}`,
+              resolution,
+            ],
+          ]
+        : [],
+    );
+    expect(
+      JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).resolutions,
+    ).toBeUndefined();
+    expect(baseline).toHaveBeenCalledWith(root, 'show', 'HEAD:./package.json');
+  } finally {
+    command.mockRestore();
+    baseline.mockRestore();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
