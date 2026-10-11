@@ -178,6 +178,44 @@ const BASE_TSCONFIG = {
 };
 
 describe('findUsages layouts and gaps', () => {
+  it.each(['js', 'jsx', 'mjs', 'cjs'])(
+    'respects allowJs for scoped .%s roots without querying unbound nodes',
+    async (extension) => {
+      const surface = await adapter.extractSurface({
+        name: 'synthetic',
+        version: '1.0.0',
+        dir: SYNTHETIC,
+      });
+      for (const [options, includesJs] of [
+        [{}, false],
+        [{ allowJs: false, checkJs: true }, false],
+        [{ allowJs: true }, true],
+        [{ checkJs: true }, true],
+      ] as const) {
+        const file = `src/script.${extension}`;
+        const dir = tempRepo(
+          (d) =>
+            writeFileSync(
+              join(d, file),
+              "import { parse } from 'synthetic';\nparse('a');\nJSON.stringify({ icons: {} });\n",
+            ),
+          {
+            ...BASE_TSCONFIG,
+            compilerOptions: { ...BASE_TSCONFIG.compilerOptions, paths: PATHS, ...options },
+          },
+        );
+        const result = await adapter.findUsages(
+          { dir, rootFiles: [join(dir, 'src/direct.ts'), join(dir, file)] },
+          'synthetic',
+          surface,
+        );
+        expect(result.includesJs).toBe(includesJs);
+        expect(result.usages.some((u) => u.file === 'src/direct.ts')).toBe(true);
+        expect(has(result.usages, { file, symbolPath: 'parse', access: 'call' })).toBe(includesJs);
+      }
+    },
+  );
+
   it('pnpm symlink layout produces the same usages as the paths layout', async () => {
     const dir = tempRepo((d) => {
       const store = join(d, 'node_modules/.pnpm/synthetic@1.0.0/node_modules');

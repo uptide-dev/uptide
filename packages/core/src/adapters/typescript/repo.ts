@@ -237,8 +237,13 @@ export function loadRepo(cwd: string, rootFiles?: string[]): LoadedRepo {
         ...SYNTHETIC_EXCLUDES.map((e) => `!${join(dir, e)}`),
       ]);
   }
+  const { allowJs, checkJs } = project.getCompilerOptions();
+  const includesJs = allowJs ?? checkJs ?? false;
   if (rootFiles !== undefined) {
-    project.addSourceFilesAtPaths(rootFiles);
+    // Explicit roots bypass tsconfig filtering; excluded JS nodes are never bound by the checker.
+    project.addSourceFilesAtPaths(
+      rootFiles.filter((file) => includesJs || !/\.[cm]?jsx?$/.test(file)),
+    );
     // A scoped program still needs what the tsconfig declares globally: the ambient
     // declaration files it includes (`vite-env.d.ts`, `css.d.ts`, `global.d.ts`) are what
     // make `*.module.css` imports and `declare global` names resolve. Nothing imports them.
@@ -253,7 +258,7 @@ export function loadRepo(cwd: string, rootFiles?: string[]): LoadedRepo {
     project,
     tsconfig: existsSync(tsconfig) ? tsconfig : undefined,
     inheritedTsconfig: inherited,
-    includesJs: project.getCompilerOptions().allowJs === true,
+    includesJs,
     warnings: sources.warnings,
   };
 }
