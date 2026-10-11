@@ -470,6 +470,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       { maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD },
     ),
   );
+  for (const site of sites)
+    for (const file of site.editedFiles ?? []) if (!affected.includes(file)) affected.push(file);
   const followed: Followed[] = [];
   // Edits no compiler error points at: a test asserting the old value of a changed constant.
   for (const site of [...sites]) {

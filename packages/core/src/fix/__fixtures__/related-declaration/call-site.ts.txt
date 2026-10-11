@@ -1,0 +1,4 @@
+import type { Props, Ref } from './props';
+declare const ref: Ref<string | null>;
+export const first: Props = { inputRef: ref };
+export const second: Props = { inputRef: ref };

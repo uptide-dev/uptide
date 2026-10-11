@@ -16,7 +16,7 @@ This is the text `uptide --help` prints, word for word:
 Analysis runs locally. Code snippets go to your chosen LLM provider (Anthropic, OpenAI or Gemini), only
 for assisted fixes in `uptide fix`, and only with your own API key from ANTHROPIC_API_KEY,
 OPENAI_API_KEY or GEMINI_API_KEY: for each
-site the rules cannot migrate, the finding, the enclosing function and the compiler
+site the rules cannot migrate, the finding, the enclosing code and compiler-linked repository declarations, and the compiler
 error. `uptide fix --no-llm` turns assisted fixes off. No account.
 `check` and `verify` load the `typescript` package your repository installs (resolved from its
 node_modules) to compile with, and never run your repository's scripts or other code outside
@@ -37,7 +37,7 @@ There is no Uptide server. With telemetry off (the default):
 | `list`, `plan` | locally | package names/versions requested from your npm registry, and `list` sends public packages' names and installed versions to npm's advisory endpoint; metadata only, no source code |
 | `check` | locally | nothing of yours; it downloads package tarballs from your npm registry. No LLM call. It loads your installed `typescript` package to compile with, and runs no script or other code of yours. |
 | `fix`, rules and verification | locally, in a temporary clone | nothing of yours |
-| `fix`, assisted fixes | Your chosen provider's API, with **your** environment API key | per site no rule covers: the finding, the enclosing function or declaration, and the compiler error |
+| `fix`, assisted fixes | Your chosen provider's API, with **your** environment API key | per site no rule covers: the finding, the enclosing code, compiler-linked repository declarations, and the compiler error |
 | `pr`, `fix --pr` | GitHub, through your own `gh` | the branch and the pull request, when you say so |
 
 Without a key, or with `--no-llm`, those sites are listed for you instead.
@@ -55,7 +55,8 @@ Child processes for install and tests do not receive your LLM API key or GitHub 
 
 ## Assisted fixes and telemetry
 
-Assisted fixes send the finding, the enclosing code snippet and the compiler error to the
+Assisted fixes send the finding, the enclosing code snippet, compiler-linked repository
+declarations and the compiler error to the
 provider you chose (or your `OPENAI_BASE_URL`); your provider's data policy applies
 ([models](models.md)). Anonymous telemetry is opt-in, stored in PostHog Cloud EU with a
 90-day retention policy, and contains no IP, code, paths, repository names or user names

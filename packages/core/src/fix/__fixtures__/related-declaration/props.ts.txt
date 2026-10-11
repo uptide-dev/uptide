@@ -1,0 +1,5 @@
+export interface Ref<T> { current: T }
+export interface Props {
+  inputRef: Ref<string>;
+}
+export const untouched = 1;
