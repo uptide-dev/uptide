@@ -1,5 +1,19 @@
 # uptide
 
+## 0.7.3
+
+### Patch Changes
+
+- [#77](https://github.com/uptide-dev/uptide/pull/77) [`38ffa16`](https://github.com/uptide-dev/uptide/commit/38ffa16d905f3b707e6b470049dfb72ed9a5cf46) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Present peer blockers in fix as a pending upgrade plan, without a failure marker or error prefix. Keep exit code 2, grouped blockers, and the Next command, and omit LLM spend when no call was attempted.
+
+- [#70](https://github.com/uptide-dev/uptide/pull/70) [`d72e285`](https://github.com/uptide-dev/uptide/commit/d72e285b0272273ec1e53fd9f9633005f02950a4) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Let assisted fixes edit repository-local expected-type declarations linked by compiler diagnostics. Fix sites sharing a declaration together, while retaining program-wide type verification and strict patch scope.
+  
+  Identify verification diagnostics by source location, code and related locations so changed message details do not reject valid fixes. Resolve automatic type references against the target declarations, so React 19's removed global JSX namespace reaches the agent with the React pack guide.
+
+- [#78](https://github.com/uptide-dev/uptide/pull/78) [`7662903`](https://github.com/uptide-dev/uptide/commit/766290311d2cffbf7e91a059022877286c6cb277) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Verify the exported migration branch has the exact tree that passed verification. Refuse success and publication when export fails, preserve the complete clone, and require the recorded verified tree before pushing a stored run. Report changed-file counts from the committed diff.
+  
+  Export fresh migrations to numbered branches when an existing branch has different content. Preserve identical packages' libc restrictions when older npm serializers omit them, without relaxing the resolution guard.
+
 ## 0.7.2
 
 ### Patch Changes
