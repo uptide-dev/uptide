@@ -114,7 +114,17 @@ export function zodFixture(scratch: string) {
     // What `latest` means in these tests: the version the stand-in registry serves.
     resolve: async () => '4.6.5',
     // Like a real install, it writes where it is told to: the directory the run works in.
-    install: async (dir) => {
+    install: async (dir, upgrade) => {
+      for (const move of [
+        { name: 'zod', version: upgrade?.version ?? '4.6.5' },
+        ...(upgrade?.also ?? []),
+      ]) {
+        const file = join(dir, 'node_modules', move.name, 'package.json');
+        writeFileSync(
+          file,
+          JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), version: move.version }),
+        );
+      }
       writeFileSync(
         join(dir, 'node_modules/zod/index.d.ts'),
         'export declare const z: { string(options: {error:(iss:{input:unknown})=>string|undefined}): string };',

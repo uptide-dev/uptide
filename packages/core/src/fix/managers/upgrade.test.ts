@@ -5,38 +5,41 @@ import { expect, it, vi } from 'vitest';
 import * as process from '../process.js';
 import { upgradeInstall } from './upgrade.js';
 
-it('keeps simple npm aliases during exact resolution and restores partial ranges on failure', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'uptide-alias-upgrade-'));
-  const original = JSON.stringify({
-    dependencies: { runtime: 'npm:react@^19', types: 'npm:@types/react@~19.3' },
-  });
-  writeFileSync(join(root, 'package.json'), original);
-  writeFileSync(join(root, 'package-lock.json'), '{"lockfileVersion":3,"packages":{}}');
-  const command = vi.spyOn(process, 'command').mockImplementation(async (_root, _bin, args) => {
-    if (args[0] === '--version') return { code: 0, output: '11.0.0', timeout: false };
-    expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies).toEqual({
-      runtime: 'npm:react@19.3.0',
-      types: 'npm:@types/react@19.3.1',
+it.each([{ files: ['package.json'] }, { files: [] }])(
+  'resolves the target and restores aliases even for unchanged manifests (%j)',
+  async ({ files }) => {
+    const root = mkdtempSync(join(tmpdir(), 'uptide-alias-upgrade-'));
+    const original = JSON.stringify({
+      dependencies: { runtime: 'npm:react@^19', types: 'npm:@types/react@~19.3' },
     });
-    throw new Error('registry unavailable');
-  });
-  try {
-    await expect(
-      upgradeInstall(root, {
-        name: 'runtime',
-        version: '19.3.0',
-        also: [{ name: 'types', version: '19.3.1' }],
-        files: ['package.json'],
-        workspaces: ['.'],
-      }),
-    ).rejects.toThrow('registry unavailable');
-    expect(command).toHaveBeenCalledTimes(2);
-    expect(readFileSync(join(root, 'package.json'), 'utf8')).toBe(original);
-  } finally {
-    command.mockRestore();
-    rmSync(root, { recursive: true, force: true });
-  }
-});
+    writeFileSync(join(root, 'package.json'), original);
+    writeFileSync(join(root, 'package-lock.json'), '{"lockfileVersion":3,"packages":{}}');
+    const command = vi.spyOn(process, 'command').mockImplementation(async (_root, _bin, args) => {
+      if (args[0] === '--version') return { code: 0, output: '11.0.0', timeout: false };
+      expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies).toEqual({
+        runtime: 'npm:react@19.3.0',
+        types: 'npm:@types/react@19.3.1',
+      });
+      throw new Error('registry unavailable');
+    });
+    try {
+      await expect(
+        upgradeInstall(root, {
+          name: 'runtime',
+          version: '19.3.0',
+          also: [{ name: 'types', version: '19.3.1' }],
+          files,
+          workspaces: ['.'],
+        }),
+      ).rejects.toThrow('registry unavailable');
+      expect(command).toHaveBeenCalledTimes(2);
+      expect(readFileSync(join(root, 'package.json'), 'utf8')).toBe(original);
+    } finally {
+      command.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
 
 it('passes allowed-peer roots to the guard while keeping their manifest declarations protected', async () => {
   const root = mkdtempSync(join(tmpdir(), 'uptide-allowed-scope-'));
@@ -82,6 +85,75 @@ it('passes allowed-peer roots to the guard while keeping their manifest declarat
     expect(command.mock.calls.flatMap((c) => c[2])).not.toContain('--legacy-peer-deps');
   } finally {
     command.mockRestore();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it.each([
+  ['^19.0.0', '^19.0.0', 'npm:19.2.0'],
+  ['>=16.8', '>=16.8', 'npm:19.2.0'],
+  ['npm:react@^19', 'npm:react@^19', 'npm:react@19.2.0'],
+  ['npm:@types/react@^19', 'npm:@types/react@^19', 'npm:@types/react@19.2.0'],
+  ['18.2.0', '19.2.0', undefined],
+  ['^18.2.0', '^19.2.0', undefined],
+  ['19.2.0', '19.2.0', undefined],
+  ['npm:react@19.2.0', 'npm:react@19.2.0', undefined],
+  ['^18', '^18', undefined],
+  ...[
+    'workspace:^19',
+    'catalog:',
+    'link:../react',
+    'file:../react',
+    'portal:../react',
+    'patch:react@npm%3A19.2.0#./react.patch',
+    'git+https://example.test/react.git',
+    'https://example.test/react.tgz',
+    'github:example/react',
+    'latest',
+  ].map((spec) => [spec, spec, undefined]),
+])('only pins unchanged compatible npm descriptors: %s → %s', async (before, spec, resolution) => {
+  const root = mkdtempSync(join(tmpdir(), 'uptide-berry-descriptor-'));
+  writeFileSync(
+    join(root, 'package.json'),
+    JSON.stringify({
+      packageManager: 'yarn@4.9.2',
+      dependencies: { react: spec },
+    }),
+  );
+  writeFileSync(join(root, 'yarn.lock'), '__metadata:\n  version: 8\n');
+  const baseline = vi
+    .spyOn(process, 'git')
+    .mockReturnValue(JSON.stringify({ dependencies: { react: before } }));
+  let installs = 0;
+  const command = vi.spyOn(process, 'command').mockImplementation(async (_root, _bin, args) => {
+    if (args[0] === '--version') return { code: 0, output: '4.9.2', timeout: false };
+    if (args[0] === 'install' && ++installs === 2) throw new Error('reconcile');
+    return { code: 0, output: '', timeout: false };
+  });
+  try {
+    await expect(
+      upgradeInstall(root, { name: 'react', version: '19.2.0', files: [], workspaces: ['.'] }),
+    ).rejects.toThrow('reconcile');
+    const pins = command.mock.calls.map((call) => call[2]).filter((args) => args[0] === 'set');
+    expect(pins).toEqual(
+      resolution
+        ? [
+            [
+              'set',
+              'resolution',
+              `react@${spec?.startsWith('npm:') ? spec : `npm:${spec}`}`,
+              resolution,
+            ],
+          ]
+        : [],
+    );
+    expect(
+      JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).resolutions,
+    ).toBeUndefined();
+    expect(baseline).toHaveBeenCalledWith(root, 'show', 'HEAD:./package.json');
+  } finally {
+    command.mockRestore();
+    baseline.mockRestore();
     rmSync(root, { recursive: true, force: true });
   }
 });

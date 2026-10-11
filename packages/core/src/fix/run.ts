@@ -46,6 +46,7 @@ import {
   typeResolutionFailure,
 } from './verify.js';
 import {
+  assertInstalledVersions,
   assertNoDowngrades,
   bumpVersions,
   install,
@@ -203,13 +204,13 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       'DIRTY_UPTIDE_TREE',
       `uptide fix --pr refuses to run from an Uptide checkout with uncommitted changes (at ${tool.uptideCommit.slice(0, 12)}); commit or stash them, rebuild, and run again`,
     );
-  validateVersionRanges(root, [pack.name]);
   if (!options.pinCurrentApi) assertNpmLockSync(root);
   const peerPlan = options.peerPlan ?? (await peerPreflight(options, services));
   const resolved = peerPlan
     ? { version: peerPlan.target, source: peerPlan.targetSource }
     : await resolveTarget(pack, options.target, services.resolve);
   const target = resolved.version;
+  validateVersionRanges(root, [{ name: pack.name, to: target }]);
   if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(target))
     throw new Error('target must be an exact version');
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])]);
@@ -261,7 +262,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ).values(),
   ].sort((a, b) => a.name.localeCompare(b.name));
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...companions]);
-  validateVersionRanges(root, [pack.name, ...companions.map((c) => c.name)]);
+  validateVersionRanges(root, [{ name: pack.name, to: target }, ...companions]);
   const initialContext = {
     from:
       [...packages].sort((a, b) => compareVersions(a.installed, b.installed))[0]?.installed ?? '',
@@ -364,6 +365,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           : {}),
       }),
   );
+  assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const moved = companions.map((c) => `${c.name} ${c.to}`).join(', ');
   commit(root, `chore: upgrade ${pack.name} to ${target}${moved ? ` with ${moved}` : ''}`, [
     ...bump.files,
@@ -511,6 +513,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ...(options.onProgress ? { onProgress: options.onProgress } : {}),
     ...(options.testTimeoutMs ? { testTimeoutMs: options.testTimeoutMs } : {}),
   });
+  assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
   const newErrors = newDiagnostics(baseline, after);
@@ -557,6 +560,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     prBody: join(root, '.uptide/pr-body.md'),
     notes: [
       ...pack.reviewNotes(packContext),
+      ...bumps.flatMap((b) =>
+        b.alreadyCompatible.map((w) => `${w}: already compatible; range left unchanged.`),
+      ),
       ...(pending ? ['Tests/install left uncommitted files; review them before publication.'] : []),
     ],
   };

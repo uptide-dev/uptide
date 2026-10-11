@@ -867,7 +867,11 @@ ${PRIVACY}`,
               'Repository',
               async () => {
                 const found = await detectRepo(cwd, engine.workspaces);
-                requireFixable(found, only);
+                requireFixable(
+                  found,
+                  only,
+                  flags.target ? parseTargets([flags.target], [only])[only] : undefined,
+                );
                 const deps = await locateDependencies(found, engine, [only]);
                 if (deps.every((d) => d.workspaces.length === 0))
                   throw notADependency(found, [only]);

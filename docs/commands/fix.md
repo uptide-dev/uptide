@@ -151,8 +151,15 @@ repository, and there:
    unless you pass `--pr --yes`, or later run `uptide pr --branch <branch> --yes`
    ([`uptide pr`](pr.md)).
 2. **Baseline.** Type-checks and notes the errors you already have.
-3. **Upgrades.** Bumps the version in every workspace that declares it (and in pnpm
-   catalogs), preserving `^`, `~`, or exact ranges. Installs run in a temporary git worktree
+3. **Upgrades.** Leaves workspace ranges that already accept the target unchanged and
+   records them as **already compatible**, including companions. Rejecting dependency ranges
+   keep their `^`, `~`, or exact style; rejecting peer ranges gain the target major
+   (for example, `^18` becomes `^18 || ^19.0.0`). Complex ranges that cannot be rewritten
+   safely stop with an instruction to add the target major while keeping existing alternatives.
+   pnpm catalog references are preserved. Even when a range stays unchanged, the lockfile
+   and installed package move to the exact planned version. `fix` and `verify` refuse stale
+   or missing installed copies of the target or any companion, including workspace-local copies.
+   Installs run in a temporary git worktree
    with lifecycle scripts disabled. The real package manager produces the lockfile; Uptide
    rejects changes outside the target dependency subtree before copying it back unchanged.
    One commit. Packages that must move with it move in the same install and commit, each at

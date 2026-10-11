@@ -35,11 +35,11 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
-      - name: Verify the local bot PR loop
+      - name: Verify real package-manager upgrades and the local bot PR loop
         if: matrix.node == 22
         env:
           UPTIDE_NETWORK: '1'
-        run: pnpm --filter @uptide/core exec vitest run src/action/action.test.ts
+        run: pnpm --filter @uptide/core exec vitest run src/action/action.test.ts src/fix/managers/compatible-ranges.test.ts
 
   docs:
     # Every relative link in the Markdown resolves, and the README's packs table matches what

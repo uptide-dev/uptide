@@ -2,7 +2,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseNpm, parsePnpm, parseYarn } from '../../adapters/typescript/lockfile.js';
 import { UptideError } from '../../errors.js';
-import { command } from '../process.js';
+import { satisfies } from '../../fetch/range.js';
+import { command, git } from '../process.js';
 import { assertManagerAvailable } from './availability.js';
 import { assertLockScope, type LockDiff, type LockGraph, type Targets } from './lock-guard.js';
 import { type PackageManager, updateArgs } from './manager.js';
@@ -52,9 +53,10 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
   const names = moves.map((m) => m.name);
   const before = lockGraph(pm, beforeText, names);
   const originals = new Map(
-    upgrade.files
-      .filter((f) => f.endsWith('package.json'))
-      .map((f) => [f, readFileSync(join(root, f), 'utf8')]),
+    upgrade.workspaces.map((w) => {
+      const file = join(w, 'package.json');
+      return [file, readFileSync(join(root, file), 'utf8')];
+    }),
   );
   const rootManifest = join(root, 'package.json');
   const rootText = readFileSync(rootManifest, 'utf8');
@@ -92,6 +94,35 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
   } finally {
     for (const [file, text] of originals) writeFileSync(join(root, file), text);
     if (yarn) writeFileSync(rootManifest, rootText);
+  }
+  if (pm.kind === 'yarn-berry') {
+    // Restoring a broad range drops Yarn's temporary resolution; pin its descriptor in the lockfile instead.
+    const descriptors = new Map<string, string>();
+    for (const [file, text] of originals) {
+      const json = JSON.parse(text);
+      const previous = JSON.parse(git(root, 'show', `HEAD:./${file}`));
+      for (const section of ['dependencies', 'devDependencies', 'optionalDependencies'])
+        for (const move of moves) {
+          const spec = json[section]?.[move.name];
+          if (!spec || spec !== previous[section]?.[move.name]) continue;
+          const alias = /^(npm:(?:@[^/\s]+\/)?[^@\s]+@)(.+)$/.exec(spec);
+          const range = alias?.[2] ?? spec;
+          // Exact self-resolutions make Yarn's resolver recurse into itself.
+          if (range === move.version || !satisfies(move.version, range)) continue;
+          descriptors.set(
+            `${move.name}@${spec.startsWith('npm:') ? spec : `npm:${spec}`}`,
+            `${alias?.[1] ?? 'npm:'}${move.version}`,
+          );
+        }
+    }
+    for (const [descriptor, resolution] of descriptors)
+      await run(root, pm, [
+        ...(pm.via === 'corepack' ? ['yarn'] : []),
+        'set',
+        'resolution',
+        descriptor,
+        resolution,
+      ]);
   }
   // Let the real manager reconcile the final manifest, including its original range operator.
   await run(root, pm, updateArgs(pm, root, upgrade.workspaces));

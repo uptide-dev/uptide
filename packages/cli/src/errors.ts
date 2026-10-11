@@ -15,7 +15,12 @@ export class CliError extends Error {
   override readonly name = 'CliError';
   constructor(
     message: string,
-    readonly options: { why?: string; next?: string; exitCode?: number } = {},
+    readonly options: {
+      why?: string;
+      next?: string;
+      literalNext?: boolean;
+      exitCode?: number;
+    } = {},
   ) {
     super(message);
   }
@@ -38,7 +43,10 @@ export function renderError(err: unknown, color: boolean): string {
   const lines = [`${colors.red('error:')} ${explain(err)}`];
   if (err instanceof CliError) {
     if (err.options.why) lines.push(`  ${err.options.why}`);
-    if (err.options.next) lines.push(`  ${colors.bold('Next:')} ${runnable(err.options.next)}`);
+    if (err.options.next)
+      lines.push(
+        `  ${colors.bold('Next:')} ${err.options.literalNext ? err.options.next : runnable(err.options.next)}`,
+      );
   }
   return `${lines.join('\n')}\n`;
 }

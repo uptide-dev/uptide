@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import { hoistedPackageDir } from '../adapters/typescript/usages.js';
 import { companionsOf, type InstalledDependency } from '../check/companions.js';
-import { UptideError } from '../errors.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { installedManifest, type Manifest } from '../list/evidence.js';
@@ -12,7 +11,7 @@ import type { FixOptions, FixServices } from './run.js';
 import { resolveTarget } from './target.js';
 import { validateVersionRanges } from './versions.js';
 
-/** Resolve companions only when a declaration could block the run, before cloning or spending. */
+/** Validate declarations against their planned targets before cloning or spending. */
 export async function rangePreflight(
   options: FixOptions,
   services?: FixServices,
@@ -29,19 +28,7 @@ export async function rangePreflight(
     }
     return text;
   };
-  validateVersionRanges(root, [options.only], read);
   const { installed, names } = fixDependencies(root, read);
-  const unsupported = new Map<string, UptideError>();
-  for (const name of names) {
-    try {
-      validateVersionRanges(root, [name], read);
-    } catch (error) {
-      if (!(error instanceof UptideError) || error.code !== 'UNSUPPORTED_VERSION_RANGE')
-        throw error;
-      unsupported.set(name, error);
-    }
-  }
-  if (!unsupported.size) return;
   const fetcher = createNpmFetcher({ config: loadRegistryConfig({ cwd: root }) });
   const pack = options.pack ?? activePack(options.only);
   const { version: target } = await resolveTarget(
@@ -49,6 +36,8 @@ export async function rangePreflight(
     options.target,
     services?.resolve ?? fetcher.resolve,
   );
+  validateVersionRanges(root, [{ name: options.only, to: target }], read);
+  if (names.size === 1) return target;
   const manifests = services?.manifests ?? fetcher.manifests;
   if (!manifests) throw new Error('Registry manifests are required to plan companions');
   const plan = await companionsOf({
@@ -58,10 +47,7 @@ export async function rangePreflight(
     manifests,
     lockstep: pack?.companions?.map((c) => c.name) ?? [],
   });
-  for (const companion of plan.companions) {
-    const error = unsupported.get(companion.name);
-    if (error) throw error;
-  }
+  validateVersionRanges(root, plan.companions, read);
   return target;
 }
 
