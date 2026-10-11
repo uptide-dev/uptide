@@ -56,7 +56,7 @@ it.skipIf(!existsSync(bin))(
         join(cwd, '.npmrc'),
         `registry=http://127.0.0.1:${(server.address() as AddressInfo).port}\n`,
       );
-      writeFileSync(join(cwd, '.gitignore'), 'node_modules\n');
+      writeFileSync(join(cwd, '.gitignore'), 'node_modules\ncache\n');
       for (const args of [
         ['init', '-q'],
         ['add', '.'],
@@ -71,25 +71,27 @@ it.skipIf(!existsSync(bin))(
         ],
       ])
         execFileSync('git', args, { cwd });
-      const result = await promisify(execFile)(
-        process.execPath,
-        [bin, 'fix', 'react', '--target', '19.3.0', '--no-llm', '--json'],
-        {
-          cwd,
-          timeout: 10000,
-          env: {
-            ...Object.fromEntries(
-              Object.entries(process.env).filter(([key]) => !/^npm_config_/i.test(key)),
-            ),
-            NPM_CONFIG_USERCONFIG: '/nonexistent',
-            UPTIDE_TELEMETRY: '0',
-            UPTIDE_CACHE_DIR: join(cwd, 'cache'),
+      const invoke = (json: boolean) =>
+        promisify(execFile)(
+          process.execPath,
+          [bin, 'fix', 'react', '--target', '19.3.0', '--no-llm', ...(json ? ['--json'] : [])],
+          {
+            cwd,
+            timeout: 10000,
+            env: {
+              ...Object.fromEntries(
+                Object.entries(process.env).filter(([key]) => !/^npm_config_/i.test(key)),
+              ),
+              NPM_CONFIG_USERCONFIG: '/nonexistent',
+              UPTIDE_TELEMETRY: '0',
+              UPTIDE_CACHE_DIR: join(cwd, 'cache'),
+            },
           },
-        },
-      ).then(
-        (output) => ({ ...output, code: 0 }),
-        (error: { stdout: string; stderr: string; code: number }) => error,
-      );
+        ).then(
+          (output) => ({ ...output, code: 0 }),
+          (error: { stdout: string; stderr: string; code: number }) => error,
+        );
+      const result = await invoke(true);
       expect(result.code).toBe(2);
       const report = JSON.parse(result.stdout);
       expect(report.peerConflicts).toEqual([
@@ -108,11 +110,25 @@ it.skipIf(!existsSync(bin))(
       ]);
       expect(report.next).toBe('npx uptide fix react plugin --target 19.3.0 --no-llm');
       expect(report.error.code).toBe('INCONSISTENT_UPGRADE');
-      expect(result.stderr).not.toContain('error:');
+      expect(result.stderr).not.toMatch(/✖|error:|LLM spend:/);
+      const plain = await invoke(false);
+      expect(plain.code).toBe(2);
+      expect(plain.stdout).toBe('');
+      expect(plain.stderr).not.toMatch(/✖|error:|LLM spend:/);
+      expect(plain.stderr.slice(plain.stderr.indexOf('uptide fix · react 18.2.0'))).toBe(
+        `${report.error.message}\n`,
+      );
+      expect(report.error.message).toMatchInlineSnapshot(`
+        "uptide fix · react 18.2.0 → 19.3.0 · 1 peer blocker to resolve first
+        plugin 1.0.0  peers react, react-dom ^18  →  upgrade to 1.1.0 (accepts react 19, react-dom 19): add plugin to the command
+
+        Next: npx uptide fix react plugin --target 19.3.0 --no-llm"
+      `);
     } finally {
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       rmSync(cwd, { recursive: true, force: true });
     }
   },
+  30_000,
 );

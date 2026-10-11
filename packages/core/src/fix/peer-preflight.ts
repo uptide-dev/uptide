@@ -302,7 +302,7 @@ export async function peerPreflight(
     throw new PeerPreflightError(
       blockers,
       command,
-      `Peer blockers (before cloning):\n${blockers.map(describe).join('\n')}\n\nNext: ${command}`,
+      `uptide fix · ${options.only} ${deps.find((d) => d.name === options.only)?.version ?? '?'} → ${target} · ${blockers.length} peer blocker${blockers.length === 1 ? '' : 's'} to resolve first\n${blockers.map(describe).join('\n')}\n\nNext: ${command}`,
     );
   }
   for (const peer of groupPeerBlockers(actual.peers))

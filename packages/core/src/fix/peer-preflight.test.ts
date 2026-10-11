@@ -406,6 +406,9 @@ it.each(
       expect(error).toBeInstanceOf(PeerPreflightError);
       if (!(error instanceof PeerPreflightError)) throw error;
       message = error.message;
+      expect(message.split('\n')[0]).toBe(
+        `uptide fix · zod 3.25.76 → 4.6.5 · ${error.peerConflicts.length} peer blockers to resolve first`,
+      );
       expect(new Set(error.peerConflicts.map((p) => p.name)).size).toBe(error.peerConflicts.length);
       for (const name of ['@widgets/tabs', '@widgets/tooltip']) {
         const group = error.peerConflicts.find((p) => p.name === name);
