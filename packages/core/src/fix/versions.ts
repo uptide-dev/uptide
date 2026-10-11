@@ -40,6 +40,32 @@ const sections = [
   'optionalDependencies',
   'peerDependencies',
 ] as const;
+/** Check the packages verification will actually load, including workspace-local copies. */
+export function assertInstalledVersions(
+  root: string,
+  moves: readonly { name: string; to: string }[],
+): void {
+  const missing = new Set(moves.map((move) => move.name));
+  for (const workspace of workspacePackagesOf(root)) {
+    const manifest = JSON.parse(readFileSync(join(root, workspace, 'package.json'), 'utf8'));
+    for (const { name, to } of moves) {
+      if (!sections.some((section) => typeof manifest[section]?.[name] === 'string')) continue;
+      missing.delete(name);
+      const installed = installedManifest(root, workspace, name)?.version;
+      if (installed !== to)
+        throw new UptideError(
+          'INSTALL_FAILED',
+          `Requested ${name}@${to}, but ${workspace} has ${installed ?? 'nothing'} installed; verification cannot use a different target.`,
+        );
+    }
+  }
+  if (missing.size)
+    throw new UptideError(
+      'INSTALL_FAILED',
+      `Cannot verify planned packages no workspace declares: ${[...missing].join(', ')}.`,
+    );
+}
+
 /** Keep the operator, precision and trailing wildcards, including simple npm aliases. */
 export function versionRange(before: string, version: string): string {
   const alias = /^(npm:(?:@[^/\s]+\/)?[^@\s]+@)(.+)$/.exec(before);

@@ -18,7 +18,13 @@ import { git } from './process.js';
 import { rangePreflight } from './range-preflight.js';
 import { fix } from './run.js';
 import { zodFixture } from './test-fixture.js';
-import { bumpCatalog, bumpVersions, validateVersionRanges, versionRange } from './versions.js';
+import {
+  assertInstalledVersions,
+  bumpCatalog,
+  bumpVersions,
+  validateVersionRanges,
+  versionRange,
+} from './versions.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-ranges-'));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -421,4 +427,43 @@ it('widens a catalog shared by peer and dependency declarations', () => {
   expect(readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8')).toContain(
     'react: "^18.2.0 || ^19.0.0" # keep',
   );
+});
+
+it.each(['react', 'react-dom', '@types/react', '@types/react-dom'])(
+  'refuses verification when %s is stale or missing despite compatible declarations',
+  (name) => {
+    const { root, put } = reactFixture();
+    const moves = ['react', 'react-dom', '@types/react', '@types/react-dom'].map((name) => ({
+      name,
+      to: '19.2.0',
+    }));
+    for (const move of moves)
+      put(
+        `node_modules/${move.name}/package.json`,
+        JSON.stringify({ name: move.name, version: move.to }),
+      );
+    put('pnpm-workspace.yaml', 'packages: [packages/*]\n');
+    put('packages/app/package.json', JSON.stringify({ dependencies: { [name]: '>=16.8' } }));
+    expect(() => assertInstalledVersions(root, moves)).not.toThrow();
+    // This local copy shadows the correct hoisted version.
+    put(
+      `packages/app/node_modules/${name}/package.json`,
+      JSON.stringify({ name, version: '19.1.0' }),
+    );
+    expect(() => assertInstalledVersions(root, moves)).toThrow(
+      `Requested ${name}@19.2.0, but packages/app has 19.1.0 installed`,
+    );
+    rmSync(join(root, 'packages/app/node_modules', name), { recursive: true });
+    rmSync(join(root, 'node_modules', name), { recursive: true });
+    expect(() => assertInstalledVersions(root, moves)).toThrow(
+      `Requested ${name}@19.2.0, but . has nothing installed`,
+    );
+  },
+);
+
+it('refuses verification if a planned companion is no longer declared', () => {
+  const { root } = reactFixture();
+  expect(() =>
+    assertInstalledVersions(root, [{ name: 'missing-companion', to: '19.2.0' }]),
+  ).toThrow('Cannot verify planned packages no workspace declares: missing-companion.');
 });

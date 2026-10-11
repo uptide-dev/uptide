@@ -18,6 +18,7 @@ import {
   testWorkspaces,
   typeResolutionFailure,
 } from './verify.js';
+import { assertInstalledVersions } from './versions.js';
 
 export interface ReverifyOptions {
   cwd: string;
@@ -86,6 +87,8 @@ export async function reverify(
       (s) => typeof p[s]?.[pack.name] === 'string',
     );
   });
+  const moves = [{ name: report.package, to: report.target }, ...(report.companions ?? [])];
+  assertInstalledVersions(root, moves);
   const from = report.from ?? report.sites[0]?.finding.change.from ?? '';
   const context: PackContext = {
     from,
@@ -117,6 +120,7 @@ export async function reverify(
     ...(options.onProgress ? { onProgress: options.onProgress } : {}),
     ...(options.testTimeoutMs ? { testTimeoutMs: options.testTimeoutMs } : {}),
   });
+  assertInstalledVersions(root, moves);
   const left = git(root, 'status', '--porcelain', '--untracked-files=all')
     .split('\n')
     .filter((line) => line.trim() !== '' && !line.slice(3).startsWith('.uptide/'));

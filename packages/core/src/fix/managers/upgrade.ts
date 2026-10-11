@@ -94,6 +94,31 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
     for (const [file, text] of originals) writeFileSync(join(root, file), text);
     if (yarn) writeFileSync(rootManifest, rootText);
   }
+  if (pm.kind === 'yarn-berry') {
+    // Restoring a broad range drops Yarn's temporary resolution; pin its descriptor in the lockfile instead.
+    const descriptors = new Map<string, string>();
+    for (const text of originals.values()) {
+      const json = JSON.parse(text);
+      for (const section of ['dependencies', 'devDependencies', 'optionalDependencies'])
+        for (const move of moves) {
+          const spec = json[section]?.[move.name];
+          if (!spec) continue;
+          const alias = spec.startsWith('npm:') ? spec.slice(0, spec.lastIndexOf('@') + 1) : 'npm:';
+          descriptors.set(
+            `${move.name}@${spec.startsWith('npm:') ? spec : `npm:${spec}`}`,
+            `${alias}${move.version}`,
+          );
+        }
+    }
+    for (const [descriptor, resolution] of descriptors)
+      await run(root, pm, [
+        ...(pm.via === 'corepack' ? ['yarn'] : []),
+        'set',
+        'resolution',
+        descriptor,
+        resolution,
+      ]);
+  }
   // Let the real manager reconcile the final manifest, including its original range operator.
   await run(root, pm, updateArgs(pm, root, upgrade.workspaces));
   const afterText = readFileSync(lockfile, 'utf8');

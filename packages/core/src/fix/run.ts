@@ -46,6 +46,7 @@ import {
   typeResolutionFailure,
 } from './verify.js';
 import {
+  assertInstalledVersions,
   assertNoDowngrades,
   bumpVersions,
   install,
@@ -363,6 +364,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           : {}),
       }),
   );
+  assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const moved = companions.map((c) => `${c.name} ${c.to}`).join(', ');
   commit(root, `chore: upgrade ${pack.name} to ${target}${moved ? ` with ${moved}` : ''}`, [
     ...bump.files,
@@ -510,6 +512,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ...(options.onProgress ? { onProgress: options.onProgress } : {}),
     ...(options.testTimeoutMs ? { testTimeoutMs: options.testTimeoutMs } : {}),
   });
+  assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
   const newErrors = newDiagnostics(baseline, after);

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import type { ProgressEvent } from '../domain/progress.js';
 import { zodPack } from '../packs/zod/index.js';
 import { version } from '../version.js';
@@ -949,4 +949,81 @@ it('says what a TS2322 expected, as a shape, so the migration knows the new form
     // A primitive expected type is already all the message says.
     '6 TS2322 -',
   ]);
+});
+
+it('refuses stale node_modules after installation even when the lockfile moved', async () => {
+  const { root, services } = fixture();
+  const install = services.install;
+  const diagnostics = vi.fn(services.diagnostics);
+  await expect(
+    fix(
+      { cwd: root, only: 'zod', target: '4.6.5' },
+      {
+        ...services,
+        diagnostics,
+        install: async (dir, upgrade) => {
+          await install(dir, upgrade);
+          const file = join(dir, 'node_modules/zod/package.json');
+          writeFileSync(
+            file,
+            JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), version: '3.25.76' }),
+          );
+        },
+      },
+    ),
+  ).rejects.toThrow('Requested zod@4.6.5, but . has 3.25.76 installed');
+  expect(diagnostics).toHaveBeenCalledTimes(1); // Only the baseline ran.
+  expect(readFileSync(join(root, 'pnpm-lock.yaml'), 'utf8')).toContain('4.6.5');
+  expect(git(root, 'log', '-1', '--format=%s')).toBe('baseline');
+});
+
+it('refuses final verification if tests replace the installed target', async () => {
+  const { root, services } = fixture();
+  let calls = 0;
+  await expect(
+    fix(
+      { cwd: root, only: 'zod', target: '4.6.5' },
+      {
+        ...services,
+        tests: async () => {
+          if (++calls > 1) {
+            const file = join(root, 'node_modules/zod/package.json');
+            writeFileSync(
+              file,
+              JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), version: '3.25.76' }),
+            );
+          }
+          return [];
+        },
+      },
+    ),
+  ).rejects.toThrow('Requested zod@4.6.5, but . has 3.25.76 installed');
+});
+
+it.each(['before', 'during'])('verify refuses a stale companion %s tests', async (when) => {
+  const { root, services } = fixture();
+  await fix({ cwd: root, only: 'zod', target: '4.6.5' }, services);
+  const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  manifest.devDependencies = { companion: '^1 || ^2' };
+  writeFileSync(join(root, 'package.json'), JSON.stringify(manifest));
+  git(root, 'commit', '-am', 'companion');
+  mkdirSync(join(root, 'node_modules/companion'));
+  const installed = join(root, 'node_modules/companion/package.json');
+  writeFileSync(
+    installed,
+    JSON.stringify({ name: 'companion', version: when === 'before' ? '1.0.0' : '2.0.0' }),
+  );
+  const file = join(root, '.uptide/report.json');
+  const report = JSON.parse(readFileSync(file, 'utf8'));
+  report.companions = [{ name: 'companion', from: '1.0.0', to: '2.0.0', reason: 'fixture' }];
+  writeFileSync(file, JSON.stringify(report));
+  const tests = vi.fn(async () => {
+    writeFileSync(installed, JSON.stringify({ name: 'companion', version: '1.0.0' }));
+    return [];
+  });
+  await expect(reverify({ cwd: root }, { ...services, tests })).rejects.toThrow(
+    'Requested companion@2.0.0, but . has 1.0.0 installed',
+  );
+  if (when === 'before') expect(tests).not.toHaveBeenCalled();
+  else expect(tests).toHaveBeenCalled();
 });

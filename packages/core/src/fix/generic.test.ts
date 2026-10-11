@@ -130,6 +130,11 @@ function paintFixture(sites = 1) {
     resolve: async () => '2.0.0',
     install: async (dir) => {
       writeFileSync(join(dir, 'node_modules/paint/index.d.ts'), V2);
+      const file = join(dir, 'node_modules/paint/package.json');
+      writeFileSync(
+        file,
+        JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), version: '2.0.0' }),
+      );
       writeFileSync(
         join(dir, 'pnpm-lock.yaml'),
         readFileSync(join(dir, 'pnpm-lock.yaml'), 'utf8').replaceAll('1.0.0', '2.0.0'),
@@ -314,6 +319,10 @@ describe('fix with companions', () => {
     services.install = async (dir, upgrade) => {
       installs.push(upgrade);
       await install(dir, upgrade);
+      for (const move of upgrade?.also ?? []) {
+        mkdirSync(join(dir, 'node_modules', move.name), { recursive: true });
+        writeFileSync(join(dir, 'node_modules', move.name, 'package.json'), JSON.stringify(move));
+      }
     };
     return { ...fixture, installs };
   }

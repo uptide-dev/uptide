@@ -72,7 +72,7 @@ it('keeps the pnpm guard strict about unrelated importer specs', () => {
 
 it.each([
   [2, '--skip-builds'],
-  [3, '--mode=skip-builds'],
+  [3, '--mode=skip-build'],
   [4, '--mode=skip-build'],
 ] as const)('uses the build-suppression option of Yarn %s', (version, option) => {
   expect(berrySkipBuild(version)).toBe(option);

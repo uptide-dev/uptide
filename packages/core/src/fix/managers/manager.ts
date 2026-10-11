@@ -41,7 +41,7 @@ export function chooseManager(
   return { name: pick[1], lockfile: pick[0], ...(chosen ? { chosen } : {}) };
 }
 export function berrySkipBuild(major: number): string {
-  return major < 3 ? '--skip-builds' : major < 4 ? '--mode=skip-builds' : '--mode=skip-build';
+  return major < 3 ? '--skip-builds' : '--mode=skip-build';
 }
 export function packageManager(root: string): PackageManager {
   const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
