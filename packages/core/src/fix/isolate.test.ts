@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { version } from '../version.js';
 import {
   changedSince,
@@ -27,6 +27,7 @@ import {
 import { openPr } from './pr.js';
 import { command, git, quietEnv } from './process.js';
 import { zodFixture } from './test-fixture.js';
+import type { FixRequest } from './types.js';
 
 const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'uptide-isolate-')));
 // Clones made by these tests live under the scratch directory, not in the machine's temporary root.
@@ -108,6 +109,8 @@ describe('fix runs in a private clone', () => {
     // The branch is a ref in the repository, not checked out, at the verified commit.
     expect(git(root, 'branch', '--show-current')).toBe(before.branch);
     expect(git(root, 'rev-parse', 'uptide/zod-4.6.5')).toBe(report.head);
+    expect(git(root, 'rev-parse', `${report.branch}^{tree}`)).toBe(report.verifiedTree);
+    expect(git(report.repo, 'rev-parse', 'HEAD^{tree}')).toBe(report.verifiedTree);
     expect(git(root, 'show', 'uptide/zod-4.6.5:index.ts')).toContain('error:');
     // The run is kept inside .git, where git status never looks.
     const stored = storedRunFile(root, 'uptide/zod-4.6.5');
@@ -177,7 +180,7 @@ describe('fix runs in a private clone', () => {
       'push',
       '--set-upstream',
       'origin',
-      `${report.branch}:${report.branch}`,
+      `${report.head}:refs/heads/${report.branch}`,
     ]);
   }, 30000);
 
@@ -460,9 +463,11 @@ describe('verify runs in a private clone and only ever adds commits', () => {
     expect(again.clone).toEqual({
       path: again.repo,
       kept: true,
-      reason: 'it holds commits that are not in your repository or on the remote yet',
+      reason: 'export failed: the repository branch does not contain the verified tree',
     });
     expect(git(again.repo, 'rev-parse', 'HEAD')).toBe(again.head);
+    expect(again.verification.passed).toBe(false);
+    expect(again.exportError).toContain('does not match the recorded verified tree');
     expect(again.notes.join('\n')).toContain(
       `uptide/zod-4.6.5 is checked out in your repository, so it was not moved; the new commits are in ${again.repo}.`,
     );
@@ -615,4 +620,151 @@ it('refuses generic no-key fixes and unsafe config before creating any clone or 
       else process.env[name] = value;
     }
   }
+});
+
+it('exports every agent commit, including compiler-linked declarations in other files', async () => {
+  const { root, services } = zodFixture(scratch);
+  const config = JSON.parse(readFileSync(join(root, 'tsconfig.json'), 'utf8'));
+  config.include = ['*.ts'];
+  writeFileSync(join(root, 'tsconfig.json'), JSON.stringify(config));
+  const oldTypes = join(root, 'node_modules/zod/index.d.ts');
+  writeFileSync(
+    oldTypes,
+    `${readFileSync(oldTypes, 'utf8')}\nexport declare const nullable: string;`,
+  );
+  for (const n of [1, 2]) {
+    writeFileSync(join(root, `props${n}.ts`), 'export interface Props { inputRef: string }\n');
+    writeFileSync(
+      join(root, `call${n}.ts`),
+      `import { nullable } from 'zod';\nimport type { Props } from './props${n}.js';\nexport const props: Props = { inputRef: nullable };\n`,
+    );
+  }
+  git(root, 'add', '.');
+  git(root, 'commit', '-m', 'related declarations');
+  const check = services.check;
+  services.check = async (options) => {
+    const report = await check(options);
+    const pkg = report.packages[0];
+    const base = pkg?.findings[0];
+    if (!pkg || !base) throw new Error('fixture needs a finding');
+    pkg.findings.push(
+      ...[1, 2].map((n) => ({
+        ...base,
+        fixability: 'assisted' as const,
+        change: { ...base.change, path: 'nullable' },
+        usage: {
+          ...base.usage,
+          file: `call${n}.ts`,
+          line: 3,
+          column: 30,
+          symbolPath: 'nullable',
+          compileCode: 2322,
+          compileError: "Type 'string | null' is not assignable to type 'string'.",
+        },
+      })),
+    );
+    return report;
+  };
+  const install = services.install;
+  services.install = async (dir, ...args) => {
+    await install(dir, ...args);
+    const file = join(dir, 'node_modules/zod/index.d.ts');
+    writeFileSync(
+      file,
+      `${readFileSync(file, 'utf8')}\nexport declare const nullable: string | null;`,
+    );
+  };
+  const requests: FixRequest[] = [];
+  const report = await isolatedFix(
+    {
+      cwd: root,
+      only: 'zod',
+      tool: TOOL,
+      keep: true,
+      fixer: {
+        id: 'fixture',
+        estimate: () => 0,
+        fix: async (request) => {
+          requests.push(request);
+          const file = request.relatedDeclarations?.[0]?.file;
+          expect(file).toMatch(/^props[12]\.ts$/);
+          return {
+            diff: `--- a/${file}\n+++ b/${file}\n@@ -1 +1 @@\n-export interface Props { inputRef: string }\n+export interface Props { inputRef: string | null }\n`,
+            inputTokens: 1,
+            outputTokens: 1,
+            costUsd: 0,
+          };
+        },
+      },
+    },
+    services,
+  );
+  expect(report.verification.passed).toBe(true);
+  expect(requests).toHaveLength(2);
+  expect(report.sites.filter((site) => site.outcome === 'agent')).toHaveLength(2);
+  expect(git(root, 'rev-parse', `${report.branch}^{tree}`)).toBe(report.verifiedTree);
+  expect(git(report.repo, 'rev-parse', 'HEAD^{tree}')).toBe(report.verifiedTree);
+  expect(
+    Number(git(root, 'rev-list', '--count', `${report.baseHead}..${report.branch}`)),
+  ).toBeGreaterThanOrEqual(4);
+  for (const n of [1, 2])
+    expect(git(root, 'show', `${report.branch}:props${n}.ts`)).toContain('string | null');
+  expect(report.changedFiles).toEqual(
+    git(root, 'diff', '--name-only', `${report.baseHead}..${report.branch}`).split('\n'),
+  );
+}, 30_000);
+
+it.each([2, 3])('exports to suffix -%s without overwriting existing branches', async (suffix) => {
+  const { root, services } = zodFixture(scratch);
+  const branch = 'uptide/zod-4.6.5';
+  const previous = git(
+    root,
+    'commit-tree',
+    'HEAD^{tree}',
+    '-p',
+    'HEAD',
+    '-m',
+    'previous migration',
+  );
+  git(root, 'branch', branch, previous);
+  if (suffix === 3) git(root, 'branch', `${branch}-2`, previous);
+  const before = snapshot(root);
+  const publish = vi.fn();
+  const report = await isolatedFix(
+    { cwd: root, only: 'zod', tool: TOOL, pr: true, yes: true, keep: true },
+    { ...services, publish },
+  );
+  expect(report.verification.after).toEqual([]);
+  expect(report.verification.passed).toBe(true);
+  expect(report.exportError).toBeUndefined();
+  expect(report.branch).toBe(`${branch}-${suffix}`);
+  expect(report.branchRenamedFrom).toBe(branch);
+  expect(report.notes).toContain(
+    `${branch} already exists with different content; created ${report.branch}.`,
+  );
+  expect(git(root, 'rev-parse', branch)).toBe(previous);
+  if (suffix === 3) expect(git(root, 'rev-parse', `${branch}-2`)).toBe(previous);
+  expect(changedSince(root, before)).toEqual([]);
+  expect(git(root, 'rev-parse', `${report.branch}^{tree}`)).toBe(report.verifiedTree);
+  expect(git(report.clone?.path ?? '', 'rev-parse', `${report.branch}^{tree}`)).toBe(
+    report.verifiedTree,
+  );
+  expect(publish).toHaveBeenCalledWith(
+    expect.objectContaining({ branch: report.branch }),
+    expect.anything(),
+  );
+  const stored = JSON.parse(readFileSync(storedRunFile(root, report.branch) as string, 'utf8'));
+  expect(stored.branch).toBe(report.branch);
+});
+
+it('reuses an existing identical tree without updating its branch ref', async () => {
+  const { root, services } = zodFixture(scratch);
+  const first = await isolatedFix({ cwd: root, only: 'zod', tool: TOOL }, services);
+  const second = await isolatedFix({ cwd: root, only: 'zod', tool: TOOL }, services);
+  expect(second.branch).toBe(first.branch);
+  expect(second.branchRenamedFrom).toBeUndefined();
+  expect(second.head).toBe(first.head);
+  expect(second.verification.passed).toBe(true);
+  expect(git(root, 'rev-parse', first.branch)).toBe(first.head);
+  expect(second.verifiedTree).toBe(first.verifiedTree);
 });

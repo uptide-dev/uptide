@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { assertLockScope } from './lock-guard.js';
-import { npmGraph } from './npm-lock.js';
+import { npmGraph, preserveNpmLibc } from './npm-lock.js';
 
 const lock = (v: number, target: string, child: string, unrelated = '1.0.0') =>
   JSON.stringify({
@@ -326,5 +326,66 @@ it.each([2, 3])(
         'target',
       ),
     ).toThrow('outside target');
+  },
+);
+
+it.each([2, 3])(
+  'preserves libc dropped by npm 10 in lockfile v%s for identical contents',
+  (version) => {
+    const before = {
+      lockfileVersion: version,
+      packages: {
+        '': { dependencies: { consumer: '1' } },
+        'node_modules/consumer': { version: '1.0.0', dependencies: { binary: '1' } },
+        'node_modules/binary': {
+          version: '1.0.0',
+          integrity: 'sha512-identical',
+          os: ['linux'],
+          cpu: ['x64'],
+          libc: ['musl'],
+        },
+      },
+    };
+    const after = JSON.parse(JSON.stringify(before));
+    delete after.packages['node_modules/binary'].libc;
+    const a = JSON.stringify(before),
+      b = JSON.stringify(after);
+    expect(() => assertLockScope(npmGraph(a, 'target'), npmGraph(b, 'target'), 'target')).toThrow(
+      'node_modules/consumer',
+    );
+    const preserved = preserveNpmLibc(a, b);
+    expect(JSON.parse(preserved)).toEqual(before);
+    expect(() =>
+      assertLockScope(npmGraph(a, 'target'), npmGraph(preserved, 'target'), 'target'),
+    ).not.toThrow();
+  },
+);
+
+it.each(['version', 'integrity', 'missing integrity', 'libc', 'os', 'cpu'])(
+  'libc preservation never admits a real outside %s change',
+  (field) => {
+    const before = {
+      lockfileVersion: 3,
+      packages: {
+        'node_modules/binary': {
+          version: '1.0.0',
+          integrity: 'sha512-identical',
+          os: ['linux'],
+          cpu: ['x64'],
+          libc: ['musl'],
+        },
+      },
+    };
+    if (field === 'missing integrity')
+      delete (before.packages['node_modules/binary'] as Record<string, unknown>).integrity;
+    const after = JSON.parse(JSON.stringify(before));
+    delete after.packages['node_modules/binary'].libc;
+    if (field !== 'missing integrity')
+      after.packages['node_modules/binary'][field] = field === 'version' ? '2.0.0' : 'changed';
+    const a = JSON.stringify(before),
+      b = preserveNpmLibc(a, JSON.stringify(after));
+    expect(() => assertLockScope(npmGraph(a, 'target'), npmGraph(b, 'target'), 'target')).toThrow(
+      'node_modules/binary',
+    );
   },
 );

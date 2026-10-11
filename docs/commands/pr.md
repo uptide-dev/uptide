@@ -16,11 +16,15 @@ uptide pr --branch uptide/stripe-23.0.0 --yes    # push and open the PR
 ```
 
 `pr` loads the stored run for the branch (written by `fix` or `verify` under `.git/uptide/`),
-checks that the branch is still at the verified commit (else run `uptide verify`), prints
+checks the recorded verified tree hash against the branch tree (and the recorded commit), prints
 which repository the pull request goes to, and with `--yes` pushes the branch and opens the
 pull request with the stored description. On a fork the pull request goes to the fork itself,
 never its parent unless `--repo` names it. `--draft` opens it as a draft. Nothing is pushed
 without `--yes`; `fix --pr --yes` does the same at the end of a migration.
+
+A missing or mismatched verified tree refuses publication with exit 1 before any push. Runs
+created before tree hashes were recorded need `uptide verify` first. An export failure keeps
+the verified clone; restore that work before publishing instead of pushing the older local branch.
 
 GitHub is reached through your own `gh` only when you pass `fix --pr` or run `pr` /
 `pr-body`.

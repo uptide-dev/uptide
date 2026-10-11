@@ -324,6 +324,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     throw new Error('baseline tests modified the working tree; review their changes before fixing');
   // Lint of the same files before anything changes: a failure that is already there is not ours.
   const baselineLint = await (services.lint ?? lintFiles)(root, affected);
+  const baseHead = git(root, 'rev-parse', 'HEAD');
   git(root, 'switch', '-c', branch);
   const bumps = [
     bumpVersions(root, pack.name, target),
@@ -528,6 +529,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ...tool,
     verifiedAt: new Date().toISOString(),
     head: git(root, 'rev-parse', 'HEAD'),
+    verifiedTree: git(root, 'rev-parse', 'HEAD^{tree}'),
+    baseHead,
+    changedFiles: git(root, 'diff', '--name-only', baseHead, 'HEAD').split('\n').filter(Boolean),
     branch,
     sites,
     verification: {
@@ -615,6 +619,13 @@ export async function publishVerified(
       result.notes.push(
         `Publication plan printed, nothing pushed (no --yes): \`${UPTIDE_COMMAND} pr --branch ${result.branch} --yes\` opens the PR.`,
       );
+      return;
+    }
+    if (error instanceof UptideError && error.code === 'VERIFIED_TREE_MISMATCH') {
+      result.exportError = message;
+      result.verification = { ...result.verification, passed: false };
+      result.publication = { refused: [message] };
+      result.notes.push(message);
       return;
     }
     result.publication = { refused: [], failed: message.split('\n')[0] ?? message };

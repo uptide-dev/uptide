@@ -82,10 +82,21 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
       '',
     );
   const from = opts.cwd ?? report.source ?? report.repo;
-  const where = report.source ? `in your repository, not checked out` : `in ${report.repo}`;
+  if (report.exportError) lines.push(colors.red(`Export failed: ${report.exportError}`), '');
+  const where = report.exportError
+    ? `NOT exported; verified work is in ${report.clone?.path ?? report.repo}`
+    : report.source
+      ? `in your repository, not checked out`
+      : `in ${report.repo}`;
   lines.push(`${colors.bold('Branch')} ${report.branch} ${colors.dim(`(${where})`)}`);
+  if (report.branchRenamedFrom)
+    lines.push(
+      colors.dim(
+        `  ${report.branchRenamedFrom} already exists with different content; created ${report.branch}.`,
+      ),
+    );
   const base = report.base ?? 'main';
-  lines.push(`  git diff ${base}..${report.branch} --stat`);
+  if (!report.exportError) lines.push(`  git diff ${base}..${report.branch} --stat`);
   if (report.clone?.kept)
     lines.push(
       colors.dim(`  temporary clone kept at ${report.clone.path}: ${report.clone.reason}`),
@@ -98,7 +109,7 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
       `${uptide} pr --branch ${report.branch}`,
       `push the branch and open ${report.publication?.refused.length ? '' : 'a draft '}PR${report.remote ? ` on ${report.remote.replace(/^https:\/\/github\.com\//, '')}` : ''}`,
     ]);
-  else
+  else if (!report.exportError)
     next.push([
       `${uptide} verify --branch ${report.branch}`,
       'verify again after fixing what failed',

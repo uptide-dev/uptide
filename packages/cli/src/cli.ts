@@ -13,6 +13,7 @@ import {
   selectLlm,
   TIER_LEGEND,
   testPack,
+  UptideError,
 } from '@uptide/core';
 import { Command, CommanderError } from 'commander';
 import { describeRepo, detectRepo, type Repo } from './detect.js';
@@ -192,7 +193,12 @@ export async function run(
           });
         else io.err(`${err.message}\n`);
       } else io.err(renderError(err, ui.color));
-      code = err instanceof CliError ? (err.options.exitCode ?? EXIT.error) : EXIT.error;
+      code =
+        err instanceof UptideError && err.code === 'VERIFIED_TREE_MISMATCH'
+          ? EXIT.breaking
+          : err instanceof CliError
+            ? (err.options.exitCode ?? EXIT.error)
+            : EXIT.error;
     }
   };
   const emit = (value: unknown): void => io.out(`${JSON.stringify(value, null, 2)}\n`);
@@ -1129,7 +1135,7 @@ What it does:
 Examples:
   $ uptide pr --branch uptide/stripe-23.0.0          the plan, nothing pushed
   $ uptide pr --branch uptide/stripe-23.0.0 --yes    push and open the PR
-${EXIT_CODES('PR opened (or plan printed without --yes)', 'not used')}`,
+${EXIT_CODES('PR opened (or plan printed without --yes)', 'branch tree does not match the verified run')}`,
     )
     .action((flags: Shared & { branch?: string; repo?: string; draft?: boolean; yes?: boolean }) =>
       act(flags, async ({ cwd }) => {

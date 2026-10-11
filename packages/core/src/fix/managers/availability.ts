@@ -99,5 +99,5 @@ export async function assertManagerAvailable(
     pm.args = pm.args.map((a) =>
       a.startsWith('--mode=') || a === '--skip-builds' ? berrySkipBuild(majorOf(actual)) : a,
     );
-  return pm;
+  return { ...pm, actualVersion: actual };
 }

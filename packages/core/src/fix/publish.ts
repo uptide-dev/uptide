@@ -3,6 +3,7 @@ import { UptideError } from '../errors.js';
 import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
 import { command, git } from './process.js';
 import type { FixReport } from './types.js';
+import { assertVerifiedTree } from './verified-tree.js';
 
 const count = (n: number, one: string): string => `${n} ${one}${n === 1 ? '' : 's'}`;
 
@@ -17,9 +18,10 @@ export function publicationBlockers(
   tool: { uptideDirty: boolean } = uptideVersionInfo(),
 ): string[] {
   const blockers: string[] = [];
+  if (report.exportError) blockers.push(`export failed: ${report.exportError}`);
   const v = report.verification;
   if (report.verificationPending) blockers.push('verification has not run');
-  else if (!v.passed) {
+  else if (!v.passed && !report.exportError) {
     const failed = (v.tests ?? []).filter((t) => t.status === 'failed' || t.status === 'timeout');
     const reasons = [
       ...(v.typesUnverified
@@ -236,16 +238,18 @@ export async function publish(
   io: PublishIO = defaults,
   options: PublishOptions = {},
 ): Promise<string> {
+  if (report.exportError) throw new UptideError('VERIFIED_TREE_MISMATCH', report.exportError);
+  const cwd = options.cwd ?? report.repo;
+  const branch = report.branch;
+  if (!/^uptide\//.test(branch))
+    throw new Error('publication branch does not match the verified migration');
+  if (report.verification.passed) assertVerifiedTree(cwd, report, io.git);
   const blockers = publicationBlockers(report, { uptideDirty: false });
   if (blockers.length)
     throw new UptideError(
       'PUBLICATION_REFUSED',
       `cannot publish an unverified migration: ${blockers.join('; ')}`,
     );
-  const cwd = options.cwd ?? report.repo;
-  const branch = report.branch;
-  if (!/^uptide\//.test(branch))
-    throw new Error('publication branch does not match the verified migration');
   if (options.cwd) {
     // A stored run: the branch must still be the verified commit.
     const at = io.git(cwd, 'rev-parse', branch);
@@ -308,7 +312,12 @@ export async function publish(
   const remoteHead = remoteBranchHead(cwd, branch, io);
   if (remoteHead === head)
     io.print(`${branch} is already on origin at ${head.slice(0, 12)}; not pushed again.`);
-  else io.git(cwd, 'push', '--set-upstream', 'origin', `${branch}:${branch}`);
+  else {
+    assertVerifiedTree(cwd, report, io.git);
+    if (io.git(cwd, 'rev-parse', branch) !== head)
+      throw new Error('HEAD changed after publication planning');
+    io.git(cwd, 'push', '--set-upstream', 'origin', `${head}:refs/heads/${branch}`);
+  }
   // ...and a PR already open for the branch gets this description instead of a second PR.
   const existing = await io.command(cwd, 'gh', [
     'pr',
