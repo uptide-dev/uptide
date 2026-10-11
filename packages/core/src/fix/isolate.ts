@@ -27,6 +27,7 @@ import { prBody } from './report.js';
 import { type ReverifyOptions, type ReverifyServices, reverify } from './reverify.js';
 import { confirmServices, type FixOptions, type FixServices, fix, publishVerified } from './run.js';
 import type { FixReport } from './types.js';
+import { assertVerifiedTree } from './verified-tree.js';
 import { install } from './versions.js';
 
 /** What must be the same in the user's checkout after a run as it was before. */
@@ -221,7 +222,7 @@ export function storedRunFile(source: string, branch: string): string | undefine
  * Hands the result back without touching the working tree: the run is stored inside `.git`,
  * and the branch becomes a ref in the user's repository when that needs no checkout change
  * (a new branch, or a fast-forward of one that is not checked out). A branch the user has
- * checked out is left alone; the commits stay in the clone, to be pushed from there.
+ * checked out is left alone. If its tree differs, export fails and the complete clone is kept.
  */
 function deliver(
   source: string,
@@ -236,7 +237,13 @@ function deliver(
     delivered: false,
   };
   const notes = [...report.notes];
-  if (before.branch === report.branch)
+  try {
+    assertVerifiedTree(clone, report);
+  } catch (error) {
+    result.exportError = (error as Error).message;
+  }
+  if (result.exportError) notes.push(result.exportError);
+  else if (before.branch === report.branch)
     notes.push(
       `${report.branch} is checked out in your repository, so it was not moved; the new commits are in ${clone}.`,
     );
@@ -249,13 +256,20 @@ function deliver(
         clone,
         `refs/heads/${report.branch}:refs/heads/${report.branch}`,
       );
-      result.delivered = true;
     } catch {
       notes.push(
         `${report.branch} already exists in your repository and has other commits; the new branch is in ${clone}.`,
       );
     }
   }
+  try {
+    if (!result.exportError) assertVerifiedTree(source, report);
+    result.delivered = !result.exportError;
+  } catch (error) {
+    result.exportError = (error as Error).message;
+    notes.push(`Export failed: ${result.exportError}`);
+  }
+  if (result.exportError) result.verification = { ...result.verification, passed: false };
   const changed = changedSince(source, before);
   if (changed.length) {
     result.sourceChanged = changed;
@@ -278,15 +292,17 @@ function finish(
   options: { keep?: boolean; pushed: boolean },
 ): FixReport {
   const { delivered: inSource, ...result } = delivered;
-  const reason = options.keep
-    ? 'kept on request (--keep)'
-    : !result.verification.passed
-      ? 'the run did not verify'
-      : result.sourceChanged?.length
-        ? 'your checkout changed during the run'
-        : !inSource && !options.pushed
-          ? 'it holds commits that are not in your repository or on the remote yet'
-          : undefined;
+  const reason = result.exportError
+    ? 'export failed: the repository branch does not contain the verified tree'
+    : options.keep
+      ? 'kept on request (--keep)'
+      : !result.verification.passed
+        ? 'the run did not verify'
+        : result.sourceChanged?.length
+          ? 'your checkout changed during the run'
+          : !inSource && !options.pushed
+            ? 'it holds commits that are not in your repository or on the remote yet'
+            : undefined;
   if (reason) result.clone = { path: clone, kept: true, reason };
   else {
     removeRun(clone);
@@ -512,8 +528,8 @@ export async function isolatedFix(
   const landed = delivered.delivered;
   // The branch ref and the stored run are in the repository before anything is published.
   const result = finish(source, clone, delivered, { ...(keep ? { keep } : {}), pushed: false });
-  if (!options.pr) return result;
-  // From the user's repository when the branch landed there; else from the clone that holds it.
+  if (!options.pr || result.exportError) return result;
+  // Publication only follows a successful export to the user's repository.
   await (services?.publish ?? publishVerified)(result, {
     tool,
     ...(options.yes ? { yes: true } : {}),
@@ -566,7 +582,9 @@ export async function isolatedVerify(
     let pushed = false;
     if (options.push && delivered.verification.passed && !delivered.sourceChanged?.length) {
       // No force, ever: if the remote moved, the push fails and says so.
-      git(clone, 'push', 'origin', `${branch}:${branch}`);
+      assertVerifiedTree(source, delivered);
+      assertVerifiedTree(clone, delivered);
+      git(clone, 'push', 'origin', `${delivered.head}:refs/heads/${branch}`);
       delivered.notes.push(
         `Pushed ${delivered.head?.slice(0, 8)} to origin/${branch} (fast-forward).`,
       );

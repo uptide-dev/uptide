@@ -141,3 +141,11 @@ it('lists packages re-resolved because a peer changed', () => {
   expect(out).toContain('Re-resolved because a peer changed');
   expect(out).toContain('plugin 1.1.0 → 1.2.0 · peers react');
 });
+
+it('uses the committed diff count instead of counting diagnostic-only files as changed', () => {
+  const report = {
+    ...fixReport(true),
+    changedFiles: ['package.json', 'package-lock.json', 'props.ts'],
+  };
+  expect(formatFixSummary(report, { color: false })).toContain('3 changed files');
+});

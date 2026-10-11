@@ -30,6 +30,7 @@ it('loads the stored run for the branch, refuses a branch that moved, and opens 
     target: '4.6.5',
     branch: 'uptide/zod-4.6.5',
     head,
+    verifiedTree: git(root, 'rev-parse', 'HEAD^{tree}'),
     sites: [],
     verification: {
       baseline: [],
@@ -92,7 +93,7 @@ it('loads the stored run for the branch, refuses a branch that moved, and opens 
     'push',
     '--set-upstream',
     'origin',
-    'uptide/zod-4.6.5:uptide/zod-4.6.5',
+    `${head}:refs/heads/uptide/zod-4.6.5`,
   ]);
   // The branch moved since the run: verify first.
   git(root, 'switch', '-q', 'uptide/zod-4.6.5');
@@ -102,7 +103,7 @@ it('loads the stored run for the branch, refuses a branch that moved, and opens 
   git(root, 'switch', '-q', '-');
   await expect(
     openPr({ cwd: root, branch: 'uptide/zod-4.6.5', yes: true }, io.print, io),
-  ).rejects.toThrow('run `npx uptide verify --branch uptide/zod-4.6.5` first');
+  ).rejects.toMatchObject({ code: 'VERIFIED_TREE_MISMATCH' });
   await expect(openPr({ cwd: root, branch: 'uptide/other' }, io.print, io)).rejects.toThrow(
     'no stored migration run for uptide/other',
   );

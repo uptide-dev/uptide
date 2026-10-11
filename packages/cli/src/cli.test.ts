@@ -832,3 +832,32 @@ it('rejects key-like repository config before the engine, even with --no-llm', a
   expect(engine.calls).toEqual([]);
   expect(io.stderr()).not.toContain('LLM spend:');
 });
+
+it('exits 1 when verified work was not exported and never offers pr', async () => {
+  const io = memoryIo({ cwd: pnpmGitRepo() });
+  const engine = fakeEngine({
+    fix: async () => ({
+      ...fixReport(false),
+      exportError: 'repository tree does not match the recorded verified tree',
+      clone: { path: '/kept/clone', kept: true, reason: 'export failed' },
+    }),
+  });
+  expect(await run(['fix', 'zod', '--no-llm'], io, engine)).toBe(1);
+  expect(io.stdout()).toContain('Export failed:');
+  expect(io.stdout()).toContain('NOT exported');
+  expect(io.stdout() + io.stderr()).not.toMatch(/verification passed|uptide pr/);
+});
+
+it('exits 1 when pr refuses a tree that was not verified', async () => {
+  const io = memoryIo({ cwd: pnpmGitRepo() });
+  const engine = fakeEngine({
+    pr: async () => {
+      throw new UptideError(
+        'VERIFIED_TREE_MISMATCH',
+        'branch tree differs from the verified tree; nothing pushed',
+      );
+    },
+  });
+  expect(await run(['pr', '--branch', 'uptide/zod-4.6.5', '--yes'], io, engine)).toBe(1);
+  expect(io.stderr()).toContain('nothing pushed');
+});

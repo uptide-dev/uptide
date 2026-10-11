@@ -156,6 +156,12 @@ export interface FixReport {
   verifiedAt?: string;
   verificationTimingMs?: number;
   head?: string;
+  /** Committed tree checked by verification; required before publication. */
+  verifiedTree?: string;
+  /** Export failed; the verified work remains in the kept clone. */
+  exportError?: string;
+  baseHead?: string;
+  changedFiles?: string[];
   verificationPending?: boolean;
   branch: string;
   sites: FixSite[];
