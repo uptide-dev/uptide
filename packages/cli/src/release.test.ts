@@ -45,6 +45,11 @@ const at = (j: Job, match: (s: Step) => boolean | undefined): number => {
 const runs = (j: Job, needle: string) => at(j, (s) => s.run?.includes(needle));
 
 describe('the Release workflow', () => {
+  it.each(Object.keys(release.jobs))('runs release tooling on Node 22 in %s', (name) => {
+    const setup = job(name).steps.filter((s) => s.uses?.startsWith('actions/setup-node@'));
+    expect(setup.map((s) => s.with?.['node-version'])).toEqual([22]);
+  });
+
   it('runs on every push to main, and by hand as a dry run unless told otherwise', () => {
     expect(Object.keys(release.on).sort()).toEqual(['push', 'workflow_dispatch']);
     expect(release.on.push?.branches).toEqual(['main']);
@@ -289,9 +294,13 @@ describe('the release plan', () => {
 });
 
 describe('next snapshots', () => {
-  it.each(['empty', 'minor'])(
+  it.for(['empty', 'minor'])(
     'versions the CLI with %s changesets without modifying the source checkout',
-    (kind) => {
+    (kind, { skip }) => {
+      skip(
+        Number(process.versions.node.split('.')[0]) < 22,
+        '@changesets/cli 3 requires Node 22+: module.enableCompileCache() is unavailable on Node 20',
+      );
       const root = mkdtempSync(join(tmpdir(), 'uptide-snapshot-'));
       try {
         for (const path of ['.changeset', 'packages/cli'])

@@ -1,5 +1,6 @@
 name: Release
 
+# Release tooling (@changesets/cli 3) requires Node 22+; the shipped CLI supports Node 20.
 # Every push to main, from the public repository only (docs/releasing.md):
 # - a version bump: publish the committed version under `latest` if npm does not have it,
 #   then tag it and create its GitHub Release from its CHANGELOG entry;
