@@ -1,5 +1,15 @@
 # uptide
 
+## 0.7.4
+
+### Patch Changes
+
+- [#79](https://github.com/uptide-dev/uptide/pull/79) [`560d87d`](https://github.com/uptide-dev/uptide/commit/560d87d546e224355ffb27955901ac960ec9895f) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Preserve workspace ranges that already accept upgrade targets, including companions, and report them as already compatible. Widen rejecting peer ranges without removing alternatives and give widening instructions for unsupported ranges. Fix the workspace-root command hint to retain the target and use positional package syntax without npx.
+  
+  Verify that installed target and companion versions exactly match the plan, including when ranges already accept the target. Preserve exact Yarn Berry resolutions without narrowing manifests and correct Yarn 3's build-suppression flag.
+  
+  Limit Yarn Berry descriptor pinning to unchanged compatible npm ranges and aliases, avoiding self-resolutions when an exact dependency is upgraded.
+
 ## 0.7.3
 
 ### Patch Changes
