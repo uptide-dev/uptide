@@ -24,7 +24,9 @@ npx uptide pr --branch uptide/zod-4.6.5    # prints the plan; add --yes to push 
 ```
 
 `npx uptide` with no command shows where zod and stripe stand: installed, latest, majors
-behind. Everything else: [getting started](docs/getting-started.md).
+behind. `fix` preserves workspace and companion ranges that already accept the target,
+reports them as **already compatible**, and widens rejecting peer ranges without dropping
+existing alternatives. Everything else: [getting started](docs/getting-started.md).
 
 ## Why Uptide
 

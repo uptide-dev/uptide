@@ -8,8 +8,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { parseDocument } from 'yaml';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
-import { compareVersions } from '../check/version.js';
+import { compareVersions, parseVersion } from '../check/version.js';
 import { UptideError } from '../errors.js';
+import { satisfies, validRange } from '../fetch/range.js';
 import { installedManifest } from '../list/evidence.js';
 import { command } from './process.js';
 
@@ -55,7 +56,7 @@ export function versionRange(before: string, version: string): string {
   )
     throw new UptideError(
       'UNSUPPORTED_VERSION_RANGE',
-      `Cannot preserve version range ${JSON.stringify(before)}; use an exact, ^ or ~ range before fixing.`,
+      `Cannot preserve version range ${JSON.stringify(before)}; add the target major to the range without removing existing alternatives before fixing.`,
     );
   const target = version.split('.');
   const full = parts.length === 3 && parts.every((p) => /^\d+$/.test(p));
@@ -68,19 +69,22 @@ function declaredRange(
   file: string,
   field: string,
   name: string,
-  installed: string | null | undefined,
+  peer = false,
 ): string {
+  const alias = /^(npm:(?:@[^/\s]+\/)?[^@\s]+@)(.+)$/.exec(before);
+  const range = alias?.[2] ?? before;
+  if (satisfies(version, range)) return before;
+  const target = parseVersion(version);
+  if (!target) throw new Error('target must be an exact version');
+  const addition = `^${target.pre || target.major === 0 ? version : `${target.major}.0.0`}`;
+  if (peer && validRange(range)) return `${before} || ${addition}`;
   try {
     return versionRange(before, version);
   } catch (error) {
     if (!(error instanceof UptideError) || error.code !== 'UNSUPPORTED_VERSION_RANGE') throw error;
-    const alias = /^(npm:(?:@[^/\s]+\/)?[^@\s]+@)/.exec(before)?.[1] ?? '';
-    const suggestion = installed
-      ? JSON.stringify(`${alias}^${installed}`)
-      : 'an exact, ^ or ~ range matching the installed version';
     throw new UptideError(
       'UNSUPPORTED_VERSION_RANGE',
-      `${file}: ${field} declares ${JSON.stringify(before)}, which cannot be rewritten safely. Change ${JSON.stringify(name)}: ${JSON.stringify(before)} in ${file} (${field}) to ${suggestion}, then rerun.`,
+      `${file}: ${field} declares ${JSON.stringify(before)}, which cannot be rewritten safely. Add the target ${name} major (${addition}) to the range in ${file} (${field}), keeping all existing alternatives, then rerun.`,
     );
   }
 }
@@ -91,7 +95,7 @@ export function bumpCatalog(
   name: string,
   version: string,
   catalog: string,
-  installed: string | null = version,
+  peer = false,
 ): string {
   const doc = parseDocument(yaml);
   if (doc.errors.length) throw doc.errors[0];
@@ -99,37 +103,42 @@ export function bumpCatalog(
   const before = doc.getIn(path);
   if (typeof before !== 'string')
     throw new Error(`catalog ${catalog || '(default)'} has no entry for ${name}`);
-  doc.setIn(
-    path,
-    declaredRange(before, version, 'pnpm-workspace.yaml', path.join('.'), name, installed),
-  );
+  const after = declaredRange(before, version, 'pnpm-workspace.yaml', path.join('.'), name, peer);
+  if (after === before) return yaml;
+  doc.setIn(path, after);
   return doc.toString();
 }
 
 /** The same rewrite as the writer, without touching files. `read` can read the committed ref. */
 export function validateVersionRanges(
   root: string,
-  names: readonly string[],
+  moves: readonly { name: string; to: string }[],
   read = (file: string) => readFileSync(join(root, file), 'utf8'),
 ): void {
   for (const workspace of workspacePackagesOf(root)) {
     const file = join(workspace, 'package.json');
     const json = JSON.parse(read(file));
-    for (const name of names) {
+    for (const { name, to } of moves) {
       for (const section of sections) {
         const before = json[section]?.[name];
         if (typeof before !== 'string') continue;
-        const installed = installedManifest(root, workspace, name)?.version;
         if (before.startsWith('catalog:'))
           bumpCatalog(
             read('pnpm-workspace.yaml'),
             name,
-            installed ?? '0.0.0',
+            to,
             before.slice(8),
-            installed ?? null,
+            section === 'peerDependencies',
           );
         else
-          declaredRange(before, installed ?? '0.0.0', file, `${section}.${name}`, name, installed);
+          declaredRange(
+            before,
+            to,
+            file,
+            `${section}.${name}`,
+            name,
+            section === 'peerDependencies',
+          );
       }
     }
   }
@@ -138,11 +147,12 @@ export function bumpVersions(
   root: string,
   name: string,
   version: string,
-): { files: string[]; workspaces: string[] } {
-  validateVersionRanges(root, [name]);
+): { files: string[]; workspaces: string[]; alreadyCompatible: string[] } {
+  validateVersionRanges(root, [{ name, to: version }]);
   const files: string[] = [];
   const workspaces: string[] = [];
-  const catalogs = new Set<string>();
+  const catalogs = new Map<string, boolean>();
+  const alreadyCompatible: string[] = [];
   for (const workspace of workspacePackagesOf(root)) {
     const file = join(root, workspace, 'package.json');
     const original = readFileSync(file, 'utf8');
@@ -153,17 +163,26 @@ export function bumpVersions(
       const before = json[section]?.[name];
       if (typeof before !== 'string') continue;
       declared = true;
-      if (before.startsWith('catalog:')) catalogs.add(before.slice('catalog:'.length));
-      else {
-        json[section][name] = declaredRange(
+      if (before.startsWith('catalog:')) {
+        const catalog = before.slice('catalog:'.length);
+        catalogs.set(catalog, catalogs.get(catalog) || section === 'peerDependencies');
+        const yaml = readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8');
+        if (bumpCatalog(yaml, name, version, catalog, section === 'peerDependencies') === yaml)
+          alreadyCompatible.push(`${workspace} (${section}.${name})`);
+      } else {
+        const after = declaredRange(
           before,
           version,
           relative(root, file),
           `${section}.${name}`,
           name,
-          installedManifest(root, workspace, name)?.version ?? version,
+          section === 'peerDependencies',
         );
-        changed = true;
+        if (after === before) alreadyCompatible.push(`${workspace} (${section}.${name})`);
+        else {
+          json[section][name] = after;
+          changed = true;
+        }
       }
     }
     if (declared) workspaces.push(workspace);
@@ -177,13 +196,16 @@ export function bumpVersions(
   }
   if (catalogs.size) {
     const file = join(root, 'pnpm-workspace.yaml');
-    let text = readFileSync(file, 'utf8');
-    for (const catalog of catalogs) text = bumpCatalog(text, name, version, catalog);
-    writeFileSync(file, text);
-    files.push(file);
+    const original = readFileSync(file, 'utf8');
+    let text = original;
+    for (const [catalog, peer] of catalogs) text = bumpCatalog(text, name, version, catalog, peer);
+    if (text !== original) {
+      writeFileSync(file, text);
+      files.push(file);
+    }
   }
   if (!workspaces.length) throw new Error(`no workspace declares ${name}`);
-  return { files, workspaces };
+  return { files, workspaces, alreadyCompatible };
 }
 export async function install(root: string, upgrade?: Upgrade): Promise<InstallReport | undefined> {
   if (upgrade) return isolatedUpgrade(root, upgrade);

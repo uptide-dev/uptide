@@ -260,11 +260,7 @@ export async function peerPreflight(
         `--allow-peer ${name}: no conflicting installed peer with that name in this upgrade.`,
       );
   const companions = [...actual.moves.values()].filter((c) => c.name !== options.only);
-  validateVersionRanges(
-    options.cwd,
-    companions.map((c) => c.name),
-    read,
-  );
+  validateVersionRanges(options.cwd, [...actual.moves.values()], read);
   if (packageManager(options.cwd).kind === 'npm' && actual.peers.some((p) => !p.allowed)) {
     // Look ahead through suggested upgrades so the one command includes their blockers as well.
     const extras = new Set(requested);

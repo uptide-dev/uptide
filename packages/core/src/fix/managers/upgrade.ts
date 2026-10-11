@@ -52,9 +52,10 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
   const names = moves.map((m) => m.name);
   const before = lockGraph(pm, beforeText, names);
   const originals = new Map(
-    upgrade.files
-      .filter((f) => f.endsWith('package.json'))
-      .map((f) => [f, readFileSync(join(root, f), 'utf8')]),
+    upgrade.workspaces.map((w) => {
+      const file = join(w, 'package.json');
+      return [file, readFileSync(join(root, file), 'utf8')];
+    }),
   );
   const rootManifest = join(root, 'package.json');
   const rootText = readFileSync(rootManifest, 'utf8');

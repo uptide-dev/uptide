@@ -323,10 +323,10 @@ describe('friendly failures: each says what to run next', () => {
     expect(outside.stderr).toContain('Next: git init && git add -A && git commit -m "baseline"');
 
     const root = pnpmGitRepo({ 'packages/api/package.json': manifest });
-    const below = await fail(['fix', '--only', 'zod'], join(root, 'packages/api'));
+    const below = await fail(['fix', 'zod', '--target', '4.6.5'], join(root, 'packages/api'));
     expect(below.code).toBe(2);
     expect(below.stderr).toContain('error: fix has to run at the project root');
-    expect(below.stderr).toContain(`Next: npx uptide fix --only zod --cwd ${root}`);
+    expect(below.stderr).toContain(`Next: uptide fix zod --target 4.6.5 --cwd ${root}`);
 
     writeFileSync(join(root, 'scratch.ts'), '');
     const dirty = await fail(['fix', '--only', 'zod'], root);

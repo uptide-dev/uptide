@@ -180,7 +180,7 @@ function git(root: string, ...args: string[]): string | undefined {
 }
 
 /** What `fix` needs before it may touch anything: a supported manager, a git root, a clean tree. */
-export function requireFixable(repo: Repo, only: string): void {
+export function requireFixable(repo: Repo, only: string, target?: string): void {
   if (!['pnpm', 'npm', 'yarn'].includes(repo.manager))
     throw new CliError(`fix does not support ${repo.manager} repositories yet`, {
       why: 'It updates the lockfile and verifies the result, which is implemented for npm, pnpm and Yarn. `check` works here and lists every site to migrate.',
@@ -199,11 +199,14 @@ export function requireFixable(repo: Repo, only: string): void {
     dir.startsWith(realpathSync(top));
     dir = dirname(dir)
   ) {
-    if (existsSync(join(dir, 'package.json')))
+    if (existsSync(join(dir, 'package.json'))) {
+      const cwd = /^[\w./-]+$/.test(dir) ? dir : `'${dir.replaceAll("'", "'\"'\"'")}'`;
       throw new CliError('fix has to run at the project root', {
         why: 'Every workspace declaring the dependency is upgraded together.',
-        next: `uptide fix --only ${only} --cwd ${dir}`,
+        next: `uptide fix ${only}${target ? ` --target ${target}` : ''} --cwd ${cwd}`,
+        literalNext: true,
       });
+    }
     if (dir === realpathSync(top)) break;
   }
   if (git(repo.root, 'status', '--porcelain', '--untracked-files=all'))

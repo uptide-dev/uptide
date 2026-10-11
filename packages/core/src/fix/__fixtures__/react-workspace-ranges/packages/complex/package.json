@@ -1,0 +1,9 @@
+{
+  "name": "complex",
+  "peerDependencies": {
+    "react": "^17 || ^18 <18.3",
+    "react-dom": "^17 || ^18 <18.3",
+    "@types/react": "^17 || ^18 <18.3",
+    "@types/react-dom": "^17 || ^18 <18.3"
+  }
+}
