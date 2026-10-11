@@ -1,5 +1,4 @@
-# Dependency updates. Minor and patch releases come as one pull request per ecosystem;
-# each major gets its own, since a major is the one that needs a migration.
+# Minor and patch releases come as one pull request per ecosystem; Actions majors are separate.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -24,8 +23,22 @@ updates:
     schedule:
       interval: weekly
     groups:
-      github-actions:
+      github-actions-minor-and-patch:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
+      github-actions-major:
+        patterns:
+          - "*"
+        update-types:
+          - major
+    # Release-critical majors need a manual migration; do not open them automatically.
+    ignore:
+      - dependency-name: changesets/action
+        update-types: ["version-update:semver-major"]
+      - dependency-name: actions/create-github-app-token
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
