@@ -64,6 +64,8 @@ describe('the Release workflow', () => {
     );
     expect(plan.steps[0]?.run).toContain('exit 1');
     expect(plan.permissions).toEqual({ contents: 'read' });
+    const checkout = plan.steps[at(plan, (s) => s.uses?.startsWith('actions/checkout@'))];
+    expect(checkout?.with?.['fetch-depth']).toBe(2);
     for (const name of ['version-pr', 'publish']) expect(job(name).needs).toBe('plan');
     expect(job('github-release').needs).toEqual(['plan', 'publish']);
   });
@@ -76,18 +78,20 @@ describe('the Release workflow', () => {
     // The app's token, not GITHUB_TOKEN: a pull request opened with that triggers no CI.
     const app = pr.steps[at(pr, (s) => s.uses?.startsWith('actions/create-github-app-token@'))];
     expect(app?.with).toEqual({
-      'app-id': '${{ vars.RELEASE_APP_ID }}',
+      'client-id': '${{ vars.RELEASE_APP_CLIENT_ID }}',
       'private-key': '${{ secrets.RELEASE_APP_PRIVATE_KEY }}',
     });
     expect(pr.steps[1]?.run).toContain('[ "$SLUG" != uptide-release ]');
     const checkout = pr.steps[at(pr, (s) => s.uses?.startsWith('actions/checkout@'))];
     expect(checkout?.with?.token).toBe('${{ steps.app.outputs.token }}');
     const changesets = at(pr, (s) => s.uses?.startsWith('changesets/action@'));
-    expect(pr.steps[changesets]?.with).toMatchObject({
-      version: 'pnpm changeset version',
-      title: 'Version Packages',
-      setupGitUser: false,
-      createGithubReleases: false,
+    expect(pr.steps[changesets]?.with).toEqual({
+      'github-token': '${{ steps.app.outputs.token }}',
+      'version-script': 'pnpm changeset version',
+      'pr-title': 'Version Packages',
+      'commit-message': 'chore(release): version packages',
+      'push-with-git-cli': true,
+      'create-github-releases': false,
     });
     expect(pr.steps[changesets]?.with).not.toHaveProperty('publish');
     expect(pr.steps[changesets]?.env?.GITHUB_TOKEN).toBe('${{ steps.app.outputs.token }}');
@@ -213,19 +217,141 @@ describe('the release plan', () => {
     event: string;
     pending: boolean;
     version: string;
+    previousVersion: string;
     published: string[];
   }) => { pending: boolean; version: string; channel: string };
-  it('snapshots pending changesets to next, and publishes an unpublished version to latest', async () => {
-    const { releasePlan } = await script<{ releasePlan: Plan }>('release-plan.mjs');
-    const published = ['0.3.0', '0.4.0'];
-    const channel = (event: string, pending: boolean, version: string) =>
-      releasePlan({ event, pending, version, published }).channel;
-    expect(channel('push', true, '0.4.0')).toBe('next');
-    expect(channel('push', false, '0.5.0')).toBe('latest');
-    expect(channel('push', false, '0.4.0')).toBe('');
-    // By hand: only the committed version, whatever is pending.
-    expect(channel('workflow_dispatch', true, '0.5.0')).toBe('latest');
-    expect(channel('workflow_dispatch', true, '0.4.0')).toBe('');
+  it.each([true, false])(
+    'chooses channels from version changes, with pending=%s',
+    async (pending) => {
+      const { releasePlan } = await script<{ releasePlan: Plan }>('release-plan.mjs');
+      const published = ['0.3.0', '0.4.0'];
+      const channel = (event: string, previousVersion: string, version: string) =>
+        releasePlan({ event, pending, previousVersion, version, published }).channel;
+      expect(channel('push', '0.4.0', '0.4.0')).toBe('next');
+      expect(channel('push', '0.4.0', '0.5.0')).toBe('latest');
+      expect(channel('push', '0.3.0', '0.4.0')).toBe(''); // Already-published release retry.
+      expect(channel('push', '0.5.0', '0.5.0')).toBe('next'); // Unpublished does not mean release commit.
+      // By hand: only the committed version, whatever is pending.
+      expect(channel('workflow_dispatch', '0.5.0', '0.5.0')).toBe('latest');
+      expect(channel('workflow_dispatch', '0.4.0', '0.4.0')).toBe('');
+    },
+  );
+
+  it.each([
+    ['---\n---\n', false], // date-fns-blocked.md left after Version Packages #74.
+    ['---\n"@uptide/core": patch\n---\n', false],
+    ['---\n---\n\n"uptide": patch\n', false],
+    ['---\n"uptide": patch\n---\n', true],
+    ["---\r\n'uptide': minor\r\n---\r\n", true],
+    ['---\nuptide: major\n---\n', true],
+  ])('counts only a CLI release in changeset frontmatter (%j)', async (contents, expected) => {
+    const { hasCliChangeset } = await script<{ hasCliChangeset(text: string): boolean }>(
+      'release-plan.mjs',
+    );
+    expect(hasCliChangeset(contents)).toBe(expected);
+  });
+
+  it('executes the plan on a synthetic version merge and a later non-release push', () => {
+    const root = mkdtempSync(join(tmpdir(), 'uptide-release-plan-'));
+    try {
+      for (const path of ['scripts', '.changeset', 'packages/cli', 'bin'])
+        mkdirSync(join(root, path), { recursive: true });
+      const manifest = join(root, 'packages/cli/package.json');
+      writeFileSync(join(root, 'scripts/release-plan.mjs'), read('scripts/release-plan.mjs'));
+      writeFileSync(join(root, '.changeset/date-fns-blocked.md'), '---\n---\n');
+      writeFileSync(join(root, 'bin/npm'), '#!/bin/sh\nprintf \'["0.7.1"]\\n\'\n', { mode: 0o755 });
+      const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
+      git('init');
+      git('config', 'user.name', 'Test');
+      git('config', 'user.email', 'test@example.test');
+      writeFileSync(manifest, JSON.stringify({ name: 'uptide', version: '0.7.1' }));
+      git('add', '.');
+      git('commit', '-m', 'baseline');
+      writeFileSync(manifest, JSON.stringify({ name: 'uptide', version: '0.7.2' }));
+      git('commit', '-am', 'Version Packages');
+      const run = (event: string) =>
+        spawnSync(process.execPath, [join(root, 'scripts/release-plan.mjs')], {
+          cwd: tmpdir(),
+          env: { ...process.env, EVENT: event, PATH: `${root}/bin:${process.env.PATH}` },
+          encoding: 'utf8',
+        });
+      const merged = run('push');
+      expect(merged.status).toBe(0);
+      expect(merged.stdout).toBe('pending=false\nversion=0.7.2\nchannel=latest\n');
+      git('commit', '--allow-empty', '-m', 'CI-only change');
+      expect(run('push').stdout).toBe('pending=false\nversion=0.7.2\nchannel=next\n');
+      writeFileSync(join(root, '.changeset/fix.md'), '---\n"uptide": patch\n---\n');
+      expect(run('workflow_dispatch').stdout).toBe('pending=true\nversion=0.7.2\nchannel=latest\n');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('next snapshots', () => {
+  it.each(['empty', 'minor'])(
+    'versions the CLI with %s changesets without modifying the source checkout',
+    (kind) => {
+      const root = mkdtempSync(join(tmpdir(), 'uptide-snapshot-'));
+      try {
+        for (const path of ['.changeset', 'packages/cli'])
+          mkdirSync(join(root, path), { recursive: true });
+        const bin = new URL('../../../node_modules/@changesets/cli/bin.js', import.meta.url)
+          .pathname;
+        writeFileSync(
+          join(root, 'package.json'),
+          JSON.stringify({
+            name: 'fixture',
+            private: true,
+            scripts: { changeset: `node "${bin}"` },
+          }),
+        );
+        writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+        const manifest = join(root, 'packages/cli/package.json');
+        writeFileSync(manifest, JSON.stringify({ name: 'uptide', version: '0.7.2' }));
+        const config = JSON.parse(read('.changeset/config.json'));
+        writeFileSync(
+          join(root, '.changeset/config.json'),
+          JSON.stringify({ ...config, changelog: false, ignore: [] }),
+        );
+        writeFileSync(
+          join(root, '.changeset/pending.md'),
+          kind === 'minor' ? '---\n"uptide": minor\n---\n' : '---\n---\n',
+        );
+        const publish = job('publish');
+        const step = publish.steps[runs(publish, 'pnpm changeset version --snapshot next')];
+        const result = spawnSync('bash', ['-eu', '-c', step?.run ?? ''], {
+          cwd: root,
+          env: { ...process.env, GITHUB_RUN_ID: '1234', GITHUB_RUN_ATTEMPT: '1' },
+          encoding: 'utf8',
+        });
+        expect(result.status, result.stdout + result.stderr).toBe(0);
+        const { version } = JSON.parse(readFileSync(manifest, 'utf8'));
+        expect(version).toMatch(kind === 'minor' ? /^0\.8\.0-next\.\d+$/ : /^0\.7\.3-next\.\d+$/);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+});
+
+describe('release-critical action updates', () => {
+  it('separates major updates and ignores the two manually migrated majors', () => {
+    const config = parse(read('.github/dependabot.yml'));
+    const actions = config.updates.find(
+      (u: { 'package-ecosystem': string }) => u['package-ecosystem'] === 'github-actions',
+    );
+    expect(actions.groups['github-actions-minor-and-patch']['update-types']).toEqual([
+      'minor',
+      'patch',
+    ]);
+    expect(actions.groups['github-actions-major']['update-types']).toEqual(['major']);
+    expect(actions.ignore).toEqual(
+      ['changesets/action', 'actions/create-github-app-token'].map((name) => ({
+        'dependency-name': name,
+        'update-types': ['version-update:semver-major'],
+      })),
+    );
   });
 });
 

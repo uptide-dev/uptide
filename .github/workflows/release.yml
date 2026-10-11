@@ -1,10 +1,10 @@
 name: Release
 
 # Every push to main, from the public repository only (docs/releasing.md):
-# - pending changesets: open or update the Version Packages pull request, and publish a
-#   snapshot of main under the `next` dist-tag;
-# - no pending changeset and a committed version npm does not have: publish it under
-#   `latest`, then tag it and create its GitHub Release from its CHANGELOG entry.
+# - a version bump: publish the committed version under `latest` if npm does not have it,
+#   then tag it and create its GitHub Release from its CHANGELOG entry;
+# - every other push: publish a snapshot under `next`;
+# - pending CLI changesets also open or update the Version Packages pull request.
 # By hand (workflow_dispatch, a dry run unless told otherwise): publish the committed
 # version under `latest` if npm does not have it, whatever changesets are pending. For
 # when an automatic publish failed.
@@ -45,6 +45,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 2
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -68,7 +69,7 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app
         with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - name: The token is the release app's
         env:
@@ -99,14 +100,14 @@ jobs:
       - name: Open or update the Version Packages pull request
         uses: changesets/action@v2
         with:
-          version: pnpm changeset version
-          title: Version Packages
-          commit: 'chore(release): version packages'
-          setupGitUser: false
-          createGithubReleases: false
+          github-token: ${{ steps.app.outputs.token }}
+          version-script: pnpm changeset version
+          pr-title: Version Packages
+          commit-message: 'chore(release): version packages'
+          push-with-git-cli: true
+          create-github-releases: false
         env:
-          # changesets/action opens the pull request with it; changelog-github reads pull
-          # request links with it.
+          # changelog-github reads pull request links with it; the action uses its input above.
           GITHUB_TOKEN: ${{ steps.app.outputs.token }}
 
   publish:
@@ -165,7 +166,10 @@ jobs:
         if: ${{ needs.plan.outputs.channel == 'next' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pnpm changeset version --snapshot next
+        run: |
+          # A docs/CI-only push still needs a CLI snapshot; empty changesets do not bump it.
+          printf '%s\n' '---' '"uptide": patch' '---' '' 'CI snapshot.' > ".changeset/ci-next-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.md"
+          pnpm changeset version --snapshot next
       - name: The version to publish
         id: version
         run: |
