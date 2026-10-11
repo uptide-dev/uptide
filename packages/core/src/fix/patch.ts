@@ -1,5 +1,10 @@
 /** Single-file diff; removed/context text must match exactly. Header arithmetic is not trusted. */
-export function applyFilePatch(source: string, file: string, patch: string): string {
+export function applyFilePatch(
+  source: string,
+  file: string,
+  patch: string,
+  regions?: { line: number; endLine: number }[],
+): string {
   if (patch.length > 1_000_000) throw new Error('patch exceeds 1 MB');
   const lines = patch
     .trimEnd()
@@ -97,6 +102,21 @@ export function applyFilePatch(source: string, file: string, patch: string): str
         );
       start = candidates[0] as number;
     }
+    if (regions) {
+      let prefix = 0,
+        suffix = 0;
+      while (prefix < o.length && prefix < n.length && o[prefix] === n[prefix]) prefix++;
+      while (
+        suffix < o.length - prefix &&
+        suffix < n.length - prefix &&
+        o[o.length - 1 - suffix] === n[n.length - 1 - suffix]
+      )
+        suffix++;
+      const first = start + prefix + 1;
+      const last = start + o.length - suffix;
+      if (!regions.some((r) => first >= r.line && Math.max(first, last) <= r.endLine))
+        throw new Error(`patch edits outside the related declaration in ${file}`);
+    }
     output.push(...original.slice(cursor, start), ...n);
     cursor = start + o.length;
     hunks++;
@@ -104,4 +124,34 @@ export function applyFilePatch(source: string, file: string, patch: string): str
   if (!hunks) throw new Error('empty patch');
   output.push(...original.slice(cursor));
   return output.join('\n');
+}
+
+/** Each file is checked independently before the caller writes any of them. */
+export function applySitePatch(
+  files: Map<string, { source: string; regions?: { line: number; endLine: number }[] }>,
+  patch: string,
+): Map<string, string> {
+  if (patch.length > 1_000_000) throw new Error('patch exceeds 1 MB');
+  const clean = patch
+    .trimEnd()
+    .replace(/^```(?:diff)?\s*\n/, '')
+    .replace(/\n```\s*$/, '');
+  const headers = [...clean.matchAll(/^--- a\/(.+)\n\+\+\+ b\/(.+)$/gm)];
+  if (!headers.length)
+    throw new Error('patch must modify exactly the reported file or a related declaration');
+  const edits = new Map<string, string>();
+  for (const [i, header] of headers.entries()) {
+    const file = header[1] ?? '';
+    const allowed = files.get(file);
+    if (!allowed || file !== header[2] || edits.has(file))
+      throw new Error(`patch file is not editable: ${file}`);
+    const start = i === 0 ? 0 : header.index;
+    const end = headers[i + 1]?.index ?? clean.length;
+    const part = clean
+      .slice(start, end)
+      .replace(/\ndiff --git [^\n]*(?:\nindex [^\n]*)?\n?$/, '')
+      .trimEnd();
+    edits.set(file, applyFilePatch(allowed.source, file, part, allowed.regions));
+  }
+  return edits;
 }

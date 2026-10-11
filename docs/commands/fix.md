@@ -59,6 +59,13 @@ subscription has several).
 The one type error left in both runs is the fixture's own, there on purpose: errors a
 repository already had are subtracted, never blamed on the upgrade.
 
+For assisted fixes, Uptide also sends the repository-local receiving declaration when the
+compiler links it to the error (for example, a nullable ref passed to a prop in another
+file). The agent may edit that declaration as well as the reported file. Sites sharing
+one declaration are attempted together. Every edit still has to remove those errors
+without introducing an error anywhere in the program; otherwise all files are restored.
+Declarations outside the repository or in `node_modules` are never editable.
+
 ## Peer planning and the baseline lockfile
 
 Before cloning, `fix` checks the installed direct dependencies' peer ranges against the

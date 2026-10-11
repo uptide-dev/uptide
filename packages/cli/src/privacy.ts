@@ -6,7 +6,7 @@ export const PRIVACY = `Privacy:
   Analysis runs locally. Code snippets go to your chosen LLM provider (Anthropic, OpenAI or Gemini), only
   for assisted fixes in \`uptide fix\`, and only with your own API key from ANTHROPIC_API_KEY,
   OPENAI_API_KEY or GEMINI_API_KEY: for each
-  site the rules cannot migrate, the finding, the enclosing function and the compiler
+  site the rules cannot migrate, the finding, the enclosing code and compiler-linked repository declarations, and the compiler
   error. \`uptide fix --no-llm\` turns assisted fixes off. No account.
   \`check\` and \`verify\` load the \`typescript\` package your repository installs (resolved from its
   node_modules) to compile with, and never run your repository's scripts or other code outside

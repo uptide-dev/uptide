@@ -58,6 +58,7 @@ describe('fix --no-llm', () => {
     await run(['fix', '--only', 'zod'], io, engine);
     expect(engine.calls[0]).toMatchObject({ llm: true });
     expect(io.stderr()).toContain('note: assisted fixes are on.');
+    expect(io.stderr()).toContain('compiler-linked repository declarations');
     expect(io.stderr()).toContain('Pass --no-llm to keep code on this machine.');
   });
 

@@ -4,6 +4,12 @@ import type { ApiChangeFacts, PackContext } from '../packs/types.js';
 import type { BehaviorResult } from './behavior.js';
 import type { InstallReport } from './managers/upgrade.js';
 import type { PeerBlockerGroup } from './peer-preflight.js';
+export interface RelatedDeclaration {
+  file: string;
+  line: number;
+  endLine: number;
+  message: string;
+}
 export interface FixDiagnostic {
   file: string;
   line: number;
@@ -16,6 +22,9 @@ export interface FixDiagnostic {
    * the type; a migration needs what it is.
    */
   expected?: string;
+  relatedDeclarations?: RelatedDeclaration[];
+  /** Start locations from TypeScript relatedInformation; diagnostic wording is not identity. */
+  relatedLocations?: { file: string; line: number; column: number }[];
 }
 export interface FixSite {
   finding: Finding;
@@ -27,6 +36,7 @@ export interface FixSite {
   /** Site key of the accepted edit that also resolved this diagnostic. */
   resolvedBy?: string;
   attempts?: AssistedAttempt[];
+  editedFiles?: string[];
 }
 export type LlmFailureKind =
   | 'no-tool-call'
@@ -97,6 +107,8 @@ export interface FixRequest {
   enclosingFunction: string;
   source: string;
   compilerError: string;
+  relatedDeclarations?: (RelatedDeclaration & { source: string })[];
+  sharedDiagnostics?: Pick<FixDiagnostic, 'file' | 'line' | 'code' | 'message'>[];
   retry?: string;
 }
 export interface FixResponse {

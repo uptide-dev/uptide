@@ -241,7 +241,8 @@ export function noApiKeyNote(only: string): string {
 export const assistedNote = (provider: string): string =>
   [
     'note: assisted fixes are on. For sites the rules cannot migrate, the finding, the',
-    `  enclosing function and the compiler error are sent to ${provider} with your key.`,
+    '  enclosing code, compiler-linked repository declarations and compiler error',
+    `  are sent to ${provider} with your key.`,
     '  Pass --no-llm to keep code on this machine.',
     '',
   ].join('\n');

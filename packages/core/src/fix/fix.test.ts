@@ -192,7 +192,7 @@ it('bumps every declaring workspace, with a shared catalog as the version source
   expect(readFileSync(join(root, 'packages/app/package.json'), 'utf8')).toContain('catalog:');
   expect(readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8')).toContain('zod: ^4.6.5');
 });
-it('subtracts baseline as a multiset after lines shift', () => {
+it('treats diagnostics at new positions as new even when their messages match', () => {
   const d = { file: 'a.ts', line: 1, column: 1, code: 123, message: 'bad' };
   expect(
     newDiagnostics(
@@ -202,7 +202,10 @@ it('subtracts baseline as a multiset after lines shift', () => {
         { ...d, line: 3 },
       ],
     ),
-  ).toEqual([{ ...d, line: 3 }]);
+  ).toEqual([
+    { ...d, line: 2 },
+    { ...d, line: 3 },
+  ]);
 });
 
 it('reports test failures and enforces a timeout for an affected workspace script', async () => {

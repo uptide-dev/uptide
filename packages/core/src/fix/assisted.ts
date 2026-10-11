@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Node, Project, SyntaxKind } from 'ts-morph';
 import type { ProgressListener } from '../domain/progress.js';
@@ -8,11 +8,12 @@ import { CostLimitError, DEFAULT_MAX_COST_USD } from '../llm/fixer.js';
 import { nanos } from '../llm/pricing.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { resetSharedState } from '../shared-state.js';
-import { applyFilePatch } from './patch.js';
+import { applySitePatch } from './patch.js';
 import { git } from './process.js';
 import { siteKey } from './report.js';
+import { safeFile } from './settle.js';
 import type { AssistedAttempt, FixDiagnostic, Fixer, FixReport, FixSite } from './types.js';
-import { newDiagnostics } from './verify.js';
+import { diagnosticKey, newDiagnostics } from './verify.js';
 
 /** Lines of using statements shown with an import site. */
 const IMPORT_USE_LINES = 160;
@@ -46,6 +47,7 @@ export function enclosingContext(
       (n) =>
         Node.isImportDeclaration(n) ||
         Node.isTypeAliasDeclaration(n) ||
+        Node.isInterfaceDeclaration(n) ||
         Node.isVariableStatement(n),
     ) ??
     node;
@@ -99,6 +101,26 @@ export function enclosingContext(
     .map(([, text]) => text)
     .join('\n\n');
 }
+function diagnosticFor(site: FixSite, before: FixDiagnostic[], source: string) {
+  return before
+    .filter(
+      (d) =>
+        d.file === site.finding.usage.file &&
+        (site.finding.usage.compileCode === undefined ||
+          d.code === site.finding.usage.compileCode) &&
+        (d.line === site.finding.usage.line ||
+          d.message === site.finding.usage.compileError ||
+          (site.finding.usage.snippet.trim() !== '' &&
+            source.split('\n')[d.line - 1]?.trim() === site.finding.usage.snippet.trim())),
+    )
+    .sort(
+      (a, b) =>
+        Math.abs(a.line - site.finding.usage.line) - Math.abs(b.line - site.finding.usage.line),
+    )[0];
+}
+const declarationKey = (d: { file: string; line: number; endLine: number }) =>
+  `${d.file}:${d.line}:${d.endLine}`;
+
 export async function assist(
   root: string,
   sites: FixSite[],
@@ -120,6 +142,7 @@ export async function assist(
   };
   const limit = limits.maxCostUsd ?? DEFAULT_MAX_COST_USD;
   let halted = false;
+  const processed = new Set<FixSite>();
   // A rate limit applies across sites, including when the final attempt at a site failed.
   let retryAfterMs = 0;
   const stopForBudget = (site: FixSite, reason: string) => {
@@ -132,32 +155,17 @@ export async function assist(
       a.finding.usage.file.localeCompare(b.finding.usage.file) ||
       a.finding.usage.line - b.finding.usage.line,
   )) {
-    if (site.outcome !== 'manual') continue;
+    if (site.outcome !== 'manual' || processed.has(site)) continue;
     if (!fixer) {
       site.reason += disabled
         ? '; assisted fixes disabled (--no-llm), left manual'
         : `; no LLM API key (${ACCEPTED_KEYS}), left manual`;
       continue;
     }
-    const file = join(root, site.finding.usage.file);
+    const file = safeFile(root, site.finding.usage.file);
     const original = readFileSync(file, 'utf8');
     const before = verify();
-    const candidates = before
-      .filter(
-        (d) =>
-          d.file === site.finding.usage.file &&
-          (site.finding.usage.compileCode === undefined ||
-            d.code === site.finding.usage.compileCode) &&
-          (d.line === site.finding.usage.line ||
-            d.message === site.finding.usage.compileError ||
-            (site.finding.usage.snippet.trim() !== '' &&
-              original.split('\n')[d.line - 1]?.trim() === site.finding.usage.snippet.trim())),
-      )
-      .sort(
-        (a, b) =>
-          Math.abs(a.line - site.finding.usage.line) - Math.abs(b.line - site.finding.usage.line),
-      );
-    const diagnostic = candidates[0];
+    const diagnostic = diagnosticFor(site, before, original);
     if (!diagnostic) {
       const parent = sites.find(
         (other) =>
@@ -174,19 +182,70 @@ export async function assist(
       } else site.reason += '; no remaining compiler diagnostic to validate an assisted edit';
       continue;
     }
+    const declarations = (diagnostic.relatedDeclarations ?? []).filter((d) => {
+      if (d.file.split('/').includes('node_modules')) return false;
+      try {
+        return !realpathSync(safeFile(root, d.file)).split('/').includes('node_modules');
+      } catch {
+        return false;
+      }
+    });
+    const keys = new Set(declarations.map(declarationKey));
+    const group = [{ site, diagnostic }];
+    for (const other of sites) {
+      if (other === site || other.outcome !== 'manual' || processed.has(other) || !keys.size)
+        continue;
+      const d = diagnosticFor(
+        other,
+        before,
+        readFileSync(join(root, other.finding.usage.file), 'utf8'),
+      );
+      if (d?.relatedDeclarations?.some((r) => keys.has(declarationKey(r))))
+        group.push({ site: other, diagnostic: d });
+    }
+    for (const member of group) processed.add(member.site);
+    const files = new Map<
+      string,
+      { source: string; regions?: { line: number; endLine: number }[] }
+    >([[site.finding.usage.file, { source: original }]]);
+    for (const d of declarations) {
+      if (d.file === site.finding.usage.file) continue;
+      const allowed = files.get(d.file) ?? {
+        source: readFileSync(join(root, d.file), 'utf8'),
+        regions: [],
+      };
+      allowed.regions?.push(d);
+      files.set(d.file, allowed);
+    }
     let retry: string | undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
       const request = {
         finding: site.finding,
         guide: pack.guide(site.finding, context),
         // The import the site must extend is shown exactly: a shared helper's module.
-        enclosingFunction: enclosingContext(
-          original,
-          diagnostic.line,
-          diagnostic.column,
-          (context?.helpers ?? []).flatMap((h) => Object.values(h.specifiers)),
-        ),
+        enclosingFunction: enclosingContext(original, diagnostic.line, diagnostic.column, [
+          pack.name,
+          ...(context?.helpers ?? []).flatMap((h) => Object.values(h.specifiers)),
+        ]),
         source: original,
+        ...(declarations.length
+          ? {
+              relatedDeclarations: declarations.map((d) => ({
+                ...d,
+                source: enclosingContext(files.get(d.file)?.source ?? '', d.line, 1, [pack.name]),
+              })),
+            }
+          : {}),
+        ...(group.length > 1
+          ? {
+              sharedDiagnostics: group.map(({ diagnostic: d }) => ({
+                file: d.file,
+                line: d.line,
+                code: d.code,
+                message: d.message,
+              })),
+            }
+          : {}),
         compilerError: `${diagnostic.file}:${diagnostic.line}:${diagnostic.column} TS${diagnostic.code}: ${diagnostic.message}${diagnostic.expected ? `\nExpected type: ${diagnostic.expected}` : ''}`,
         ...(retry ? { retry } : {}),
       };
@@ -259,30 +318,30 @@ export async function assist(
             (nanos(llm.unreportedCostUsd ?? 0) + nanos(response.unreportedCostUsd)) / 1e9;
         if (response.halt) halted = true;
         if (response.failure) throw new Error(response.failure);
-        const patched = applyFilePatch(original, site.finding.usage.file, response.diff);
-        const objection = pack.validateAssisted?.(
-          patched,
-          site.finding,
-          response.explanation ?? '',
-          original,
-          context,
-        );
-        if (objection) throw new Error(objection);
-        writeFileSync(file, patched);
+        const edits = applySitePatch(files, response.diff);
+        for (const [path, patched] of edits) {
+          const objection = pack.validateAssisted?.(
+            patched,
+            site.finding,
+            response.explanation ?? '',
+            files.get(path)?.source ?? '',
+            context,
+          );
+          if (objection) throw new Error(objection);
+        }
+        for (const [path, patched] of edits) writeFileSync(join(root, path), patched);
         const after = verify();
         log.after = after;
         const newErrors = newDiagnostics(before, after);
-        const same = (d: FixDiagnostic) =>
-          d.file === diagnostic.file &&
-          d.code === diagnostic.code &&
-          d.message === diagnostic.message;
-        const removed = after.filter(same).length < before.filter(same).length;
+        const remainingKeys = new Set(after.map(diagnosticKey));
+        const removed = group.every(({ diagnostic: d }) => !remainingKeys.has(diagnosticKey(d)));
         if (removed && newErrors.length === 0) {
           log.outcome = 'accepted';
           site.outcome = 'agent';
           site.diff = response.diff;
           site.reason = `${fixer.id}: removed TS${diagnostic.code}; no new diagnostics. ${log.explanation}`;
-          git(root, 'add', '--', relative(root, file));
+          site.editedFiles = [...edits.keys()];
+          git(root, 'add', '--', ...site.editedFiles);
           git(
             root,
             'commit',
@@ -307,7 +366,7 @@ export async function assist(
       } finally {
         log.durationMs = performance.now() - started;
         if (site.outcome !== 'agent') {
-          writeFileSync(file, original);
+          for (const [path, allowed] of files) writeFileSync(join(root, path), allowed.source);
           log.explanation = [log.explanation, retry].filter(Boolean).join('; ');
         }
         onProgress?.({
@@ -319,6 +378,11 @@ export async function assist(
         });
       }
       site.reason = `assisted attempt ${attempt + 1}/3 rejected: ${log.explanation}`;
+    }
+    for (const member of group.slice(1)) {
+      member.site.outcome = site.outcome;
+      member.site.reason = `shared related declaration with ${siteKey(site)}: ${site.reason}`;
+      if (site.outcome === 'agent') member.site.resolvedBy = siteKey(site);
     }
   }
   return llm;

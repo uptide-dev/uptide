@@ -155,7 +155,11 @@ export async function settle(input: SettleInput): Promise<{
   const names = (list: string[]): string =>
     list.map((w) => (w === '.' ? 'root' : (w.split('/').pop() ?? w))).join(', ');
   const edited = (): string[] => [
-    ...new Set(input.sites.filter((s) => s.outcome !== 'manual').map((s) => s.finding.usage.file)),
+    ...new Set(
+      input.sites
+        .filter((s) => s.outcome !== 'manual')
+        .flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])]),
+    ),
   ];
   const formatted = new Set<string>();
   /**

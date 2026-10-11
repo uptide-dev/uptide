@@ -96,7 +96,9 @@ export async function reverify(
   const sites = report.sites;
   const known = sites.length;
   const followed: Followed[] = [];
-  const affected = [...new Set(sites.map((s) => s.finding.usage.file))];
+  const affected = [
+    ...new Set(sites.flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])])),
+  ];
   const { tests, after, lint, formatted } = await settle({
     root,
     pack,

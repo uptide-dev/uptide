@@ -41,7 +41,8 @@ export function fixMetrics(report: FixReport, cwd: string): Metrics {
     packages: [{ name: report.package, versions: [report.from ?? '', report.target] }],
     counts: {
       sites: report.sites.length,
-      files: new Set(report.sites.map((s) => s.finding.usage.file)).size,
+      files: new Set(report.sites.flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])]))
+        .size,
       new_errors: report.verification.newErrors.length,
       tests: report.verification.tests.length,
     },

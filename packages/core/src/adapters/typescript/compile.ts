@@ -584,6 +584,23 @@ function overlayProgram(
     insideOverlay,
     parsed,
   );
+  // Automatic @types inclusion and triple-slash references must see the same target as imports.
+  host.resolveTypeReferenceDirectives = (names, containingFile, redirected, config, mode) =>
+    names.map((reference) => {
+      const name = typeof reference === 'string' ? reference : reference.fileName;
+      const target = [...overlayDirs.values()].some((pkg) =>
+        isPackageSpecifier(`@types/${name}`, pkg),
+      );
+      return tsc.resolveTypeReferenceDirective(
+        name,
+        target ? probe : containingFile,
+        target ? { ...noPaths, typeRoots: [join(overlay, 'node_modules/@types')] } : config,
+        host,
+        target ? undefined : redirected,
+        undefined,
+        typeof reference === 'string' ? mode : (reference.resolutionMode ?? mode),
+      ).resolvedTypeReferenceDirective;
+    });
   const modeOf = usageModes(tsc, options, host);
   installResolver(host, (name, literal, containingFile, containingSourceFile) => {
     // Under Node16/NodeNext the importing file's format picks the `import` or `require`

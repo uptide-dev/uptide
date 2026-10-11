@@ -371,7 +371,9 @@ export function migrationRisk(report: FixReport): {
 }
 /** What the changed schemas validate, read off the run's own file paths. */
 function validationScopes(report: FixReport): string[] {
-  const paths = report.sites.map((s) => s.finding.usage.file).join(' ');
+  const paths = report.sites
+    .flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])])
+    .join(' ');
   return [
     ...(/auth|user\.ts/i.test(paths) ? ['auth'] : []),
     ...(/instance/i.test(paths) ? ['instances'] : []),
@@ -514,7 +516,7 @@ export function summaryCells(report: FixReport): {
   const tests = `${testsRow(report)}${lintCell(report)}`;
   const changes = !report.sites.length
     ? 'none: versions and lockfile only'
-    : `${count(report.sites.length, 'site')} in ${new Set(report.sites.map((s) => s.finding.usage.file)).size} file${new Set(report.sites.map((s) => s.finding.usage.file)).size === 1 ? '' : 's'}${report.verificationPending ? ' · analysis only' : ` · ${BY.ruleDone(c.mechanical)} · ${BY.agentDone(c.agent)}${c.manual ? ` · ${c.manual} manual` : ''}`}`;
+    : `${count(report.sites.length, 'site')} in ${new Set(report.sites.flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])])).size} file${new Set(report.sites.flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])])).size === 1 ? '' : 's'}${report.verificationPending ? ' · analysis only' : ` · ${BY.ruleDone(c.mechanical)} · ${BY.agentDone(c.agent)}${c.manual ? ` · ${c.manual} manual` : ''}`}`;
   const messages = bs.flatMap((b) => b.messageChecks ?? []).filter((c) => c.status !== 'default');
   const messageSummary = messages.length
     ? ` · ${messages.filter((c) => c.status === 'identical').length}/${messages.length} custom-message assertions`
