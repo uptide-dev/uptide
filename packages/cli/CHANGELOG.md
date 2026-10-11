@@ -1,5 +1,11 @@
 # uptide
 
+## 0.7.2
+
+### Patch Changes
+
+- [#69](https://github.com/uptide-dev/uptide/pull/69) [`6c5f163`](https://github.com/uptide-dev/uptide/commit/6c5f1637dc27b898130e193bb9f691815fd6a14a) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Automatically migrate single-argument Zod records to explicit string-key records, preserving the file's Zod import binding. Keep already explicit key/value schemas unchanged. Use the same unqualified target version in single-package check and fix suggestions.
+
 ## 0.7.1
 
 ### Patch Changes
