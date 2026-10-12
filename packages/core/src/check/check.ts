@@ -40,7 +40,7 @@ import { arbitrateUnchecked } from './file-kind.js';
 import { groupName, releaseGroups } from './groups.js';
 import { importedByText, importFileCounts } from './importers.js';
 import { match } from './match.js';
-import { estimateScopedHeapMb, freeMemoryBytes, memoryPolicy } from './memory.js';
+import { estimateScopedHeapMb, freeMemoryBytes, memoryPolicy, scopedImporters } from './memory.js';
 import { mergeSignals } from './merge.js';
 import {
   hasTopLevelAwait,
@@ -205,7 +205,13 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
             .find((w) => w !== '.' && file.startsWith(`${w}/`)) ?? '.';
         if (owner === workspace) files.add(resolve(opts.cwd, file));
       }
-    if (scopedImports) roots.set(workspace, [...files].sort());
+    // The files importing those see the package's types through them (a test calling a
+    // wrapped tool's `execute`): within a memory budget, they are roots too.
+    if (scopedImports)
+      roots.set(workspace, [
+        ...[...files].sort(),
+        ...scopedImporters(resolve(opts.cwd, workspace), [...files], candidates),
+      ]);
   }
   const importedByWorkspace: Record<string, string[]> = {};
   for (const workspace of workspaces)
