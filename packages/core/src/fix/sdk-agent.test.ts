@@ -113,7 +113,6 @@ async function task(input: {
   const preexisting = diag('src/a.ts', 3, 2304, "Cannot find name 'line3'.");
   const sites = [site('src/a.ts', 2, siteError)];
   let calls = 0;
-  let testRuns = 0;
   const formatted = new Set<string>();
   const llm = await assistWithSdk({
     root,
@@ -125,11 +124,11 @@ async function task(input: {
     maxCostUsd: 1,
     // Planning sees the baseline; the check after the task sees `after`.
     diagnostics: () => (calls++ < 1 ? [siteError, preexisting] : input.after),
+    // The tests see the tree: `tests` once the agent migrated the file, `startTests` before.
     tests: async () =>
-      // The end of the task first; the start only when something failed at the end.
-      (testRuns++ === 0 ? input.tests : input.startTests) ?? [
-        { workspace: '.', status: 'passed', output: '' },
-      ],
+      (readFileSync(join(root, 'src/a.ts'), 'utf8').includes('items')
+        ? input.tests
+        : input.startTests) ?? [{ workspace: '.', status: 'passed', output: '' }],
     // Lint passes only on files the formatter has seen, as prettier --check would.
     lint: async (files) =>
       files.map((f) => ({
@@ -318,6 +317,65 @@ describe('batched gate', () => {
     expect(git(root, 'status', '--porcelain')).toBe('');
     // Only the tests that can see the task's own file ran; c.ts never asked for any.
     expect(ran2).toEqual([['src/a.ts']]);
+  });
+
+  it('runs the tests once after every batch, and replays the batches to drop the one that broke a test', async () => {
+    const root = repo({ 'src/a.ts': 'old a1\nold a2\n', 'src/b.ts': 'old b\n' });
+    const diagnostics = () =>
+      ['src/a.ts', 'src/b.ts'].flatMap((file) =>
+        readFileSync(join(root, file), 'utf8')
+          .split('\n')
+          .flatMap((line, i) => (line.startsWith('old') ? [diag(file, i + 1, 2339, line)] : [])),
+      );
+    const sites = [
+      { ...site('src/a.ts', 1, diag('src/a.ts', 1, 2339, 'old a1')), rule: 'a' },
+      { ...site('src/a.ts', 2, diag('src/a.ts', 2, 2339, 'old a2')), rule: 'a' },
+      { ...site('src/b.ts', 1, diag('src/b.ts', 1, 2339, 'old b')), rule: 'b' },
+    ];
+    const runs: string[][] = [];
+    const llm = await assistWithSdk({
+      root,
+      workspaces: ['.'],
+      sites,
+      pack,
+      context: { from: '1.0.0', to: '2.0.0', includeDeprecated: false },
+      model: 'claude-sonnet-5-5',
+      maxCostUsd: 1,
+      diagnostics,
+      // b's edit type-checks but breaks a test.
+      tests: async (files) => {
+        runs.push(files);
+        const broken = readFileSync(join(root, 'src/b.ts'), 'utf8').includes('breaks');
+        return [
+          {
+            workspace: '.',
+            status: broken ? 'failed' : 'passed',
+            output: broken ? 'FAIL src/b.test.ts' : '',
+          },
+        ];
+      },
+      lint: async () => [],
+      format: async () => [],
+      baselineTests: [{ workspace: '.', status: 'passed', output: '' }],
+      baselineLint: [],
+      affected: ['src/a.ts', 'src/b.ts'],
+      runner: async ({ root, task }) => {
+        const file = task.files[0] as string;
+        writeFileSync(join(root, file), task.rule === 'a' ? 'new a1\nnew a2\n' : 'new b breaks\n');
+        return ran(summary({ changed: [{ file, what: `migrated ${file}` }] }));
+      },
+    });
+    expect(llm.tasks?.map((t) => [t.rule, t.gate])).toEqual([
+      ['a', 'accepted'],
+      ['b', 'rejected'],
+    ]);
+    expect(llm.tasks?.[1]?.rejection).toMatch(/^tests fail/);
+    expect(sites.map((s) => s.outcome)).toEqual(['agent', 'agent', 'manual']);
+    expect(readFileSync(join(root, 'src/b.ts'), 'utf8')).toBe('old b\n');
+    expect(git(root, 'log', '--format=%s', '-2')).toBe('fix(stripe): a (agent)\nbase');
+    // Everything at the end, the start to explain the failure, then each batch, and b's start
+    // to explain its own: five runs, where a gate per batch would have made at least four.
+    expect(runs).toHaveLength(5);
   });
 
   it('runs the start-of-task tests only to explain a failure, and restores the tree after', async () => {

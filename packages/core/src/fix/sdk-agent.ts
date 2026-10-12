@@ -68,8 +68,11 @@ export interface SdkAssistInput {
   model: string;
   maxCostUsd: number;
   diagnostics: () => FixDiagnostic[];
-  /** Tests on these repository-relative files, as the run's `services.tests`. */
-  tests: (files: string[]) => Promise<TestResult[]>;
+  /**
+   * The tests related to these repository-relative files: in the workspaces that own them and
+   * those that depend on them, or with `'owners'` the owners alone (the agent's own check).
+   */
+  tests: (files: string[], scope?: 'owners') => Promise<TestResult[]>;
   lint?: (files: string[], baseline?: LintResult[]) => Promise<LintResult[]>;
   /** The repository's formatter, run on the edited files before lint, as `settle` does. */
   format?: (files: string[]) => Promise<string[]>;
@@ -393,13 +396,8 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       git(root, 'checkout', '--quiet', 'HEAD', '--', '.');
     }
   };
-  /** Why the work since `start` cannot stay, or undefined. Only what it can affect runs. */
-  const judge = async (
-    start: string,
-    before: FixDiagnostic[],
-    after: FixDiagnostic[],
-    files: string[],
-  ) => {
+  /** Why the work since `start` fails types or lint, or undefined: seconds, run per batch. */
+  const judge = async (start: string, before: FixDiagnostic[], after: FixDiagnostic[]) => {
     // An error a line move explains is the old one (`gitLineMoves`): lines the batch edited stay put.
     const fresh = newDiagnostics(before, after, gitLineMoves(root, start));
     if (fresh.length)
@@ -410,9 +408,16 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     const changed = since(start);
     const failedLint = (await lint(changed)).filter((l) => l.status === 'failed');
     if (failedLint.length) return `lint fails: ${failedLint.map((l) => l.tool).join(', ')}`;
-    const related = [...new Set([...files, ...changed])];
+    return undefined;
+  };
+  /**
+   * Why the tests related to the work since `start` fail where they did not at `start`, or
+   * undefined. Tests are the slow judge, so they run once, after every batch.
+   */
+  const judgeTests = async (start: string, files: string[]) => {
+    const related = [...new Set([...files, ...since(start)])];
     let tests = await input.tests(related);
-    // A failure the batch did not cause was there at its start: run the same tests there, once.
+    // A failure the work did not cause was there at its start: run the same tests there, once.
     if (tests.some((t) => t.status === 'failed' || t.status === 'timeout'))
       tests = markPreexisting(tests, await testsAt(start, related));
     const failing = tests.filter(
@@ -452,6 +457,9 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
   };
   const show = (d: FixDiagnostic) => `${d.file}:${d.line}:${d.column} TS${d.code} ${d.message}`;
 
+  const assistStart = head();
+  /** Batches that passed types and lint, with their tasks, waiting for the tests. */
+  const kept: Pending[][] = [];
   for (const batch of batches(tasks)) {
     const batchStart = head();
     const batchBefore = current;
@@ -484,10 +492,13 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
           return results.map((r) => `${r.tool}: ${r.status}\n${tail(r.output, 2000)}`).join('\n');
         },
         tests: async () => {
-          const results = await input.tests([...new Set([...task.files, ...since(taskStart)])]);
+          const results = await input.tests(
+            [...new Set([...task.files, ...since(taskStart)])],
+            'owners',
+          );
           if (!results.length) return 'no tests relate to these files';
           return [
-            "Tests related to the task's files. A failure may predate the task: the gate compares with the start.",
+            "Tests related to the task's files, in the workspaces that own them; the gate also runs the workspaces that depend on them. A failure may predate the task: the gate compares with the start.",
             ...results.map((t) => `${t.workspace}: ${t.status}\n${tail(t.output, 3000)}`),
           ].join('\n');
         },
@@ -555,12 +566,9 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       pending.push({ task, run, record, said, before, after: current, touched, commit: head() });
     }
     if (!pending.length) continue;
-    const files = (list: Pending[]) => [
-      ...new Set(list.flatMap((p) => [...p.task.files, ...p.touched])),
-    ];
-    const verdict = await judge(batchStart, batchBefore, current, files(pending));
+    const verdict = await judge(batchStart, batchBefore, current);
     if (!verdict) {
-      for (const p of pending) accept(p);
+      kept.push(pending);
       continue;
     }
     reset(batchStart);
@@ -570,6 +578,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       continue;
     }
     // The batch failed together: each task again from the batch's start, gated alone.
+    const survivors: Pending[] = [];
     for (const p of pending) {
       const start = head();
       const before = current;
@@ -581,14 +590,47 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         continue;
       }
       const after = input.diagnostics();
-      const why = await judge(start, before, after, files([p]));
+      const why = await judge(start, before, after);
       if (why) {
         reset(start);
         refuse(p, why);
         continue;
       }
       current = after;
-      accept({ ...p, before, after });
+      survivors.push({ ...p, before, after, commit: head() });
+    }
+    if (survivors.length) kept.push(survivors);
+  }
+  const files = (list: Pending[]) => [
+    ...new Set(list.flatMap((p) => [...p.task.files, ...p.touched])),
+  ];
+  if (kept.length) {
+    const failing = await judgeTests(assistStart, files(kept.flat()));
+    if (!failing) for (const p of kept.flat()) accept(p);
+    else {
+      // Something broke a test: the batches again from the start, in order, each kept only
+      // when the tests related to it pass as they did before it.
+      reset(assistStart);
+      for (const batch of kept) {
+        const start = head();
+        const applied: Pending[] = [];
+        for (const p of batch) {
+          try {
+            git(root, 'cherry-pick', '--allow-empty', p.commit);
+            applied.push(p);
+          } catch {
+            git(root, 'cherry-pick', '--abort');
+            refuse(p, 'its edits depend on a task the gate rejected');
+          }
+        }
+        if (!applied.length) continue;
+        const why = await judgeTests(start, files(applied));
+        if (why) {
+          reset(start);
+          for (const p of applied) refuse(p, why);
+        } else for (const p of applied) accept(p);
+      }
+      current = input.diagnostics();
     }
   }
   const sum = (key: 'inputTokens' | 'outputTokens' | 'costUsd') =>

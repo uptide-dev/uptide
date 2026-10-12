@@ -574,11 +574,12 @@ export interface TestOptions {
    */
   withServices?: boolean;
   /**
-   * Only what can see `files`: the workspaces that own one and those that depend on them,
-   * and a script that is just the runner (`vitest run`, `jest`) in its related-tests mode.
-   * For the agent's own checks between tasks; verification runs the full selection.
+   * Only what can see `files`: the workspaces that own one and those that depend on them
+   * (`'owners'`: the owners alone), a script that is just the runner (`vitest run`, `jest`) in
+   * its related-tests mode, and the workspaces side by side. For the agent's own checks
+   * between tasks; verification runs the full selection, one workspace at a time.
    */
-  related?: boolean;
+  related?: boolean | 'owners';
 }
 
 const VITEST_CONFIGS = ['vitest.config', 'vitest.workspace'].flatMap((base) =>
@@ -635,7 +636,12 @@ function runnerFor(
 }
 
 /** The workspaces that own one of `files`, and those that depend on one of them by name. */
-function relatedWorkspaces(root: string, workspaces: string[], files: string[]): string[] {
+function relatedWorkspaces(
+  root: string,
+  workspaces: string[],
+  files: string[],
+  ownersOnly: boolean,
+): string[] {
   const owner = (file: string) =>
     workspaces
       .filter((w) => w === '.' || file.startsWith(`${w}/`))
@@ -646,6 +652,7 @@ function relatedWorkspaces(root: string, workspaces: string[], files: string[]):
   );
   return workspaces.filter((w) => {
     if (owners.has(w)) return true;
+    if (ownersOnly) return false;
     // The root's script usually runs every workspace's (`pnpm -r test`): only its own files ask for it.
     if (w === '.') return false;
     const m = manifest(join(root, w));
@@ -703,7 +710,9 @@ export function planTests(
     { runner: 'vitest' | 'jest'; dir: string; config: string; covers: string[] }
   >();
   const rootScript: string[] = [];
-  const selected = options.related ? relatedWorkspaces(root, workspaces, files) : workspaces;
+  const selected = options.related
+    ? relatedWorkspaces(root, workspaces, files, options.related === 'owners')
+    : workspaces;
   for (const workspace of selected) {
     const script = manifest(join(root, workspace))?.scripts?.test;
     const scoped =
@@ -907,29 +916,21 @@ export async function testWorkspaces(
   files: string[] = [],
   options: TestOptions = {},
 ): Promise<TestResult[]> {
-  const results: TestResult[] = [];
   let realRoot = root;
   try {
     realRoot = realpathSync(root);
   } catch {
     // The path as given is all there is.
   }
-  for (const plan of planTests(root, workspaces, files, options)) {
+  const runPlan = async (plan: TestPlan): Promise<TestResult> => {
     const described = {
       covers: plan.covers,
       scope: plan.scope,
       ...(plan.notRun ? { notRun: plan.notRun } : {}),
       ...(plan.services ? { services: plan.services } : {}),
     };
-    if (!plan.command) {
-      results.push({
-        workspace: plan.workspace,
-        status: 'missing',
-        output: plan.scope,
-        ...described,
-      });
-      continue;
-    }
+    if (!plan.command)
+      return { workspace: plan.workspace, status: 'missing', output: plan.scope, ...described };
     const bins = upTo(root, plan.cwd)
       .map((dir) => join(dir, 'node_modules/.bin'))
       .filter((dir) => existsSync(dir));
@@ -991,7 +992,7 @@ export async function testWorkspaces(
     const summary = testSummary(output);
     // The runner passed with nothing to run: that is "no tests", not a green suite.
     const empty = noTestsRan(result, output);
-    results.push({
+    return {
       workspace: plan.workspace,
       status: result.timeout ? 'timeout' : result.code ? 'failed' : empty ? 'missing' : 'passed',
       output: empty ? `no tests are related to the affected files (${plan.command})` : output,
@@ -1000,8 +1001,14 @@ export async function testWorkspaces(
       ...(fellBack ? { scope: plan.fallback?.scope ?? plan.scope, fallback: fellBack } : {}),
       ...(summary ? { summary } : {}),
       ...(retried.length ? { retried } : {}),
-    });
-  }
+    };
+  };
+  const plans = planTests(root, workspaces, files, options);
+  // The agent's checks wait on these: workspaces run side by side. Verification keeps one
+  // at a time, as it always has.
+  if (options.related) return Promise.all(plans.map(runPlan));
+  const results: TestResult[] = [];
+  for (const plan of plans) results.push(await runPlan(plan));
   return results;
 }
 
