@@ -18,6 +18,8 @@ what help cannot show.
 | [`uptide fix`](commands/fix.md) | A verified migration on a new branch, step by step; `verify` and `clean` |
 | [`uptide pr`](commands/pr.md) | Pushing a finished branch and its pull request description; `pr-body` |
 | [`uptide telemetry`](commands/telemetry.md) | The opt-in, the switches, what an event contains |
+| [`uptide init`](commands/init.md) | The Uptide workflow and `uptide.yml` for a repository, as the GitHub App proposes them |
+| [`uptide.yml`](config.md) | Every setting, its default, which command reads it, the JSON Schema |
 | [Models](models.md) | Providers, defaults, `--max-cost`, `OPENAI_BASE_URL` |
 | [CI](ci.md) | Checking and migrating Renovate and Dependabot pull requests with the GitHub Action |
 | [Privacy](privacy.md) | What runs where, what leaves your machine, and the isolation model |

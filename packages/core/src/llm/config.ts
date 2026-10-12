@@ -15,7 +15,8 @@ export interface Selection {
   available: boolean;
   baseUrl?: string;
 }
-const keyLike = (s: string) =>
+/** Whether a setting looks like a credential: never accepted in a config file. */
+export const keyLike = (s: string): boolean =>
   /(?:sk-[\w-]{8,}|AIza[\w-]{12,}|phc_[\w-]+|bearer\s|api[_-]?key|secret|password|access[_-]?token)/i.test(
     s,
   );
@@ -119,11 +120,18 @@ export function selectLlm(
   cwd: string,
   flags: { provider?: string; model?: string } = {},
   env: NodeJS.ProcessEnv = process.env,
+  /** `llm.provider` as uptide.yml sets it: below flags and environment, above uptide.config.json. */
+  fileProvider?: Provider,
 ): Selection {
   const config = readConfig(cwd); // Validate even when flags override it; never tolerate stored keys.
+  if (fileProvider && config.provider && config.provider !== fileProvider)
+    throw new Error(
+      `uptide.yml says llm.provider ${fileProvider} and uptide.config.json says provider ${config.provider}. Keep one of them.`,
+    );
   const provider =
     flags.provider ??
     env.UPTIDE_PROVIDER ??
+    fileProvider ??
     config.provider ??
     PROVIDERS.find((p) => !!env[KEY_ENV[p]]?.trim()) ??
     'anthropic';

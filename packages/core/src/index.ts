@@ -159,6 +159,7 @@ export { ACCEPTED_KEYS, KEY_ENV, selectLlm } from './llm/config.js';
 export { DEFAULT_MAX_COST_USD, providerFixer } from './llm/fixer.js';
 export { DEFAULT_MODELS, PRICE_DATE, PRICE_SOURCES, PRICES, priceFor } from './llm/pricing.js';
 export type { Provider } from './llm/types.js';
+export * from './onboarding/index.js';
 export {
   type BehaviorNote,
   definePack,

@@ -1,0 +1,60 @@
+# Uptide: dependency upgrades, checked and migrated in this repository's own GitHub Actions.
+# Settings are in uptide.yml. How this file was made, and how to change it:
+# https://github.com/uptide-dev/uptide/blob/main/docs/commands/init.md
+name: Uptide
+
+on:
+  schedule:
+    # uptide.yml "schedule" (UTC). After changing it there, run `npx uptide init --force`.
+    - cron: '54 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'list: what is behind. check: what an upgrade breaks. fix: open draft pull requests with verified migrations.'
+        type: choice
+        options: [list, check, fix]
+        default: check
+      package:
+        description: 'One dependency to check or fix. Empty: every dependency uptide.yml allows.'
+        type: string
+        required: false
+
+# Nothing else: no access to issues, packages, deployments or other repositories.
+permissions:
+  contents: write # push migration branches
+  pull-requests: write # open draft pull requests
+  id-token: write # prove to Uptide that the results JSON comes from this workflow
+
+concurrency:
+  group: uptide
+  cancel-in-progress: false
+
+jobs:
+  uptide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: Enable Corepack for yarn@4.9.2
+        run: |
+          npm install --global corepack@0.36.0
+          corepack enable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: yarn
+      # Exactly what yarn.lock pins, with dependency install scripts off.
+      - name: Install dependencies
+        run: yarn install --immutable --mode=skip-build
+      # Reads uptide.yml, runs Uptide, opens draft pull requests and uploads the results JSON.
+      - uses: uptide-dev/uptide@405f429c88b417c3005f02090031d3dc5a09d1ce # unreleased
+        with:
+          config: uptide.yml
+          mode: ${{ inputs.mode || 'fix' }}
+          package: ${{ inputs.package }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

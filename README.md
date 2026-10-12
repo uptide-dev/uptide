@@ -138,7 +138,8 @@ The full statement and the isolation model: [privacy](docs/privacy.md) and [SECU
   [troubleshooting](docs/troubleshooting.md)
 - Commands: [`list`](docs/commands/list.md), [`check`](docs/commands/check.md),
   [`plan`](docs/commands/plan.md), [`fix`](docs/commands/fix.md), [`pr`](docs/commands/pr.md),
-  [`telemetry`](docs/commands/telemetry.md)
+  [`telemetry`](docs/commands/telemetry.md), [`init`](docs/commands/init.md) and
+  [`uptide.yml`](docs/config.md)
 - [Models](docs/models.md), [CI with the GitHub Action](docs/ci.md), [FAQ](docs/faq.md)
 - [Architecture](docs/architecture.md), [decisions](docs/decisions/) and the rest of the
   [documentation index](docs/README.md)

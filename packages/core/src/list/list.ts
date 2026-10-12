@@ -10,6 +10,7 @@ import type { Tier } from '../domain/report.js';
 import { errorCode } from '../errors.js';
 import { loadRegistryConfig, registryFor } from '../fetch/npmrc.js';
 import { advisoriesEnabled } from '../llm/config.js';
+import { packageSelected } from '../onboarding/config.js';
 import { activePacks } from '../packs/index.js';
 import type { TaskCommands } from './config.js';
 import {
@@ -150,6 +151,8 @@ export interface ListOptions {
    * Unset: on, unless uptide.config.json says `"advisories": false`.
    */
   advisories?: boolean;
+  /** uptide.yml `packages`: dependencies outside it are left out of the report. */
+  packages?: { allow: string[]; deny: string[] };
 }
 
 /** Discovery only. Reads manifests, lockfiles, source syntax and registry metadata. */
@@ -157,6 +160,10 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
   const start = Date.now();
   const manifestStart = performance.now();
   const adapter = opts.adapter ?? typescriptAdapter;
+  // `only` names what was asked for; `packages` is uptide.yml's allow and deny.
+  const selected = (name: string): boolean =>
+    (!opts.only || opts.only.includes(name)) &&
+    (!opts.packages || packageSelected({ packages: opts.packages }, name));
   const config = loadRegistryConfig({ cwd: opts.cwd });
   const fetcher = opts.fetcher ?? createDiscoveryFetcher({ cwd: opts.cwd, config });
   const workspaces = ((await adapter.workspacePackages?.({ dir: opts.cwd })) ?? ['.']).sort();
@@ -204,7 +211,7 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
   // Declared as a runtime dependency in some workspace: dependencies or optionalDependencies.
   const runtimeKeys = new Set<string>();
   const skip = (name: string, source: string, workspace: string): void => {
-    if (opts.only && !opts.only.includes(localName(name))) return;
+    if (!selected(localName(name))) return;
     const key = JSON.stringify([name, source]);
     const item = skipped.get(key) ?? {
       name,
@@ -351,7 +358,7 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
     ]);
   };
   const registryStart = performance.now();
-  const wanted = names.filter((name) => !opts.only || opts.only.includes(localName(name)));
+  const wanted = names.filter((name) => selected(localName(name)));
   // One bulk request for every installed version, alongside the version lookups.
   const advisoryQuery = new Map<string, string[]>();
   for (const name of wanted)
@@ -385,7 +392,7 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
   await mapWithLimit(names, 16, async (name) => {
     const items = metadata.get(name) as Manifest[];
     // Resolve each package independently within the bounded request pool.
-    if (!opts.only || opts.only.includes(localName(name))) {
+    if (selected(localName(name))) {
       try {
         const latest = await fetcher.resolve(registryName(name), 'latest');
         latestVersions.set(name, latest);
@@ -473,7 +480,7 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
       (reasons.get(name) as string[]).push(`types for ${runtime}`);
   }
   const packages = names
-    .filter((name) => !opts.only || opts.only.includes(localName(name)))
+    .filter((name) => selected(localName(name)))
     .flatMap((name): ListedDependency[] => {
       const latest = latestVersions.get(name);
       if (!latest) return [];
@@ -615,7 +622,7 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
   const unknown = new Map<string, NonNullable<ListReport['unknown']>[number]>();
   for (const key of names) {
     const name = localName(key);
-    if ((opts.only && !opts.only.includes(name)) || latestVersions.has(key)) continue;
+    if (!selected(name) || latestVersions.has(key)) continue;
     const previous = unknown.get(name);
     unknown.set(name, {
       name,

@@ -13,6 +13,8 @@ export default defineConfig({
     index: 'src/index.ts',
     worker: 'src/check/worker.ts',
     'list-worker': 'src/list/list-worker.ts',
+    // What the GitHub App imports: the generator and uptide.yml, without the engine.
+    onboarding: 'src/onboarding/index.ts',
   },
   format: ['esm'],
   dts: true,

@@ -19,6 +19,11 @@
     "./worker": {
       "types": "./dist/worker.d.ts",
       "import": "./dist/worker.js"
+    },
+    "./onboarding": {
+      "source": "./src/onboarding/index.ts",
+      "types": "./dist/onboarding.d.ts",
+      "import": "./dist/onboarding.js"
     }
   },
   "files": [

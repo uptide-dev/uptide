@@ -4,6 +4,9 @@ declare module 'semver' {
     maxSatisfying(versions: string[], range: string): string | null;
     minVersion(range: string): { version: string } | null;
     validRange(range: string): string | null;
+    valid(version: string): string | null;
+    major(version: string): number;
+    intersects(a: string, b: string): boolean;
   };
   export default semver;
 }

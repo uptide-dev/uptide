@@ -1,19 +1,23 @@
 import { readFileSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
-import type { CheckReport, CheckResult, FixReport } from '@uptide/core';
+import { basename, relative, resolve } from 'node:path';
+import type { CheckReport, CheckResult, FixReport, LoadedConfig } from '@uptide/core';
 import {
   activePacks,
   formatFix,
   isFailure,
+  loadUptideConfig,
   PeerPreflightError,
   PRICE_DATE,
+  packageSelected,
   priceFor,
   registeredPacks,
   scaffoldPack,
   selectLlm,
   TIER_LEGEND,
   testPack,
+  UPTIDE_ACTION,
   UptideError,
+  WORKFLOW_PATH,
 } from '@uptide/core';
 import { Command, CommanderError, Option } from 'commander';
 import { describeRepo, detectRepo, type Repo } from './detect.js';
@@ -40,6 +44,7 @@ import { writeListHtml } from './html/list.js';
 import { writeMigrationHtml } from './html/migration.js';
 import { writePlanHtml } from './html/plan.js';
 import { openHtml, writeHtml } from './html/write.js';
+import { INIT_NEXT, type InitFile, planInit, writeInit } from './init.js';
 import { INVOCATION } from './invocation.js';
 import { type Io, type Ui, type UiFlags, uiOf } from './io.js';
 import { formatPackTest, packRoot, packsToTest } from './pack.js';
@@ -203,6 +208,21 @@ export async function run(
   };
   const emit = (value: unknown): void => io.out(`${JSON.stringify(value, null, 2)}\n`);
 
+  /** uptide.yml for this run: `--config`, else the nearest one. Said once, on stderr. */
+  const settings = (cwd: string, path: string | undefined): LoadedConfig | undefined => {
+    const loaded = loadUptideConfig(cwd, path);
+    if (loaded) io.err(`Settings: ${relative(io.cwd, loaded.path) || loaded.path}\n`);
+    return loaded;
+  };
+  /** Named on the command line although uptide.yml leaves them out: flags win, and it is said. */
+  const namedOutside = (loaded: LoadedConfig | undefined, names: string[]): void => {
+    const outside = loaded ? names.filter((n) => !packageSelected(loaded.config, n)) : [];
+    if (outside.length)
+      io.err(
+        `${outside.join(', ')}: outside packages in uptide.yml; included because ${outside.length === 1 ? 'it was' : 'they were'} named.\n`,
+      );
+  };
+
   /** Before any analysis: what was asked for exists and the repository is installed. */
   const requireDependencies = (
     repo: Repo,
@@ -312,6 +332,7 @@ ${PRIVACY}`,
       .option('--open', 'open the HTML report in a browser (requires --html)')
       .option('--details', 'show top symbols and source file lists')
       .option('--verbose', 'show discovery/render phase timings and file counts')
+      .option('--config <path>', 'settings file (default: the nearest uptide.yml)')
       .option(
         '--no-advisories',
         'never send installed versions to npm\'s advisory endpoint (also: "advisories": false in uptide.config.json)',
@@ -331,12 +352,14 @@ ${PRIVACY}`,
           verbose?: boolean;
           /** false only with --no-advisories; otherwise uptide.config.json decides. */
           advisories?: boolean;
+          config?: string;
         },
       ) =>
         act(flags, async ({ cwd, progress, ui }) => {
           if (flags.open && !flags.html) throw new CliError('--open requires --html');
           const started = io.now();
           const repo = await detectRepo(cwd, engine.workspaces);
+          const loaded = settings(cwd, flags.config);
           if (!engine.list) throw new CliError('this build cannot list dependencies');
           const discover = engine.list;
           const report = await progress.phase('Discovery', () =>
@@ -345,6 +368,7 @@ ${PRIVACY}`,
               details: flags.details,
               ...(flags.verbose ? { verbose: true } : {}),
               ...(flags.advisories === false ? { advisories: false } : {}),
+              ...(loaded ? { packages: loaded.config.packages } : {}),
             }),
           );
           telemetry?.record(() => listMetrics(report));
@@ -416,7 +440,8 @@ ${PRIVACY}`,
         '--workspaces <n>',
         'maximum concurrent workspaces (also capped by free memory and CPU)',
       )
-      .option('--no-remote', 'accepted for forward compatibility; there is no remote service'),
+      .option('--no-remote', 'accepted for forward compatibility; there is no remote service')
+      .option('--config <path>', 'settings file (default: the nearest uptide.yml)'),
   )
     .addHelpText(
       'after',
@@ -457,6 +482,7 @@ ${EXIT_CODES(
           runtime?: boolean;
           allDeps?: boolean;
           workspaces?: string;
+          config?: string;
         },
       ) =>
         act(
@@ -481,6 +507,8 @@ ${EXIT_CODES(
               () => detectRepo(cwd, engine.workspaces),
               describeRepo,
             );
+            const loaded = settings(cwd, flags.config);
+            namedOutside(loaded, only);
             if (flags.group) {
               if (!engine.list) throw new CliError('this build cannot discover groups');
               const discoverGroup = engine.list;
@@ -499,7 +527,21 @@ ${EXIT_CODES(
                 throw new CliError(
                   'group discovery is incomplete; run uptide list to resolve its failures before checking a group',
                 );
-              only.push(...group.members.map((p) => p.name).filter((name) => !only.includes(name)));
+              // A group is not a name: its members outside uptide.yml stay out.
+              const members = group.members.map((p) => p.name);
+              const kept = members.filter((n) => !loaded || packageSelected(loaded.config, n));
+              if (kept.length < members.length)
+                io.err(
+                  `${members.filter((n) => !kept.includes(n)).join(', ')}: left out of the group by packages in uptide.yml\n`,
+                );
+              if (kept.length === 0)
+                throw new CliError(
+                  `every member of '${flags.group}' is outside packages in uptide.yml`,
+                  {
+                    next: `uptide check ${members[0]}`,
+                  },
+                );
+              only.push(...kept.filter((name) => !only.includes(name)));
             }
             const targets = parseTargets(flags.target, only);
             const htmlReport = async (report: CheckReport): Promise<void> => {
@@ -744,11 +786,13 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
         (value: string, previous: string[]) => [...previous, value],
         [],
       )
+      .option('--llm', 'assisted fixes on, even when uptide.yml turns them off')
       .option('--no-llm', 'rule-based fixes only: never send code to the LLM provider')
       .option(
         '--max-cost <usd>',
-        'reserve the worst-case cost before each LLM call, including retries (default: 1 USD for every package)',
+        'reserve the worst-case cost before each LLM call, including retries (default: maxCost in uptide.yml, else 1 USD)',
       )
+      .option('--config <path>', 'settings file (default: the nearest uptide.yml)')
       .option(
         '--with-services',
         'also run tests that need a database, cache or queue; prints the targets, requires --yes',
@@ -830,6 +874,7 @@ ${PRIVACY}`,
           allowDirty?: boolean;
           yes?: boolean;
           verbose?: boolean;
+          config?: string;
         },
       ) =>
         act(
@@ -837,6 +882,7 @@ ${PRIVACY}`,
           async ({ ui, progress, cwd }) => {
             const started = io.now();
             const quiet = !flags.verbose && !flags.debug;
+            const loaded = settings(cwd, flags.config);
             if (packageName && flags.only && packageName !== flags.only)
               throw new CliError('choose one package for fix');
             const only = packageName ?? flags.only;
@@ -848,8 +894,13 @@ ${PRIVACY}`,
               throw new CliError(`--only ${only}: fix upgrades one dependency at a time`, {
                 next: `uptide fix ${only.split(',')[0]}`,
               });
-            const maxCost = flags.maxCost !== undefined ? Number(flags.maxCost) : 1;
-            const selection = selectLlm(cwd, flags, io.env);
+            namedOutside(loaded, [only]);
+            // Flags first, then uptide.yml, then the defaults.
+            const maxCost =
+              flags.maxCost !== undefined ? Number(flags.maxCost) : (loaded?.config.maxCost ?? 1);
+            const llmOn = flags.llm ?? loaded?.config.llm.enabled ?? true;
+            const agent = flags.agent ?? (loaded?.config.executor === 'sdk' ? 'sdk' : undefined);
+            const selection = selectLlm(cwd, flags, io.env, loaded?.given.llm?.provider);
             if (maxCost !== undefined && (!Number.isFinite(maxCost) || maxCost <= 0))
               throw new CliError(`--max-cost ${flags.maxCost}: expected an amount in USD`, {
                 next: `uptide fix ${only} --max-cost 2`,
@@ -857,8 +908,7 @@ ${PRIVACY}`,
             // No pack, so no rule: without the agent there is nothing this command can do,
             // and it says so before it touches anything.
             const hasPack = activePacks().some((pack) => pack.name === only);
-            if (!hasPack && (flags.llm === false || !selection.available))
-              throw noAgentForGeneric(only, flags.llm === false);
+            if (!hasPack && (!llmOn || !selection.available)) throw noAgentForGeneric(only, !llmOn);
             if (flags.pinCurrentApi && only !== 'stripe')
               throw new CliError('--pin-current-api applies to stripe only', {
                 next: 'uptide fix stripe --pin-current-api',
@@ -914,12 +964,15 @@ ${PRIVACY}`,
               );
             }
             // A pin run edits by rule alone: no assistant, so nothing to say about one.
-            const llm = flags.llm !== false && !flags.pinCurrentApi;
+            const llm = llmOn && !flags.pinCurrentApi;
             if (flags.pinCurrentApi)
               io.err(
                 'pin run: the SDK stays, apiVersion is written on each client; no code leaves this machine\n',
               );
-            else if (!llm) io.err('assisted fixes off (--no-llm): no code leaves this machine\n');
+            else if (!llm)
+              io.err(
+                `assisted fixes off (${flags.llm === false ? '--no-llm' : 'llm.enabled: false in uptide.yml'}): no code leaves this machine\n`,
+              );
             else if (selection.available) {
               io.err(
                 `LLM: ${selection.provider}${selection.provider === 'gemini' ? ' (experimental)' : ''} / ${selection.model} · budget $${maxCost.toFixed(2)}\n`,
@@ -957,7 +1010,7 @@ ${PRIVACY}`,
                     provider: selection.provider,
                     model: selection.model,
                     ...(maxCost !== undefined ? { maxCostUsd: maxCost } : {}),
-                    ...(flags.agent === 'sdk' ? { agent: 'sdk' as const } : {}),
+                    ...(agent === 'sdk' ? { agent: 'sdk' as const } : {}),
                     withServices: flags.withServices,
                     ...(flags.keepTemp || flags.keep || flags.debug ? { keep: true } : {}),
                     pr: flags.pr,
@@ -1215,6 +1268,60 @@ ${EXIT_CODES('description rendered (and updated unless --preview)', 'not used')}
             `${result.updated ? 'Updated description:' : 'Preview only; PR unchanged:'} ${result.url}\n`,
           );
         }
+        return EXIT.ok;
+      }),
+    );
+
+  shared(
+    program
+      .command('init')
+      .description(
+        'Write the Uptide workflow and uptide.yml for this repository; no commit, no push',
+      )
+      .option('--dry-run', 'print the files and the pull request text; write nothing')
+      .option('--force', `replace an existing ${WORKFLOW_PATH} that differs`),
+  )
+    .addHelpText(
+      'after',
+      `
+What it does:
+  Reads package.json, the lockfile, .nvmrc / .node-version / engines and the workspaces at
+  the repository root, and writes ${WORKFLOW_PATH} and uptide.yml: the same two files
+  the Uptide GitHub App proposes in its "Add Uptide" pull request. An existing uptide.yml is
+  never rewritten: its settings are used. No network, no commit, no push.
+  Refuses, writing nothing, when the files would not work: Bun, no lockfile, no package.json,
+  or a lockfile that disagrees with packageManager.
+
+Examples:
+  $ uptide init --dry-run      print the files and the pull request text
+  $ uptide init                write them, then review and commit
+${EXIT_CODES('files written (or printed with --dry-run)', 'not used', ';\n     or nothing was generated for this repository (the reason is printed)')}`,
+    )
+    .action((flags: Shared & { dryRun?: boolean; force?: boolean }) =>
+      act(flags, async ({ cwd }) => {
+        const result = planInit(cwd);
+        if (!flags.dryRun) writeInit(result, flags.force === true);
+        const state: Record<InitFile['action'], string> = {
+          create: flags.dryRun ? 'new' : 'created',
+          update: flags.dryRun ? 'differs from the existing file; --force replaces it' : 'updated',
+          unchanged: 'unchanged',
+          kept: 'exists: kept, its settings are used',
+        };
+        if (flags.json) emit({ ...result, written: !flags.dryRun });
+        else if (flags.dryRun) {
+          for (const file of result.files)
+            io.out(
+              `--- ${file.path} (${state[file.action]})\n${file.action === 'kept' ? '' : `${file.content}\n`}`,
+            );
+          io.out(`--- pull request: ${result.prTitle}\n\n${result.prBody}`);
+        } else {
+          for (const file of result.files) io.out(`${file.path}: ${state[file.action]}\n`);
+          io.err(`\n${INIT_NEXT}`);
+        }
+        if (!UPTIDE_ACTION.released)
+          io.err(
+            `\nNote: the Uptide Action this workflow runs is not released yet, so the workflow cannot run until a later uptide updates it (\`${INVOCATION} init --force\`).\n`,
+          );
         return EXIT.ok;
       }),
     );
