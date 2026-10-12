@@ -90,6 +90,39 @@ describe('golden files', () => {
       await expect(file(o, 'uptide.yml')).toMatchFileSnapshot(`__golden__/${name}/uptide.yml`);
       await expect(o.prBody).toMatchFileSnapshot(`__golden__/${name}/pr-body.md`);
     });
+  // schedule: manual: the same repository as `npm`, with no scheduled runs.
+  it('manual', async () => {
+    const o = generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
+      config: { version: 1, schedule: 'manual' },
+    });
+    await expect(file(o, '.github/workflows/uptide.yml')).toMatchFileSnapshot(
+      '__golden__/manual/workflow.yml',
+    );
+    await expect(file(o, 'uptide.yml')).toMatchFileSnapshot('__golden__/manual/uptide.yml');
+    await expect(o.prBody).toMatchFileSnapshot('__golden__/manual/pr-body.md');
+  });
+});
+
+describe('schedule: manual', () => {
+  const o = generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
+    config: { version: 1, schedule: 'manual' },
+  });
+
+  it('has only workflow_dispatch, no schedule trigger', () => {
+    const workflow = parse(file(o, '.github/workflows/uptide.yml'));
+    expect(Object.keys(workflow.on)).toEqual(['workflow_dispatch']);
+    expect(file(o, '.github/workflows/uptide.yml')).not.toContain('cron:');
+  });
+
+  it('says in uptide.yml where runs start, and loads back as manual', () => {
+    const text = file(o, 'uptide.yml');
+    expect(text).toContain('Runs start from the Uptide\n# dashboard (Run now) or the Actions tab');
+    expect(parseUptideConfig(text).config.schedule).toBe('manual');
+  });
+
+  it('says in the pull request that nothing runs on a schedule', () => {
+    expect(o.prBody).toContain('The workflow has no schedule (`schedule: manual`)');
+  });
 });
 
 describe('the workflow', () => {

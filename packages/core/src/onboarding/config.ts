@@ -7,6 +7,7 @@ import { globRegExp } from '../workspaces.js';
 import { cronProblem } from './cron.js';
 import {
   DEFAULT_CONFIG,
+  MANUAL_SCHEDULE,
   UPTIDE_CONFIG_FILE,
   UPTIDE_CONFIG_SCHEMA,
   type UptideConfig,
@@ -140,9 +141,9 @@ export function parseUptideConfig(
   const problems = validate(UPTIDE_CONFIG_SCHEMA as Schema, value).map((e) =>
     at(e.path, e.message),
   );
-  if (typeof record.schedule === 'string') {
+  if (typeof record.schedule === 'string' && record.schedule !== MANUAL_SCHEDULE) {
     const cron = cronProblem(record.schedule);
-    if (cron) problems.push(at(['schedule'], cron));
+    if (cron) problems.push(at(['schedule'], `${cron}, or manual for no scheduled runs`));
   }
   if (problems.length) throw invalid(problems);
   const given = value as UptideConfigInput;

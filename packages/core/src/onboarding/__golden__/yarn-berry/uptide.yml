@@ -12,8 +12,8 @@ packages:
   # Never these, even when allow matches them.
   deny: []
 
-# When the workflow runs: cron, in UTC. The workflow file holds a copy of this line;
-# after changing it, run `npx uptide init --force` to update the workflow.
+# When the workflow runs: cron, in UTC, or manual to start runs only by hand. The workflow
+# file holds a copy of this line; after changing it, run `npx uptide init --force`.
 schedule: '54 7 * * 1'
 
 # No new pull request is opened while this many Uptide pull requests are open.

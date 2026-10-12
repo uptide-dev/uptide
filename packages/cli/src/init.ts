@@ -119,5 +119,5 @@ export const INIT_NEXT = `Next:
   2. Add the repository secret ANTHROPIC_API_KEY for assisted fixes:
        gh secret set ANTHROPIC_API_KEY
      Without it Uptide applies rule-based fixes only. llm.enabled: false in ${UPTIDE_CONFIG_FILE} turns the LLM off.
-  The workflow runs on its schedule once ${WORKFLOW_PATH} is on the default branch.
+  The workflow runs once ${WORKFLOW_PATH} is on the default branch: on its schedule, and when started from the Actions tab.
 `;

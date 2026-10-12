@@ -1,7 +1,12 @@
 // biome-ignore-all lint/suspicious/noTemplateCurlyInString: GitHub Actions expressions, written as they appear in the workflow.
 import { COREPACK_VERSION, PINNED_ACTIONS, UPTIDE_ACTION, usesLine } from './actions.js';
 import type { RepoFacts } from './facts.js';
-import { UPTIDE_CONFIG_FILE, UPTIDE_CONFIG_SCHEMA_URL, type UptideConfig } from './schema.js';
+import {
+  MANUAL_SCHEDULE,
+  UPTIDE_CONFIG_FILE,
+  UPTIDE_CONFIG_SCHEMA_URL,
+  type UptideConfig,
+} from './schema.js';
 
 export const WORKFLOW_PATH = '.github/workflows/uptide.yml';
 const DOCS = 'https://github.com/uptide-dev/uptide/blob/main/docs';
@@ -68,16 +73,23 @@ export function renderWorkflow(facts: RepoFacts, config: UptideConfig): string {
       ? ['          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}']
       : []),
   ].join('\n');
+  // `manual`: no schedule trigger at all, only workflow_dispatch.
+  const trigger =
+    config.schedule === MANUAL_SCHEDULE
+      ? `  # uptide.yml "schedule" is manual: runs start from the Actions tab or the Uptide dashboard.
+  # After changing it there, run \`npx uptide init --force\`.
+`
+      : `  schedule:
+    # uptide.yml "schedule" (UTC). After changing it there, run \`npx uptide init --force\`.
+    - cron: '${config.schedule}'
+`;
   return `# Uptide: dependency upgrades, checked and migrated in this repository's own GitHub Actions.
 # Settings are in uptide.yml. How this file was made, and how to change it:
 # ${DOCS}/commands/init.md
 name: Uptide
 
 on:
-  schedule:
-    # uptide.yml "schedule" (UTC). After changing it there, run \`npx uptide init --force\`.
-    - cron: '${config.schedule}'
-  workflow_dispatch:
+${trigger}  workflow_dispatch:
     inputs:
       mode:
         description: 'list: what is behind. check: what an upgrade breaks. fix: open draft pull requests with verified migrations.'
@@ -133,8 +145,14 @@ packages:
   # Never these, even when allow matches them.
   deny:${list(config.packages.deny)}
 
-# When the workflow runs: cron, in UTC. The workflow file holds a copy of this line;
-# after changing it, run \`npx uptide init --force\` to update the workflow.
+${
+  config.schedule === MANUAL_SCHEDULE
+    ? `# When the workflow runs: manual, so never on a schedule. Runs start from the Uptide
+# dashboard (Run now) or the Actions tab (Run workflow). A cron expression in UTC
+# ('17 6 * * 1') schedules it; after changing this line, run \`npx uptide init --force\`.`
+    : `# When the workflow runs: cron, in UTC, or manual to start runs only by hand. The workflow
+# file holds a copy of this line; after changing it, run \`npx uptide init --force\`.`
+}
 schedule: '${config.schedule}'
 
 # No new pull request is opened while this many Uptide pull requests are open.
@@ -160,6 +178,7 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 
 /** `every Monday at 06:17 UTC` for the schedules Uptide writes; the cron itself otherwise. */
 export function describeSchedule(cron: string): string {
+  if (cron === MANUAL_SCHEDULE) return 'only when someone starts it';
   const m = /^(\d{1,2}) (\d{1,2}) \* \* ([0-7])$/.exec(cron.trim());
   if (!m) return `on the cron schedule \`${cron}\` (UTC)`;
   const pad = (n: string) => n.padStart(2, '0');
@@ -188,7 +207,11 @@ Uptide finds dependency upgrades that break your code, migrates the code, and ch
 
 ## What runs, and when
 
-The workflow runs ${describeSchedule(config.schedule)} (\`${config.schedule}\`), and when someone starts it from the Actions tab (Run workflow), where you can pick a mode and one dependency. Each run:
+${
+  config.schedule === MANUAL_SCHEDULE
+    ? 'The workflow has no schedule (`schedule: manual`): it runs only when someone starts it, with Run now in the Uptide dashboard or from the Actions tab (Run workflow), where you can pick a mode and one dependency. Each run:'
+    : `The workflow runs ${describeSchedule(config.schedule)} (\`${config.schedule}\`), and when someone starts it from the Actions tab (Run workflow), where you can pick a mode and one dependency. Each run:`
+}
 
 1. Checks out \`${facts.defaultBranch}\`.
 2. Sets up Node and installs your dependencies with \`${m.install}\`. Install scripts of dependencies do not run.

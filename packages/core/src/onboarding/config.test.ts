@@ -91,6 +91,15 @@ maxCost: 0
     expect(problems("version: 1\nschedule: '61 3 * * 1'\n")).toContain(
       'minute field "61": expected 0 to 59',
     );
+    expect(problems("version: 1\nschedule: 'weekly'\n")).toContain(
+      ', or manual for no scheduled runs',
+    );
+  });
+
+  it('takes manual for a workflow with no schedule', () => {
+    const { config } = parseUptideConfig('version: 1\nschedule: manual\n');
+    expect(config.schedule).toBe('manual');
+    expect(problems('version: 1\nschedule: Manual\n')).toContain('schedule has 1 field');
   });
 
   it('rejects package globs that are not npm names', () => {

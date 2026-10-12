@@ -37,7 +37,7 @@
       }
     },
     "schedule": {
-      "description": "When the workflow runs: a five-field cron expression in UTC. The workflow file holds a copy; run `uptide init` again after changing it.",
+      "description": "When the workflow runs: a five-field cron expression in UTC, or `manual` to run only when started from the Actions tab or the Uptide dashboard. The workflow file holds a copy; run `uptide init` again after changing it.",
       "type": "string",
       "default": "17 6 * * 1"
     },

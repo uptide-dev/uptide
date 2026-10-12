@@ -13,7 +13,7 @@ export type Executor = (typeof EXECUTORS)[number];
 export interface UptideConfig {
   version: 1;
   packages: { allow: string[]; deny: string[] };
-  /** Cron, UTC, as GitHub Actions reads it. */
+  /** Cron, UTC, as GitHub Actions reads it, or `manual`: no scheduled runs. */
   schedule: string;
   maxOpenPrs: number;
   llm: { enabled: boolean; provider: Provider };
@@ -21,6 +21,9 @@ export interface UptideConfig {
   maxCost: number;
   executor: Executor;
 }
+
+/** `schedule: manual`: the workflow runs only when started by hand (Actions tab, dashboard). */
+export const MANUAL_SCHEDULE = 'manual';
 
 /** Used when `uptide.yml` leaves `schedule` out; `generateOnboarding` writes a per-repository one. */
 export const DEFAULT_SCHEDULE = '17 6 * * 1';
@@ -76,7 +79,7 @@ export const UPTIDE_CONFIG_SCHEMA = {
     },
     schedule: {
       description:
-        'When the workflow runs: a five-field cron expression in UTC. The workflow file holds a copy; run `uptide init` again after changing it.',
+        'When the workflow runs: a five-field cron expression in UTC, or `manual` to run only when started from the Actions tab or the Uptide dashboard. The workflow file holds a copy; run `uptide init` again after changing it.',
       type: 'string',
       default: DEFAULT_SCHEDULE,
     },

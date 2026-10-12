@@ -32,7 +32,7 @@ Only `version` is required. Every other field has the default shown in the table
 | `version` | `1` | (required) | Format of the file. Only 1 exists; a newer uptide says so when it reads a newer version. |
 | `packages.allow` | list of globs | `[]` | Only these dependencies. Empty: every dependency. |
 | `packages.deny` | list of globs | `[]` | Never these, even when `allow` matches them. |
-| `schedule` | cron (UTC) | `17 6 * * 1` | When the workflow runs. See [Schedule](#schedule). |
+| `schedule` | cron (UTC) or `manual` | `17 6 * * 1` | When the workflow runs. See [Schedule](#schedule). |
 | `maxOpenPrs` | 1 to 50 | `3` | No new pull request is opened while this many Uptide pull requests are open. |
 | `llm.enabled` | boolean | `true` | `false`: no code is sent to an LLM; only rule-based fixes are made. |
 | `llm.provider` | `anthropic`, `openai`, `gemini` | `anthropic` | Who receives that code, with the repository's own API key. |
@@ -54,6 +54,14 @@ A five-field cron expression in UTC, as GitHub Actions reads it: numbers, `*`, r
 lists, and month and weekday names. GitHub cannot read `uptide.yml` to schedule a workflow,
 so the workflow file holds a copy of this line. After changing `schedule`, run
 `npx uptide init --force` to write it into the workflow too.
+
+`manual` turns scheduled runs off: the workflow has only the `workflow_dispatch` trigger, and
+runs start from the Actions tab (Run workflow) or from Run now in the Uptide dashboard. Any other
+text must be a valid cron expression.
+
+```yaml
+schedule: manual
+```
 
 The schedule `uptide init` and the App write is weekly, on Monday between 03:00 and 08:59
 UTC, at a minute derived from the repository's `owner/name`: never minute 0 or 30, when
