@@ -719,7 +719,7 @@ describe('test detection', () => {
   it('knows jest, prefers a workspace script, then the root script, and says when nothing covers a workspace', () => {
     const jest = monorepo('jest');
     expect(planTests(jest, ['packages/api'], ['packages/api/src/a.ts'])[0]).toMatchObject({
-      command: 'jest --findRelatedTests --passWithNoTests packages/api/src/a.ts',
+      command: 'jest --findRelatedTests packages/api/src/a.ts --passWithNoTests',
       scope: 'jest tests related to 1 affected file, jest.config.ts',
     });
     writeFileSync(

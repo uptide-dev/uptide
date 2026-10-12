@@ -378,6 +378,11 @@ export interface TestPlan {
   write?: { path: string; text: string };
   /** Integration and end-to-end test files left out because they need services. */
   notRun?: { files: number; needs: string[] };
+  /**
+   * The repository's own `test` script, run instead when the runner command fails without a
+   * failing test to show for it (it could not start): a flag it does not take, a config error.
+   */
+  fallback?: string;
   /** With `withServices`: what the run connects to. */
   services?: { names: string[]; targets: string[] };
 }
@@ -527,14 +532,17 @@ export function planTests(
       : group.runner === 'vitest'
         ? ['--config', wrapper]
         : ['--testPathIgnorePatterns', '\\.(integration|int|e2e)\\.', '/(integration|e2e)/'];
-    const args =
+    const under = dirs.filter((d) => d !== '.');
+    // jest's --testPathIgnorePatterns takes every word after it: paths go first.
+    const whole =
       group.runner === 'vitest'
-        ? targets.length
-          ? ['related', '--run', '--passWithNoTests', ...isolate, ...targets]
-          : ['run', '--passWithNoTests', ...isolate, ...dirs.filter((d) => d !== '.')]
-        : targets.length
-          ? ['--findRelatedTests', '--passWithNoTests', ...isolate, ...targets]
-          : ['--passWithNoTests', ...isolate, ...dirs.filter((d) => d !== '.')];
+        ? ['run', '--passWithNoTests', ...isolate, ...under]
+        : ['--passWithNoTests', ...under, ...isolate];
+    const args = !targets.length
+      ? whole
+      : group.runner === 'vitest'
+        ? ['related', '--run', '--passWithNoTests', ...isolate, ...targets]
+        : ['--findRelatedTests', ...targets, '--passWithNoTests', ...isolate];
     // Calling the runner directly skips npm's `pretest` hook. When the repository's own test
     // script is this runner, its `pretest` (typically a build of workspace packages the tests
     // import) is part of how the tests are meant to run, so it runs first, as a command of its
@@ -546,11 +554,20 @@ export function planTests(
         : undefined;
     const run = [group.runner, ...args.map(quote)].join(' ');
     const kind = unitOnly ? 'unit tests' : 'tests';
+    // When the related-tests command cannot start: the repository's own script, or, where
+    // that would reach services, the same runner over the whole workspace, unit tests only.
+    const script = unitOnly
+      ? targets.length
+        ? [group.runner, ...whole.map(quote)].join(' ')
+        : undefined
+      : (scripts?.test ?? manifest(root)?.scripts?.test);
     plans.push({
       workspace,
       covers: group.covers,
       cwd: group.dir,
       command: prepare ? `${prepare} && ${run}` : run,
+      // A failing `pretest` fails the fallback too: it is what the tests import.
+      ...(script ? { fallback: prepare ? `${prepare} && ${script}` : script } : {}),
       scope: `${
         targets.length
           ? `${group.runner} ${kind} related to ${targets.length} affected file${targets.length === 1 ? '' : 's'}`
@@ -648,8 +665,8 @@ export async function testWorkspaces(
     const bins = upTo(root, plan.cwd)
       .map((dir) => join(dir, 'node_modules/.bin'))
       .filter((dir) => existsSync(dir));
-    const attempt = () =>
-      command(plan.cwd, process.env.SHELL ?? '/bin/sh', ['-c', plan.command], timeoutMs, {
+    const attempt = (script = plan.command) =>
+      command(plan.cwd, process.env.SHELL ?? '/bin/sh', ['-c', script], timeoutMs, {
         PATH: [...bins, process.env.PATH].join(':'),
       });
     // Stored and published as text: no terminal colors, no path of this machine.
@@ -658,6 +675,8 @@ export async function testWorkspaces(
     if (plan.write) writeFileSync(plan.write.path, plan.write.text);
     let result: Awaited<ReturnType<typeof attempt>>;
     let retried: string[] = [];
+    let ran = plan.command;
+    let scope = plan.scope;
     try {
       result = await attempt();
       if (result.code && !result.timeout) {
@@ -669,6 +688,13 @@ export async function testWorkspaces(
           const again = await attempt();
           if (!again.code && !again.timeout) retried = failing;
           result = again;
+        }
+        // Failed without a failing test: the command never ran the suite. The repository's own
+        // script is the next honest answer, not "failed before the change".
+        if (result.code && !result.timeout && failing.length === 0 && plan.fallback) {
+          ran = plan.fallback;
+          scope = `${plan.fallback}: the related-tests command failed before running a test`;
+          result = await attempt(ran);
         }
       }
     } finally {
@@ -686,9 +712,10 @@ export async function testWorkspaces(
     results.push({
       workspace: plan.workspace,
       status: result.timeout ? 'timeout' : result.code ? 'failed' : empty ? 'missing' : 'passed',
-      output: empty ? `no tests are related to the affected files (${plan.command})` : output,
-      command: plan.command,
+      output: empty ? `no tests are related to the affected files (${ran})` : output,
+      command: ran,
       ...described,
+      scope,
       ...(summary ? { summary } : {}),
       ...(retried.length ? { retried } : {}),
     });
