@@ -21,7 +21,13 @@ const CALLS = new Set([
   'streamObject',
   'ToolLoopAgent',
 ]);
-const TEXT_CALLS = new Set(['generateText', 'streamText', 'ToolLoopAgent']);
+const TEXT_CALLS = new Set([
+  'generateText',
+  'streamText',
+  'ToolLoopAgent',
+  'agent.generate',
+  'agent.stream',
+]);
 const UI_STREAMS = new Set([
   'createUIMessageStream',
   'toUIMessageStream',
@@ -131,9 +137,15 @@ export const aiPack = definePack({
       'onFinish',
       'onEnd',
       new Set([...TEXT_CALLS, ...UI_STREAMS]),
-      '`onFinish` is `onEnd` (generateText, streamText, ToolLoopAgent, UI message streams)',
+      '`onFinish` is `onEnd` (generateText, streamText, ToolLoopAgent and its calls, UI message streams)',
     ),
-    option('on-step-end', 'onStepFinish', 'onStepEnd', CALLS, '`onStepFinish` is `onStepEnd`'),
+    option(
+      'on-step-end',
+      'onStepFinish',
+      'onStepEnd',
+      new Set([...CALLS, ...TEXT_CALLS]),
+      '`onStepFinish` is `onStepEnd`',
+    ),
     option(
       'telemetry',
       'experimental_telemetry',

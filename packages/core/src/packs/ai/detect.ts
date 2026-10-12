@@ -48,6 +48,13 @@ const RESULT_METHODS = new Set([
   'pipeUIMessageStreamToResponse',
 ]);
 
+/**
+ * Methods of an agent (`agent.stream({ onStepFinish })`), named here `agent.stream` and
+ * `agent.generate`. The receiver's type is out of reach from the text, so only in a file that
+ * imports from `ai`.
+ */
+const AGENT_METHODS = new Set(['stream', 'generate']);
+
 /** The options object of each call to one of `callees` (exported names), with its callee. */
 function optionObjects(
   source: SourceFile,
@@ -59,19 +66,43 @@ function optionObjects(
     const expression = call.getExpression();
     let callee: string | undefined;
     if (Node.isIdentifier(expression)) callee = names.get(expression.getText());
-    else if (
-      Node.isPropertyAccessExpression(expression) &&
-      RESULT_METHODS.has(expression.getName())
-    )
-      callee = expression.getName();
+    else if (Node.isPropertyAccessExpression(expression)) {
+      const method = expression.getName();
+      if (RESULT_METHODS.has(method)) callee = method;
+      else if (AGENT_METHODS.has(method) && names.size > 0) callee = `agent.${method}`;
+    }
     if (!callee || !callees.has(callee)) return;
-    const argument = call.getArguments()[0];
+    let argument = call.getArguments()[0];
+    // `{ ... } as Options`, `{ ... } satisfies Options`, `({ ... })`.
+    while (
+      argument &&
+      (Node.isAsExpression(argument) ||
+        Node.isSatisfiesExpression(argument) ||
+        Node.isParenthesizedExpression(argument))
+    )
+      argument = argument.getExpression();
     if (argument && Node.isObjectLiteralExpression(argument))
-      found.push({ callee, options: argument.getProperties() });
+      found.push({ callee, options: spreadOut(argument.getProperties()) });
   };
   for (const call of source.getDescendantsOfKind(SyntaxKind.CallExpression)) visit(call);
   for (const call of source.getDescendantsOfKind(SyntaxKind.NewExpression)) visit(call);
   return found;
+}
+
+/** The options, with those of a spread object literal (`...(cond && { onStepFinish })`) in line. */
+function spreadOut(options: ObjectLiteralElementLike[]): ObjectLiteralElementLike[] {
+  return options.flatMap((option) => {
+    if (!Node.isSpreadAssignment(option)) return [option];
+    const spread = (node: Node): ObjectLiteralElementLike[] => {
+      if (Node.isParenthesizedExpression(node)) return spread(node.getExpression());
+      if (Node.isObjectLiteralExpression(node)) return spreadOut(node.getProperties());
+      if (Node.isBinaryExpression(node)) return spread(node.getRight());
+      if (Node.isConditionalExpression(node))
+        return [...spread(node.getWhenTrue()), ...spread(node.getWhenFalse())];
+      return [];
+    };
+    return spread(option.getExpression());
+  });
 }
 
 function keyOf(property: ObjectLiteralElementLike): Node | undefined {
