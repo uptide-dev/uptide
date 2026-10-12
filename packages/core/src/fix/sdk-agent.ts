@@ -16,7 +16,7 @@ import type {
   LintResult,
   TestResult,
 } from './types.js';
-import { markPreexisting, newDiagnosticsAcrossShifts, unplacedKey } from './verify.js';
+import { gitLineMoves, markPreexisting, newDiagnostics, unplacedKey } from './verify.js';
 
 /**
  * Experimental (`--agent sdk`): assisted fixes run as Claude Agent SDK sessions in the
@@ -400,7 +400,8 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     after: FixDiagnostic[],
     files: string[],
   ) => {
-    const fresh = newDiagnosticsAcrossShifts(before, after);
+    // An error a line move explains is the old one (`gitLineMoves`): lines the batch edited stay put.
+    const fresh = newDiagnostics(before, after, gitLineMoves(root, start));
     if (fresh.length)
       return `new type errors: ${fresh
         .slice(0, 5)
@@ -468,7 +469,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       const checks: TaskChecks = {
         types: () => {
           const now = input.diagnostics();
-          const fresh = newDiagnosticsAcrossShifts(before, now);
+          const fresh = newDiagnostics(before, now, gitLineMoves(root, taskStart));
           const left = now.filter((d) => task.files.includes(d.file));
           return [
             `${fresh.length} new type error(s) since the task started`,

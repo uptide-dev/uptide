@@ -89,6 +89,17 @@ export interface TestResult {
    * files, or `['*']` when the runner named none.
    */
   preexisting?: string[];
+  /**
+   * The scoped run (the runner's related tests) failed without a failing test, or found no
+   * related test, and the repository's own suite ran instead (`ranInstead`, which `command`
+   * names too): the scoped command and the end of what it printed.
+   */
+  fallback?: {
+    command: string;
+    reason: 'failed' | 'no-related';
+    output: string;
+    ranInstead: string;
+  };
 }
 /** The repository's own lint (biome, prettier, eslint) run on the files the migration edited. */
 export interface LintResult {

@@ -15,7 +15,6 @@ import type { MigrationPack } from '../packs/types.js';
 import { fix } from './run.js';
 import { assistWithSdk, guard, planTasks, type TaskRun, taskPrompt } from './sdk-agent.js';
 import type { AgentSummary, FixDiagnostic, FixSite, TestResult } from './types.js';
-import { newDiagnosticsAcrossShifts } from './verify.js';
 
 const git = (cwd: string, ...args: string[]) =>
   execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
@@ -391,15 +390,6 @@ describe('taskPrompt', () => {
     );
     expect(prompt).toMatch(/reads both shapes/);
     expect(prompt).not.toMatch(/import \{ subscriptionPeriod \} from/);
-  });
-});
-
-describe('newDiagnosticsAcrossShifts', () => {
-  it('treats a moved error as the same error, and a second copy as new', () => {
-    const old = diag('a.ts', 3, 2304, "Cannot find name 'x'.");
-    expect(newDiagnosticsAcrossShifts([old], [{ ...old, line: 9 }])).toEqual([]);
-    expect(newDiagnosticsAcrossShifts([old], [old, { ...old, line: 9 }])).toHaveLength(1);
-    expect(newDiagnosticsAcrossShifts([old], [{ ...old, file: 'b.ts' }])).toHaveLength(1);
   });
 });
 

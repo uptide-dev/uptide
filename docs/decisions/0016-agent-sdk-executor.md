@@ -25,7 +25,7 @@ unchanged.
 - **Executor.** Each task is one Agent SDK `query()` with `cwd` set to the temporary clone. The
   SDK's base tool set is restricted to `Read`, `Grep`, `Glob`, `Edit` and `Write`. Three
   in-process MCP tools, `check_types`, `run_lint` and `run_tests`, run Uptide's own type-check
-  (in-process, matched across line shifts), its resolved lint and its resolved tests. These go
+  (in-process, matched across line moves), its resolved lint and its resolved tests. These go
   through `command()`, which strips secrets from the environment.
   - There is no shell at all. That is stronger than a shell restricted to an allowlist: no
     installs, git or network from the agent's own commands. The repository's tests still run as
@@ -60,7 +60,8 @@ unchanged.
   share one (`batches()`), so a zod or React upgrade's many one-line changes pay for one
   check, not one each. The batch is rejected if any of these holds:
   - it introduced type errors, compared with the batch's start by
-    `newDiagnosticsAcrossShifts`;
+    `newDiagnostics` with the batch's line moves (`gitLineMoves`, shared with the rest of
+    `fix`): an error on a line the batch kept is the old one, one on a line it edited is new;
   - lint fails on the files it changed (after formatting them) where the baseline did not;
   - a test related to its files fails that did not fail at the batch's start.
 
@@ -84,8 +85,8 @@ unchanged.
   was. A site without a compiler error counts as fixed when its file changed.
   `validateAssisted` is not applied: its rules are snippet-patch heuristics, for example "no new
   throws", which forbid failing loudly on a missing period.
-- **Final verdict.** With `--agent sdk` it also matches diagnostics across line shifts. The
-  patch path still compares by position.
+- **Final verdict.** Unchanged, and the same for both agents: diagnostics against the
+  pre-upgrade baseline through `gitLineMoves`.
 - **Report.** `report.json` has `llm.agent: 'sdk'` and, per task, `llm.tasks[]`: turns,
   tokens, cost, wall time, tool calls by name, gate verdict, rejection, and the summary.
 

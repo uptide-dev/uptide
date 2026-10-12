@@ -8,7 +8,7 @@ import { git } from '../fix/process.js';
 import { renderMigration } from '../fix/report.js';
 import { type FixServices, fix } from '../fix/run.js';
 import type { FixReport } from '../fix/types.js';
-import { diagnostics, newDiagnostics, testWorkspaces } from '../fix/verify.js';
+import { diagnostics, gitLineMoves, newDiagnostics, testWorkspaces } from '../fix/verify.js';
 import { install } from '../fix/versions.js';
 import {
   detectUpgrades,
@@ -293,7 +293,7 @@ export async function runAction(
         await services.install(stage);
         const workspaces = [...new Set(upgrades.flatMap((u) => u.workspaces))];
         const after = services.diagnostics(stage, workspaces);
-        const errors = newDiagnostics(baseline, after);
+        const errors = newDiagnostics(baseline, after, gitLineMoves(stage, stageStart));
         const tests = await services.tests(stage, workspaces, 120_000);
         const passed =
           errors.length === 0 &&

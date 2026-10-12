@@ -13,6 +13,7 @@ import { type Followed, settle } from './settle.js';
 import type { FixReport, LintResult, TestResult } from './types.js';
 import {
   diagnostics,
+  gitLineMoves,
   newDiagnostics,
   type TestOptions,
   testWorkspaces,
@@ -124,7 +125,11 @@ export async function reverify(
   const left = git(root, 'status', '--porcelain', '--untracked-files=all')
     .split('\n')
     .filter((line) => line.trim() !== '' && !line.slice(3).startsWith('.uptide/'));
-  const newErrors = newDiagnostics(report.verification.baseline, after);
+  const newErrors = newDiagnostics(
+    report.verification.baseline,
+    after,
+    report.baseHead ? gitLineMoves(root, report.baseHead) : undefined,
+  );
   const unverified = typeResolutionFailure(root, report.verification.baseline);
   const rules = [...new Set(sites.map((s) => s.rule).filter((r): r is string => !!r))];
   const decisions = [

@@ -13,7 +13,7 @@ import { git } from './process.js';
 import { siteKey } from './report.js';
 import { safeFile } from './settle.js';
 import type { AssistedAttempt, FixDiagnostic, Fixer, FixReport, FixSite } from './types.js';
-import { diagnosticKey, newDiagnostics } from './verify.js';
+import { diagnosticKey, lineMoves, moved, newDiagnostics } from './verify.js';
 
 /** Lines of using statements shown with an import site. */
 const IMPORT_USE_LINES = 160;
@@ -24,33 +24,39 @@ export function enclosingContext(
   column: number,
   /** Modules whose import lines the patch may need to touch, beyond the dependency's own. */
   modules: string[] = [],
+  /** More sites of the same change in this file: their enclosing functions are shown too. */
+  more: { line: number; column: number }[] = [],
 ): string {
   const file = new Project({ useInMemoryFileSystem: true }).createSourceFile('context.ts', source);
-  const offset =
-    source
-      .split('\n')
-      .slice(0, line - 1)
-      .reduce((n, s) => n + s.length + 1, 0) +
-    column -
-    1;
-  const node = file.getDescendantAtPos(Math.min(offset, source.length - 1));
-  const container =
-    node?.getFirstAncestor(
-      (n) =>
-        Node.isFunctionDeclaration(n) ||
-        Node.isMethodDeclaration(n) ||
-        Node.isConstructorDeclaration(n) ||
-        Node.isArrowFunction(n) ||
-        Node.isFunctionExpression(n),
-    ) ??
-    node?.getFirstAncestor(
-      (n) =>
-        Node.isImportDeclaration(n) ||
-        Node.isTypeAliasDeclaration(n) ||
-        Node.isInterfaceDeclaration(n) ||
-        Node.isVariableStatement(n),
-    ) ??
-    node;
+  const containerAt = (line: number, column: number) => {
+    const offset =
+      source
+        .split('\n')
+        .slice(0, line - 1)
+        .reduce((n, s) => n + s.length + 1, 0) +
+      column -
+      1;
+    const node = file.getDescendantAtPos(Math.min(offset, source.length - 1));
+    return (
+      node?.getFirstAncestor(
+        (n) =>
+          Node.isFunctionDeclaration(n) ||
+          Node.isMethodDeclaration(n) ||
+          Node.isConstructorDeclaration(n) ||
+          Node.isArrowFunction(n) ||
+          Node.isFunctionExpression(n),
+      ) ??
+      node?.getFirstAncestor(
+        (n) =>
+          Node.isImportDeclaration(n) ||
+          Node.isTypeAliasDeclaration(n) ||
+          Node.isInterfaceDeclaration(n) ||
+          Node.isVariableStatement(n),
+      ) ??
+      node
+    );
+  };
+  const container = containerAt(line, column);
   const pieces = new Map<number, string>();
   const add = (n: Node) => {
     const start = n.getStartLineNumber(),
@@ -64,6 +70,10 @@ export function enclosingContext(
     );
   };
   if (container) add(container);
+  for (const at of more) {
+    const other = containerAt(at.line, at.column);
+    if (other) add(other);
+  }
   // An import that no longer exists is fixed where the name is used, not on the import
   // line: the statements that use what this import brings in are part of the site.
   if (container && Node.isImportDeclaration(container)) {
@@ -115,7 +125,10 @@ function diagnosticFor(site: FixSite, before: FixDiagnostic[], source: string) {
     )
     .sort(
       (a, b) =>
-        Math.abs(a.line - site.finding.usage.line) - Math.abs(b.line - site.finding.usage.line),
+        Math.abs(a.line - site.finding.usage.line) - Math.abs(b.line - site.finding.usage.line) ||
+        // Two errors on one line (`current_period_start` and `_end`): the site's own message.
+        Number(b.message === site.finding.usage.compileError) -
+          Number(a.message === site.finding.usage.compileError),
     )[0];
 }
 const declarationKey = (d: { file: string; line: number; endLine: number }) =>
@@ -203,6 +216,27 @@ export async function assist(
       if (d?.relatedDeclarations?.some((r) => keys.has(declarationKey(r))))
         group.push({ site: other, diagnostic: d });
     }
+    // Sites of the same change in this file (the period fields read in two handlers) are one
+    // task: the agent sees every enclosing function and the edit is accepted only when all
+    // of their diagnostics are gone. Each site keeps its own entry in the report.
+    const sameChange = new Set<FixSite>();
+    for (const other of sites) {
+      if (
+        other === site ||
+        other.outcome !== 'manual' ||
+        processed.has(other) ||
+        group.some((g) => g.site === other) ||
+        other.finding.usage.file !== site.finding.usage.file ||
+        (site.rule
+          ? other.rule !== site.rule
+          : other.finding.change.path !== site.finding.change.path)
+      )
+        continue;
+      const d = diagnosticFor(other, before, original);
+      if (!d || group.some((g) => diagnosticKey(g.diagnostic) === diagnosticKey(d))) continue;
+      group.push({ site: other, diagnostic: d });
+      sameChange.add(other);
+    }
     for (const member of group) processed.add(member.site);
     const files = new Map<
       string,
@@ -223,10 +257,21 @@ export async function assist(
         finding: site.finding,
         guide: pack.guide(site.finding, context),
         // The import the site must extend is shown exactly: a shared helper's module.
-        enclosingFunction: enclosingContext(original, diagnostic.line, diagnostic.column, [
-          pack.name,
-          ...(context?.helpers ?? []).flatMap((h) => Object.values(h.specifiers)),
-        ]),
+        enclosingFunction: enclosingContext(
+          original,
+          diagnostic.line,
+          diagnostic.column,
+          [
+            pack.name,
+            ...(context?.helpers ?? []).flatMap((h) => [
+              ...Object.values(h.specifiers),
+              ...Object.values(h.imports ?? {}),
+            ]),
+          ],
+          group
+            .filter(({ site: s }) => sameChange.has(s))
+            .map(({ diagnostic: d }) => ({ line: d.line, column: d.column })),
+        ),
         source: original,
         ...(declarations.length
           ? {
@@ -332,9 +377,16 @@ export async function assist(
         for (const [path, patched] of edits) writeFileSync(join(root, path), patched);
         const after = verify();
         log.after = after;
-        const newErrors = newDiagnostics(before, after);
+        // An edit that adds lines (an import) moves the errors below it: compared at the line
+        // they are on now, a pre-existing error is not new and a site's error is not gone.
+        const moves = lineMoves(
+          [...edits].map(([path, patched]) => [path, files.get(path)?.source ?? '', patched]),
+        );
+        const newErrors = newDiagnostics(before, after, moves);
         const remainingKeys = new Set(after.map(diagnosticKey));
-        const removed = group.every(({ diagnostic: d }) => !remainingKeys.has(diagnosticKey(d)));
+        const removed = group.every(
+          ({ diagnostic: d }) => !remainingKeys.has(diagnosticKey(moved(d, moves))),
+        );
         if (removed && newErrors.length === 0) {
           log.outcome = 'accepted';
           site.outcome = 'agent';
@@ -381,7 +433,7 @@ export async function assist(
     }
     for (const member of group.slice(1)) {
       member.site.outcome = site.outcome;
-      member.site.reason = `shared related declaration with ${siteKey(site)}: ${site.reason}`;
+      member.site.reason = `${sameChange.has(member.site) ? 'same change in this file as' : 'shared related declaration with'} ${siteKey(site)}: ${site.reason}`;
       if (site.outcome === 'agent') member.site.resolvedBy = siteKey(site);
     }
   }

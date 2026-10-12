@@ -508,7 +508,7 @@ attempt by exact diagnostic position. The hidden `--agent sdk` (Anthropic only) 
 that step with `assistWithSdk` (`src/fix/sdk-agent.ts`). It runs one Claude Agent SDK session
 per rule over the rule's files, in the clone, with read and edit tools, Uptide's own checks
 as in-process tools and no shell. One gate runs at the end of each task, matching diagnostics
-across line shifts. Everything around the step is unchanged. See
+across line moves (`gitLineMoves`). Everything around the step is unchanged. See
 `decisions/0016-agent-sdk-executor.md`.
 
 ### Direction resolution

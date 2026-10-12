@@ -3,7 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { isolatedPnpmWorkspace } from './test-fixture.js';
-import { diagnostics, newDiagnostics, typeChecker, typeResolutionFailure } from './verify.js';
+import {
+  diagnostics,
+  lineMoves,
+  moved,
+  newDiagnostics,
+  typeChecker,
+  typeResolutionFailure,
+} from './verify.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-verify-tests-'));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -107,4 +114,23 @@ it('re-checks a workspace only when a file its program reads changed, and sees e
   // Nothing changed: the last result, not a new program.
   const again = checker.check();
   expect(again).toEqual([]);
+});
+
+it('matches a pre-existing error that an added line moved down, never one on an edited line', () => {
+  const before = 'import a from "a";\nconst x = 1;\nfoo.bar;\n';
+  const after = 'import a from "a";\nimport { s } from "@/lib/stripe";\nconst x = s;\nfoo.bar;\n';
+  const moves = lineMoves([['f.ts', before, after]]);
+  expect(moves.get('f.ts')).toEqual(
+    new Map([
+      [1, 1],
+      [3, 4],
+      [4, 5],
+    ]),
+  );
+  const at = (line: number, code = 2339) => ({ file: 'f.ts', line, column: 5, code, message: 'm' });
+  expect(newDiagnostics([at(3)], [at(4)], moves)).toEqual([]);
+  expect(newDiagnostics([at(3)], [at(4)])).toEqual([at(4)]);
+  // The edited line has no counterpart: an error there after the edit is the edit's.
+  expect(newDiagnostics([at(2)], [at(3)], moves)).toEqual([at(3)]);
+  expect(moved(at(2), moves)).toEqual(at(2));
 });

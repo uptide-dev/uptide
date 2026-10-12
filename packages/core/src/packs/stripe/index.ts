@@ -62,22 +62,26 @@ function workspaceOf(file: string, helper: SharedHelper): string | undefined {
  * What to do at a period site: import the shared helper when the run placed one (never
  * redefine it), or write it once; and what `undefined` means where the code stands.
  */
+/** A site the run did not see when placing the helper: the plain relative path, no extension. */
 function relativeSpecifier(from: string, to: string): string {
   const rel = relative(dirname(from), to).replace(/\.[cm]?[jt]sx?$/, '');
-  return `${rel.startsWith('.') ? rel : `./${rel}`}.ts`;
+  return rel.startsWith('.') ? rel : `./${rel}`;
 }
 function periodGuide(f: Finding, context?: PackContext): string {
   const shared = context?.helpers?.find((h) => h.name === 'subscriptionPeriod');
   const workspace = shared ? workspaceOf(f.usage.file, shared) : undefined;
+  // Inside the helper's own workspace the specifier depends on the site's file.
   const mapped = shared && workspace ? shared.specifiers[workspace] : undefined;
-  // Inside the helper's own workspace the path depends on where this site's file is.
   const specifier =
-    shared && mapped?.startsWith('.') ? relativeSpecifier(f.usage.file, shared.file) : mapped;
+    shared?.imports?.[f.usage.file] ??
+    (shared && mapped?.startsWith('.') ? relativeSpecifier(f.usage.file, shared.file) : mapped);
+  // The specifier is how this file's neighbours would write it, not a requirement: the
+  // edit is accepted when it compiles, whatever spelling resolves to the module.
   const where =
     shared && shared.file === f.usage.file
       ? '`subscriptionPeriod` is already defined in this file, above the function that reads the period. Call it; never define a second copy and never move it.'
       : specifier
-        ? `\`subscriptionPeriod\` is already exported from \`${shared?.file}\`; import it with \`import { subscriptionPeriod } from "${specifier}"\` (add the name to an existing import from "${specifier}" when the file has one). Never define a local copy.`
+        ? `\`subscriptionPeriod\` is already exported from \`${shared?.file}\`; import it from that module, written the way this file writes its other imports (here likely \`import { subscriptionPeriod } from "${specifier}"\`; add the name to an existing import of that module when the file has one). Any specifier that resolves to that module and compiles is fine. Never define a local copy.`
         : `Define it once, before the enclosing function, exactly as: ${PERIOD_HELPER}`;
   return [
     `For current_period_start or current_period_end on Subscription use the helper subscriptionPeriod(s), which returns { start, end } from the item that ends last, or undefined when the subscription has no items. ${where}`,
@@ -308,7 +312,7 @@ export const stripePack: Pack = {
       general,
       `Target API literal: ${context?.apiVersions?.to ?? 'unknown: do not guess'}. Update literal values, never cast away the API-version constraint.`,
       'Never change `api_version` values inside webhook payloads, event objects or their test fixtures: they record the API version configured on the webhook endpoint, not the SDK pin.',
-      'Patch ONLY the current reported site. When adding a helper, insert immediately before the enclosing function shown in the context, using its exact source as the patch anchor. Do not guess unshown lines or fix other evidence sites. Reuse an existing helper if provided. Never introduce throws, nulls, or new failure modes in a migration. Preserve existing payment and webhook behavior and constructEvent signature verification.',
+      'Patch ONLY the current reported site, and, when sharedDiagnostics are listed, the sites they name in this file (one change, one patch). When adding a helper, insert immediately before the enclosing function shown in the context, using its exact source as the patch anchor. Do not guess unshown lines or fix other evidence sites. Reuse an existing helper if provided. Never introduce throws, nulls, or new failure modes in a migration. Preserve existing payment and webhook behavior and constructEvent signature verification.',
       periodGuide(f, context),
       ...entries.map(
         ({ entry: e, evidence }) =>

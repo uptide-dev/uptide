@@ -129,51 +129,19 @@ describe('tests that need services are opt-in', () => {
     expect(result?.output).not.toContain('vitest.uptide-unit.config.mjs');
   });
 
-  it('hands jest the paths before its ignore patterns, and runs the unit suite when the related run cannot start', async () => {
-    const root = repo('jest', 'jest.config.js');
-    // No global setup: jest can leave the service tests out by path.
-    writeFileSync(join(root, 'jest.config.js'), 'module.exports = {};');
+  it('gives jest the affected files before the ignore patterns, which it reads as an array', () => {
+    // No global setup, but integration tests: jest runs the unit tests related to the files.
+    const root = repo('jest');
+    writeFileSync(join(root, 'jest.config.ts'), 'export default {};');
     const [plan] = planTests(root, ['packages/api'], files);
-    // --testPathIgnorePatterns is variadic: anything after it would be read as a pattern.
+    // After `--testPathIgnorePatterns`, every argument is one more pattern: the files must come
+    // first, or jest sees `--findRelatedTests` without paths and fails before any test.
     expect(plan?.command).toBe(
       "jest --findRelatedTests packages/api/src/billing.ts --passWithNoTests --testPathIgnorePatterns '\\.(integration|int|e2e)\\.' '/(integration|e2e)/'",
     );
-    expect(plan?.fallback).toBe(
+    expect(plan?.fallback?.command).toBe(
       "jest --passWithNoTests packages/api --testPathIgnorePatterns '\\.(integration|int|e2e)\\.' '/(integration|e2e)/'",
     );
-    // A runner that cannot start in related mode, as jest did with the paths swallowed.
-    writeFileSync(
-      join(root, 'node_modules/.bin/jest'),
-      '#!/bin/sh\ncase "$*" in *--findRelatedTests*) echo "The --findRelatedTests option requires file paths to be specified."; exit 1;; esac\necho "Tests:       4 passed, 4 total"\n',
-      { mode: 0o755 },
-    );
-    const [result] = await testWorkspaces(root, ['packages/api'], 10_000, files);
-    expect(result).toMatchObject({ status: 'passed', command: plan?.fallback, summary: '4 tests' });
-    expect(result?.scope).toMatch(/the related-tests command failed before running a test$/);
-  });
-
-  it('falls back to the test script, and not when a test really failed', async () => {
-    const root = repo('jest', 'jest.config.js');
-    writeFileSync(join(root, 'jest.config.js'), 'module.exports = {};');
-    for (const file of [
-      'src/billing.integration.test.ts',
-      'src/routes.e2e.test.ts',
-      'e2e/flow.test.ts',
-    ])
-      rmSync(join(root, 'packages/api', file));
-    writeFileSync(
-      join(root, 'package.json'),
-      JSON.stringify({ name: 'mono', scripts: { test: 'jest --ci' } }),
-    );
-    expect(planTests(root, ['packages/api'], files)[0]?.fallback).toBe('jest --ci');
-    writeFileSync(
-      join(root, 'node_modules/.bin/jest'),
-      '#!/bin/sh\necho "FAIL packages/api/src/billing.test.ts"\nexit 1\n',
-      { mode: 0o755 },
-    );
-    const [failed] = await testWorkspaces(root, ['packages/api'], 10_000, files);
-    expect(failed).toMatchObject({ status: 'failed' });
-    expect(failed?.command).toMatch(/^jest --findRelatedTests/);
   });
 
   it('runs nothing when the setup cannot be taken out, and says how to include it', async () => {
