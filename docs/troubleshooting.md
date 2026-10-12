@@ -108,8 +108,9 @@ fully answered ([concepts](concepts.md#exit-codes)).
 
 ## Kept temporary clones
 
-`fix` and `verify` keep their clone when the run failed, when `--keep` was passed, or when it
-holds commits that are nowhere else; its path is printed. `uptide clean` removes kept clones
+`fix` and `verify` keep their clone only with `--keep-temp` or `--debug`, when the export to
+your repository failed, or when it holds verified commits that are nowhere else; its path is
+printed. A failed run's clone is removed on exit; rerun with `--debug` to inspect one. `uptide clean` removes kept clones
 older than 7 days ([`uptide clean`](commands/fix.md#uptide-clean)).
 
 ## Fix stops at peer planning

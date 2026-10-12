@@ -142,6 +142,35 @@ it('lists packages re-resolved because a peer changed', () => {
   expect(out).toContain('plugin 1.1.0 → 1.2.0 · peers react');
 });
 
+it('lists transitive changes under the package that moved them, two at a time', () => {
+  const report = fixReport(true);
+  report.lockfile = {
+    manager: 'yarn-berry',
+    file: 'yarn.lock',
+    added: [],
+    removed: [],
+    changed: [],
+    allowed: [],
+    transitive: [
+      {
+        name: 'cmdk',
+        from: ['0.2.1'],
+        to: ['1.0.1'],
+        changes: [
+          { name: '@radix-ui/primitive', from: '1.0.0', to: '1.1.1' },
+          { name: '@radix-ui/react-dialog', from: '1.0.0', to: '1.2.0' },
+          { name: 'use-sync-external-store', to: '1.5.0' },
+        ],
+      },
+    ],
+  };
+  const out = formatFixSummary(report, { color: false });
+  expect(out).toContain('Moved with the upgraded packages');
+  expect(out).toContain(
+    'cmdk 0.2.1 → 1.0.1 replaced @radix-ui/primitive 1.0.0 with 1.1.1, replaced @radix-ui/react-dialog 1.0.0 with 1.2.0, and 1 more (in the report)',
+  );
+});
+
 it('uses the committed diff count instead of counting diagnostic-only files as changed', () => {
   const report = {
     ...fixReport(true),

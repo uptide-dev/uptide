@@ -83,6 +83,19 @@ export interface PeerReresolution {
   ranges: Record<string, string>;
   records: string[];
 }
+/** One dependency version a moved package's subtree lost (`from`), gained (`to`), or both. */
+export interface TransitiveChange {
+  name: string;
+  from?: string;
+  to?: string;
+}
+/** A moved package and what its own subtree changed: why entries outside its name moved. */
+export interface MovedSubtree {
+  name: string;
+  from: string[];
+  to: string[];
+  changes: TransitiveChange[];
+}
 export interface LockDiff {
   added: string[];
   removed: string[];
@@ -90,8 +103,24 @@ export interface LockDiff {
   allowed: string[];
   housekeeping?: LockHousekeeping;
   peerReresolved?: PeerReresolution[];
+  /** Per moved package, the transitive changes its own subtree accounts for. */
+  transitive?: MovedSubtree[];
 }
-/** Placements reachable from the authorized roots in either lockfile. */
+function closure(graph: LockGraph, roots: Iterable<string>): Set<string> {
+  const queue = [...roots];
+  const visited = new Set<string>();
+  for (const key of queue) {
+    if (visited.has(key)) continue;
+    visited.add(key);
+    queue.push(...(graph.records.get(key)?.dependencies ?? []));
+  }
+  return visited;
+}
+/**
+ * Placements reachable from the authorized roots in either lockfile: an entry a moved package
+ * reached before may go, one it reaches after may come, and one it reaches in either may
+ * change. What only unmoved packages reach is not in scope.
+ */
 export function lockScope(
   before: LockGraph,
   after: LockGraph,
@@ -100,19 +129,74 @@ export function lockScope(
 ): Set<string> {
   const names = targetNames(target);
   const allowed = new Set<string>();
-  for (const graph of [before, after]) {
-    const queue = [...graph.records]
-      .filter(([key, r]) => names.includes(r.name) || extraRoots.includes(key))
-      .map(([k]) => k);
-    const visited = new Set<string>();
-    for (const key of queue) {
-      if (visited.has(key)) continue;
-      visited.add(key);
+  for (const graph of [before, after])
+    for (const key of closure(
+      graph,
+      [...graph.records]
+        .filter(([key, r]) => names.includes(r.name) || extraRoots.includes(key))
+        .map(([k]) => k),
+    ))
       allowed.add(key);
-      queue.push(...(graph.records.get(key)?.dependencies ?? []));
-    }
-  }
   return allowed;
+}
+
+/**
+ * What each moved package's own subtree changed, by package and version: `cmdk` 0.2.1 → 1.0.1
+ * replaced `@radix-ui/react-dialog` 1.0.0 with 1.2.0. Versions are compared as sets per name,
+ * so a placement or descriptor moving at the same version is no change. Moved packages are
+ * reported under their own name, never under one another.
+ */
+export function transitiveChanges(
+  before: LockGraph,
+  after: LockGraph,
+  target: Targets,
+): MovedSubtree[] {
+  const names = targetNames(target);
+  const versions = (graph: LockGraph, keys: Iterable<string>) => {
+    const out = new Map<string, Set<string>>();
+    for (const key of keys) {
+      const record = graph.records.get(key);
+      const version = record?.identity.version;
+      if (!record || version === undefined || version === null) continue;
+      const set = out.get(record.name) ?? new Set<string>();
+      set.add(String(version));
+      out.set(record.name, set);
+    }
+    return out;
+  };
+  const sorted = (set: Set<string> | undefined) =>
+    [...(set ?? [])].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  const result: MovedSubtree[] = [];
+  for (const name of names) {
+    const rootsOf = (graph: LockGraph) =>
+      [...graph.records].filter(([, r]) => r.name === name).map(([k]) => k);
+    const was = versions(before, closure(before, rootsOf(before)));
+    const is = versions(after, closure(after, rootsOf(after)));
+    const changes: TransitiveChange[] = [];
+    for (const dependency of [...new Set([...was.keys(), ...is.keys()])].sort()) {
+      if (names.includes(dependency)) continue;
+      const old = sorted(was.get(dependency)).filter((v) => !is.get(dependency)?.has(v));
+      const next = sorted(is.get(dependency)).filter((v) => !was.get(dependency)?.has(v));
+      if (old.length === 1 && next.length === 1)
+        changes.push({ name: dependency, from: old[0] as string, to: next[0] as string });
+      else {
+        for (const from of old) changes.push({ name: dependency, from });
+        for (const to of next) changes.push({ name: dependency, to });
+      }
+    }
+    const from = sorted(was.get(name)),
+      to = sorted(is.get(name));
+    if (changes.length || from.join() !== to.join()) result.push({ name, from, to, changes });
+  }
+  return result;
+}
+/** `replaced a 1.0.0 with 1.2.0`, `removed b 1.0.0`, `added c 2.0.0`. */
+export function describeTransitive(change: TransitiveChange): string {
+  return change.from !== undefined && change.to !== undefined
+    ? `replaced ${change.name} ${change.from} with ${change.to}`
+    : change.from !== undefined
+      ? `removed ${change.name} ${change.from}`
+      : `added ${change.name} ${change.to}`;
 }
 /** Union authorized subtrees, then protect every outside dependent's actual resolution. */
 export function assertLockScope(
@@ -235,5 +319,7 @@ export function assertLockScope(
     );
   }
   if (housekeeping.deduped.length || housekeeping.metadata.length) diff.housekeeping = housekeeping;
+  const transitive = transitiveChanges(before, after, target).filter((m) => m.changes.length);
+  if (transitive.length) diff.transitive = transitive;
   return diff;
 }

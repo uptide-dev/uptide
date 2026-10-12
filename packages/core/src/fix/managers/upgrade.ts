@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { parseNpm, parsePnpm, parseYarn } from '../../adapters/typescript/lockfile.js';
 import { UptideError } from '../../errors.js';
 import { satisfies } from '../../fetch/range.js';
-import { command, git } from '../process.js';
+import { command } from '../process.js';
 import { assertManagerAvailable } from './availability.js';
 import { assertLockScope, type LockDiff, type LockGraph, type Targets } from './lock-guard.js';
 import { type PackageManager, updateArgs } from './manager.js';
@@ -96,15 +96,16 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
     if (yarn) writeFileSync(rootManifest, rootText);
   }
   if (pm.kind === 'yarn-berry') {
-    // Restoring a broad range drops Yarn's temporary resolution; pin its descriptor in the lockfile instead.
+    // Restoring a broad range drops Yarn's temporary resolution; pin its descriptor in the
+    // lockfile instead. A range the plan rewrote (`^14.0.0` → `^16.1.0`) is as broad as one it
+    // kept: left alone, Yarn resolves its newest match (16.3.3), not the planned version.
     const descriptors = new Map<string, string>();
-    for (const [file, text] of originals) {
+    for (const [, text] of originals) {
       const json = JSON.parse(text);
-      const previous = JSON.parse(git(root, 'show', `HEAD:./${file}`));
       for (const section of ['dependencies', 'devDependencies', 'optionalDependencies'])
         for (const move of moves) {
           const spec = json[section]?.[move.name];
-          if (!spec || spec !== previous[section]?.[move.name]) continue;
+          if (!spec) continue;
           const alias = /^(npm:(?:@[^/\s]+\/)?[^@\s]+@)(.+)$/.exec(spec);
           const range = alias?.[2] ?? spec;
           // Exact self-resolutions make Yarn's resolver recurse into itself.

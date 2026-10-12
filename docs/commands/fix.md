@@ -114,8 +114,25 @@ lockfile importers and locked direct versions. If they disagree it exits **2** b
 it does not normalize the lockfile. The scope guard unions the resolved subtrees of the
 leader, companions, explicit extras and allowed-peer overrides in both lockfiles. Outside
 that union, package names, versions and integrity must resolve identically for every dependent.
-For npm this follows Node's lookup from each placement up through `node_modules`; pnpm and
-Yarn use their locked dependency references. Unchanged dependent records are checked too.
+An entry a moved package reached before may be removed, one it reaches after may be added, and
+one it reaches in either may change: a new major that swaps its dependencies (`cmdk` 0.2 → 1.0
+dropping `@radix-ui/*` 1.0.0 for 1.1.x) is inside its subtree. For npm this follows Node's
+lookup from each placement up through `node_modules`; pnpm and Yarn use their locked dependency
+references (Yarn 2 and 3 write those without the `npm:` protocol their entries are keyed by;
+both spellings resolve). Peer declarations are not edges. Unchanged dependent records are
+checked too.
+
+A root `resolutions` (Yarn), `overrides` (npm) or `pnpm.overrides` entry that pins a package the
+upgrade moves, keyed by its name alone or `**/name`, and that the target does not satisfy, stops
+the run before the baseline: the install would quietly keep the pinned version. Uptide never
+rewrites these entries; update or remove them and run again. Entries scoped to one dependent
+(`parent/name`, `parent>name`, npm's nested form) are left alone. With Yarn 2+, each moved
+package's descriptor is pinned to the exact planned version (`yarn set resolution`), whether its
+range was kept or rewritten; the committed `package.json` carries no `resolutions` of Uptide's.
+
+The report and PR list these transitive changes under **Moved with the upgraded packages**, each
+under the package whose subtree accounts for it: `cmdk 0.2.1 → 1.0.1 replaced
+@radix-ui/react-dialog 1.0.0 with 1.2.0`. The terminal shows the first two per package.
 
 npm may also re-resolve an existing package that peers on a planned package. Uptide admits
 that package only when its new version stays in the same major, is newer, and satisfies every
@@ -234,14 +251,16 @@ temporary clone, never in your checkout. History is never rewritten; `--push --y
 the new commits only after their tree has been exported to your repository, fast-forward only.
 Keep the migration branch unchecked out so new commits can land without modifying your checkout. The stored run then records the new HEAD,
 so `uptide pr-body` can update the description. `--branch <name>` names a branch other than
-the one checked out; `--with-services --yes` and `--keep` work as in `fix`. Exit codes: **0**
+the one checked out; `--with-services --yes`, `--keep-temp` and `--debug` work as in `fix`. Exit codes: **0**
 the branch verifies, **1** verification failed, **2** uptide could not answer.
 
 ## `uptide clean`
 
-`fix` and `verify` keep a temporary clone when the run failed, when `--keep` was passed, or
-when it holds commits that are nowhere else. `uptide clean` removes kept clones older than 7
-days (`--days <n>` changes the age). Only directories Uptide created under its own temporary
+`fix` and `verify` remove their temporary clone on exit, a failed or interrupted run's too,
+and print nothing about it. A clone is kept, and its path printed, with `--keep-temp` or
+`--debug` (`--debug` also prints every phase), when the export to your repository failed, or
+when it holds verified commits that are nowhere else. `uptide clean` removes kept clones older
+than 7 days (`--days <n>` changes the age). Only directories Uptide created under its own temporary
 root are ever removed.
 
 ## Exit codes

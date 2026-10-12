@@ -1,0 +1,57 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      other:
+        specifier: ^1.0.0
+        version: 1.0.0
+      ui:
+        specifier: ^1.0.0
+        version: 1.0.0
+
+packages:
+
+  old-dep@1.0.0:
+    resolution: {integrity: sha512-f8877b1ddfc4b0516b031bebb3cfe9c8adb6c236fd64953b813769977c935ecd}
+
+  old-leaf@1.0.0:
+    resolution: {integrity: sha512-ce6e09cec90be0797d7d19752e3eef513d074bda9cc7c9fe474e3cc108362ee6}
+
+  other@1.0.0:
+    resolution: {integrity: sha512-96b8bca674b3701833200fac5c57062a9d1e2492d275ff1585df7332498ac1ec}
+
+  shared@1.0.0:
+    resolution: {integrity: sha512-1da9449f1afe20aab886bf5246ce78be71168401fdd829a43374bcf70587395a}
+
+  swap@1.0.0:
+    resolution: {integrity: sha512-b1611021df5df88eeda32d71b264c46d2fcaea0344c9e3adb04b9116ca60f3b0}
+
+  ui@1.0.0:
+    resolution: {integrity: sha512-8dd5bef3736c41117a2f970dede5377237c3c4f301c848a0fbbb45e1550305cd}
+
+snapshots:
+
+  old-dep@1.0.0:
+    dependencies:
+      old-leaf: 1.0.0
+
+  old-leaf@1.0.0: {}
+
+  other@1.0.0:
+    dependencies:
+      shared: 1.0.0
+
+  shared@1.0.0: {}
+
+  swap@1.0.0: {}
+
+  ui@1.0.0:
+    dependencies:
+      old-dep: 1.0.0
+      swap: 1.0.0

@@ -19,6 +19,7 @@ import {
   type ProgressListener,
   type PublishTarget,
   publishTarget,
+  removeOnInterrupt,
   typescriptAdapter,
   UptideError,
   updatePrBody,
@@ -84,11 +85,20 @@ async function offThread<T>(job: Job, onProgress?: ProgressListener): Promise<T>
       resourceLimits: { maxOldGenerationSizeMb: workerHeapMb(1) },
     });
     let settled = false;
+    // The clones the job is working in: an interrupt removes them (`removeOnInterrupt`).
+    const clones = new Set<string>();
+    let release: (() => void) | undefined;
+    const done = () => {
+      release?.();
+      release = undefined;
+    };
+    worker.once('exit', done);
     worker.on(
       'message',
       (
         reply:
           | { type: 'progress'; event: ProgressEvent }
+          | { type: 'clone'; clone: string; interruptible: boolean }
           | { ok: true; value: T }
           | {
               ok: false;
@@ -99,10 +109,17 @@ async function offThread<T>(job: Job, onProgress?: ProgressListener): Promise<T>
             },
       ) => {
         if ('type' in reply) {
-          onProgress?.(reply.event);
+          if (reply.type === 'progress') onProgress?.(reply.event);
+          else {
+            if (reply.interruptible) clones.add(reply.clone);
+            else clones.delete(reply.clone);
+            if (clones.size) release ??= removeOnInterrupt(() => clones);
+            else done();
+          }
           return;
         }
         settled = true;
+        done();
         if (reply.ok) resolvePromise(reply.value);
         else
           reject(

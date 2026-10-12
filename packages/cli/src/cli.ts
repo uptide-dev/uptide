@@ -15,7 +15,7 @@ import {
   testPack,
   UptideError,
 } from '@uptide/core';
-import { Command, CommanderError } from 'commander';
+import { Command, CommanderError, Option } from 'commander';
 import { describeRepo, detectRepo, type Repo } from './detect.js';
 import { defaultEngine, type Engine } from './engine.js';
 import { CliError, EXIT, explain, renderError } from './errors.js';
@@ -754,9 +754,12 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
         'also run tests that need a database, cache or queue; prints the targets, requires --yes',
       )
       .option(
-        '--keep',
-        'keep the temporary clone after the run (it is kept anyway when the run fails)',
+        '--keep-temp',
+        'keep the temporary clone after the run, even a failed one (removed otherwise)',
       )
+      // The flag's earlier name, still accepted.
+      .addOption(new Option('--keep').hideHelp())
+      .option('--debug', 'keep the temporary clone and print every phase (--keep-temp --verbose)')
       .option('--pr', 'open a draft PR after verification passes; requires --yes')
       .option(
         '--base <branch>',
@@ -817,6 +820,8 @@ ${PRIVACY}`,
           model?: string;
           withServices?: boolean;
           keep?: boolean;
+          keepTemp?: boolean;
+          debug?: boolean;
           pr?: boolean;
           base?: string;
           allowDirty?: boolean;
@@ -828,7 +833,7 @@ ${PRIVACY}`,
           flags,
           async ({ ui, progress, cwd }) => {
             const started = io.now();
-            const quiet = !flags.verbose;
+            const quiet = !flags.verbose && !flags.debug;
             if (packageName && flags.only && packageName !== flags.only)
               throw new CliError('choose one package for fix');
             const only = packageName ?? flags.only;
@@ -950,7 +955,7 @@ ${PRIVACY}`,
                     model: selection.model,
                     ...(maxCost !== undefined ? { maxCostUsd: maxCost } : {}),
                     withServices: flags.withServices,
-                    ...(flags.keep ? { keep: true } : {}),
+                    ...(flags.keepTemp || flags.keep || flags.debug ? { keep: true } : {}),
                     pr: flags.pr,
                     ...(flags.base ? { base: flags.base } : {}),
                     ...(flags.allowDirty ? { allowDirty: true } : {}),
@@ -1000,7 +1005,7 @@ ${PRIVACY}`,
             }
             return report.verification.passed ? EXIT.ok : EXIT.breaking;
           },
-          { quiet: !flags.verbose },
+          { quiet: !flags.verbose && !flags.debug },
         ),
     );
 
@@ -1015,9 +1020,11 @@ ${PRIVACY}`,
       .option('--branch <name>', 'the migration branch (default: the branch checked out)')
       .option('--push', 'push the new commits to origin, fast-forward only; requires --yes')
       .option(
-        '--keep',
-        'keep the temporary clone after the run (it is kept anyway when the run fails)',
+        '--keep-temp',
+        'keep the temporary clone after the run, even a failed one (removed otherwise)',
       )
+      .addOption(new Option('--keep').hideHelp())
+      .option('--debug', 'keep the temporary clone for inspection (same as --keep-temp)')
       .option(
         '--yes',
         'confirm what was printed: the services (--with-services), the push (--push)',
@@ -1046,6 +1053,8 @@ ${EXIT_CODES('the branch verifies: no new type errors, tests and lint pass', 've
           branch?: string;
           push?: boolean;
           keep?: boolean;
+          keepTemp?: boolean;
+          debug?: boolean;
         },
       ) =>
         act(flags, async ({ progress, cwd }) => {
@@ -1060,7 +1069,7 @@ ${EXIT_CODES('the branch verifies: no new type errors, tests and lint pass', 've
                   ...(flags.branch ? { branch: flags.branch } : {}),
                   ...(flags.withServices ? { withServices: true } : {}),
                   ...(flags.push ? { push: true } : {}),
-                  ...(flags.keep ? { keep: true } : {}),
+                  ...(flags.keepTemp || flags.keep || flags.debug ? { keep: true } : {}),
                   ...(flags.yes ? { yes: true } : {}),
                 },
                 progress.event,
@@ -1085,8 +1094,8 @@ ${EXIT_CODES('the branch verifies: no new type errors, tests and lint pass', 've
     .addHelpText(
       'after',
       `
-A clone is kept when its run failed, when --keep was passed, or when it holds commits that are
-nowhere else. Only directories uptide created under its own temporary root are ever removed.
+A clone is kept when --keep-temp or --debug was passed, when its export failed, or when it
+holds verified commits that are nowhere else; a failed run's clone is removed on exit. Only directories uptide created under its own temporary root are ever removed.
 ${EXIT_CODES('done', 'not used')}`,
     )
     .action((flags: Shared & { days?: string }) =>

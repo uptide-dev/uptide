@@ -92,7 +92,7 @@ describe('fix runs in a private clone', () => {
     expect(report.clone).toEqual({
       path: report.repo,
       kept: true,
-      reason: 'kept on request (--keep)',
+      reason: 'kept on request (--keep-temp)',
     });
     // Nothing happened in the checkout: same branch, same files, same hooks, same config.
     expect(changedSince(root, before)).toEqual([]);
@@ -497,13 +497,22 @@ describe('verify runs in a private clone and only ever adds commits', () => {
     // non-fast-forward push fails instead of overwriting it.
     const elsewhere = git(root, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', 'someone else');
     git(root, 'push', '--quiet', '--force', 'origin', `${elsewhere}:refs/heads/uptide/zod-4.6.5`);
+    const runs = () => readdirSync(runsRoot()).sort();
+    const present = runs();
     const refused = await isolatedVerify(
       { cwd: root, branch: 'uptide/zod-4.6.5', push: true, yes: true, tool: TOOL },
       services,
     ).catch((error: Error) => error);
     expect(refused).toBeInstanceOf(Error);
-    // A run that threw is a failed run: its clone is kept and the error says where.
-    const kept = /Temporary clone kept: (.+)$/m.exec((refused as Error).message)?.[1] ?? '';
+    // A run that threw leaves nothing behind, and says nothing about a clone.
+    expect((refused as Error).message).not.toContain('Temporary clone');
+    expect(runs()).toEqual(present);
+    // Asked to keep it (--keep-temp, --debug), the clone stays and the error says where.
+    const again = await isolatedVerify(
+      { cwd: root, branch: 'uptide/zod-4.6.5', push: true, yes: true, keep: true, tool: TOOL },
+      services,
+    ).catch((error: Error) => error);
+    const kept = /Temporary clone kept: (.+)$/m.exec((again as Error).message)?.[1] ?? '';
     expect(existsSync(kept)).toBe(true);
     expect(git(origin, 'rev-parse', 'uptide/zod-4.6.5')).toBe(elsewhere);
   }, 60000);
@@ -517,9 +526,22 @@ describe('verify runs in a private clone and only ever adds commits', () => {
 });
 
 describe("temporary clones are cleaned up, and only uptide's own", () => {
-  it('removes the clone after a run that verified, and keeps it when the run did not', async () => {
+  it('removes the clone after a run, verified or not, unless asked to keep it', async () => {
     const ok = zodFixture(scratch);
+    const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
+    const listeners = () => signals.map((s) => process.listenerCount(s));
+    const idle = listeners();
+    let during: number[] = [];
+    const tests = ok.services.tests;
+    ok.services.tests = async (...args) => {
+      during = listeners();
+      return tests(...args);
+    };
     const done = await isolatedFix({ cwd: ok.root, only: 'zod', tool: TOOL }, ok.services);
+    // While the run works, an interrupt removes its clone; once it returns, nothing listens,
+    // so a later Ctrl-C in the same process cannot touch a finished (or kept) clone.
+    expect(during).toEqual(idle.map((n) => n + 1));
+    expect(listeners()).toEqual(idle);
     expect(done.verification.passed).toBe(true);
     expect(done.clone?.kept).toBe(false);
     expect(existsSync(done.clone?.path ?? '')).toBe(false);
@@ -534,12 +556,23 @@ describe("temporary clones are cleaned up, and only uptide's own", () => {
       ++calls === 1 ? [] : [{ file: 'index.ts', line: 1, column: 1, code: 1, message: 'new' }];
     const failed = await isolatedFix({ cwd: bad.root, only: 'zod', tool: TOOL }, bad.services);
     expect(failed.verification.passed).toBe(false);
-    expect(failed.clone).toEqual({
-      path: failed.repo,
+    expect(failed.clone?.kept).toBe(false);
+    expect(existsSync(failed.clone?.path ?? '')).toBe(false);
+
+    const debug = zodFixture(scratch);
+    let again = 0;
+    debug.services.diagnostics = () =>
+      ++again === 1 ? [] : [{ file: 'index.ts', line: 1, column: 1, code: 1, message: 'new' }];
+    const inspected = await isolatedFix(
+      { cwd: debug.root, only: 'zod', tool: TOOL, keep: true },
+      debug.services,
+    );
+    expect(inspected.clone).toEqual({
+      path: inspected.repo,
       kept: true,
-      reason: 'the run did not verify',
+      reason: 'kept on request (--keep-temp)',
     });
-    expect(existsSync(failed.repo)).toBe(true);
+    expect(existsSync(inspected.repo)).toBe(true);
   }, 40000);
 
   it('never deletes anything outside its temporary root, or anything it did not create', () => {

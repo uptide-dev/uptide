@@ -34,6 +34,46 @@ export function assertNoDowngrades(
     );
 }
 
+/**
+ * The repository's own pins decide what the install may resolve: a root `resolutions` (Yarn),
+ * `overrides` (npm) or `pnpm.overrides` entry for a moved package, keyed by its name alone or
+ * `**\/name`, that its target does not satisfy would silently keep the old version (medusa pins
+ * `@types/react` to `^18.3.2`). Pins scoped to one dependent (`parent/name`, `parent>name`)
+ * only decide that dependent's copy and are left alone. Uptide never rewrites them.
+ */
+export function assertNoPinningOverrides(
+  root: string,
+  moves: readonly { name: string; to: string }[],
+): void {
+  let manifest: Record<string, unknown>;
+  try {
+    manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  } catch {
+    return;
+  }
+  const tables: [string, unknown][] = [
+    ['resolutions', manifest.resolutions],
+    ['overrides', manifest.overrides],
+    ['pnpm.overrides', (manifest.pnpm as Record<string, unknown> | undefined)?.overrides],
+  ];
+  const pinned: string[] = [];
+  for (const [field, table] of tables) {
+    if (!table || typeof table !== 'object') continue;
+    for (const [key, value] of Object.entries(table)) {
+      const name = key.replace(/^\*\*\//, '');
+      const move = moves.find((m) => m.name === name);
+      if (!move || typeof value !== 'string' || !validRange(value)) continue;
+      if (!satisfies(move.to, value))
+        pinned.push(`${field}["${key}"] is ${value} (${move.name} → ${move.to})`);
+    }
+  }
+  if (pinned.length)
+    throw new UptideError(
+      'INCONSISTENT_UPGRADE',
+      `package.json pins what this upgrade moves: ${pinned.join('; ')}. The install would keep the pinned version. Update or remove ${pinned.length === 1 ? 'that entry' : 'those entries'} and run again; uptide does not rewrite them. Nothing was changed.`,
+    );
+}
+
 const sections = [
   'dependencies',
   'devDependencies',
