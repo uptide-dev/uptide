@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { MigrationPack } from '../packs/types.js';
-import { assistWithSdk, guard, type TaskRun } from './sdk-agent.js';
+import { assistWithSdk, guard, planTasks, type TaskRun } from './sdk-agent.js';
 import type { AgentSummary, FixDiagnostic, FixSite, TestResult } from './types.js';
 import { newDiagnosticsAcrossShifts } from './verify.js';
 
@@ -119,7 +119,8 @@ async function task(input: {
     context: { from: '17.7.0', to: '23.0.0', includeDeprecated: false },
     model: 'claude-sonnet-5-5',
     maxCostUsd: 1,
-    diagnostics: () => (calls++ === 0 ? [siteError, preexisting] : input.after),
+    // Planning, then the start of the task, see the baseline; the end sees `after`.
+    diagnostics: () => (calls++ < 2 ? [siteError, preexisting] : input.after),
     tests: async () => input.tests ?? [{ workspace: '.', status: 'passed', output: '' }],
     // Lint passes only on files the formatter has seen, as prettier --check would.
     lint: async (files) =>
@@ -252,6 +253,34 @@ describe('end-of-task gate', () => {
     });
     expect(record?.gate).toBe('no-change');
     expect(sites[0]?.reason).toMatch(/made no change; agent: the period needs a product decision/);
+  });
+});
+
+describe('planTasks', () => {
+  it('lets a task edit the repository declarations its site errors point at', () => {
+    const d = {
+      ...diag(
+        'src/app.tsx',
+        2,
+        2322,
+        "Type 'RefObject<HTMLInputElement | null>' is not assignable",
+      ),
+      relatedDeclarations: [
+        { file: 'src/search.tsx', line: 3, endLine: 3, message: 'declared here' },
+        { file: 'node_modules/@types/react/index.d.ts', line: 1, endLine: 1, message: 'x' },
+      ],
+    };
+    const [task] = planTasks(
+      [{ ...site('src/app.tsx', 2, d), rule: 'TS2322' }],
+      {
+        from: '18.2.0',
+        to: '19.3.0',
+        includeDeprecated: false,
+        helpers: [{ name: 'h', file: 'src/h.ts', specifiers: {} }],
+      },
+      [d],
+    );
+    expect(task?.files).toEqual(['src/app.tsx', 'src/h.ts', 'src/search.tsx']);
   });
 });
 

@@ -82,8 +82,16 @@ export interface SdkAssistInput {
   runner?: TaskRunner;
 }
 
-/** Sites the rules left manual, one task per rule: a rule's sites share one change. */
-export function planTasks(sites: FixSite[], context: PackContext): AgentTask[] {
+/**
+ * Sites the rules left manual, one task per rule: a rule's sites share one change. The files
+ * are the sites', the placed helpers', and the repository declarations the compiler links to
+ * a site's error: a `RefObject<T | null>` error is fixed in the prop type it names.
+ */
+export function planTasks(
+  sites: FixSite[],
+  context: PackContext,
+  diagnostics: FixDiagnostic[] = [],
+): AgentTask[] {
   const byRule = new Map<string, FixSite[]>();
   for (const site of sites) {
     if (site.outcome !== 'manual') continue;
@@ -91,11 +99,20 @@ export function planTasks(sites: FixSite[], context: PackContext): AgentTask[] {
     byRule.set(rule, [...(byRule.get(rule) ?? []), site]);
   }
   const helpers = (context.helpers ?? []).map((h) => h.file);
+  const declarations = (site: FixSite) => {
+    const u = site.finding.usage;
+    return diagnostics
+      .filter((d) => d.file === u.file && (d.line === u.line || d.message === u.compileError))
+      .flatMap((d) => (d.relatedDeclarations ?? []).map((r) => r.file))
+      .filter((f) => !f.split(/[\\/]/).includes('node_modules'));
+  };
   return [...byRule].map(([rule, list]) => ({
     id: rule,
     rule,
     sites: list,
-    files: [...new Set([...list.map((s) => s.finding.usage.file), ...helpers])].sort(),
+    files: [
+      ...new Set([...list.flatMap((s) => [s.finding.usage.file, ...declarations(s)]), ...helpers]),
+    ].sort(),
   }));
 }
 
@@ -327,7 +344,7 @@ const tail = (text: string, max: number) => (text.length > max ? `…${text.slic
 export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['llm']> {
   const { root, workspaces, pack, context } = input;
   const runner = input.runner ?? sdkRunner;
-  const tasks = planTasks(input.sites, context);
+  const tasks = planTasks(input.sites, context, input.diagnostics());
   const records: AgentTaskRecord[] = [];
   let spent = 0;
   const format = input.format ?? ((files) => formatFiles(root, files));
