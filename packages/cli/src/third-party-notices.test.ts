@@ -111,7 +111,7 @@ describe('third-party notices for what the bundle actually contains', () => {
     expect(manifest.files).toContain('THIRD-PARTY-NOTICES');
     expect(manifest.files).toContain('NOTICE');
     // Build bookkeeping, not something a consumer installs.
-    expect(manifest.files).toContain('!dist/metafile-*.json');
+    expect(manifest.files).toContain('!dist/**/metafile-*.json');
     expect(manifest.license).toBe('Apache-2.0');
   });
 

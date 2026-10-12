@@ -7,9 +7,16 @@
   "bin": {
     "uptide": "./dist/index.js"
   },
+  "exports": {
+    "./onboarding": {
+      "types": "./dist/onboarding/index.d.ts",
+      "import": "./dist/onboarding/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
-    "!dist/metafile-*.json",
+    "!dist/**/metafile-*.json",
     "NOTICE",
     "THIRD-PARTY-NOTICES"
   ],
@@ -36,7 +43,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsup && node scripts/third-party-notices.mjs",
+    "build": "tsup && tsup --config tsup.onboarding.config.ts && node scripts/third-party-notices.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "prepack": "node scripts/prepack.mjs",
