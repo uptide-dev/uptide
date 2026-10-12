@@ -20,7 +20,7 @@ lockfile); `fix` on npm, pnpm and Yarn with the node-modules linker. In your rep
 npx uptide list                            # fast discovery; no install or compilation
 npx uptide check zod                       # analyze one or more named dependencies (install first)
 npx uptide fix zod                         # migrate on a new branch, verified; nothing is pushed
-npx uptide pr --branch uptide/zod-4.6.5    # prints the plan; add --yes to push and open the PR
+npx uptide pr --branch uptide/zod-4.6.5    # prints the plan; add --yes to push and open a draft PR
 ```
 
 `npx uptide` with no command shows where zod and stripe stand: installed, latest, majors

@@ -606,37 +606,40 @@ describe('uptide verify', () => {
     expect(io.stdout()).not.toContain('### What changed');
     expect(io.stdout()).not.toContain('## Upgrade');
   });
-  it('pr: prints the plan without --yes, opens the PR with it, and names the stale branch', async () => {
-    const asked: unknown[] = [];
-    const engine = fakeEngine({
-      pr: async (request, print) => {
-        asked.push(request);
-        print('Publication plan\nOpening the PR on: me/fork (a fork of them/upstream)');
-        if (!request.yes) throw new Error('publication requires --yes; nothing pushed');
-        return { url: 'https://github.com/me/fork/pull/3', report: fixReport(true) };
-      },
-    });
-    const cwd = pnpmGitRepo();
-    const io = memoryIo({ cwd });
-    expect(await run(['pr', '--branch', 'uptide/zod-4.6.5'], io, engine)).toBe(0);
-    expect(io.stderr()).toContain('Opening the PR on: me/fork (a fork of them/upstream)');
-    expect(io.stderr()).toContain('Nothing pushed. Add --yes');
-    const yes = memoryIo({ cwd });
-    expect(
-      await run(
-        ['pr', '--branch', 'uptide/zod-4.6.5', '--repo', 'them/upstream', '--yes'],
-        yes,
-        engine,
-      ),
-    ).toBe(0);
-    expect(yes.stdout()).toBe('https://github.com/me/fork/pull/3\n');
-    expect(asked[1]).toMatchObject({
-      branch: 'uptide/zod-4.6.5',
-      repo: 'them/upstream',
-      yes: true,
-      draft: false,
-    });
-  });
+  it.each([{ flags: [] }, { flags: ['--draft'] }])(
+    'pr: prints the plan without --yes and opens a draft with it ($flags)',
+    async ({ flags }) => {
+      const asked: unknown[] = [];
+      const engine = fakeEngine({
+        pr: async (request, print) => {
+          asked.push(request);
+          print('Publication plan\nOpening the PR on: me/fork (a fork of them/upstream)');
+          if (!request.yes) throw new Error('publication requires --yes; nothing pushed');
+          return { url: 'https://github.com/me/fork/pull/3', report: fixReport(true) };
+        },
+      });
+      const cwd = pnpmGitRepo();
+      const io = memoryIo({ cwd });
+      expect(await run(['pr', '--branch', 'uptide/zod-4.6.5'], io, engine)).toBe(0);
+      expect(io.stderr()).toContain('Opening the PR on: me/fork (a fork of them/upstream)');
+      expect(io.stderr()).toContain('Nothing pushed. Add --yes');
+      const yes = memoryIo({ cwd });
+      expect(
+        await run(
+          ['pr', '--branch', 'uptide/zod-4.6.5', '--repo', 'them/upstream', '--yes', ...flags],
+          yes,
+          engine,
+        ),
+      ).toBe(0);
+      expect(yes.stdout()).toBe('https://github.com/me/fork/pull/3\n');
+      expect(asked[1]).toMatchObject({
+        branch: 'uptide/zod-4.6.5',
+        repo: 'them/upstream',
+        yes: true,
+        draft: true,
+      });
+    },
+  );
 
   it('refuses a --target for a package not selected, before any work', async () => {
     const engine = fakeEngine();
