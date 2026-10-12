@@ -176,18 +176,22 @@ export const IMPORTER_GROWTH = 0.2;
  * The files importing `roots` (one level, `importersOf`) whose imports from them depend on
  * `packages`, cheapest first, while the estimated heap stays within `growth` of the roots'
  * own. Each importer brings its own imports along, which the compiler follows: one that
- * pulls in a large SDK can cost more than the roots together.
+ * pulls in a large SDK can cost more than the roots together. `dropped` are those the cap
+ * left out, for the report to name.
+ *
+ * The cap is relative to the same program's estimate, never to the machine's memory: the same
+ * repository at the same commit selects the same files everywhere, in CI included.
  */
 export function scopedImporters(
   dir: string,
   roots: string[],
   packages: readonly string[],
   growth = IMPORTER_GROWTH,
-): string[] {
+): { taken: string[]; dropped: string[] } {
   const graph = scopedGraph(dir);
-  if (!graph.fileNames || roots.length === 0) return [];
+  if (!graph.fileNames || roots.length === 0) return { taken: [], dropped: [] };
   const candidates = importersOf(graph.fileNames, roots, graph.options, packages);
-  if (candidates.length === 0) return [];
+  if (candidates.length === 0) return { taken: [], dropped: [] };
   const seen = new Set<string>();
   const total = graph.walk([...roots, ...graph.base], seen);
   const budget = heapOf(total.sourceBytes, total.declarationBytes, roots.length) * (1 + growth);
@@ -200,6 +204,7 @@ export function scopedImporters(
     .map((file) => ({ file, cost: cost(file) }))
     .sort((a, b) => a.cost - b.cost || a.file.localeCompare(b.file));
   const taken: string[] = [];
+  const dropped: string[] = [];
   for (const { file } of ranked) {
     const trial = new Set(seen);
     const added = graph.walk([file], trial);
@@ -208,13 +213,16 @@ export function scopedImporters(
       total.declarationBytes + added.declarationBytes,
       roots.length + taken.length + 1,
     );
-    if (heap > budget) continue;
+    if (heap > budget) {
+      dropped.push(file);
+      continue;
+    }
     for (const f of trial) seen.add(f);
     total.sourceBytes += added.sourceBytes;
     total.declarationBytes += added.declarationBytes;
     taken.push(file);
   }
-  return taken.sort();
+  return { taken: taken.sort(), dropped: dropped.sort() };
 }
 
 export function estimateScopedHeapMb(dir: string, roots?: string[]): number {

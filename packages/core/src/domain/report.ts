@@ -246,6 +246,18 @@ export interface RuntimeReport {
   inconclusive?: string;
 }
 
+/**
+ * Files that import a scoped program's roots and that the memory cap left out of it, for one
+ * workspace: a finding in them can be missed, so every report names them.
+ */
+export interface ImportersNotAnalyzed {
+  workspace: string;
+  /** Repository-relative. */
+  files: string[];
+  /** `3 importing files not analyzed (memory cap); findings in them may be missed`. */
+  message: string;
+}
+
 export interface CheckReport {
   repo: string;
   /** Workspace packages checked, relative to `repo`; `['.']` for a single-package repository. */
@@ -269,4 +281,6 @@ export interface CheckReport {
     /** Dependencies whose analysis failed (registry error, install or analysis failure). */
     failed: number;
   };
+  /** Per workspace, the importing files the memory cap left out (absent when none were). */
+  importersNotAnalyzed?: ImportersNotAnalyzed[];
 }

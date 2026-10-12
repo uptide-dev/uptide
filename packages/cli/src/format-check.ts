@@ -517,6 +517,15 @@ export function formatCheck(report: CheckReport, opts: FormatCheckOptions = {}):
       if (section.length > 0) lines.push(...section, '');
     }
   }
+  // Files the memory cap left out are said, with or without --details: never dropped silently.
+  const gaps = report.importersNotAnalyzed ?? [];
+  for (const gap of gaps) {
+    lines.push(
+      `${colors.yellow('⚠')} ${gap.workspace === '.' ? '' : `${gap.workspace}: `}${gap.message}${opts.details ? '' : ` ${colors.dim('(--details lists them)')}`}`,
+    );
+    if (opts.details) for (const file of gap.files) lines.push(`  ${colors.dim(file)}`);
+  }
+  if (gaps.length > 0) lines.push('');
   lines.push(...nextLines(rows, opts, colors));
   return `${lines.join('\n')}\n`;
 }

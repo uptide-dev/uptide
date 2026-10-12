@@ -1,4 +1,4 @@
-import type { Finding, Tier } from '../domain/report.js';
+import type { Finding, ImportersNotAnalyzed, Tier } from '../domain/report.js';
 import type { Provider } from '../llm/types.js';
 import type { ApiChangeFacts, PackContext } from '../packs/types.js';
 import type { BehaviorResult } from './behavior.js';
@@ -135,6 +135,8 @@ export interface Fixer {
 }
 export interface FixReport {
   peerConflicts?: PeerBlockerGroup[];
+  /** From the check `fix` ran: importing files the memory cap left out, per workspace. */
+  importersNotAnalyzed?: ImportersNotAnalyzed[];
   /** `generic`: no pack covers the upgrade; every edit is the agent's, verified by the compiler. */
   tier?: Tier;
   lockfile?: InstallReport;

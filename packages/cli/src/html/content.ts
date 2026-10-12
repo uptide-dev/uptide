@@ -108,6 +108,11 @@ export function notesOf(report: CheckReport): string[] {
       `Type errors that already existed before the upgrade were ignored: ${[...baseline].map(([n, names]) => `${n} in the ${[...new Set(names)].join(', ')} checks`).join('; ')}.`,
     );
   }
+  for (const gap of report.importersNotAnalyzed ?? []) {
+    const where = gap.workspace === '.' ? '' : `${gap.workspace}: `;
+    notes.add(`${where}${gap.message}.`);
+    for (const file of gap.files) notes.add(`${where}${file} not analyzed (memory cap).`);
+  }
   return [...notes];
 }
 export function groupReason(g: PlanGroup): string {

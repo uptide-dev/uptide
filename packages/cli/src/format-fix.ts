@@ -57,6 +57,11 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
           `  ${pad('Agent', 9)} stopped at $${report.llm.costLimit.limitUsd.toFixed(2)} (--max-cost): ${report.llm.costLimit.notAttempted} site${report.llm.costLimit.notAttempted === 1 ? '' : 's'} not completed`,
         ]
       : []),
+    // What the check behind this run could not see, per workspace (the files are in the report).
+    ...(report.importersNotAnalyzed ?? []).map(
+      (gap) =>
+        `  ${pad('Coverage', 9)} ${gap.workspace === '.' ? '' : `${gap.workspace}: `}${gap.message}`,
+    ),
     '',
   ];
   if (report.peerConflicts?.length) {

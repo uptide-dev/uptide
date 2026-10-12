@@ -255,6 +255,15 @@ project references one level down) or, without one, from `**/*.ts,tsx` minus
 `node_modules`, `dist` and `build`. A scoped program (the files that use one package) also
 holds the ambient `.d.ts` files the tsconfig includes (`vite-env.d.ts`, `css.d.ts`): nothing
 imports them, and without them `*.module.css` imports and `declare global` names fail.
+Its roots also take the files that directly import those (one level, never a closure) when
+what they import depends on the package (`importersOf`, `src/check/importers.ts`): a test
+calling a wrapped tool's `execute` sees the package's types without importing it. They are
+added cheapest first while the scoped heap estimate stays within 20% of the roots' own
+(`scopedImporters`, `src/check/memory.ts`). The cap is relative to that estimate, never to
+the machine's memory, so the same commit selects the same files on any machine. What it
+leaves out is `CheckReport.importersNotAnalyzed` (and `FixReport`'s), per workspace, which
+the check and fix summaries print ("3 importing files not analyzed (memory cap); findings in
+them may be missed") and the HTML report lists file by file.
 Nothing in the repository is executed, with one deliberate load: the repository's installed
 `typescript` package (resolved from its `node_modules`, see the compile section) is loaded
 into Uptide's process to compile with, as `verify` has done since #40; no script or other

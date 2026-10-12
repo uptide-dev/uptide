@@ -11,6 +11,7 @@ import type {
   CheckReport,
   Finding,
   Importer,
+  ImportersNotAnalyzed,
   PackageReport,
   PackageStatus,
   RuntimeReport,
@@ -195,6 +196,7 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
   const scopedImports =
     opts.only && !opts.adapter ? await scanImports(opts.cwd, candidates, workspaces) : undefined;
   const roots = new Map<string, string[]>();
+  const importersNotAnalyzed: ImportersNotAnalyzed[] = [];
   for (const workspace of workspaces) {
     const files = new Set<string>();
     for (const usage of scopedImports?.values() ?? [])
@@ -206,12 +208,22 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
         if (owner === workspace) files.add(resolve(opts.cwd, file));
       }
     // The files importing those see the package's types through them (a test calling a
-    // wrapped tool's `execute`): within a memory budget, they are roots too.
-    if (scopedImports)
-      roots.set(workspace, [
-        ...[...files].sort(),
-        ...scopedImporters(resolve(opts.cwd, workspace), [...files], candidates),
-      ]);
+    // wrapped tool's `execute`): within a memory budget, they are roots too. What the
+    // budget leaves out is reported, never dropped silently.
+    if (scopedImports) {
+      const { taken, dropped } = scopedImporters(
+        resolve(opts.cwd, workspace),
+        [...files],
+        candidates,
+      );
+      roots.set(workspace, [...[...files].sort(), ...taken]);
+      if (dropped.length > 0)
+        importersNotAnalyzed.push({
+          workspace,
+          files: dropped.map((file) => relative(opts.cwd, file)),
+          message: importersNotAnalyzedMessage(dropped.length),
+        });
+    }
   }
   const importedByWorkspace: Record<string, string[]> = {};
   for (const workspace of workspaces)
@@ -417,8 +429,14 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
     workspaces,
     packages,
     summary: summarize(packages),
+    ...(importersNotAnalyzed.length ? { importersNotAnalyzed } : {}),
     timing: { totalMs: Date.now() - started },
   };
+}
+
+/** The line every report prints for a workspace whose importing files the memory cap left out. */
+export function importersNotAnalyzedMessage(count: number): string {
+  return `${count} importing file${count === 1 ? '' : 's'} not analyzed (memory cap); findings in them may be missed`;
 }
 
 /**

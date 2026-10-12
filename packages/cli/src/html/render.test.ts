@@ -245,3 +245,24 @@ it('lists the call sites under a declaration anchor, with their workspaces', () 
     '<li>packages/tldraw/src/Foreground.tsx:59 <span class="muted">packages/tldraw</span></li>',
   );
 });
+
+it('lists every importing file the memory cap left out', () => {
+  const html = renderHtml(
+    {
+      ...fixture('zod'),
+      importersNotAnalyzed: [
+        {
+          workspace: 'apps/web',
+          files: ['apps/web/src/heavy.test.ts', 'apps/web/src/sdk.ts'],
+          message: '2 importing files not analyzed (memory cap); findings in them may be missed',
+        },
+      ],
+    },
+    opts,
+  );
+  expect(html).toContain(
+    'apps/web: 2 importing files not analyzed (memory cap); findings in them may be missed.',
+  );
+  expect(html).toContain('apps/web: apps/web/src/heavy.test.ts not analyzed (memory cap).');
+  expect(html).toContain('apps/web: apps/web/src/sdk.ts not analyzed (memory cap).');
+});
