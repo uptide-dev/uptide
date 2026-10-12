@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import type { ProgressEvent } from '../domain/progress.js';
 import { zodPack } from '../packs/zod/index.js';
-import { version } from '../version.js';
+import { published, version } from '../version.js';
 import { git } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { formatFix, prBody, summaryCells } from './report.js';
@@ -70,7 +70,7 @@ describe('fix transaction', () => {
     expect(result.verification.newErrors).toHaveLength(0);
     expect(result.verification.passed).toBe(true);
     expect(result.verification.tests[0]?.status).toBe('missing');
-    expect(result.uptideVersion).toBe(version);
+    expect(result.uptideVersion).toBe(published);
     expect(result.uptideCommit).toMatch(/^[a-f0-9]{40}$/);
     expect(result.uptideCommit).not.toBe(git(root, 'rev-parse', 'HEAD'));
     expect(typeof result.uptideDirty).toBe('boolean');
@@ -719,7 +719,7 @@ describe('test detection', () => {
   it('knows jest, prefers a workspace script, then the root script, and says when nothing covers a workspace', () => {
     const jest = monorepo('jest');
     expect(planTests(jest, ['packages/api'], ['packages/api/src/a.ts'])[0]).toMatchObject({
-      command: 'jest --findRelatedTests --passWithNoTests packages/api/src/a.ts',
+      command: 'jest --findRelatedTests packages/api/src/a.ts --passWithNoTests',
       scope: 'jest tests related to 1 affected file, jest.config.ts',
     });
     writeFileSync(
@@ -768,6 +768,80 @@ describe('test detection', () => {
     ]);
     expect(result?.status).toBe('missing');
     expect(result?.output).toMatch(/^no tests are related to the affected files \(vitest related/);
+  });
+});
+
+describe('a related-tests run that fails', () => {
+  /**
+   * A jest repository whose `test` script is `jest`: the related-tests run fails before any
+   * test (as jest does when it reads the files as something else), and the plain run prints
+   * `suite`.
+   */
+  function repo(suite = 'echo SUITE; echo "Tests:       4 passed, 4 total"') {
+    const root = mkdtempSync(join(scratch, 'related-'));
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'jest' } }));
+    writeFileSync(join(root, 'jest.config.js'), 'module.exports = {};');
+    mkdirSync(join(root, 'node_modules/.bin'), { recursive: true });
+    writeFileSync(
+      join(root, 'node_modules/.bin/jest'),
+      `#!/bin/sh\ncase "$*" in *--findRelatedTests*) echo "The --findRelatedTests option requires file paths to be specified." >&2; exit 1;; esac\n${suite}\n`,
+      { mode: 0o755 },
+    );
+    mkdirSync(join(root, 'lib'));
+    writeFileSync(join(root, 'lib/stripe.ts'), 'export const a = 1;');
+    return root;
+  }
+  const related = 'jest --findRelatedTests lib/stripe.ts --passWithNoTests';
+
+  it("falls back to the repository's own test script, and keeps what the scoped run printed", async () => {
+    const [result] = await testWorkspaces(repo(), ['.'], 10_000, ['lib/stripe.ts']);
+    expect(result).toMatchObject({
+      status: 'passed',
+      command: 'jest',
+      scope: 'the `test` script of the repository',
+      summary: '4 tests',
+      fallback: { command: related, reason: 'failed', ranInstead: 'jest' },
+    });
+    expect(result?.fallback?.output).toBe(
+      'The --findRelatedTests option requires file paths to be specified.',
+    );
+  });
+
+  it('fails when the suite fails too', async () => {
+    const [result] = await testWorkspaces(repo('echo BROKEN; exit 1'), ['.'], 10_000, [
+      'lib/stripe.ts',
+    ]);
+    expect(result?.status).toBe('failed');
+    expect(result?.output).toContain('BROKEN');
+    expect(result?.fallback?.command).toBe(related);
+  });
+
+  it('runs the suite when no test relates to the affected files (saas-starter-kit)', async () => {
+    const root = repo();
+    writeFileSync(
+      join(root, 'node_modules/.bin/jest'),
+      '#!/bin/sh\ncase "$*" in *--findRelatedTests*) echo "No tests found, exiting with code 0"; exit 0;; esac\necho "Tests:       4 passed, 4 total"\n',
+      { mode: 0o755 },
+    );
+    const [result] = await testWorkspaces(root, ['.'], 10_000, ['lib/stripe.ts']);
+    expect(result).toMatchObject({
+      status: 'passed',
+      summary: '4 tests',
+      command: 'jest',
+      fallback: { command: related, reason: 'no-related', ranInstead: 'jest' },
+    });
+  });
+
+  it('never trades a failing related test for a wider run', async () => {
+    const root = repo();
+    writeFileSync(
+      join(root, 'node_modules/.bin/jest'),
+      '#!/bin/sh\ncase "$*" in *--findRelatedTests*) echo "FAIL lib/stripe.test.ts"; exit 1;; esac\necho "Tests:       4 passed, 4 total"\n',
+      { mode: 0o755 },
+    );
+    const [result] = await testWorkspaces(root, ['.'], 10_000, ['lib/stripe.ts']);
+    expect(result?.status).toBe('failed');
+    expect(result?.fallback).toBeUndefined();
   });
 });
 

@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { dirtyLines, uptideCommand, uptideVersionInfo, version } from './version.js';
+import { dirtyLines, published, uptideCommand, uptideVersionInfo, version } from './version.js';
 
-it('uses the real private engine manifest version in reports', () => {
+it('reports the published CLI version, never the private engine manifest', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  const cli = JSON.parse(readFileSync(new URL('../../cli/package.json', import.meta.url), 'utf8'));
   expect(pkg.private).toBe(true);
   expect(version).toBe(pkg.version);
-  expect(version).not.toBe('0.0.0');
-  expect(uptideVersionInfo().uptideVersion).toBe(version);
+  // A report said "Uptide 0.1.0", the engine's version, from a 0.7 CLI.
+  expect(uptideVersionInfo().uptideVersion).toBe(cli.version);
+  expect(published).toBe(cli.version);
 });
 it('resolves the public worker entry without a private source or dist path', () => {
   expect(import.meta.resolve('@uptide/core/worker')).toBe(

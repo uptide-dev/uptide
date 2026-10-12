@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
@@ -5,7 +6,7 @@ import { Project, ts } from 'ts-morph';
 import { resolveCompiler } from '../adapters/typescript/compiler.js';
 import { readInstalled } from '../adapters/typescript/repo.js';
 import { workspaceSourceMap } from '../adapters/typescript/workspace-source.js';
-import { command } from './process.js';
+import { command, git } from './process.js';
 import { isServiceTest, serviceNeeds, unitConfig } from './services.js';
 import type { FixDiagnostic, RelatedDeclaration, TestResult } from './types.js';
 
@@ -330,9 +331,13 @@ export function diagnosticKey(d: FixDiagnostic): string {
 export function newDiagnostics(
   baseline: FixDiagnostic[],
   target: FixDiagnostic[],
+  moves?: LineMoves,
 ): FixDiagnostic[] {
   const counts = new Map<string, number>();
-  for (const d of baseline) counts.set(diagnosticKey(d), (counts.get(diagnosticKey(d)) ?? 0) + 1);
+  for (const d of baseline) {
+    const key = diagnosticKey(moved(d, moves));
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
   return target.filter((d) => {
     const n = counts.get(diagnosticKey(d)) ?? 0;
     if (n) {
@@ -342,6 +347,112 @@ export function newDiagnostics(
     return true;
   });
 }
+
+/**
+ * Per edited file, where each line the edit kept now is (old line → new line). An import
+ * added above an error moves it down a line without touching it: through this map the error
+ * is the one that was there before, not a new one.
+ */
+export type LineMoves = Map<string, Map<number, number>>;
+
+/** A diagnostic from before an edit, at the line it is on after it. Edited lines stay put. */
+export function moved(d: FixDiagnostic, moves?: LineMoves): FixDiagnostic {
+  if (!moves?.size) return d;
+  const at = <T extends { file: string; line: number }>(p: T): T => {
+    const line = moves.get(p.file)?.get(p.line);
+    return line === undefined ? p : { ...p, line };
+  };
+  return {
+    ...at(d),
+    ...(d.relatedLocations ? { relatedLocations: d.relatedLocations.map(at) } : {}),
+  };
+}
+
+/**
+ * Line moves of edited files: the common head and tail, and the longest common subsequence
+ * of the lines between (when that middle is small enough to compare line by line; a larger
+ * one keeps only head and tail, so an error inside it counts as new, the safe side).
+ */
+export function lineMoves(
+  changes: Iterable<[file: string, before: string, after: string]>,
+): LineMoves {
+  const moves: LineMoves = new Map();
+  for (const [file, beforeText, afterText] of changes) {
+    if (beforeText === afterText) continue;
+    const a = beforeText.split('\n');
+    const b = afterText.split('\n');
+    const map = new Map<number, number>();
+    let head = 0;
+    while (head < a.length && head < b.length && a[head] === b[head]) {
+      map.set(head + 1, head + 1);
+      head++;
+    }
+    let tail = 0;
+    while (
+      tail < a.length - head &&
+      tail < b.length - head &&
+      a[a.length - 1 - tail] === b[b.length - 1 - tail]
+    ) {
+      map.set(a.length - tail, b.length - tail);
+      tail++;
+    }
+    const x = a.slice(head, a.length - tail);
+    const y = b.slice(head, b.length - tail);
+    if (x.length && y.length && x.length * y.length <= 4_000_000) {
+      // lcs[i][j]: the longest common subsequence of x[i..] and y[j..].
+      const lcs = Array.from({ length: x.length + 1 }, () => new Uint32Array(y.length + 1));
+      for (let i = x.length - 1; i >= 0; i--)
+        for (let j = y.length - 1; j >= 0; j--)
+          (lcs[i] as Uint32Array)[j] =
+            x[i] === y[j]
+              ? ((lcs[i + 1] as Uint32Array)[j + 1] as number) + 1
+              : Math.max(
+                  (lcs[i + 1] as Uint32Array)[j] as number,
+                  (lcs[i] as Uint32Array)[j + 1] as number,
+                );
+      for (let i = 0, j = 0; i < x.length && j < y.length; ) {
+        if (x[i] === y[j]) {
+          map.set(head + i + 1, head + j + 1);
+          i++;
+          j++;
+        } else if (
+          ((lcs[i + 1] as Uint32Array)[j] as number) >= ((lcs[i] as Uint32Array)[j + 1] as number)
+        )
+          i++;
+        else j++;
+      }
+    }
+    moves.set(file, map);
+  }
+  return moves;
+}
+
+/** Line moves of every file the working tree changed since `base` (a commit). */
+export function gitLineMoves(root: string, base: string): LineMoves {
+  let files: string[] = [];
+  try {
+    files = git(root, 'diff', '--name-only', base).split('\n').filter(Boolean);
+  } catch {
+    return new Map();
+  }
+  const changes: [string, string, string][] = [];
+  for (const file of files) {
+    try {
+      // Untrimmed: `git()` trims, and a file's first and last lines are lines too.
+      const before = execFileSync('git', ['show', `${base}:${file}`], {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: 1 << 28,
+      });
+      changes.push([file, before, readFileSync(join(root, file), 'utf8')]);
+    } catch {
+      // Added or deleted: no line of it was there before and is still there.
+    }
+  }
+  return lineMoves(changes);
+}
+
 /** One test run `fix` will make: where, with what, and how to describe it in the report. */
 export interface TestPlan {
   /** The workspace the result is reported under: its own path, or the directory of a shared config. */
@@ -359,6 +470,14 @@ export interface TestPlan {
   notRun?: { files: number; needs: string[] };
   /** With `withServices`: what the run connects to. */
   services?: { names: string[]; targets: string[] };
+  /**
+   * What runs when this scoped run (the runner's related tests) fails: the repository's own
+   * `test` script, or, when tests that need services are left out, the same runner over the
+   * whole suite with them still left out. A related-tests command can fail for reasons that
+   * are not a test (an argument the runner reads differently), and "failed before the change"
+   * must not rest on that.
+   */
+  fallback?: { command: string; scope: string };
 }
 
 export interface TestOptions {
@@ -511,9 +630,11 @@ export function planTests(
         ? targets.length
           ? ['related', '--run', '--passWithNoTests', ...isolate, ...targets]
           : ['run', '--passWithNoTests', ...isolate, ...dirs.filter((d) => d !== '.')]
-        : targets.length
-          ? ['--findRelatedTests', '--passWithNoTests', ...isolate, ...targets]
-          : ['--passWithNoTests', ...isolate, ...dirs.filter((d) => d !== '.')];
+        : // Paths before `--testPathIgnorePatterns`: jest reads that option as an array, and
+          // every argument after it as one more pattern, files included.
+          targets.length
+          ? ['--findRelatedTests', ...targets, '--passWithNoTests', ...isolate]
+          : ['--passWithNoTests', ...dirs.filter((d) => d !== '.'), ...isolate];
     // Calling the runner directly skips npm's `pretest` hook. When the repository's own test
     // script is this runner, its `pretest` (typically a build of workspace packages the tests
     // import) is part of how the tests are meant to run, so it runs first, as a command of its
@@ -525,6 +646,24 @@ export function planTests(
         : undefined;
     const run = [group.runner, ...args.map(quote)].join(' ');
     const kind = unitOnly ? 'unit tests' : 'tests';
+    const ownScript = scripts?.test ?? manifest(root)?.scripts?.test;
+    const whole =
+      group.runner === 'vitest'
+        ? ['run', '--passWithNoTests', ...isolate, ...dirs.filter((d) => d !== '.')]
+        : ['--passWithNoTests', ...dirs.filter((d) => d !== '.'), ...isolate];
+    const fallback = !targets.length
+      ? undefined
+      : unitOnly
+        ? {
+            command: [group.runner, ...whole.map(quote)].join(' '),
+            scope: `${group.runner} unit tests under ${dirs.join(', ')}, ${where}`,
+          }
+        : ownScript
+          ? {
+              command: prepare ? `${prepare} && ${ownScript}` : ownScript,
+              scope: `the \`test\` script of the repository${prepare ? ' after `pretest`' : ''}`,
+            }
+          : undefined;
     plans.push({
       workspace,
       covers: group.covers,
@@ -544,6 +683,7 @@ export function planTests(
           }
         : {}),
       ...(unitOnly ? { notRun: { files: needs.files.length, needs: needsText } } : {}),
+      ...(fallback ? { fallback } : {}),
       ...(sensitive && options.withServices
         ? { services: { names: needsText, targets: needs.targets } }
         : {}),
@@ -593,6 +733,15 @@ function concerns(testFile: string, affected: string[]): boolean {
   );
 }
 
+/** The runner exited cleanly having run nothing ("No tests found"): no evidence either way. */
+function noTestsRan(result: { code: number; timeout: boolean }, output: string): boolean {
+  return (
+    !result.code &&
+    !result.timeout &&
+    /No test files found|No tests found/i.test(output) &&
+    !testSummary(output)
+  );
+}
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, 'g');
 export async function testWorkspaces(
   root: string,
@@ -637,6 +786,7 @@ export async function testWorkspaces(
     if (plan.write) writeFileSync(plan.write.path, plan.write.text);
     let result: Awaited<ReturnType<typeof attempt>>;
     let retried: string[] = [];
+    let fellBack: TestResult['fallback'];
     try {
       result = await attempt();
       if (result.code && !result.timeout) {
@@ -650,6 +800,32 @@ export async function testWorkspaces(
           result = again;
         }
       }
+      // The related-tests run failed without a failing test (the runner refused its
+      // arguments, say), or found no test related to the affected files: the repository's
+      // own suite (plan.fallback) runs, and its verdict counts. A failing test is never run
+      // again under a wider command that might skip it.
+      const scopedOutput = plain(result.output);
+      const refused =
+        !!result.code &&
+        !result.timeout &&
+        failedTestFiles(scopedOutput).length === 0 &&
+        !/^\s*Tests?:?\s.*\b\d+ failed/m.test(scopedOutput);
+      if (plan.fallback && (refused || noTestsRan(result, scopedOutput))) {
+        const scoped = result;
+        result = await command(
+          plan.cwd,
+          process.env.SHELL ?? '/bin/sh',
+          ['-c', plan.fallback.command],
+          timeoutMs,
+          { PATH: [...bins, process.env.PATH].join(':') },
+        );
+        fellBack = {
+          command: plan.command,
+          reason: refused ? 'failed' : 'no-related',
+          output: plain(scoped.output).split('\n').slice(-40).join('\n').trim(),
+          ranInstead: plan.fallback.command,
+        };
+      }
     } finally {
       // The unit-only configuration exists for the run alone.
       if (plan.write) rmSync(plan.write.path, { force: true });
@@ -657,17 +833,14 @@ export async function testWorkspaces(
     const output = plain(result.output);
     const summary = testSummary(output);
     // The runner passed with nothing to run: that is "no tests", not a green suite.
-    const empty =
-      !result.code &&
-      !result.timeout &&
-      /No test files found|No tests found/i.test(output) &&
-      !summary;
+    const empty = noTestsRan(result, output);
     results.push({
       workspace: plan.workspace,
       status: result.timeout ? 'timeout' : result.code ? 'failed' : empty ? 'missing' : 'passed',
       output: empty ? `no tests are related to the affected files (${plan.command})` : output,
-      command: plan.command,
+      command: fellBack ? fellBack.ranInstead : plan.command,
       ...described,
+      ...(fellBack ? { scope: plan.fallback?.scope ?? plan.scope, fallback: fellBack } : {}),
       ...(summary ? { summary } : {}),
       ...(retried.length ? { retried } : {}),
     });

@@ -4,6 +4,7 @@ import { Node, Project, SyntaxKind } from 'ts-morph';
 import { createTypescriptAdapter } from '../../adapters/typescript/index.js';
 import type { Finding } from '../../domain/report.js';
 import { type Usage, usagePaths } from '../../domain/usage.js';
+import { importSpecifier } from '../import-specifier.js';
 import type { FollowUp, MigrationEvidence, SharedHelper } from '../types.js';
 import type { StripeEntry } from './changelog.js';
 
@@ -489,7 +490,7 @@ export function clientPins(
     if (hits.length === 0) return;
     const imported = new RegExp(`\\bimport\\b[^;]*\\b${name}\\b`).test(text);
     const importEdit =
-      exported && !imported ? importOf(name, path, join(root, site.file), lines) : undefined;
+      exported && !imported ? importOf(root, name, path, join(root, site.file), lines) : undefined;
     hits.forEach((i, n) => {
       const before = lines[i] as string;
       found.push({
@@ -527,6 +528,7 @@ export function clientPins(
 
 /** An import of `name` written the way the file writes its own: quotes, semicolon, extension. */
 function importOf(
+  root: string,
   name: string,
   file: string,
   target: string,
@@ -543,10 +545,7 @@ function importOf(
   const sample = (relatives[0] ?? last).getText();
   const quote = sample.includes("'") ? "'" : '"';
   const semicolon = sample.trimEnd().endsWith(';') ? ';' : '';
-  const style = relatives[0]?.getModuleSpecifierValue() ?? '';
-  let specifier = relative(dirname(file), target).split('\\').join('/');
-  if (!specifier.startsWith('.')) specifier = `./${specifier}`;
-  specifier = specifier.replace(/\.[cm]?tsx?$/, /\.[cm]?js$/.test(style) ? '.js' : '');
+  const specifier = importSpecifier(root, relative(root, file), relative(root, target));
   const statement = `import { ${name} } from ${quote}${specifier}${quote}${semicolon}`;
   // Next to the file's other relative imports: parents before siblings, the usual order.
   const first = relatives[0];
@@ -784,15 +783,26 @@ export function sharedPeriodHelper(
     if (dir === join(root, home.workspace)) break;
   }
   const specifiers: Record<string, string> = {};
+  const imports: Record<string, string> = {};
   const pkg = manifestOf(home.workspace).name;
   for (const w of siteWorkspaces) {
     if (w === home.workspace) {
-      const from = periodSites.find((f) => ownerOf(f.usage.file) === w)?.usage.file ?? home.file;
-      const rel = relative(dirname(from), home.file).replace(/\.[cm]?[jt]sx?$/, '');
-      specifiers[w] = `${rel.startsWith('.') ? rel : `./${rel}`}.ts`;
+      const inside = periodSites
+        .map((f) => f.usage.file)
+        .filter((file) => ownerOf(file) === w && file !== home.file);
+      for (const file of inside) imports[file] = importSpecifier(root, file, home.file);
+      specifiers[w] = imports[inside[0] ?? ''] ?? importSpecifier(root, home.file, home.file);
     } else if (typeof pkg === 'string') specifiers[w] = pkg;
   }
-  return { helper: { name, file: home.file, specifiers }, edits };
+  return {
+    helper: {
+      name,
+      file: home.file,
+      specifiers,
+      ...(Object.keys(imports).length ? { imports } : {}),
+    },
+    edits,
+  };
 }
 
 /**

@@ -525,7 +525,9 @@ it('places subscriptionPeriod once in the client module the sites can import, an
     expect(helper).toEqual({
       name: 'subscriptionPeriod',
       file: 'packages/core/src/ee/billing/stripe.ts',
-      specifiers: { ui: '@acme/core', 'packages/core': './stripe.ts' },
+      // No tsconfig allows `.ts` in a specifier here: the path is extensionless.
+      specifiers: { ui: '@acme/core', 'packages/core': './stripe' },
+      imports: { 'packages/core/src/ee/billing/report.ts': './stripe' },
     });
     expect(edits.map((e) => e.file)).toEqual([
       'packages/core/src/ee/billing/stripe.ts',
@@ -1052,7 +1054,7 @@ it('places subscriptionPeriod in the file of the site when no client module is i
     expect(placed?.helper).toEqual({
       name: 'subscriptionPeriod',
       file: 'src/billing/renewal.ts',
-      specifiers: { '.': './renewal.ts' },
+      specifiers: { '.': './renewal' },
     });
     const text = placed?.edits[0]?.text ?? '';
     expect(text.indexOf('export function subscriptionPeriod')).toBeLessThan(
@@ -1067,7 +1069,7 @@ it('places subscriptionPeriod in the file of the site when no client module is i
     expect(stripePack.guide(site, shared)).toContain('already defined in this file');
     const other = { ...site, usage: { ...site.usage, file: 'src/routes/account.ts' } } as Finding;
     expect(stripePack.guide(other, shared)).toContain(
-      'import { subscriptionPeriod } from "../billing/renewal.ts"',
+      'import { subscriptionPeriod } from "../billing/renewal"',
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });

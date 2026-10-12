@@ -129,6 +129,21 @@ describe('tests that need services are opt-in', () => {
     expect(result?.output).not.toContain('vitest.uptide-unit.config.mjs');
   });
 
+  it('gives jest the affected files before the ignore patterns, which it reads as an array', () => {
+    // No global setup, but integration tests: jest runs the unit tests related to the files.
+    const root = repo('jest');
+    writeFileSync(join(root, 'jest.config.ts'), 'export default {};');
+    const [plan] = planTests(root, ['packages/api'], files);
+    // After `--testPathIgnorePatterns`, every argument is one more pattern: the files must come
+    // first, or jest sees `--findRelatedTests` without paths and fails before any test.
+    expect(plan?.command).toBe(
+      "jest --findRelatedTests packages/api/src/billing.ts --passWithNoTests --testPathIgnorePatterns '\\.(integration|int|e2e)\\.' '/(integration|e2e)/'",
+    );
+    expect(plan?.fallback?.command).toBe(
+      "jest --passWithNoTests packages/api --testPathIgnorePatterns '\\.(integration|int|e2e)\\.' '/(integration|e2e)/'",
+    );
+  });
+
   it('runs nothing when the setup cannot be taken out, and says how to include it', async () => {
     // jest has no way to drop a global setup from outside; neither has a vitest workspace file.
     for (const [runner, config] of [
