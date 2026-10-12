@@ -10,9 +10,10 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { stripePack } from '../packs/stripe/index.js';
 import type { MigrationPack } from '../packs/types.js';
 import { fix } from './run.js';
-import { assistWithSdk, guard, planTasks, type TaskRun } from './sdk-agent.js';
+import { assistWithSdk, guard, planTasks, type TaskRun, taskPrompt } from './sdk-agent.js';
 import type { AgentSummary, FixDiagnostic, FixSite, TestResult } from './types.js';
 import { newDiagnosticsAcrossShifts } from './verify.js';
 
@@ -289,6 +290,38 @@ describe('planTasks', () => {
       [d],
     );
     expect(task?.files).toEqual(['src/app.tsx', 'src/h.ts', 'src/search.tsx']);
+  });
+});
+
+describe('taskPrompt', () => {
+  it("gives a Stripe period task the pack's knowledge and decisions, and no code spelling", () => {
+    const prompt = taskPrompt({
+      pack: stripePack,
+      context: {
+        from: '17.7.0',
+        to: '23.0.0',
+        includeDeprecated: false,
+        apiVersions: { from: '2026-07-29.dahlia', to: '2026-08-26.dahlia' },
+      },
+      task: {
+        id: 'subscription-period',
+        rule: 'subscription-period',
+        files: ['pages/api/webhooks/stripe.ts'],
+        sites: [
+          site(
+            'pages/api/webhooks/stripe.ts',
+            2,
+            diag('pages/api/webhooks/stripe.ts', 2, 2339, 'x'),
+          ),
+        ],
+      },
+      conventions: [],
+    });
+    expect(prompt).toMatch(
+      /Webhook payloads follow the API version configured on the webhook endpoint/,
+    );
+    expect(prompt).toMatch(/reads both shapes/);
+    expect(prompt).not.toMatch(/import \{ subscriptionPeriod \} from/);
   });
 });
 

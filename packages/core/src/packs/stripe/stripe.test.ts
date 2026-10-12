@@ -69,6 +69,13 @@ it('distinguishes SDK, literal/API aliases and response fields without a mechani
   expect(stripePack.decisions?.(context, ['subscription-period'])?.[0]).toContain(
     'billing period now comes from one item',
   );
+  // Webhook payloads keep the endpoint's API version: the old shape is still delivered.
+  expect(stripePack.decisions?.(context, ['subscription-period'])?.join('\n')).toMatch(
+    /follow the API version set on each webhook endpoint[^\n]*reads both shapes[^\n]*as number/,
+  );
+  const period = stripePack.rules.find((r) => r.id === 'subscription-period');
+  expect(period?.guide).toMatch(/must accept both shapes/);
+  expect(period?.guide).toMatch(/Invalid Date/);
 });
 it('follows the pinned constant in tests that assert it, and never touches payload api_version', () => {
   const dir = mkdtempSync(join(tmpdir(), 'stripe-follow-'));
