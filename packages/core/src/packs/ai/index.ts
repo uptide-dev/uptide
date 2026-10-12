@@ -1,6 +1,12 @@
 import { definePack, type PackRule, replaceAtSite } from '../contract.js';
 import type { TransformResult } from '../types.js';
-import { declaresName, importSites, optionSites, renameOption } from './detect.js';
+import {
+  declaresName,
+  importSites,
+  optionSites,
+  renameOption,
+  typeArgumentSites,
+} from './detect.js';
 
 /**
  * AI SDK (`ai`) 6 → 7. Taken from the official migration guide and the 7.0.0 changelog
@@ -15,13 +21,21 @@ const CALLS = new Set([
   'streamObject',
   'ToolLoopAgent',
 ]);
-const TEXT_CALLS = new Set(['generateText', 'streamText', 'ToolLoopAgent']);
+const TEXT_CALLS = new Set([
+  'generateText',
+  'streamText',
+  'ToolLoopAgent',
+  'agent.generate',
+  'agent.stream',
+]);
 const UI_STREAMS = new Set([
   'createUIMessageStream',
   'toUIMessageStream',
   'toUIMessageStreamResponse',
   'pipeUIMessageStreamToResponse',
 ]);
+/** Generic over `<CALL_OPTIONS, TOOLS, OUTPUT>` in 6, `<CALL_OPTIONS, TOOLS, RUNTIME_CONTEXT, OUTPUT>` in 7. */
+const AGENT_TYPES = new Set(['ToolLoopAgent', 'Agent', 'ToolLoopAgentSettings']);
 const TELEMETRY_CALLS = new Set([...CALLS, 'embed', 'embedMany', 'rerank']);
 
 /** A renamed option of the calls above: found by `detect`, renamed by `rewrite`. */
@@ -123,9 +137,15 @@ export const aiPack = definePack({
       'onFinish',
       'onEnd',
       new Set([...TEXT_CALLS, ...UI_STREAMS]),
-      '`onFinish` is `onEnd` (generateText, streamText, ToolLoopAgent, UI message streams)',
+      '`onFinish` is `onEnd` (generateText, streamText, ToolLoopAgent and its calls, UI message streams)',
     ),
-    option('on-step-end', 'onStepFinish', 'onStepEnd', CALLS, '`onStepFinish` is `onStepEnd`'),
+    option(
+      'on-step-end',
+      'onStepFinish',
+      'onStepEnd',
+      new Set([...CALLS, ...TEXT_CALLS]),
+      '`onStepFinish` is `onStepEnd`',
+    ),
     option(
       'telemetry',
       'experimental_telemetry',
@@ -238,6 +258,18 @@ export const aiPack = definePack({
       message: /'(?:experimental_)?context'/,
       guide:
         'A tool reads `context` (was `experimental_context`) from its execute options; the call site supplies it per tool with `toolsContext`, and shared values with `runtimeContext` (was `context`). A direct `tool.execute(input, { toolCallId, messages })` call adds `context`. Do not cast to make it compile.',
+    },
+    {
+      id: 'agent-type-arguments',
+      summary:
+        'the third type argument of `ToolLoopAgent`, `Agent` and `ToolLoopAgentSettings` is now the runtime context; `OUTPUT` is fourth',
+      severity: 'breaking',
+      // `ToolLoopAgent<never, Tools, never>` still compiles: no diff or compiler reports it.
+      kinds: [],
+      symbols: /$^/,
+      guide:
+        '`ToolLoopAgent<CALL_OPTIONS, TOOLS, OUTPUT>` is `ToolLoopAgent<CALL_OPTIONS, TOOLS, RUNTIME_CONTEXT, OUTPUT>` (same for `Agent` and `ToolLoopAgentSettings`): the third argument now types `runtimeContext`. Move the output type to the fourth position; the third is the runtime context type the agent is created with (`Context` by default). If the agent has none, say so instead of choosing one.',
+      detect: (text) => typeArgumentSites(text, AGENT_TYPES, 3),
     },
   ],
   behavior: [

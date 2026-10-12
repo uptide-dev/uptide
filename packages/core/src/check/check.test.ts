@@ -83,6 +83,38 @@ it('compiles every named importer even when an unused removed binding has no att
   );
 });
 
+it('compiles the files importing a named importer, which see its types without importing the package', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'uptide-scoped-importer-'));
+  cpSync(CONSUMER, dir, { recursive: true });
+  const config = JSON.parse(readFileSync(join(dir, 'tsconfig.json'), 'utf8'));
+  for (const key of Object.keys(config.compilerOptions.paths))
+    config.compilerOptions.paths[key] = config.compilerOptions.paths[key].map((p: string) =>
+      resolve(CONSUMER, p),
+    );
+  writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify(config));
+  writeFileSync(
+    join(dir, 'src/wrapper.ts'),
+    "import { parse } from 'synthetic';\nexport const item = parse('x');\n",
+  );
+  writeFileSync(
+    join(dir, 'src/caller.ts'),
+    "import { item } from './wrapper';\nexport const id = item.legacyId;\n",
+  );
+  const result = await check({
+    cwd: dir,
+    only: ['synthetic'],
+    fetcher,
+    cache: memoryCache(),
+    runtime: false,
+  });
+  expect(result.packages[0]?.findings).toContainEqual(
+    expect.objectContaining({
+      severity: 'breaking',
+      usage: expect.objectContaining({ file: 'src/caller.ts', line: 2 }),
+    }),
+  );
+});
+
 describe('check on the synthetic consumer', () => {
   it('produces one package report with both signals and the expected findings', {
     timeout: 30_000,

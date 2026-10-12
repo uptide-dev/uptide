@@ -529,6 +529,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     targetSource: resolved.source,
     ...(companions.length ? { companions } : {}),
     ...(peerPlan?.conflicts.length ? { peerConflicts: groupPeerBlockers(peerPlan.conflicts) } : {}),
+    ...(report.importersNotAnalyzed?.length
+      ? { importersNotAnalyzed: report.importersNotAnalyzed }
+      : {}),
     ...tool,
     verifiedAt: new Date().toISOString(),
     head: git(root, 'rev-parse', 'HEAD'),

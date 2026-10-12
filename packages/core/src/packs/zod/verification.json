@@ -4,7 +4,7 @@
   "repos": 3,
   "breaking": {
     "precision": 1,
-    "recall": 0.7125,
+    "recall": 0.7375,
     "falsePositives": 0
   }
 }

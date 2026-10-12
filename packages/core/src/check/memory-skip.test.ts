@@ -4,6 +4,7 @@ import { expect, it, vi } from 'vitest';
 vi.mock('./memory.js', () => ({
   freeMemoryBytes: () => 512 * 1024 ** 2,
   estimateScopedHeapMb: () => 8192,
+  scopedImporters: () => ({ taken: [], dropped: [] }),
   memoryPolicy: () => ({ workers: 1, heapMb: 200, budgetMb: 307 }),
 }));
 vi.mock('../fetch/npm-fetcher.js', () => ({

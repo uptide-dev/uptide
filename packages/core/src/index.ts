@@ -62,6 +62,7 @@ export type {
   Finding,
   Fixability,
   Importer,
+  ImportersNotAnalyzed,
   PackageReport,
   PackageStatus,
   PlanGroup,

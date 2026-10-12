@@ -234,7 +234,7 @@
         {
           "file": "lib/agents/researcher.ts",
           "line": 168,
-          "rule": "generic",
+          "rule": "agent-type-arguments",
           "note": "changed by the upgrade"
         },
         {
@@ -396,7 +396,7 @@
         {
           "file": "lib/types/agent.ts",
           "line": 23,
-          "rule": "generic",
+          "rule": "agent-type-arguments",
           "note": "changed by the upgrade"
         }
       ]

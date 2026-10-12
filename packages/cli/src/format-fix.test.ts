@@ -162,3 +162,20 @@ it('explains the numbered export and points pr at the new branch', () => {
   );
   expect(text).toContain('npx uptide pr --branch uptide/zod-4.6.5-2');
 });
+
+it('names the coverage the check behind the run gave up to the memory cap', () => {
+  const report = {
+    ...fixReport(true),
+    importersNotAnalyzed: [
+      {
+        workspace: 'apps/web',
+        files: ['apps/web/src/heavy.test.ts', 'apps/web/src/sdk.ts'],
+        message: '2 importing files not analyzed (memory cap); findings in them may be missed',
+      },
+    ],
+  };
+  expect(formatFixSummary(report, { color: false })).toContain(
+    '  Coverage  apps/web: 2 importing files not analyzed (memory cap); findings in them may be missed',
+  );
+  expect(formatFixSummary(fixReport(true), { color: false })).not.toContain('Coverage');
+});

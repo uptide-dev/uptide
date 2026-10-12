@@ -600,3 +600,24 @@ it('renders one TypeScript API cause with 112 sites, expanding locations only in
   expect(details).toContain('scripts/compiler.ts:112');
   expect(details.match(/Compiler API member missing/g)).toHaveLength(112);
 });
+
+it('says which importing files the memory cap left out, per workspace, in the summary and the details', () => {
+  const capped: CheckReport = {
+    ...storefront,
+    importersNotAnalyzed: [
+      {
+        workspace: 'apps/web',
+        files: ['apps/web/src/heavy.test.ts', 'apps/web/src/sdk.ts'],
+        message: '2 importing files not analyzed (memory cap); findings in them may be missed',
+      },
+    ],
+  };
+  const summary = formatCheck(capped, shown);
+  expect(summary).toContain(
+    '⚠ apps/web: 2 importing files not analyzed (memory cap); findings in them may be missed (--details lists them)',
+  );
+  const details = formatCheck(capped, { ...shown, details: true });
+  expect(details).toContain('  apps/web/src/heavy.test.ts');
+  expect(details).toContain('  apps/web/src/sdk.ts');
+  expect(formatCheck(storefront, shown)).not.toContain('memory cap');
+});

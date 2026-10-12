@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { importedByText } from './importers.js';
+import { importedByText, importersOf } from './importers.js';
 
 function repo(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), 'uptide-importers-'));
@@ -43,5 +43,29 @@ describe('importedByText', () => {
     expect(importedByText(root, '.', names, ['.', 'packages/app'])).toEqual(['left-pad']);
     expect(importedByText(root, 'packages/app', names, ['.', 'packages/app'])).toEqual(['stripe']);
     expect(importedByText(root, '.', [])).toEqual([]);
+  });
+});
+
+describe('importersOf', () => {
+  it('takes direct importers whose imports depend on the package, never their importers', () => {
+    const root = repo({
+      'tool.ts':
+        "import { tool } from 'ai';\nexport const fetchTool = tool({});\nexport const label = 'x';\n",
+      'uses-tool.ts': "import { fetchTool } from './tool';\nexport const run = fetchTool;\n",
+      'uses-label.ts': "import { label } from './tool';\nexport { label };\n",
+      'uses-run.ts': "import { run } from './uses-tool';\nrun;\n",
+    });
+    const files = ['tool.ts', 'uses-tool.ts', 'uses-label.ts', 'uses-run.ts'].map((f) =>
+      join(root, f),
+    );
+    const options = {};
+    expect(importersOf(files, [join(root, 'tool.ts')], options, ['ai'])).toEqual([
+      join(root, 'uses-tool.ts'),
+    ]);
+    // Without packages: every direct importer, still one level.
+    expect(importersOf(files, [join(root, 'tool.ts')], options)).toEqual([
+      join(root, 'uses-tool.ts'),
+      join(root, 'uses-label.ts'),
+    ]);
   });
 });
