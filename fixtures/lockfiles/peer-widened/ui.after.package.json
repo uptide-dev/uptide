@@ -1,0 +1,10 @@
+{
+  "name": "ui",
+  "version": "1.0.0",
+  "devDependencies": {
+    "lib": "^2.0.0"
+  },
+  "peerDependencies": {
+    "lib": "^1.0.0 || ^2.0.0"
+  }
+}
