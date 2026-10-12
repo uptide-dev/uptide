@@ -1,5 +1,23 @@
 # uptide
 
+## 0.7.5
+
+### Patch Changes
+
+- [#83](https://github.com/uptide-dev/uptide/pull/83) [`bda0b35`](https://github.com/uptide-dev/uptide/commit/bda0b353f80e29469eab58765df4d9475ad15d00) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Find more of what an upgrade breaks. Named checks now also compile the files that directly import a package's importers when what they import depends on the package, within a 20% memory budget relative to the same program's estimate (the same files on every machine), so a test calling a wrapped tool's `execute` is reported. Files the budget leaves out are named per workspace in the check and fix summaries, `report.json` and the HTML report. The `ai` pack flags `ToolLoopAgent`, `Agent` and `ToolLoopAgentSettings` type arguments, whose third position is now the runtime context, and finds renamed options inside spread objects, behind `as`/`satisfies`, and in an agent's `stream`/`generate` calls. Breaking recall: `ai` 36% → 82%, `zod` 71% → 74%, with no false positives.
+
+- [#84](https://github.com/uptide-dev/uptide/pull/84) [`5c59257`](https://github.com/uptide-dev/uptide/commit/5c59257bcf0fb0c3ff56f7ee002481437d508d06) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Yarn 2 and 3 lockfiles: follow dependency references written without the `npm:` protocol, so a moved package's own subtree is recognized. `fix` no longer rejects a new major that swaps its dependencies (for example `cmdk` 0.2 → 1.0 replacing `@radix-ui/*` 1.0.0 with 1.1.x) as "changed resolutions outside the dependency subtree", and importer resolutions in these lockfiles are now compared too. Changes reached only from packages that did not move are still rejected. The report lists each allowed transitive change under the package that moved it.
+  
+  A root `resolutions`, `overrides` or `pnpm.overrides` entry that pins a package the upgrade moves now stops the run before the baseline and the install, naming the entry, instead of failing after the install (on medusa: 33 s instead of 11 min). With Yarn 2+, a moved package whose range the plan rewrote is pinned to the exact planned version too (it resolved the newest match before).
+  
+  Temporary clones are removed on exit, including after a failed or interrupted run. `--keep-temp` (or `--debug`, which also prints every phase) keeps one; `--keep` still works as before.
+
+- [#85](https://github.com/uptide-dev/uptide/pull/85) [`0af3fed`](https://github.com/uptide-dev/uptide/commit/0af3fed93aa1114908bdce7911ce09c364af6594) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Fix a 0.7.4 regression: when a workspace declares the upgraded package both in `peerDependencies` and in `dependencies` or `devDependencies`, the widened peer range (for example `^18.3.1 || ^19.0.0`) replaced the installable range in the install and in the check that follows it. With Yarn it is no lockfile descriptor, so the check read an old copy and `fix` stopped with "Requested react@19.3.0, but … resolved 17.0.2". Peer ranges are now only validated and widened in the manifest: `dependencies`, `devDependencies` and `optionalDependencies` alone feed the install, `yarn set resolution` and the check.
+
+- [#86](https://github.com/uptide-dev/uptide/pull/86) [`191c89e`](https://github.com/uptide-dev/uptide/commit/191c89e15048590128608768a3b1f0a89da24c47) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Fix `uptide pr --yes` opening a ready-for-review pull request when `--draft` is omitted. New pull requests now default to drafts, matching `fix --pr --yes` and the migration report's instructions.
+
+- [#81](https://github.com/uptide-dev/uptide/pull/81) [`ac01a01`](https://github.com/uptide-dev/uptide/commit/ac01a01dc2d4d1924d1c1d7d0208dfadd09cfde4) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Respect the repository's JavaScript compiler setting when selecting scoped analysis roots. This prevents an `escapedName` crash during upgrades in mixed TypeScript/JavaScript monorepos while preserving analysis of enabled JavaScript files.
+
 ## 0.7.4
 
 ### Patch Changes
