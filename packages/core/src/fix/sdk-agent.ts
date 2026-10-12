@@ -6,7 +6,7 @@ import type { ProgressListener } from '../domain/progress.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { git } from './process.js';
 import { commit, safeFile } from './settle.js';
-import { lintFiles } from './style.js';
+import { formatFiles, lintFiles } from './style.js';
 import type {
   AgentSummary,
   AgentTaskRecord,
@@ -71,6 +71,8 @@ export interface SdkAssistInput {
   /** Tests on these repository-relative files, as the run's `services.tests`. */
   tests: (files: string[]) => Promise<TestResult[]>;
   lint?: (files: string[], baseline?: LintResult[]) => Promise<LintResult[]>;
+  /** The repository's formatter, run on the edited files before lint, as `settle` does. */
+  format?: (files: string[]) => Promise<string[]>;
   baselineTests: TestResult[];
   baselineLint: LintResult[];
   /** Files with sites before the agent ran: what the tests relate to. */
@@ -112,7 +114,8 @@ export function guard(
   tool: string,
   input: Record<string, unknown>,
 ): string | undefined {
-  if (CHECK_TOOLS.includes(tool)) return undefined;
+  // StructuredOutput is how the session hands back its summary (`outputFormat`).
+  if (CHECK_TOOLS.includes(tool) || tool === 'StructuredOutput') return undefined;
   if (!READ_TOOLS.has(tool) && tool !== 'Edit' && tool !== 'Write')
     return `${tool} is not available in this task`;
   const raw = input.file_path ?? input.path ?? '.';
@@ -312,7 +315,7 @@ export function taskPrompt(input: {
     'Repository conventions Uptide detected; follow what the code already does:',
     ...input.conventions.map((c) => `- ${c}`),
     '',
-    "Check your work with check_types (errors new since the task started, and those left in the task's files), run_lint and run_tests: they are the repository's own type-check, lint and tests, and the same judges your edits face when you finish. There is no shell, no network, no installs and no git: say in couldNotDo what would need them. Do not silence the compiler (@ts-ignore, @ts-expect-error, as any, as unknown as). Keep behaviour the same except where the upgrade changes it; where data the code relied on may now be missing, handle that explicitly rather than letting it pass silently.",
+    "Check your work with check_types (errors new since the task started, and those left in the task's files), run_lint (which first formats the changed files with the repository's formatter) and run_tests: they are the repository's own type-check, lint and tests, and the same judges your edits face when you finish. There is no shell, no network, no installs and no git: say in couldNotDo what would need them. Do not silence the compiler (@ts-ignore, @ts-expect-error, as any, as unknown as). Keep behaviour the same except where the upgrade changes it; where data the code relied on may now be missing, handle that explicitly rather than letting it pass silently.",
     '',
     'Finish with the structured summary: what you changed, the decisions you made and the assumptions behind them, and anything you could not do.',
   ].join('\n');
@@ -327,7 +330,12 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
   const tasks = planTasks(input.sites, context);
   const records: AgentTaskRecord[] = [];
   let spent = 0;
-  const lint = input.lint ?? ((files, baseline) => lintFiles(root, files, baseline));
+  const format = input.format ?? ((files) => formatFiles(root, files));
+  // Formatting is the repository's tool's job, not the agent's: lint judges formatted files.
+  const lint = async (files: string[], baseline?: LintResult[]) => {
+    await format(files);
+    return (input.lint ?? ((f, b) => lintFiles(root, f, b)))(files, baseline);
+  };
   const changed = () => {
     const { modified, added } = changedPaths(root);
     return [...modified, ...added];

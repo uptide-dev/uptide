@@ -508,6 +508,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           baselineLint,
           affected: [...affected],
           ...(options.onProgress ? { onProgress: options.onProgress } : {}),
+          ...(services.format
+            ? { format: (files: string[]) => services.format?.(root, files) ?? Promise.resolve([]) }
+            : {}),
           ...(services.agentRunner ? { runner: services.agentRunner } : {}),
         })
       : assist(

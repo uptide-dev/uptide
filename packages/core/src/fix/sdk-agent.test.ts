@@ -110,6 +110,7 @@ async function task(input: {
   const preexisting = diag('src/a.ts', 3, 2304, "Cannot find name 'line3'.");
   const sites = [site('src/a.ts', 2, siteError)];
   let calls = 0;
+  const formatted = new Set<string>();
   const llm = await assistWithSdk({
     root,
     workspaces: ['.'],
@@ -120,7 +121,19 @@ async function task(input: {
     maxCostUsd: 1,
     diagnostics: () => (calls++ === 0 ? [siteError, preexisting] : input.after),
     tests: async () => input.tests ?? [{ workspace: '.', status: 'passed', output: '' }],
-    lint: async () => [],
+    // Lint passes only on files the formatter has seen, as prettier --check would.
+    lint: async (files) =>
+      files.map((f) => ({
+        tool: 'prettier',
+        status: formatted.has(f) ? 'passed' : 'failed',
+        command: 'prettier --check',
+        files: 1,
+        output: '',
+      })),
+    format: async (files) => {
+      for (const f of files) formatted.add(f);
+      return ['prettier'];
+    },
     baselineTests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
     baselineLint: [],
     affected: ['src/a.ts'],
@@ -159,6 +172,7 @@ describe('guard: what an SDK session may touch', () => {
     for (const tool of ['Bash', 'WebFetch', 'WebSearch', 'Agent', 'NotebookEdit'])
       expect(guard(root, allowed, tool, { command: 'curl example.com' })).toMatch(/not available/);
     expect(guard(root, allowed, 'mcp__uptide__run_tests', {})).toBeUndefined();
+    expect(guard(root, allowed, 'StructuredOutput', { changed: [] })).toBeUndefined();
     expect(guard(root, allowed, 'mcp__other__run', {})).toMatch(/not available/);
   });
 });
