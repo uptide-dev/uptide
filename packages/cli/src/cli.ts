@@ -1126,14 +1126,14 @@ ${EXIT_CODES('done', 'not used')}`,
     program
       .command('pr')
       .description(
-        'Push a finished migration branch and open its pull request with the stored report',
+        'Push a finished migration branch and open its draft pull request with the stored report',
       )
       .option('--branch <name>', 'the migration branch (default: the one checked out)')
       .option(
         '--repo <owner/name>',
         'where to open the PR (default: the repository origin points at, a fork included)',
       )
-      .option('--draft', 'open it as a draft')
+      .option('--draft', 'open it as a draft', true)
       .option('--yes', 'approve the printed plan: push the branch and open the PR'),
   )
     .addHelpText(
@@ -1142,12 +1142,12 @@ ${EXIT_CODES('done', 'not used')}`,
 What it does:
   Loads the stored run for the branch (from .git, written by fix or verify), checks that the
   branch is still at the verified commit, prints which repository the PR will be opened on,
-  and with --yes pushes the branch and opens the PR with the stored description.
+  and with --yes pushes the branch and opens a draft PR with the stored description.
   On a fork the PR goes to the fork itself unless --repo names the parent.
 
 Examples:
   $ uptide pr --branch uptide/stripe-23.0.0          the plan, nothing pushed
-  $ uptide pr --branch uptide/stripe-23.0.0 --yes    push and open the PR
+  $ uptide pr --branch uptide/stripe-23.0.0 --yes    push and open a draft PR
 ${EXIT_CODES('PR opened (or plan printed without --yes)', 'branch tree does not match the verified run')}`,
     )
     .action((flags: Shared & { branch?: string; repo?: string; draft?: boolean; yes?: boolean }) =>
