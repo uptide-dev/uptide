@@ -126,6 +126,8 @@ export interface AgentTaskRecord {
   rejection?: string;
   /** The SDK's stop reason when it did not finish cleanly (`error_max_budget_usd`). */
   stop?: string;
+  /** How many single-site tasks shared this task's gate. */
+  batch?: number;
   summary?: AgentSummary;
 }
 export interface FixRequest {

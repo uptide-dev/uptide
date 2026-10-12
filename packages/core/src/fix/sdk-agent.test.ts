@@ -124,10 +124,11 @@ async function task(input: {
     context: { from: '17.7.0', to: '23.0.0', includeDeprecated: false },
     model: 'claude-sonnet-5-5',
     maxCostUsd: 1,
-    // Planning, then the start of the task, see the baseline; the end sees `after`.
-    diagnostics: () => (calls++ < 2 ? [siteError, preexisting] : input.after),
+    // Planning sees the baseline; the check after the task sees `after`.
+    diagnostics: () => (calls++ < 1 ? [siteError, preexisting] : input.after),
     tests: async () =>
-      (testRuns++ === 0 ? input.startTests : input.tests) ?? [
+      // The end of the task first; the start only when something failed at the end.
+      (testRuns++ === 0 ? input.tests : input.startTests) ?? [
         { workspace: '.', status: 'passed', output: '' },
       ],
     // Lint passes only on files the formatter has seen, as prettier --check would.
@@ -262,6 +263,74 @@ describe('end-of-task gate', () => {
     });
     expect(record?.gate).toBe('no-change');
     expect(sites[0]?.reason).toMatch(/made no change; agent: the period needs a product decision/);
+  });
+});
+
+describe('batched gate', () => {
+  it('gates single-site tasks together, then one at a time when the batch fails', async () => {
+    const root = repo({ 'src/a.ts': 'old a\n', 'src/b.ts': 'old b\n', 'src/c.ts': 'c\n' });
+    // A compiler stand-in that reads the files: `old` is a site error, `BAD` a new one.
+    const diagnostics = () =>
+      ['src/a.ts', 'src/b.ts'].flatMap((file) => {
+        const text = readFileSync(join(root, file), 'utf8');
+        return [
+          ...(text.includes('old') ? [diag(file, 1, 2339, `old in ${file}`)] : []),
+          ...(text.includes('BAD') ? [diag(file, 2, 2322, 'bad')] : []),
+        ];
+      });
+    const sites = ['a', 'b'].map((n) => ({
+      ...site(`src/${n}.ts`, 1, diag(`src/${n}.ts`, 1, 2339, `old in src/${n}.ts`)),
+      rule: n,
+    }));
+    const ran2: string[][] = [];
+    const llm = await assistWithSdk({
+      root,
+      workspaces: ['.'],
+      sites,
+      pack,
+      context: { from: '1.0.0', to: '2.0.0', includeDeprecated: false },
+      model: 'claude-sonnet-5-5',
+      maxCostUsd: 1,
+      diagnostics,
+      tests: async (files) => {
+        ran2.push(files);
+        return [{ workspace: '.', status: 'passed', output: '' }];
+      },
+      lint: async () => [],
+      format: async () => [],
+      baselineTests: [{ workspace: '.', status: 'passed', output: '' }],
+      baselineLint: [],
+      affected: ['src/a.ts', 'src/b.ts', 'src/c.ts'],
+      runner: async ({ root, task }) => {
+        const file = task.files[0] as string;
+        writeFileSync(join(root, file), task.rule === 'a' ? 'new a\n' : 'new b\nBAD\n');
+        return ran(summary({ changed: [{ file, what: `migrated ${file}` }] }));
+      },
+    });
+    expect(llm.tasks?.map((t) => [t.rule, t.gate, t.batch])).toEqual([
+      ['a', 'accepted', 2],
+      ['b', 'rejected', 2],
+    ]);
+    expect(llm.tasks?.[1]?.rejection).toMatch(/new type errors: src\/b\.ts:2 TS2322/);
+    expect(sites.map((s) => s.outcome)).toEqual(['agent', 'manual']);
+    expect(readFileSync(join(root, 'src/a.ts'), 'utf8')).toBe('new a\n');
+    expect(readFileSync(join(root, 'src/b.ts'), 'utf8')).toBe('old b\n');
+    expect(git(root, 'log', '--format=%s', '-2')).toBe('fix(stripe): a (agent)\nbase');
+    expect(git(root, 'status', '--porcelain')).toBe('');
+    // Only the tests that can see the task's own file ran; c.ts never asked for any.
+    expect(ran2).toEqual([['src/a.ts']]);
+  });
+
+  it('runs the start-of-task tests only to explain a failure, and restores the tree after', async () => {
+    const { root, record } = await task({
+      agent: doing(migrate),
+      after: [],
+      startTests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
+      tests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
+    });
+    expect(record?.gate).toBe('accepted');
+    expect(git(root, 'status', '--porcelain')).toBe('');
+    expect(readFileSync(join(root, 'src/a.ts'), 'utf8')).toContain('sub.items.data[0]');
   });
 });
 

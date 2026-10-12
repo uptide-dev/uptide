@@ -1,9 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { isolatedPnpmWorkspace } from './test-fixture.js';
-import { diagnostics, newDiagnostics, typeResolutionFailure } from './verify.js';
+import { diagnostics, newDiagnostics, typeChecker, typeResolutionFailure } from './verify.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-verify-tests-'));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -72,4 +72,39 @@ it('identifies diagnostics by start location, code and related location, never w
   ])
     expect(newDiagnostics([d], [changed])).toEqual([changed]);
   expect(newDiagnostics([d], [d, d])).toEqual([d]);
+});
+
+it('re-checks a workspace only when a file its program reads changed, and sees every change', () => {
+  const root = realpathSync(mkdtempSync(join(scratch, 'incremental-')));
+  const write = (file: string, text: string) => {
+    mkdirSync(join(root, file, '..'), { recursive: true });
+    writeFileSync(join(root, file), text);
+  };
+  write('package.json', '{"name":"mono"}');
+  for (const name of ['a', 'b']) {
+    write(`packages/${name}/package.json`, JSON.stringify({ name }));
+    write(`packages/${name}/tsconfig.json`, JSON.stringify({ compilerOptions: { strict: true } }));
+    write(`packages/${name}/src/index.ts`, 'export const n: number = 1;\n');
+  }
+  write('packages/b/src/use.ts', "import { n } from './index';\nexport const m: number = n;\n");
+  const checker = typeChecker(root, ['packages/a', 'packages/b']);
+  expect(checker.check()).toEqual([]);
+  // An edit in b: b's program changes, and an error that follows from it in another file shows.
+  write('packages/b/src/index.ts', "export const n: string = 'x';\n");
+  const after = checker.check();
+  expect(after.map((d) => [d.file, d.line, d.code])).toEqual([['packages/b/src/use.ts', 2, 2322]]);
+  expect(after).toEqual(diagnostics(root, ['packages/a', 'packages/b']));
+  // A new file is part of the program at the next check.
+  write('packages/a/src/new.ts', 'export const k: number = "no";\n');
+  expect(checker.check().map((d) => d.file)).toEqual([
+    'packages/a/src/new.ts',
+    'packages/b/src/use.ts',
+  ]);
+  // Reverted, as a rejected task is: the errors go with it.
+  write('packages/b/src/index.ts', 'export const n: number = 1;\n');
+  rmSync(join(root, 'packages/a/src/new.ts'));
+  expect(checker.check()).toEqual([]);
+  // Nothing changed: the last result, not a new program.
+  const again = checker.check();
+  expect(again).toEqual([]);
 });

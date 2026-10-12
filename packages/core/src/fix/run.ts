@@ -45,6 +45,7 @@ import {
   newDiagnosticsAcrossShifts,
   type TestOptions,
   testWorkspaces,
+  typeChecker,
   typeResolutionFailure,
 } from './verify.js';
 import {
@@ -493,7 +494,14 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           context: packContext,
           model: selection.model,
           maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD,
-          diagnostics: () => services.diagnostics(root, workspaces),
+          // One program per workspace across the tasks: each check re-reads what changed.
+          diagnostics:
+            services.diagnostics === diagnostics
+              ? (
+                  (checker) => () =>
+                    checker.check()
+                )(typeChecker(root, workspaces))
+              : () => services.diagnostics(root, workspaces),
           tests: (files) =>
             services.tests(root, workspaces, options.testTimeoutMs, files, {
               withServices: options.withServices === true,

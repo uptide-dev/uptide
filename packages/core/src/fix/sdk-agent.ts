@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { ts } from 'ts-morph';
@@ -170,47 +170,40 @@ function changedPaths(root: string): { modified: string[]; added: string[] } {
 const ESCAPES = /@ts-ignore|@ts-nocheck|@ts-expect-error|\bas any\b|\bas unknown as\b/;
 
 /**
- * The end-of-task gate, the patch agent's in spirit: edits only in the task's files plus the
- * new files the agent declared, no compiler escape hatches, types no worse than at the start
- * of the task (matched across line shifts), lint and tests no worse than the baseline.
- * Returns why the task is rejected, or undefined.
+ * What a task's own edits must satisfy before anything runs: only the task's files plus the
+ * new files the agent declared, and no compiler escape hatches. Returns why not, or undefined.
  */
-export async function gate(input: {
-  root: string;
-  task: AgentTask;
-  summary?: AgentSummary;
-  before: FixDiagnostic[];
-  after: FixDiagnostic[];
-  tests: () => Promise<TestResult[]>;
-  lint: (files: string[]) => Promise<LintResult[]>;
-}): Promise<string | undefined> {
-  const { modified, added } = changedPaths(input.root);
-  const outside = modified.filter((f) => !input.task.files.includes(f));
+export function editRules(
+  root: string,
+  task: AgentTask,
+  summary: AgentSummary | undefined,
+): string | undefined {
+  const { modified, added } = changedPaths(root);
+  const outside = modified.filter((f) => !task.files.includes(f));
   if (outside.length) return `edited files outside the task: ${outside.join(', ')}`;
-  const declared = new Set(input.summary?.newFiles ?? []);
-  const undeclared = added.filter((f) => !declared.has(f) && !input.task.files.includes(f));
+  const declared = new Set(summary?.newFiles ?? []);
+  const undeclared = added.filter((f) => !declared.has(f) && !task.files.includes(f));
   if (undeclared.length) return `created files it did not declare: ${undeclared.join(', ')}`;
-  const diff = git(input.root, 'diff', '--no-color', '-U0', 'HEAD');
+  const diff = git(root, 'diff', '--no-color', '-U0', 'HEAD');
   const addedLines = [
     ...diff.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')),
-    ...added.flatMap((f) => readFileSync(join(input.root, f), 'utf8').split('\n')),
+    ...added.flatMap((f) => readFileSync(join(root, f), 'utf8').split('\n')),
   ];
   const silenced = addedLines.find((l) => ESCAPES.test(l));
   if (silenced) return `silences the compiler: ${silenced.replace(/^\+/, '').trim()}`;
-  const fresh = newDiagnosticsAcrossShifts(input.before, input.after);
-  if (fresh.length)
-    return `new type errors: ${fresh
-      .slice(0, 5)
-      .map((d) => `${d.file}:${d.line} TS${d.code}`)
-      .join(', ')}${fresh.length > 5 ? ` and ${fresh.length - 5} more` : ''}`;
-  const failed = (await input.lint([...modified, ...added])).filter((l) => l.status === 'failed');
-  if (failed.length) return `lint fails: ${failed.map((l) => l.tool).join(', ')}`;
-  const tests = (await input.tests()).filter(
-    (t) => t.status !== 'passed' && t.status !== 'missing' && !t.preexisting,
-  );
-  if (tests.length)
-    return `tests fail: ${tests.map((t) => `${t.workspace} (${t.status})`).join(', ')}`;
   return undefined;
+}
+
+/**
+ * Single-site rules share one gate, run after all of them; a rule with several sites has its
+ * own. Fewer type and test runs for the many one-line changes a zod or React upgrade has.
+ */
+export function batches(tasks: AgentTask[]): AgentTask[][] {
+  const singles = tasks.filter((t) => t.sites.length === 1);
+  return [
+    ...tasks.filter((t) => t.sites.length > 1).map((t) => [t]),
+    ...(singles.length ? [singles] : []),
+  ];
 }
 
 /** Facts about how this repository writes imports, for the agent to follow. Not orders. */
@@ -340,157 +333,262 @@ export function taskPrompt(input: {
 
 const tail = (text: string, max: number) => (text.length > max ? `…${text.slice(-max)}` : text);
 
-/** Runs every task, gate at the end of each, and returns the report's llm block. */
+/** One task that ran and left a commit, waiting for its gate. */
+interface Pending {
+  task: AgentTask;
+  run: TaskRun;
+  record: AgentTaskRecord;
+  said: string;
+  before: FixDiagnostic[];
+  after: FixDiagnostic[];
+  touched: string[];
+  commit: string;
+}
+
+/**
+ * Runs every task and gates each batch once it has run (`batches`): types no worse than at
+ * the batch's start, lint on what it changed, and the tests related to its files no worse than
+ * at its start. A rejected batch of several is retried one task at a time from its start.
+ * Returns the report's llm block.
+ */
 export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['llm']> {
   const { root, workspaces, pack, context } = input;
   const runner = input.runner ?? sdkRunner;
-  const tasks = planTasks(input.sites, context, input.diagnostics());
+  let current = input.diagnostics();
+  const tasks = planTasks(input.sites, context, current);
   const records: AgentTaskRecord[] = [];
   let spent = 0;
+  let started = 0;
   const format = input.format ?? ((files) => formatFiles(root, files));
   // Formatting is the repository's tool's job, not the agent's: lint judges formatted files.
-  const lint = async (files: string[], baseline?: LintResult[]) => {
+  const lint = async (files: string[]) => {
     await format(files);
-    return (input.lint ?? ((f, b) => lintFiles(root, f, b)))(files, baseline);
+    return (input.lint ?? ((f, b) => lintFiles(root, f, b)))(files, input.baselineLint);
   };
-  const changed = () => {
-    const { modified, added } = changedPaths(root);
-    return [...modified, ...added];
+  const list = (...args: string[]) =>
+    git(root, ...args)
+      .split('\n')
+      .filter(Boolean);
+  const head = () => git(root, 'rev-parse', 'HEAD');
+  /** What differs from `base`, committed or not. */
+  const since = (base: string) => [
+    ...new Set([
+      ...list('diff', '--name-only', '--no-renames', base),
+      ...list('ls-files', '--others', '--exclude-standard'),
+    ]),
+  ];
+  const reset = (to: string) => {
+    // The clone is the run's own: nothing in it is the user's until the run is delivered.
+    git(root, 'reset', '--hard', '--quiet', to);
+    git(root, 'clean', '-fd', '--quiet');
   };
-  // Tests as the previous task left them: until every site is migrated an upgrade can fail
-  // tests the baseline passed, so a task answers for what it changes, as with types.
-  let startTests: TestResult[] | undefined;
-  let latestTests: TestResult[] = [];
-  const related = () => [...new Set([...input.affected, ...changed()])];
-  for (const [index, task] of tasks.entries()) {
-    const share = (input.maxCostUsd - spent) / (tasks.length - index);
-    if (share < 0.02) {
-      for (const s of task.sites) s.reason = `${s.reason}; not attempted: --max-cost reached`;
-      continue;
-    }
-    // ponytail: about a cent a turn on Sonnet with a warm cache; measure before tuning.
-    const maxTurns = Math.max(10, Math.min(60, Math.round(share * 100)));
-    const before = input.diagnostics();
-    startTests ??= await input.tests(related());
-    const atStart = startTests;
-    const tests = async () => {
-      latestTests = await input.tests(related());
-      return markPreexisting(latestTests, atStart);
-    };
-    const show = (d: FixDiagnostic) => `${d.file}:${d.line}:${d.column} TS${d.code} ${d.message}`;
-    const checks: TaskChecks = {
-      types: () => {
-        const now = input.diagnostics();
-        const fresh = newDiagnosticsAcrossShifts(before, now);
-        const left = now.filter((d) => task.files.includes(d.file));
-        return [
-          `${fresh.length} new type error(s) since the task started`,
-          ...fresh.slice(0, 40).map(show),
-          `${left.length} error(s) in the task's files`,
-          ...left.slice(0, 40).map(show),
-        ].join('\n');
-      },
-      lint: async () => {
-        const results = await lint(changed(), input.baselineLint);
-        if (!results.length) return 'no lint configured for these files, or nothing changed';
-        return results.map((r) => `${r.tool}: ${r.status}\n${tail(r.output, 2000)}`).join('\n');
-      },
-      tests: async () => {
-        const results = await tests();
-        if (!results.length) return 'no tests relate to these files';
-        return results
-          .map(
-            (t) =>
-              `${t.workspace}: ${t.status}${t.preexisting ? ' (failing when the task started too)' : ''}\n${tail(t.output, 3000)}`,
-          )
-          .join('\n');
-      },
-    };
-    const prompt = taskPrompt({
-      pack,
-      context,
-      task,
-      conventions: conventions(root, workspaces, task.files),
-    });
-    let run: TaskRun;
-    let error: string | undefined;
+  /** The tests related to `files`, as they ran at commit `at`, with the work tree put back. */
+  const testsAt = async (at: string, files: string[]) => {
+    const added = list('diff', '--name-only', '--diff-filter=A', at, 'HEAD');
+    git(root, 'checkout', '--quiet', at, '--', '.');
+    for (const file of added) rmSync(join(root, file), { force: true });
     try {
-      run = await runner({
-        root,
-        task,
-        prompt,
-        model: input.model,
-        maxBudgetUsd: share,
-        maxTurns,
-        checks,
-      });
-    } catch (err) {
-      error = (err as Error).message;
-      run = { turns: 0, inputTokens: 0, outputTokens: 0, costUsd: 0, durationMs: 0, toolCalls: {} };
+      return await input.tests(files);
+    } finally {
+      git(root, 'checkout', '--quiet', 'HEAD', '--', '.');
     }
-    spent += run.costUsd;
-    const after = input.diagnostics();
-    const touched = changed();
-    const rejection =
-      error ??
-      (touched.length
-        ? await gate({
-            root,
-            task,
-            ...(run.summary ? { summary: run.summary } : {}),
-            before,
-            after,
-            tests,
-            lint: (files) => lint(files, input.baselineLint),
-          })
-        : undefined);
-    const record: AgentTaskRecord = {
-      id: task.id,
-      rule: task.rule,
-      files: task.files,
-      sites: task.sites.length,
-      fixed: 0,
-      ...run,
-      gate: error ? 'error' : !touched.length ? 'no-change' : rejection ? 'rejected' : 'accepted',
-      ...(rejection ? { rejection } : {}),
-    };
-    const said = run.summary
-      ? [...run.summary.couldNotDo, ...run.summary.decisions].join('; ')
-      : (run.stop ?? '');
-    if (rejection || !touched.length) {
-      // The clone is the run's own: nothing in it is the user's until the run is delivered.
-      git(root, 'reset', '--hard', '--quiet', 'HEAD');
-      git(root, 'clean', '-fd', '--quiet');
-      for (const s of task.sites)
-        s.reason = `SDK agent ${rejection ? `rejected: ${rejection}` : 'made no change'}${said ? `; agent: ${said}` : ''}`;
-    } else {
-      const left = new Set(after.map(unplacedKey));
-      for (const s of task.sites) {
-        const u = s.finding.usage;
-        // A site with a compiler error is fixed when that error is gone, wherever the edit was
-        // (a prop type in another file); one without, when its file changed.
-        const own = before.find(
-          (d) => d.file === u.file && (d.line === u.line || d.message === u.compileError),
-        );
-        const stillThere = own ? left.has(unplacedKey(own)) : !touched.includes(u.file);
-        if (stillThere) {
-          s.reason = `SDK agent left this site${said ? `; agent: ${said}` : ''}`;
-          continue;
-        }
-        s.outcome = 'agent';
-        s.reason =
-          run.summary?.changed.find((c) => c.file === u.file)?.what ?? 'migrated by the SDK agent';
-        s.editedFiles = touched;
-        record.fixed++;
+  };
+  /** Why the work since `start` cannot stay, or undefined. Only what it can affect runs. */
+  const judge = async (
+    start: string,
+    before: FixDiagnostic[],
+    after: FixDiagnostic[],
+    files: string[],
+  ) => {
+    const fresh = newDiagnosticsAcrossShifts(before, after);
+    if (fresh.length)
+      return `new type errors: ${fresh
+        .slice(0, 5)
+        .map((d) => `${d.file}:${d.line} TS${d.code}`)
+        .join(', ')}${fresh.length > 5 ? ` and ${fresh.length - 5} more` : ''}`;
+    const changed = since(start);
+    const failedLint = (await lint(changed)).filter((l) => l.status === 'failed');
+    if (failedLint.length) return `lint fails: ${failedLint.map((l) => l.tool).join(', ')}`;
+    const related = [...new Set([...files, ...changed])];
+    let tests = await input.tests(related);
+    // A failure the batch did not cause was there at its start: run the same tests there, once.
+    if (tests.some((t) => t.status === 'failed' || t.status === 'timeout'))
+      tests = markPreexisting(tests, await testsAt(start, related));
+    const failing = tests.filter(
+      (t) => t.status !== 'passed' && t.status !== 'missing' && !t.preexisting,
+    );
+    if (failing.length)
+      return `tests fail: ${failing.map((t) => `${t.workspace} (${t.status})`).join(', ')}`;
+    return undefined;
+  };
+  const accept = (p: Pending) => {
+    p.record.gate = 'accepted';
+    const left = new Set(p.after.map(unplacedKey));
+    for (const s of p.task.sites) {
+      const u = s.finding.usage;
+      // A site with a compiler error is fixed when that error is gone, wherever the edit was
+      // (a prop type in another file); one without, when its file changed.
+      const own = p.before.find(
+        (d) => d.file === u.file && (d.line === u.line || d.message === u.compileError),
+      );
+      const stillThere = own ? left.has(unplacedKey(own)) : !p.touched.includes(u.file);
+      if (stillThere) {
+        s.reason = `SDK agent left this site${p.said ? `; agent: ${p.said}` : ''}`;
+        continue;
       }
-      startTests = latestTests;
+      s.outcome = 'agent';
+      s.reason =
+        p.run.summary?.changed.find((c) => c.file === u.file)?.what ?? 'migrated by the SDK agent';
+      s.editedFiles = p.touched;
+      p.record.fixed++;
+    }
+  };
+  const refuse = (p: Pending, why: string) => {
+    p.record.gate = 'rejected';
+    p.record.rejection = why;
+    for (const s of p.task.sites)
+      s.reason = `SDK agent rejected: ${why}${p.said ? `; agent: ${p.said}` : ''}`;
+  };
+  const show = (d: FixDiagnostic) => `${d.file}:${d.line}:${d.column} TS${d.code} ${d.message}`;
+
+  for (const batch of batches(tasks)) {
+    const batchStart = head();
+    const batchBefore = current;
+    const pending: Pending[] = [];
+    for (const task of batch) {
+      const share = (input.maxCostUsd - spent) / (tasks.length - started++);
+      if (share < 0.02) {
+        for (const s of task.sites) s.reason = `${s.reason}; not attempted: --max-cost reached`;
+        continue;
+      }
+      // ponytail: about a cent a turn on Sonnet with a warm cache; measure before tuning.
+      const maxTurns = Math.max(10, Math.min(60, Math.round(share * 100)));
+      const before = current;
+      const taskStart = head();
+      const checks: TaskChecks = {
+        types: () => {
+          const now = input.diagnostics();
+          const fresh = newDiagnosticsAcrossShifts(before, now);
+          const left = now.filter((d) => task.files.includes(d.file));
+          return [
+            `${fresh.length} new type error(s) since the task started`,
+            ...fresh.slice(0, 40).map(show),
+            `${left.length} error(s) in the task's files`,
+            ...left.slice(0, 40).map(show),
+          ].join('\n');
+        },
+        lint: async () => {
+          const results = await lint(since(taskStart));
+          if (!results.length) return 'no lint configured for these files, or nothing changed';
+          return results.map((r) => `${r.tool}: ${r.status}\n${tail(r.output, 2000)}`).join('\n');
+        },
+        tests: async () => {
+          const results = await input.tests([...new Set([...task.files, ...since(taskStart)])]);
+          if (!results.length) return 'no tests relate to these files';
+          return [
+            "Tests related to the task's files. A failure may predate the task: the gate compares with the start.",
+            ...results.map((t) => `${t.workspace}: ${t.status}\n${tail(t.output, 3000)}`),
+          ].join('\n');
+        },
+      };
+      const prompt = taskPrompt({
+        pack,
+        context,
+        task,
+        conventions: conventions(root, workspaces, task.files),
+      });
+      let run: TaskRun;
+      let error: string | undefined;
+      try {
+        run = await runner({
+          root,
+          task,
+          prompt,
+          model: input.model,
+          maxBudgetUsd: share,
+          maxTurns,
+          checks,
+        });
+      } catch (err) {
+        error = (err as Error).message;
+        run = {
+          turns: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsd: 0,
+          durationMs: 0,
+          toolCalls: {},
+        };
+      }
+      spent += run.costUsd;
+      const { modified, added } = changedPaths(root);
+      const touched = [...modified, ...added];
+      const rejection = error ?? (touched.length ? editRules(root, task, run.summary) : undefined);
+      const record: AgentTaskRecord = {
+        id: task.id,
+        rule: task.rule,
+        files: task.files,
+        sites: task.sites.length,
+        fixed: 0,
+        ...run,
+        gate: error ? 'error' : !touched.length ? 'no-change' : rejection ? 'rejected' : 'accepted',
+        ...(rejection ? { rejection } : {}),
+        ...(batch.length > 1 ? { batch: batch.length } : {}),
+      };
+      records.push(record);
+      const said = run.summary
+        ? [...run.summary.couldNotDo, ...run.summary.decisions].join('; ')
+        : (run.stop ?? '');
+      if (rejection || !touched.length) {
+        reset(taskStart);
+        for (const s of task.sites)
+          s.reason = `SDK agent ${rejection ? `rejected: ${rejection}` : 'made no change'}${said ? `; agent: ${said}` : ''}`;
+        continue;
+      }
       commit(
         root,
         `fix(${pack.name}): ${task.rule} (agent)`,
         touched.map((f) => join(root, f)),
       );
+      current = input.diagnostics();
+      pending.push({ task, run, record, said, before, after: current, touched, commit: head() });
     }
-    records.push(record);
+    if (!pending.length) continue;
+    const files = (list: Pending[]) => [
+      ...new Set(list.flatMap((p) => [...p.task.files, ...p.touched])),
+    ];
+    const verdict = await judge(batchStart, batchBefore, current, files(pending));
+    if (!verdict) {
+      for (const p of pending) accept(p);
+      continue;
+    }
+    reset(batchStart);
+    current = batchBefore;
+    if (pending.length === 1) {
+      refuse(pending[0] as Pending, verdict);
+      continue;
+    }
+    // The batch failed together: each task again from the batch's start, gated alone.
+    for (const p of pending) {
+      const start = head();
+      const before = current;
+      try {
+        git(root, 'cherry-pick', '--allow-empty', p.commit);
+      } catch {
+        git(root, 'cherry-pick', '--abort');
+        refuse(p, 'its edits depend on a task the gate rejected');
+        continue;
+      }
+      const after = input.diagnostics();
+      const why = await judge(start, before, after, files([p]));
+      if (why) {
+        reset(start);
+        refuse(p, why);
+        continue;
+      }
+      current = after;
+      accept({ ...p, before, after });
+    }
   }
   const sum = (key: 'inputTokens' | 'outputTokens' | 'costUsd') =>
     records.reduce((n, r) => n + r[key], 0);
@@ -598,7 +696,11 @@ const sdkRunner: TaskRunner = async ({
           PATH: process.env.PATH ?? '',
           HOME: process.env.HOME ?? '',
           ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
-          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+          // Telemetry, error reports, surveys and updates off; the two switches it leaves out too.
+        // What each covers: docs/privacy.md, "Experimental: fix --agent sdk".
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+        DISABLE_FEEDBACK_COMMAND: '1',
+        CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
           CLAUDE_AGENT_SDK_CLIENT_APP: 'uptide',
         },
       },

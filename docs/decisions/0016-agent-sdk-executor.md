@@ -50,19 +50,36 @@ unchanged.
   each turn, so a task can overshoot its share by one turn.
 - **Summary.** The session ends with a JSON-schema `outputFormat`:
   `{changed, newFiles, decisions, assumptions, couldNotDo}`.
-- **Gate, at the end of each task.** The task is rejected if any of these holds:
+- **Edit rules, right after each session.** The task is rejected and reset if:
   - it edited an existing file outside the task;
   - it created a file it did not declare;
-  - it added `@ts-ignore`, `@ts-nocheck`, `@ts-expect-error`, `as any` or `as unknown as`;
-  - it introduced type errors, compared with the start of the task by
-    `newDiagnosticsAcrossShifts`;
-  - lint fails on the edited files where the baseline did not;
-  - a test fails that did not fail when the task started. Until every site is migrated, an
-    upgrade can break tests the pre-upgrade baseline passed, so a task answers only for what
-    it changes, as with types. The final verdict still compares with the pre-upgrade baseline.
+  - it added `@ts-ignore`, `@ts-nocheck`, `@ts-expect-error`, `as any` or `as unknown as`.
 
-  A rejected task is reset (`git reset --hard`, `git clean -fd`, in the clone only) and its
-  sites stay manual with the agent's own words. An accepted task is one commit. A site counts as
+  Otherwise its edits become one commit.
+- **Gate, once per batch.** A rule with several sites is its own batch; all single-site rules
+  share one (`batches()`), so a zod or React upgrade's many one-line changes pay for one
+  check, not one each. The batch is rejected if any of these holds:
+  - it introduced type errors, compared with the batch's start by
+    `newDiagnosticsAcrossShifts`;
+  - lint fails on the files it changed (after formatting them) where the baseline did not;
+  - a test related to its files fails that did not fail at the batch's start.
+
+  Only what the batch can affect runs:
+  - The type-check is `typeChecker()`. It keeps one TypeScript builder program per workspace
+    across checks and re-checks a workspace only when a repository file its program reads
+    changed, and then only the files that depend on the change. On a seven-workspace
+    monorepo, a fresh check takes 7.1s, a re-check after a one-file edit 2.3s, and an
+    unchanged one 41ms.
+  - The tests are those related to the batch's files. Until every site is migrated, an
+    upgrade can break tests the pre-upgrade baseline passed, so a batch answers only for
+    what it changes, as with types. The same tests run at the batch's start, by checking
+    that commit's files out for the run, only when something fails at the end.
+
+  The full selected suite runs once, in `settle`, and the final verdict still compares with
+  the pre-upgrade baseline. A rejected batch of several tasks is retried one task at a time
+  from its start (cherry-picking each task's commit and gating it alone), so one bad task
+  does not take the others with it. A rejected task is reset to its start, in the clone only,
+  and its sites stay manual with the agent's own words. A site counts as
   fixed when the compiler error it had at the start of the task is gone, wherever the edit
   was. A site without a compiler error counts as fixed when its file changed.
   `validateAssisted` is not applied: its rules are snippet-patch heuristics, for example "no new
@@ -73,6 +90,38 @@ unchanged.
   tokens, cost, wall time, tool calls by name, gate verdict, rejection, and the summary.
 
 ## Dependency and terms
+
+### Optional peer, not a dependency (finding, 2026-10)
+
+The terms allow a normal `dependencies` entry. The install size rules it out.
+
+- **Terms.** Nothing in them forbids depending on the package so that npm installs Anthropic's
+  published, unmodified bytes on the user's machine. That is depending, not redistributing.
+  - The [Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) puts its use
+    under the [Commercial Terms](https://www.anthropic.com/legal/commercial-terms), "including
+    when you use it to power products and services". Section A.1 of those terms allows exactly
+    that.
+  - The [legal page](https://code.claude.com/docs/en/legal-and-compliance) allows "preinstalling
+    or running Claude Code in your products or services" under conditions this design keeps
+    (below).
+  - Neither grants a licence to ship the SDK's bytes inside Uptide's tarball. LICENSE.md is
+    "All rights reserved", so bundling stays out.
+- **Size.** The SDK is 5.5 MB, but it pulls in the Claude Code binary for the user's platform
+  through `optionalDependencies`: 240.7 MB on macOS arm64 and 257.1 MB on Linux x64. Its
+  required peers add about 24 MB more (`@anthropic-ai/sdk`, `zod`, `@modelcontextprotocol/sdk`).
+  As a dependency, every `npx uptide` would download about 270 MB, against Uptide's 11 MB
+  today, including for users who never pass `--agent sdk`. As an optional peer, only those who
+  use the flag install it.
+- **To confirm with Anthropic before a default ships.** Each is a reading of the terms, not a
+  statement in them:
+  1. Does the publisher of a free CLI, whose users bring their own API key, need its own
+     Commercial Terms agreement?
+  2. Is an npm dependency "preinstalling" Claude Code in a product?
+  3. The legal page says the built-in claude.ai login must not be removed or disabled, and that
+     third parties must not offer claude.ai login. Is leaving the binary's login untouched,
+     while Uptide documents only API keys, consistent with both?
+
+### What the package is and how Uptide uses it
 
 `@anthropic-ai/claude-agent-sdk` is not open source: "© Anthropic PBC. All rights reserved",
 and use is under Anthropic's Commercial Terms. It runs Claude Code's native binary, shipped as
@@ -95,8 +144,8 @@ Claude Code under three conditions, and this design keeps all three:
 - Uptide does not pay for, resell or sit between the user and their Claude usage.
 
 It also must not use the Anthropic or Claude Code names or logos as Uptide's own branding.
-The SDK collects usage feedback under Anthropic's data-usage policy; `docs/privacy.md` must
-say so before this leaves experiment status.
+What a session sends, and the switches Uptide sets, are in
+[privacy](../privacy.md#experimental-fix---agent-sdk).
 
 ## Not done
 

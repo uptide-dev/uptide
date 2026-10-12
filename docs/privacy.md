@@ -62,6 +62,43 @@ provider you chose (or your `OPENAI_BASE_URL`); your provider's data policy appl
 90-day retention policy, and contains no IP, code, paths, repository names or user names
 ([`uptide telemetry`](commands/telemetry.md); every field in [telemetry internals](telemetry.md)).
 
+## Experimental: `fix --agent sdk`
+
+The hidden `--agent sdk` flag (Anthropic only) runs assisted fixes as sessions of the Claude
+Agent SDK, which runs Anthropic's Claude Code binary on your machine
+([decision record](decisions/0016-agent-sdk-executor.md)). It is not installed with Uptide:
+you install `@anthropic-ai/claude-agent-sdk` yourself, and its use is governed by
+[Anthropic's terms](https://code.claude.com/docs/en/legal-and-compliance), not Uptide's
+license.
+
+What leaves your machine:
+
+- **Model calls**, to Anthropic's API with your `ANTHROPIC_API_KEY`. A session sees more than
+  the patch agent's snippet. It can read any file in the temporary clone, including
+  dependency declarations in `node_modules`. It sends what it reads, and the output of
+  Uptide's type-check, lint and tests, as part of its conversation. Under Anthropic's
+  Commercial Terms this is
+  [not used for training and kept 30 days](https://code.claude.com/docs/en/data-usage).
+- **Nothing else, by default.** Uptide starts each session with
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, which turns off Claude Code's usage metrics,
+  error reports, feedback surveys and auto-updates. It also sets
+  `DISABLE_FEEDBACK_COMMAND=1` and `CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1`,
+  the two items that variable does not cover
+  ([data usage](https://code.claude.com/docs/en/data-usage),
+  [environment variables](https://code.claude.com/docs/en/env-vars)).
+  - The session has no web tool, so Claude Code's WebFetch domain check never runs.
+  - The session is not persisted: no transcript is written under `~/.claude/projects/`.
+  - Your Claude Code settings, hooks and `CLAUDE.md` files are not loaded.
+- **The session's environment** holds `PATH`, `HOME`, the key and the switches above, and
+  nothing else of yours. The tests the session asks for run through Uptide, without your
+  keys or tokens, as in every `fix`.
+
+The model calls are the feature and cannot be turned off separately: without `--agent sdk`,
+assisted fixes go through the patch agent, and `--no-llm` turns them off entirely. The SDK's
+README mentions collecting "usage data (such as code acceptance or rejections)" as feedback.
+The data-usage page lists no such collection beyond the items above. If you need certainty,
+ask Anthropic.
+
 ## Registry access
 
 Registry settings use environment overrides, project and user `.npmrc` files, scoped
