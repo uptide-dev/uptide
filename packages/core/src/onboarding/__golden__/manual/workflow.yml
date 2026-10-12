@@ -1,0 +1,52 @@
+# Uptide: dependency upgrades, checked and migrated in this repository's own GitHub Actions.
+# Settings are in uptide.yml. How this file was made, and how to change it:
+# https://github.com/uptide-dev/uptide/blob/main/docs/commands/init.md
+name: Uptide
+
+on:
+  # uptide.yml "schedule" is manual: runs start from the Actions tab or the Uptide dashboard.
+  # After changing it there, run `npx uptide init --force`.
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'list: what is behind. check: what an upgrade breaks. fix: open draft pull requests with verified migrations.'
+        type: choice
+        options: [list, check, fix]
+        default: check
+      package:
+        description: 'One dependency to check or fix. Empty: every dependency uptide.yml allows.'
+        type: string
+        required: false
+
+# Nothing else: no access to issues, packages, deployments or other repositories.
+permissions:
+  contents: write # push migration branches
+  pull-requests: write # open draft pull requests
+  id-token: write # prove to Uptide that the results JSON comes from this workflow
+
+concurrency:
+  group: uptide
+  cancel-in-progress: false
+
+jobs:
+  uptide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      # Exactly what package-lock.json pins, with dependency install scripts off.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      # Reads uptide.yml, runs Uptide, opens draft pull requests and uploads the results JSON.
+      - uses: uptide-dev/uptide@9172aece4e429af11425aa592d5fb8dd5757fd70 # v0.7.5
+        with:
+          config: uptide.yml
+          mode: ${{ inputs.mode || 'fix' }}
+          package: ${{ inputs.package }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

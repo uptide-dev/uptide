@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/uptide-dev/uptide/main/schema/uptide.v1.json",
+  "title": "uptide.yml",
+  "description": "Settings for Uptide: which dependencies it upgrades, when, and whether it may call an LLM.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "description": "Format of this file. Only 1 exists.",
+      "const": 1
+    },
+    "packages": {
+      "description": "Which dependencies Uptide considers, as npm package name globs. Deny wins over allow.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allow": {
+          "description": "Only these dependencies. Empty: every dependency.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?:@[a-z0-9*?~][a-z0-9._~*?-]*/)?[a-z0-9*?~][a-z0-9._~*?-]*$"
+          },
+          "default": []
+        },
+        "deny": {
+          "description": "Never these dependencies, even when allow matches them.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?:@[a-z0-9*?~][a-z0-9._~*?-]*/)?[a-z0-9*?~][a-z0-9._~*?-]*$"
+          },
+          "default": []
+        }
+      }
+    },
+    "schedule": {
+      "description": "When the workflow runs: a five-field cron expression in UTC, or `manual` to run only when started from the Actions tab or the Uptide dashboard. The workflow file holds a copy; run `uptide init` again after changing it.",
+      "type": "string",
+      "default": "17 6 * * 1"
+    },
+    "maxOpenPrs": {
+      "description": "No new pull request is opened while this many Uptide pull requests are open.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 3
+    },
+    "llm": {
+      "description": "Assisted fixes for the sites no rule covers.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "description": "false: no code is sent to an LLM provider; rule-based fixes only.",
+          "type": "boolean",
+          "default": true
+        },
+        "provider": {
+          "description": "Which provider receives the code, with this repository's own API key.",
+          "enum": ["anthropic", "openai", "gemini"],
+          "default": "anthropic"
+        }
+      }
+    },
+    "maxCost": {
+      "description": "Most a run may spend on LLM calls, in USD.",
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100,
+      "default": 1
+    },
+    "executor": {
+      "description": "How assisted fixes are applied: auto (Uptide chooses), patch (one edit per site), sdk (experimental: a Claude Agent SDK session).",
+      "enum": ["auto", "patch", "sdk"],
+      "default": "auto"
+    }
+  }
+}

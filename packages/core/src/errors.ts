@@ -112,7 +112,9 @@ export type ErrorCode =
   | 'GROUND_TRUTH_INSTALL'
   | 'INVALID_GROUND_TRUTH'
   | 'NOT_UPTIDE_CHECKOUT'
-  | 'PACK_EXISTS';
+  | 'PACK_EXISTS'
+  | 'INVALID_CONFIG'
+  | 'ONBOARDING_REFUSED';
 /** Stable across rendering and worker serialization. Human wording is not an API. */
 export class UptideError extends Error {
   override readonly name = 'UptideError';
