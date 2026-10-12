@@ -18,8 +18,10 @@ boxyhq/saas-starter-kit.
 helpers) and after it (follow-ups, `settle`, final verification, tree hash, export) is
 unchanged.
 
-- **Unit of work.** There is one task per pack rule, covering every file that rule's manual sites
-  are in, plus the files of helpers the run placed. It is not one task per site.
+- **Unit of work.** There is one task per pack rule, not one per site. It covers every file
+  that rule's manual sites are in, the files of helpers the run placed, and the repository
+  declarations the compiler links to a site's error. React 19's `RefObject<T | null>` errors,
+  for example, are fixed in the prop type they name, which lives in another file.
 - **Executor.** Each task is one Agent SDK `query()` with `cwd` set to the temporary clone. The
   SDK's base tool set is restricted to `Read`, `Grep`, `Glob`, `Edit` and `Write`. Three
   in-process MCP tools, `check_types`, `run_lint` and `run_tests`, run Uptide's own type-check
@@ -55,11 +57,14 @@ unchanged.
   - it introduced type errors, compared with the start of the task by
     `newDiagnosticsAcrossShifts`;
   - lint fails on the edited files where the baseline did not;
-  - a test failure is not one the baseline already had.
+  - a test fails that did not fail when the task started. Until every site is migrated, an
+    upgrade can break tests the pre-upgrade baseline passed, so a task answers only for what
+    it changes, as with types. The final verdict still compares with the pre-upgrade baseline.
 
   A rejected task is reset (`git reset --hard`, `git clean -fd`, in the clone only) and its
   sites stay manual with the agent's own words. An accepted task is one commit. A site counts as
-  fixed when its compiler error is gone, or for a site without one, when its file changed.
+  fixed when the compiler error it had at the start of the task is gone, wherever the edit
+  was. A site without a compiler error counts as fixed when its file changed.
   `validateAssisted` is not applied: its rules are snippet-patch heuristics, for example "no new
   throws", which forbid failing loudly on a missing period.
 - **Final verdict.** With `--agent sdk` it also matches diagnostics across line shifts. The

@@ -357,6 +357,11 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     const { modified, added } = changedPaths(root);
     return [...modified, ...added];
   };
+  // Tests as the previous task left them: until every site is migrated an upgrade can fail
+  // tests the baseline passed, so a task answers for what it changes, as with types.
+  let startTests: TestResult[] | undefined;
+  let latestTests: TestResult[] = [];
+  const related = () => [...new Set([...input.affected, ...changed()])];
   for (const [index, task] of tasks.entries()) {
     const share = (input.maxCostUsd - spent) / (tasks.length - index);
     if (share < 0.02) {
@@ -366,11 +371,12 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     // ponytail: about a cent a turn on Sonnet with a warm cache; measure before tuning.
     const maxTurns = Math.max(10, Math.min(60, Math.round(share * 100)));
     const before = input.diagnostics();
-    const tests = async () =>
-      markPreexisting(
-        await input.tests([...new Set([...input.affected, ...changed()])]),
-        input.baselineTests,
-      );
+    startTests ??= await input.tests(related());
+    const atStart = startTests;
+    const tests = async () => {
+      latestTests = await input.tests(related());
+      return markPreexisting(latestTests, atStart);
+    };
     const show = (d: FixDiagnostic) => `${d.file}:${d.line}:${d.column} TS${d.code} ${d.message}`;
     const checks: TaskChecks = {
       types: () => {
@@ -395,7 +401,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         return results
           .map(
             (t) =>
-              `${t.workspace}: ${t.status}${t.preexisting ? ' (failing before the upgrade too)' : ''}\n${tail(t.output, 3000)}`,
+              `${t.workspace}: ${t.status}${t.preexisting ? ' (failing when the task started too)' : ''}\n${tail(t.output, 3000)}`,
           )
           .join('\n');
       },
@@ -461,12 +467,12 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       const left = new Set(after.map(unplacedKey));
       for (const s of task.sites) {
         const u = s.finding.usage;
-        // A site with a compiler error is fixed when that error is gone; one without, when its file changed.
-        const stillThere = u.compileCode
-          ? left.has(
-              unplacedKey({ file: u.file, code: u.compileCode, message: u.compileError ?? '' }),
-            )
-          : !touched.includes(u.file);
+        // A site with a compiler error is fixed when that error is gone, wherever the edit was
+        // (a prop type in another file); one without, when its file changed.
+        const own = before.find(
+          (d) => d.file === u.file && (d.line === u.line || d.message === u.compileError),
+        );
+        const stillThere = own ? left.has(unplacedKey(own)) : !touched.includes(u.file);
         if (stillThere) {
           s.reason = `SDK agent left this site${said ? `; agent: ${said}` : ''}`;
           continue;
@@ -477,6 +483,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         s.editedFiles = touched;
         record.fixed++;
       }
+      startTests = latestTests;
       commit(
         root,
         `fix(${pack.name}): ${task.rule} (agent)`,
@@ -538,64 +545,69 @@ const sdkRunner: TaskRunner = async ({
   const started = Date.now();
   const toolCalls: Record<string, number> = {};
   let result: Extract<SDKMessage, { type: 'result' }> | undefined;
-  for await (const message of sdk.query({
-    prompt,
-    options: {
-      cwd: root,
-      model,
-      maxTurns,
-      maxBudgetUsd,
-      // Only these tools exist in the session: no shell, no web, no subagents.
-      tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write'],
-      allowedTools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', ...CHECK_TOOLS],
-      permissionMode: 'dontAsk',
-      mcpServers: { uptide: server },
-      hooks: {
-        PreToolUse: [
-          {
-            hooks: [
-              async (hook) => {
-                const { tool_name, tool_input } = hook as {
-                  tool_name: string;
-                  tool_input: unknown;
-                };
-                toolCalls[tool_name] = (toolCalls[tool_name] ?? 0) + 1;
-                const reason = guard(
-                  root,
-                  task.files,
-                  tool_name,
-                  (tool_input ?? {}) as Record<string, unknown>,
-                );
-                return reason
-                  ? {
-                      hookSpecificOutput: {
-                        hookEventName: 'PreToolUse' as const,
-                        permissionDecision: 'deny' as const,
-                        permissionDecisionReason: reason,
-                      },
-                    }
-                  : {};
-              },
-            ],
-          },
-        ],
+  try {
+    for await (const message of sdk.query({
+      prompt,
+      options: {
+        cwd: root,
+        model,
+        maxTurns,
+        maxBudgetUsd,
+        // Only these tools exist in the session: no shell, no web, no subagents.
+        tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write'],
+        allowedTools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', ...CHECK_TOOLS],
+        permissionMode: 'dontAsk',
+        mcpServers: { uptide: server },
+        hooks: {
+          PreToolUse: [
+            {
+              hooks: [
+                async (hook) => {
+                  const { tool_name, tool_input } = hook as {
+                    tool_name: string;
+                    tool_input: unknown;
+                  };
+                  toolCalls[tool_name] = (toolCalls[tool_name] ?? 0) + 1;
+                  const reason = guard(
+                    root,
+                    task.files,
+                    tool_name,
+                    (tool_input ?? {}) as Record<string, unknown>,
+                  );
+                  return reason
+                    ? {
+                        hookSpecificOutput: {
+                          hookEventName: 'PreToolUse' as const,
+                          permissionDecision: 'deny' as const,
+                          permissionDecisionReason: reason,
+                        },
+                      }
+                    : {};
+                },
+              ],
+            },
+          ],
+        },
+        // Nothing from the clone or this machine configures the session: no settings, hooks or CLAUDE.md.
+        settingSources: [],
+        persistSession: false,
+        systemPrompt: { type: 'preset', preset: 'claude_code' },
+        outputFormat: { type: 'json_schema', schema: SUMMARY_SCHEMA },
+        // Replaces the environment: the key reaches the SDK process and nothing else does.
+        env: {
+          PATH: process.env.PATH ?? '',
+          HOME: process.env.HOME ?? '',
+          ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+          CLAUDE_AGENT_SDK_CLIENT_APP: 'uptide',
+        },
       },
-      // Nothing from the clone or this machine configures the session: no settings, hooks or CLAUDE.md.
-      settingSources: [],
-      persistSession: false,
-      systemPrompt: { type: 'preset', preset: 'claude_code' },
-      outputFormat: { type: 'json_schema', schema: SUMMARY_SCHEMA },
-      // Replaces the environment: the key reaches the SDK process and nothing else does.
-      env: {
-        PATH: process.env.PATH ?? '',
-        HOME: process.env.HOME ?? '',
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-        CLAUDE_AGENT_SDK_CLIENT_APP: 'uptide',
-      },
-    },
-  }))
-    if (message.type === 'result') result = message;
+    }))
+      if (message.type === 'result') result = message;
+  } catch (err) {
+    // An error result (the budget reached) is emitted, then thrown: keep what it cost.
+    if (!result) throw err;
+  }
   if (!result) throw new Error('the SDK session ended without a result');
   const usage = result.usage as unknown as Record<string, number | undefined>;
   return {

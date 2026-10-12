@@ -104,12 +104,15 @@ async function task(input: {
   agent: (root: string) => AgentSummary | undefined;
   after: FixDiagnostic[];
   tests?: TestResult[];
+  /** The tests when the task starts: after the upgrade, before the agent. */
+  startTests?: TestResult[];
 }) {
   const root = repo({ 'src/a.ts': ORIGINAL, 'src/other.ts': 'export const x = 1;\n' });
   const siteError = diag('src/a.ts', 2, 2339, "Property 'current_period_end' does not exist");
   const preexisting = diag('src/a.ts', 3, 2304, "Cannot find name 'line3'.");
   const sites = [site('src/a.ts', 2, siteError)];
   let calls = 0;
+  let testRuns = 0;
   const formatted = new Set<string>();
   const llm = await assistWithSdk({
     root,
@@ -121,7 +124,10 @@ async function task(input: {
     maxCostUsd: 1,
     // Planning, then the start of the task, see the baseline; the end sees `after`.
     diagnostics: () => (calls++ < 2 ? [siteError, preexisting] : input.after),
-    tests: async () => input.tests ?? [{ workspace: '.', status: 'passed', output: '' }],
+    tests: async () =>
+      (testRuns++ === 0 ? input.startTests : input.tests) ?? [
+        { workspace: '.', status: 'passed', output: '' },
+      ],
     // Lint passes only on files the formatter has seen, as prettier --check would.
     lint: async (files) =>
       files.map((f) => ({
@@ -135,7 +141,7 @@ async function task(input: {
       for (const f of files) formatted.add(f);
       return ['prettier'];
     },
-    baselineTests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
+    baselineTests: [{ workspace: '.', status: 'passed', output: '' }],
     baselineLint: [],
     affected: ['src/a.ts'],
     runner: async ({ root }) => ran(input.agent(root)),
@@ -238,10 +244,11 @@ describe('end-of-task gate', () => {
       tests: [{ workspace: '.', status: 'failed', output: 'FAIL src/new.test.ts' }],
     });
     expect(tested.record?.rejection).toMatch(/tests fail/);
-    // A failure the baseline already had is the repository's, not the agent's.
+    // A failure already there when the task started (the upgrade itself) is not the agent's.
     const old = await task({
       agent: doing(migrate),
       after: [],
+      startTests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
       tests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
     });
     expect(old.record?.gate).toBe('accepted');
