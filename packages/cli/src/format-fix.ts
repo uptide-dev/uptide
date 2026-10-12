@@ -1,5 +1,5 @@
 import { isAbsolute, relative } from 'node:path';
-import { type FixReport, groupPeerBlockers, summaryCells } from '@uptide/core';
+import { describeTransitive, type FixReport, groupPeerBlockers, summaryCells } from '@uptide/core';
 import pc from 'picocolors';
 import { elapsed } from './progress.js';
 
@@ -71,6 +71,17 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
     lines.push(colors.bold('Re-resolved because a peer changed'));
     for (const p of report.lockfile.peerReresolved)
       lines.push(`  ${p.name} ${p.from} → ${p.to} · peers ${p.peers.join(', ')}`);
+    lines.push('');
+  }
+  if (report.lockfile?.transitive?.length) {
+    lines.push(colors.bold('Moved with the upgraded packages'));
+    for (const m of report.lockfile.transitive) {
+      const shown = m.changes.slice(0, 2).map(describeTransitive).join(', ');
+      const more = m.changes.length - 2;
+      lines.push(
+        `  ${m.name} ${m.from.join(', ') || 'none'} → ${m.to.join(', ') || 'none'} ${shown}${more > 0 ? `, and ${more} more (in the report)` : ''}`,
+      );
+    }
     lines.push('');
   }
   const housekeeping = report.lockfile?.housekeeping;

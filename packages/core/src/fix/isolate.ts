@@ -14,6 +14,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { isMainThread } from 'node:worker_threads';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import { UptideError } from '../errors.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
@@ -302,10 +303,10 @@ function deliver(
 }
 
 /**
- * The clone goes away when it is no longer needed: the run verified and its commits are
- * somewhere else (pushed, or a branch in the user's repository). It stays when the run failed,
- * when the user asked to keep it, or when it is the only place the commits exist; then the
- * report says where it is and why. The stored run and its PR body are written last.
+ * The clone goes away unless something still needs it: the user asked to keep it
+ * (`--keep-temp`, `--debug`), the export failed, or it is the only place the commits exist;
+ * then the report says where it is and why. A run that did not verify is no reason by itself:
+ * its clone is removed like any other. The stored run and its PR body are written last.
  */
 function finish(
   source: string,
@@ -317,14 +318,12 @@ function finish(
   const reason = result.exportError
     ? 'export failed: the repository branch does not contain the verified tree'
     : options.keep
-      ? 'kept on request (--keep)'
-      : !result.verification.passed
-        ? 'the run did not verify'
-        : result.sourceChanged?.length
-          ? 'your checkout changed during the run'
-          : !inSource && !options.pushed
-            ? 'it holds commits that are not in your repository or on the remote yet'
-            : undefined;
+      ? 'kept on request (--keep-temp)'
+      : result.sourceChanged?.length && result.verification.passed
+        ? 'your checkout changed during the run'
+        : !inSource && !options.pushed && result.verification.passed
+          ? 'it holds commits that are not in your repository or on the remote yet'
+          : undefined;
   if (reason) result.clone = { path: clone, kept: true, reason };
   else {
     removeRun(clone);
@@ -340,13 +339,54 @@ function finish(
   return result;
 }
 
-/** A run that threw is a failed run: its clone is kept, and the error says where. */
-async function keeping<T>(clone: string, work: () => Promise<T>): Promise<T> {
+const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
+/**
+ * Until the returned release is called, an interrupt (Ctrl-C, a CI timeout) removes the clones
+ * `clones()` names, then raises the signal again so the exit status is the signal's. Signals
+ * reach only the main thread: a run in a worker reports its clones there
+ * (`watchInterruptibleClones`), and the main thread calls this.
+ */
+export function removeOnInterrupt(clones: () => Iterable<string>): () => void {
+  const handlers = SIGNALS.map((signal) => {
+    const handler = () => {
+      release();
+      for (const clone of clones()) removeRun(clone);
+      process.kill(process.pid, signal);
+    };
+    process.once(signal, handler);
+    return [signal, handler] as const;
+  });
+  const release = () => {
+    for (const [signal, handler] of handlers) process.off(signal, handler);
+  };
+  return release;
+}
+type CloneWatcher = (clone: string, interruptible: boolean) => void;
+let watcher: CloneWatcher | undefined;
+/** In a worker thread: report each clone an interrupt must remove to the thread that gets signals. */
+export function watchInterruptibleClones(watch: CloneWatcher | undefined): void {
+  watcher = watch;
+}
+
+/**
+ * A run that threw leaves nothing behind: its clone is removed, silently, and so is the clone
+ * of a run interrupted while it works (nothing is verified or delivered yet). Asked to keep it
+ * (`--keep-temp`, `--debug`), the clone stays and the error says where. Once the work returns,
+ * nothing listens any more: a later interrupt cannot touch a finished or kept clone.
+ */
+async function keeping<T>(clone: string, keep: boolean, work: () => Promise<T>): Promise<T> {
+  const release = keep || !isMainThread ? () => {} : removeOnInterrupt(() => [clone]);
+  if (!keep) watcher?.(clone, true);
   try {
     return await work();
   } catch (error) {
-    if (error instanceof Error) error.message += `\nTemporary clone kept: ${clone}`;
+    if (keep) {
+      if (error instanceof Error) error.message += `\nTemporary clone kept: ${clone}`;
+    } else removeRun(clone);
     throw error;
+  } finally {
+    release();
+    if (!keep) watcher?.(clone, false);
   }
 }
 
@@ -535,7 +575,7 @@ export async function isolatedFix(
   const base = options.base ?? remoteDefaultBranch(source)?.name;
   const clone = isolate(source, undefined, project);
   const { keep, base: _base, allowDirty: _allowDirty, preflightShown, ...rest } = options;
-  const report = await keeping(clone, async () => {
+  const report = await keeping(clone, keep === true, async () => {
     // The migration starts from the commit the user has checked out, whatever the remote has.
     git(clone, 'switch', '--quiet', '--detach', preflight.head);
     // Publishing is not part of the run in the clone: it happens below, after the verified
@@ -589,7 +629,7 @@ export async function isolatedVerify(
     );
   const clone = isolate(source, branch, project);
   const { branch: _branch, push: _push, keep, ...rest } = options;
-  const result = await keeping(clone, async () => {
+  const result = await keeping(clone, keep === true, async () => {
     // The checkout's installed dependencies are those of whatever branch it is on. The migration
     // branch has its own lockfile: install that, in the clone, with lifecycle scripts off.
     const root = join(clone, project);

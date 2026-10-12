@@ -112,10 +112,17 @@ export {
   isolatedFix,
   isolatedVerify,
   type PreflightOptions,
+  removeOnInterrupt,
   removeRun,
   runsRoot,
   storedRunFile,
+  watchInterruptibleClones,
 } from './fix/isolate.js';
+export {
+  describeTransitive,
+  type MovedSubtree,
+  type TransitiveChange,
+} from './fix/managers/lock-guard.js';
 export {
   groupPeerBlockers,
   type PeerBlockerGroup,

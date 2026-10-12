@@ -921,6 +921,35 @@ it('keeps accepted lockfile housekeeping collapsed with counts and exact placeme
   expect(migrationBody(report)).toContain('Lockfile housekeeping');
 });
 
+it('lists each allowed transitive change under the moved package that caused it', () => {
+  const report = fixture('storefront-zod');
+  report.lockfile = {
+    manager: 'yarn-berry',
+    file: 'yarn.lock',
+    added: [],
+    removed: [],
+    changed: [],
+    allowed: [],
+    transitive: [
+      {
+        name: 'cmdk',
+        from: ['0.2.1'],
+        to: ['1.0.1'],
+        changes: [
+          { name: '@radix-ui/primitive', from: '1.0.0', to: '1.1.1' },
+          { name: '@radix-ui/react-dialog', from: '1.0.0', to: '1.2.0' },
+          { name: 'use-sync-external-store', to: '1.5.0' },
+        ],
+      },
+    ],
+  };
+  const body = migrationBody(report);
+  expect(body).toContain('Moved with the upgraded packages · 3 transitive changes');
+  expect(body).toContain(
+    '- `cmdk` 0.2.1 → 1.0.1 replaced @radix-ui/primitive 1.0.0 with 1.1.1; replaced @radix-ui/react-dialog 1.0.0 with 1.2.0; added use-sync-external-store 1.5.0.',
+  );
+});
+
 it('lists npm peer re-resolutions and their pre-existing ranges in the report and PR', () => {
   const report = fixture('storefront-zod');
   report.lockfile = {

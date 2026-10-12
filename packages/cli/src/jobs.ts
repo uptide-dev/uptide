@@ -49,7 +49,7 @@ export interface FixRequest {
   llm: boolean;
   /** `--with-services`: also run tests that need a database, a cache or a queue. */
   withServices?: boolean;
-  /** `--keep`: leave the temporary clone in place after the run. */
+  /** `--keep-temp` (`--debug`): leave the temporary clone in place after the run, even a failed one. */
   keep?: boolean;
 }
 
@@ -61,7 +61,7 @@ export interface VerifyRequest {
   /** Push the new commits from the clone to origin, fast-forward only. Needs `yes`. */
   push?: boolean;
   yes?: boolean;
-  /** `--keep`: leave the temporary clone in place after the run. */
+  /** `--keep-temp` (`--debug`): leave the temporary clone in place after the run, even a failed one. */
   keep?: boolean;
 }
 

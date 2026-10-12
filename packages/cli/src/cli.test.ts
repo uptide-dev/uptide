@@ -675,20 +675,26 @@ describe('uptide verify', () => {
     expect(signedOut.calls).toEqual([]);
   });
 
-  it('passes --keep through', async () => {
-    const asked: unknown[] = [];
+  it.each([
+    ['--keep-temp', true],
+    ['--debug', true],
+    // The flag's earlier name, still accepted.
+    ['--keep', true],
+    [undefined, false],
+  ])('keeps the temporary clone only when asked: %s', async (flag, keep) => {
+    const asked: Record<string, unknown>[] = [];
     const engine = fakeEngine({
       fix: async (request) => {
-        asked.push(request);
+        asked.push(request as unknown as Record<string, unknown>);
         return fixReport(true);
       },
     });
     await run(
-      ['fix', '--only', 'zod', '--no-llm', '--keep'],
+      ['fix', '--only', 'zod', '--no-llm', ...(flag ? [flag] : [])],
       memoryIo({ cwd: pnpmGitRepo() }),
       engine,
     );
-    expect(asked[0]).toMatchObject({ keep: true });
+    expect(asked[0]?.keep === true).toBe(keep);
   });
   it('exits 2 when the engine does not provide it', async () => {
     const io = memoryIo({ cwd: pnpmGitRepo() });

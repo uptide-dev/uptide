@@ -48,6 +48,7 @@ import {
 import {
   assertInstalledVersions,
   assertNoDowngrades,
+  assertNoPinningOverrides,
   bumpVersions,
   install,
   packageManager,
@@ -214,6 +215,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(target))
     throw new Error('target must be an exact version');
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])]);
+  assertNoPinningOverrides(root, [
+    { name: pack.name, to: target },
+    ...(peerPlan?.companions ?? []),
+  ]);
   const branch = `uptide/${pack.name}-${target}`;
   packageManager(root);
   if (services.install === install) await assertManagerAvailable(root);
@@ -262,6 +267,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ).values(),
   ].sort((a, b) => a.name.localeCompare(b.name));
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...companions]);
+  assertNoPinningOverrides(root, [{ name: pack.name, to: target }, ...companions]);
   validateVersionRanges(root, [{ name: pack.name, to: target }, ...companions]);
   const initialContext = {
     from:

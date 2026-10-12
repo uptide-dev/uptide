@@ -5,6 +5,7 @@ import { GENERIC_NOTE } from '../packs/generic.js';
 import { UPTIDE_COMMAND } from '../version.js';
 import type { BehaviorResult } from './behavior.js';
 import { fitPieces, must, type Piece } from './budget.js';
+import { describeTransitive } from './managers/lock-guard.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import type { FixDiagnostic, FixReport, FixSite, ReviewSection } from './types.js';
 import { missingPackages } from './verify.js';
@@ -673,6 +674,29 @@ export function renderMigration(
             .map(([source, range]) => `\`${cell(source)}: ${cell(range)}\``)
             .join(', ')}.`,
       ),
+    );
+  }
+  // Lockfile entries outside the moved packages' names, each under the package that moved it.
+  const transitive = report.lockfile?.transitive;
+  if (mode === 'full' && transitive?.length) {
+    const label = `Moved with the upgraded packages · ${count(
+      transitive.reduce((n, m) => n + m.changes.length, 0),
+      'transitive change',
+    )}`;
+    lines.push(
+      droppable(
+        2,
+        collapse(label, [
+          'Inside the upgraded packages’ own dependency subtrees; every other resolution is unchanged.',
+          '',
+          ...transitive.map(
+            (m) =>
+              `- \`${cell(m.name)}\` ${cell(m.from.join(', ') || 'none')} → ${cell(m.to.join(', ') || 'none')} ${m.changes.map((c) => cell(describeTransitive(c))).join('; ')}.`,
+          ),
+        ]),
+        label,
+      ),
+      '',
     );
   }
   const housekeeping = report.lockfile?.housekeeping;

@@ -1050,9 +1050,13 @@ pushes them from there, fast-forward only.
 Clones live under one root of uptide's own (`<tmp>/uptide-runs/run-*`, each with a marker
 file) and do not accumulate. A clone is removed as soon as it is no longer needed: the run
 verified and its commits are somewhere else, pushed or a branch in the user's repository.
-It is kept, and the report and the CLI say where and why, when the run failed (including
-a run that threw), when `--keep` was passed, when the checkout changed during the run, or
-when the clone is the only place the commits exist. `uptide clean` removes kept clones
+A failed run's clone (one that did not verify, threw, or was interrupted by a signal) is
+removed too, silently. The CLI runs `fix` and `verify` in a worker thread and signals reach only
+the main thread, so the worker reports each clone while the run works in it
+(`watchInterruptibleClones`) and the main thread removes it on SIGINT, SIGTERM or SIGHUP, then
+re-raises the signal; once the work returns, nothing listens. It is kept, and the report and the CLI say where and why, when
+`--keep-temp` or `--debug` was passed, when the export failed, when the checkout changed during
+a verified run, or when the clone is the only place verified commits exist. `uptide clean` removes kept clones
 older than seven days. Removal is guarded: only a directory directly inside that root,
 named like a run and carrying the marker is ever deleted.
 

@@ -1,5 +1,5 @@
 import { parentPort, workerData } from 'node:worker_threads';
-import { errorCode, PeerPreflightError } from '@uptide/core';
+import { errorCode, PeerPreflightError, watchInterruptibleClones } from '@uptide/core';
 import { explain } from './errors.js';
 import { type Job, runJob } from './jobs.js';
 
@@ -8,6 +8,10 @@ import { type Job, runJob } from './jobs.js';
  * off the main thread, which stays free to draw progress. Error classes do not survive
  * the thread boundary, so the message is put into words on this side.
  */
+// Signals reach only the main thread: it removes the clones of a run interrupted mid-work.
+watchInterruptibleClones((clone, interruptible) =>
+  parentPort?.postMessage({ type: 'clone', clone, interruptible }),
+);
 runJob(workerData as Job, (event) => parentPort?.postMessage({ type: 'progress', event })).then(
   (value) => parentPort?.postMessage({ ok: true, value }),
   (err: unknown) =>

@@ -35,14 +35,17 @@ function blocks(lines: string[], indent: number): Block[] {
   }
   return out;
 }
+/**
+ * What a Yarn entry resolves: `dependencies` and `optionalDependencies`. A peer is declared
+ * there, never resolved; the dependent's parent provides it, so it is no edge of the graph.
+ */
 function dependencyPairs(lines: string[], indent: number): [string, string][] {
   const pairs: [string, string][] = [];
   let inDependencies = false;
   for (const line of lines) {
     const spaces = line.length - line.trimStart().length;
     if (spaces === indent)
-      inDependencies =
-        /^\s*(?:dependencies|devDependencies|optionalDependencies|peerDependencies):$/.test(line);
+      inDependencies = /^\s*(?:dependencies|optionalDependencies):$/.test(line);
     if (!inDependencies || spaces !== indent + 2) continue;
     const match = /^\s*(?:"([^"]+)"|'([^']+)'|([^\s:]+))(?::\s+|\s+)(.+)$/.exec(line);
     if (!match) throw new UptideError('UNSUPPORTED_LOCKFILE', `Cannot resolve dependency: ${line}`);
@@ -151,13 +154,23 @@ export function yarnGraph(text: string, target: Targets): LockGraph {
   const metadata: Record<string, unknown> = {};
   const roots: NonNullable<LockGraph['roots']> = {};
   const entries = blocks(text.split('\n'), 0);
+  const berry = entries.some((b) => unquote(b.key) === '__metadata');
+  /**
+   * The descriptor a dependency names. Yarn 2 and 3 (lockfile v4 to v6) write a dependency's
+   * range without the `npm:` protocol its entry is keyed by (`scheduler: ^0.23.2` points at
+   * `"scheduler@npm:^0.23.2"`); Yarn 4 and classic write the key as is.
+   */
+  const descriptor = (name: string, range: string): string | undefined => {
+    const written = `${name}@${range}`;
+    if (records.has(written)) return written;
+    const npm = `${name}@npm:${range}`;
+    return berry && !/^[a-z][\w+.-]*:/i.test(range) && records.has(npm) ? npm : undefined;
+  };
   for (const b of entries) {
     if (unquote(b.key) === '__metadata' || b.key.includes('@workspace:')) {
       metadata[unquote(b.key)] = omitTarget(b.lines, target);
       if (b.key.includes('@workspace:'))
-        roots[unquote(b.key)] = Object.fromEntries(
-          dependencyPairs(b.lines, 2).map(([n, r]) => [n, `${n}@${r}`]),
-        );
+        roots[unquote(b.key)] = Object.fromEntries(dependencyPairs(b.lines, 2));
       continue;
     }
     const descriptors = yarnDescriptors(b.key);
@@ -165,14 +178,17 @@ export function yarnGraph(text: string, target: Targets): LockGraph {
     if (!name || !b.lines.some((l) => /^ {2}version[: ]/.test(l)))
       throw new UptideError('UNSUPPORTED_LOCKFILE', `Unknown Yarn entry ${b.key}`);
     const data = parsedEntry(b.lines, 2);
-    const edges = Object.fromEntries(dependencyPairs(b.lines, 2).map(([n, r]) => [n, `${n}@${r}`]));
+    // Ranges for now; resolved to descriptors once every entry is known.
+    const edges: Record<string, string | undefined> = Object.fromEntries(
+      dependencyPairs(b.lines, 2),
+    );
     for (const d of descriptors) {
       const own = packageName(d);
       const alias = d.slice(own.length + 1).replace(/^npm:/, '');
       const actual = alias.includes('@') ? packageName(alias) : own;
       records.set(d, {
         name: own,
-        dependencies: Object.values(edges),
+        dependencies: [],
         edges,
         data,
         identity: lockedIdentity(actual, data.version, data.integrity ?? data.checksum, data),
@@ -180,14 +196,19 @@ export function yarnGraph(text: string, target: Targets): LockGraph {
     }
   }
   // A dependency names a descriptor; `a@npm:b@^1` is how an alias is written on both sides.
+  // The descriptors of one block share its edges: each is resolved once.
+  const resolved = new Set<Record<string, string | undefined>>();
+  const resolve = (edges: Record<string, string | undefined>) => {
+    if (resolved.has(edges)) return;
+    resolved.add(edges);
+    for (const [name, range] of Object.entries(edges))
+      edges[name] = range === undefined ? undefined : descriptor(name, range);
+  };
   for (const record of records.values()) {
-    for (const [name, key] of Object.entries(record.edges))
-      if (!key || !records.has(key)) record.edges[name] = undefined;
-    record.dependencies = record.dependencies.filter((d) => records.has(d));
+    resolve(record.edges);
+    record.dependencies = Object.values(record.edges).filter((k): k is string => k !== undefined);
   }
-  for (const edges of Object.values(roots))
-    for (const [name, key] of Object.entries(edges))
-      if (!key || !records.has(key)) edges[name] = undefined;
+  for (const edges of Object.values(roots)) resolve(edges);
   return { records, metadata, roots };
 }
 
