@@ -513,3 +513,127 @@ it.each(['message', 'code', 'line', 'column', 'related'] as const)(
   },
   15000,
 );
+it('accepts an edit that adds an import above a pre-existing error it leaves alone', async () => {
+  // saas-starter-kit: the period fix imported the helper at the top of the file, the
+  // unrelated TS2339 below moved from line 86 to 87, and the fix was rejected as "new".
+  const f = fixture();
+  const source = 'export const n: number = "bad";\nexport const old: number = "untouched";\n';
+  writeFileSync(join(f.root, 'src/a.ts'), source);
+  writeFileSync(join(f.root, 'src/value.ts'), 'export const value = 42;\n');
+  git(f.root, 'add', '.');
+  git(f.root, 'commit', '-m', 'pre-existing error');
+  const verify = (): FixDiagnostic[] => {
+    const project = new Project({ useInMemoryFileSystem: true, compilerOptions: { strict: true } });
+    project.createSourceFile('value.ts', readFileSync(join(f.root, 'src/value.ts'), 'utf8'));
+    const file = project.createSourceFile('a.ts', readFileSync(join(f.root, 'src/a.ts'), 'utf8'));
+    return project
+      .getPreEmitDiagnostics()
+      .filter((d) => d.getSourceFile() === file)
+      .map((d) => ({
+        file: 'src/a.ts',
+        line: d.getLineNumber() ?? 0,
+        column: 14,
+        code: d.getCode(),
+        message: ts.flattenDiagnosticMessageText(d.compilerObject.messageText, '\n'),
+      }));
+  };
+  expect(verify().map((d) => d.line)).toEqual([1, 2]);
+  const diff = [
+    '--- a/src/a.ts',
+    '+++ b/src/a.ts',
+    '@@ -1,2 +1,3 @@',
+    '-export const n: number = "bad";',
+    '+import { value } from "./value";',
+    '+export const n: number = value;',
+    ' export const old: number = "untouched";',
+    '',
+  ].join('\n');
+  await assist(
+    f.root,
+    f.sites,
+    zodPack,
+    {
+      id: 'mock',
+      estimate: () => 0,
+      fix: async () => ({ diff, inputTokens: 1, outputTokens: 1 }),
+    },
+    verify,
+  );
+  expect(f.sites[0]?.attempts?.map((a) => a.outcome)).toEqual(['accepted']);
+  expect(f.sites[0]?.outcome).toBe('agent');
+  // The pre-existing error is still there, a line down: not new, not fixed.
+  expect(verify().map((d) => [d.line, d.code])).toEqual([[3, 2322]]);
+}, 15000);
+it('sends sites of the same change in one file as one task, and accepts them together', async () => {
+  // saas-starter-kit: the period read in handleSubscriptionUpdated and handleSubscriptionCreated.
+  const f = fixture();
+  const source = [
+    'function updated() {',
+    '  const a: number = "bad";',
+    '  return a;',
+    '}',
+    'function created() {',
+    '  const b: number = "bad";',
+    '  return b;',
+    '}',
+    '',
+  ].join('\n');
+  writeFileSync(join(f.root, 'src/a.ts'), source);
+  git(f.root, 'commit', '-am', 'two sites');
+  const verify = (): FixDiagnostic[] => {
+    const project = new Project({ useInMemoryFileSystem: true, compilerOptions: { strict: true } });
+    const file = project.createSourceFile('a.ts', readFileSync(join(f.root, 'src/a.ts'), 'utf8'));
+    return project
+      .getPreEmitDiagnostics()
+      .filter((d) => d.getSourceFile() === file)
+      .map((d) => ({
+        file: 'src/a.ts',
+        line: d.getLineNumber() ?? 0,
+        column: 9,
+        code: d.getCode(),
+        message: ts.flattenDiagnosticMessageText(d.compilerObject.messageText, '\n'),
+      }));
+  };
+  const base = f.sites[0] as FixSite;
+  const at = (line: number): FixSite => ({
+    ...base,
+    rule: 'subscription-period',
+    finding: { ...base.finding, usage: { ...base.finding.usage, line, snippet: '' } },
+  });
+  const sites = [at(2), at(6)];
+  const requests: FixRequest[] = [];
+  const both = [
+    '--- a/src/a.ts',
+    '+++ b/src/a.ts',
+    '@@ -2 +2 @@',
+    '-  const a: number = "bad";',
+    '+  const a: number = 1;',
+    '@@ -6 +6 @@',
+    '-  const b: number = "bad";',
+    '+  const b: number = 2;',
+    '',
+  ].join('\n');
+  await assist(
+    f.root,
+    sites,
+    zodPack,
+    {
+      id: 'mock',
+      estimate: () => 0,
+      fix: async (r) => {
+        requests.push(r);
+        return { diff: both, inputTokens: 1, outputTokens: 1 };
+      },
+    },
+    verify,
+  );
+  expect(requests).toHaveLength(1);
+  expect(requests[0]?.sharedDiagnostics?.map((d) => d.line)).toEqual([2, 6]);
+  expect(requests[0]?.enclosingFunction).toContain('function updated()');
+  expect(requests[0]?.enclosingFunction).toContain('function created()');
+  // One accepted edit; both sites keep their own entry.
+  expect(sites.map((s) => s.outcome)).toEqual(['agent', 'agent']);
+  expect(sites[1]?.resolvedBy).toBe('src/a.ts:2:14');
+  expect(sites[1]?.reason).toMatch(/^same change in this file as src\/a\.ts:2:14/);
+  expect(verify()).toEqual([]);
+}, 15000);

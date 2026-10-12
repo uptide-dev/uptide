@@ -18,7 +18,7 @@ import type { FixOptions, FixServices } from './run.js';
 import { commit, safeFile, settle } from './settle.js';
 import { lintFiles } from './style.js';
 import type { FixReport, FixSite } from './types.js';
-import { markPreexisting, newDiagnostics, typeResolutionFailure } from './verify.js';
+import { gitLineMoves, markPreexisting, newDiagnostics, typeResolutionFailure } from './verify.js';
 
 export const PIN_RULE = 'api-version-pin';
 
@@ -190,7 +190,7 @@ export async function pinCurrentApi(
   });
   const tests = markPreexisting(ran, baselineTests);
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
-  const newErrors = newDiagnostics(baseline, after);
+  const newErrors = newDiagnostics(baseline, after, gitLineMoves(root, baseHead));
   const unverified = typeResolutionFailure(root, baseline);
   const result: FixReport = {
     repo: root,

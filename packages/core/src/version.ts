@@ -10,6 +10,24 @@ export const version: string =
     : JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 declare const __UPTIDE_BUILD_COMMIT__: string;
 declare const __UPTIDE_BUILD_DIRTY__: boolean;
+declare const __UPTIDE_CLI_VERSION__: string | undefined;
+/**
+ * The version a user installed and runs: the CLI's. Its build defines
+ * `__UPTIDE_CLI_VERSION__` when it bundles this engine; run from source, the CLI package of
+ * the checkout says. The engine's own package is never published, so its version (0.1.0)
+ * says nothing to a reader of a report or a PR.
+ */
+export const published: string =
+  typeof __UPTIDE_CLI_VERSION__ === 'string' ? __UPTIDE_CLI_VERSION__ : sourceCliVersion();
+function sourceCliVersion(): string {
+  if (typeof __UPTIDE_BUILD_VERSION__ !== 'undefined') return version;
+  try {
+    return JSON.parse(readFileSync(new URL('../../cli/package.json', import.meta.url), 'utf8'))
+      .version;
+  } catch {
+    return version;
+  }
+}
 
 /**
  * What `git status --porcelain` reports, minus the bundler's own scratch file: tsup writes
@@ -36,7 +54,7 @@ export function uptideVersionInfo(env: NodeJS.ProcessEnv = process.env): {
 } {
   if (typeof __UPTIDE_BUILD_COMMIT__ !== 'undefined')
     return {
-      uptideVersion: version,
+      uptideVersion: published,
       uptideCommit: __UPTIDE_BUILD_COMMIT__,
       uptideDirty: __UPTIDE_BUILD_DIRTY__,
     };
@@ -52,17 +70,15 @@ export function uptideVersionInfo(env: NodeJS.ProcessEnv = process.env): {
         stdio: ['ignore', 'pipe', 'ignore'],
       }).trim();
     return {
-      uptideVersion: version,
+      uptideVersion: published,
       uptideCommit: git('rev-parse', 'HEAD'),
       uptideDirty:
         !clean && dirtyLines(git('status', '--porcelain', '--untracked-files=all')).length > 0,
     };
   } catch {
-    return { uptideVersion: version, uptideCommit: 'unknown', uptideDirty: false };
+    return { uptideVersion: published, uptideCommit: 'unknown', uptideDirty: false };
   }
 }
-
-declare const __UPTIDE_CLI_VERSION__: string | undefined;
 
 /**
  * How a reader runs the build that is talking to them: `npx uptide` when it is a stable
@@ -79,6 +95,4 @@ export function uptideCommand(cliVersion: string): string {
  * The command for anything written for a reader (PR descriptions, reports). The CLI bundle
  * defines its own published version; the engine's version never carries a dist-tag.
  */
-export const UPTIDE_COMMAND = uptideCommand(
-  typeof __UPTIDE_CLI_VERSION__ === 'string' ? __UPTIDE_CLI_VERSION__ : version,
-);
+export const UPTIDE_COMMAND = uptideCommand(published);

@@ -942,6 +942,22 @@ function verificationDetails(report: FixReport): (string | Piece)[] {
             ),
         ]
       : []),
+    // A related-tests run that failed and was replaced by the repository's own suite: the
+    // command that failed and what it printed, before and after the change alike.
+    ...[
+      ...v.baselineTests.map((t) => ['before the change', t] as const),
+      ...v.tests.map((t) => ['after the change', t] as const),
+    ]
+      .filter(([, t]) => t.fallback)
+      .flatMap(([when, t]) => [
+        '',
+        `\`${t.workspace}\` ${when}: \`${t.fallback?.command}\` ${t.fallback?.reason === 'no-related' ? 'found no test related to the affected files' : 'failed before running a test'}, so \`${t.fallback?.ranInstead}\` ran instead and its result is the one above.`,
+        droppable(
+          5,
+          ['```text', t.fallback?.output || '(no output)', '```'],
+          `Related-tests output (${t.workspace}, ${when})`,
+        ),
+      ]),
   ];
   if (v.formatted?.length)
     lines.push(

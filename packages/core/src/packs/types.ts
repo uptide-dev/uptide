@@ -20,6 +20,11 @@ export interface SharedHelper {
   file: string;
   /** How each workspace imports it: the package name through a `workspace:` dependency, or a relative path. */
   specifiers: Record<string, string>;
+  /**
+   * How each site file inside the helper's own workspace imports it, written the way that
+   * file writes its imports (a `paths` alias it already uses, else a relative path).
+   */
+  imports?: Record<string, string>;
 }
 export interface PackContext {
   from: string;

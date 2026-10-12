@@ -39,6 +39,7 @@ import type { FixDiagnostic, Fixer, FixReport, FixSite, LintResult, TestResult }
 import {
   describeServices,
   diagnostics,
+  gitLineMoves,
   markPreexisting,
   newDiagnostics,
   type TestOptions,
@@ -522,7 +523,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
-  const newErrors = newDiagnostics(baseline, after);
+  const newErrors = newDiagnostics(baseline, after, gitLineMoves(root, baseHead));
   const unverified = typeResolutionFailure(root, baseline);
   const result: FixReport = {
     ...(lockfile ? { lockfile } : {}),
