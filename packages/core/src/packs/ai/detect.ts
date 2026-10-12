@@ -193,3 +193,29 @@ export function declaresName(text: string, name: string): boolean {
     );
   });
 }
+
+/**
+ * Type references to one of `names` imported from `ai` (`ToolLoopAgent<A, B, C>`) and explicit
+ * type arguments at a `new`, with at least `min` type arguments.
+ */
+export function typeArgumentSites(
+  text: string,
+  names: ReadonlySet<string>,
+  min: number,
+): SourceSite[] {
+  if (![...names].some((name) => text.includes(`${name}<`))) return [];
+  const source = parse(text);
+  const local = new Set(
+    [...imports(source)].filter(([, exported]) => names.has(exported)).map(([name]) => name),
+  );
+  const sites: SourceSite[] = [];
+  for (const node of [
+    ...source.getDescendantsOfKind(SyntaxKind.TypeReference),
+    ...source.getDescendantsOfKind(SyntaxKind.NewExpression),
+  ]) {
+    const name = Node.isTypeReference(node) ? node.getTypeName() : node.getExpression();
+    if (local.has(name.getText()) && node.getTypeArguments().length >= min)
+      sites.push(site(source, name));
+  }
+  return sites.sort((a, b) => a.line - b.line || a.column - b.column);
+}
