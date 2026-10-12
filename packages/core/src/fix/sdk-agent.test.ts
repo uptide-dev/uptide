@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { MigrationPack } from '../packs/types.js';
+import { fix } from './run.js';
 import { assistWithSdk, guard, planTasks, type TaskRun } from './sdk-agent.js';
 import type { AgentSummary, FixDiagnostic, FixSite, TestResult } from './types.js';
 import { newDiagnosticsAcrossShifts } from './verify.js';
@@ -297,5 +298,27 @@ describe('newDiagnosticsAcrossShifts', () => {
     expect(newDiagnosticsAcrossShifts([old], [{ ...old, line: 9 }])).toEqual([]);
     expect(newDiagnosticsAcrossShifts([old], [old, { ...old, line: 9 }])).toHaveLength(1);
     expect(newDiagnosticsAcrossShifts([old], [{ ...old, file: 'b.ts' }])).toHaveLength(1);
+  });
+});
+
+describe('--agent sdk', () => {
+  it('refuses non-Anthropic providers before touching the repository', async () => {
+    const root = repo({ 'package.json': '{}' });
+    const services = {
+      check: async () => {
+        throw new Error('should not get this far');
+      },
+      install: async () => {},
+      diagnostics: () => [],
+      tests: async () => [],
+    };
+    for (const provider of ['openai', 'gemini'])
+      await expect(
+        fix({ cwd: root, only: 'zod', agent: 'sdk', provider }, services),
+      ).rejects.toMatchObject({
+        code: 'NO_FIXER',
+        message: `--agent sdk runs on Anthropic models only; ${provider} keeps the default agent`,
+      });
+    expect(git(root, 'status', '--porcelain')).toBe('');
   });
 });
