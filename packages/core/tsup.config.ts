@@ -19,4 +19,6 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   target: 'node20',
+  // `--agent sdk` loads it at run time, when installed: never inlined (not open source).
+  external: ['@anthropic-ai/claude-agent-sdk'],
 });

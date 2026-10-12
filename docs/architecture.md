@@ -500,6 +500,17 @@ repository and the elapsed time, one row per dependency, one line per rule, and 
 block with the exact commands for the repository. `--details` keeps the full listing
 (`format-check-details.ts`).
 
+### Assisted fixes: the patch agent, and the experimental SDK executor
+
+By default the sites a rule leaves manual go to the patch agent (`src/fix/assisted.ts`):
+one site at a time, a snippet and a guide in, one unified diff out, applied and judged per
+attempt by exact diagnostic position. The hidden `--agent sdk` (Anthropic only) replaces
+that step with `assistWithSdk` (`src/fix/sdk-agent.ts`). It runs one Claude Agent SDK session
+per rule over the rule's files, in the clone, with read and edit tools, Uptide's own checks
+as in-process tools and no shell. One gate runs at the end of each task, matching diagnostics
+across line moves (`gitLineMoves`). Everything around the step is unchanged. See
+`decisions/0016-agent-sdk-executor.md`.
+
 ### Direction resolution
 
 Milestone 1 defers some severities because it cannot see which side of the contract the

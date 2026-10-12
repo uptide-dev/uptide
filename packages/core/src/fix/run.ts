@@ -31,6 +31,7 @@ import { pinCurrentApi } from './pin.js';
 import { command, git, projectRoot } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { changeRule, editDiff, prBody } from './report.js';
+import { assistWithSdk, type TaskRunner } from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
 import { lintFiles } from './style.js';
@@ -44,6 +45,7 @@ import {
   newDiagnostics,
   type TestOptions,
   testWorkspaces,
+  typeChecker,
   typeResolutionFailure,
 } from './verify.js';
 import {
@@ -89,6 +91,11 @@ export interface FixOptions {
    * manual and the run says so. Default: 1 USD for every package.
    */
   maxCostUsd?: number;
+  /**
+   * Experimental: `sdk` runs assisted fixes as Claude Agent SDK sessions, one per pack rule,
+   * gated at the end of each (`sdk-agent.ts`). Anthropic only; the patch agent by default.
+   */
+  agent?: 'patch' | 'sdk';
   /** The build doing the work; injected by tests, which run from a checkout under development. */
   tool?: ReturnType<typeof uptideVersionInfo>;
 }
@@ -116,6 +123,8 @@ export interface FixServices {
   resolve?(name: string, tag: string): Promise<string>;
   /** Registry manifests for companion range preflight, before cloning. */
   manifests?: PackageFetcher['manifests'];
+  /** `--agent sdk` sessions; the Claude Agent SDK by default. */
+  agentRunner?: TaskRunner;
   /** The publish step of a `--pr` run; `publishVerified` by default. */
   publish?(
     result: FixReport,
@@ -182,6 +191,14 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   )
     throw new Error('--max-cost must be a positive finite amount in USD');
   const selection = selectLlm(root, options);
+  const sdkAgent = options.agent === 'sdk' && options.fixer !== null;
+  if (sdkAgent && selection.provider !== 'anthropic')
+    throw new UptideError(
+      'NO_FIXER',
+      `--agent sdk runs on Anthropic models only; ${selection.provider} keeps the default agent`,
+    );
+  if (sdkAgent && !selection.available && !services.agentRunner)
+    throw new UptideError('NO_FIXER', '--agent sdk needs ANTHROPIC_API_KEY');
   let pack = options.pack ?? activePack(options.only) ?? genericPack(options.only);
   if (pack.name !== options.only) throw new Error(`no migration pack for ${options.only}`);
   const fixer = options.fixer === null ? undefined : (options.fixer ?? providerFixer(selection));
@@ -468,17 +485,54 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     packContext = { ...packContext, helpers: [...(packContext.helpers ?? []), helper] };
   }
   const llm = await progress(options.onProgress, { phase: 'assist', package: pack.name }, () =>
-    assist(
-      root,
-      sites,
-      pack,
-      fixer,
-      () => services.diagnostics(root, workspaces),
-      packContext,
-      options.fixer === null,
-      options.onProgress,
-      { maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD },
-    ),
+    sdkAgent
+      ? assistWithSdk({
+          root,
+          workspaces,
+          sites,
+          pack,
+          context: packContext,
+          model: selection.model,
+          maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD,
+          // One program per workspace across the tasks: each check re-reads what changed.
+          diagnostics:
+            services.diagnostics === diagnostics
+              ? (
+                  (checker) => () =>
+                    checker.check()
+                )(typeChecker(root, workspaces))
+              : () => services.diagnostics(root, workspaces),
+          tests: (files) =>
+            services.tests(root, workspaces, options.testTimeoutMs, files, {
+              withServices: options.withServices === true,
+              related: true,
+            }),
+          ...(services.lint
+            ? {
+                lint: (files: string[], b?: LintResult[]) =>
+                  services.lint?.(root, files, b) ?? Promise.resolve([]),
+              }
+            : {}),
+          baselineTests,
+          baselineLint,
+          affected: [...affected],
+          ...(options.onProgress ? { onProgress: options.onProgress } : {}),
+          ...(services.format
+            ? { format: (files: string[]) => services.format?.(root, files) ?? Promise.resolve([]) }
+            : {}),
+          ...(services.agentRunner ? { runner: services.agentRunner } : {}),
+        })
+      : assist(
+          root,
+          sites,
+          pack,
+          fixer,
+          () => services.diagnostics(root, workspaces),
+          packContext,
+          options.fixer === null,
+          options.onProgress,
+          { maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD },
+        ),
   );
   for (const site of sites)
     for (const file of site.editedFiles ?? []) if (!affected.includes(file)) affected.push(file);

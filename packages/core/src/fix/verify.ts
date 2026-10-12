@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
@@ -151,115 +152,197 @@ function expectedShape(
   }
 }
 
-export function diagnostics(root: string, workspaces: string[]): FixDiagnostic[] {
-  const all = new Map<string, FixDiagnostic>();
-  const queue = [...workspaces];
-  const visited = new Set<string>();
-  for (const workspace of queue) {
-    if (visited.has(workspace)) continue;
-    visited.add(workspace);
-    const dir = join(root, workspace);
-    const compiler = resolveCompiler(dir);
-    const tsconfig = join(dir, 'tsconfig.json');
-    const config = compiler.readConfigFile(tsconfig, compiler.sys.readFile);
-    const parsed = compiler.parseJsonConfigFileContent(
-      config.config ?? {
-        include: ['**/*.ts', '**/*.tsx'],
-        exclude: ['node_modules', 'dist', 'build'],
-      },
-      compiler.sys,
-      dir,
-      undefined,
-      config.config ? tsconfig : undefined,
-    );
-    const sources = workspaceSourceMap(dir, readInstalled(dir).installed);
-    const fileNames = new Set(parsed.fileNames);
-    for (const reference of parsed.projectReferences ?? []) {
-      const path = reference.path.endsWith('.json')
-        ? reference.path
-        : join(reference.path, 'tsconfig.json');
-      const ref = compiler.readConfigFile(path, compiler.sys.readFile);
-      const files = compiler.parseJsonConfigFileContent(
-        ref.config ?? {},
-        compiler.sys,
-        dirname(path),
-      ).fileNames;
-      for (const f of files) fileNames.add(f);
+/** What one workspace's last check found, and what it was computed from. */
+interface CheckedWorkspace {
+  dir: string;
+  compiler: typeof ts;
+  host?: ts.CompilerHost;
+  builder?: ts.SemanticDiagnosticsBuilderProgram;
+  rootNames: string[];
+  /** Repository source files in the program, as they read when checked. */
+  seen: Map<string, string>;
+  result?: { diagnostics: FixDiagnostic[]; discovered: string[] };
+}
+/**
+ * A source file the builder can compare across checks: the same object while its text is the
+ * same, with the version the builder needs. Files outside the repository and in node_modules
+ * do not change during a run and are read once.
+ */
+function remembering(host: ts.CompilerHost, root: string): ts.CompilerHost {
+  const cache = new Map<string, ts.SourceFile>();
+  const create = host.getSourceFile.bind(host);
+  host.getSourceFile = (fileName, language, onError, shouldCreate) => {
+    const hit = cache.get(fileName);
+    const fixed = !fileName.startsWith(`${root}/`) || fileName.includes('/node_modules/');
+    if (hit && (fixed || host.readFile(fileName) === hit.text)) return hit;
+    const file = create(fileName, language, onError, shouldCreate);
+    if (file) {
+      (file as { version?: string }).version = createHash('sha1').update(file.text).digest('hex');
+      cache.set(fileName, file);
     }
-    if (compiler === ts) parsed.options.ignoreDeprecations = '6.0';
+    return file;
+  };
+  return host;
+}
+const unchanged = (seen: Map<string, string>): boolean =>
+  [...seen].every(([file, text]) => existsSync(file) && readFileSync(file, 'utf8') === text);
+
+/** One workspace, re-checked only when a repository file its program reads has changed. */
+function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace) {
+  const { dir, compiler } = state;
+  const tsconfig = join(dir, 'tsconfig.json');
+  const config = compiler.readConfigFile(tsconfig, compiler.sys.readFile);
+  const parsed = compiler.parseJsonConfigFileContent(
+    config.config ?? {
+      include: ['**/*.ts', '**/*.tsx'],
+      exclude: ['node_modules', 'dist', 'build'],
+    },
+    compiler.sys,
+    dir,
+    undefined,
+    config.config ? tsconfig : undefined,
+  );
+  const sources = workspaceSourceMap(dir, readInstalled(dir).installed);
+  const fileNames = new Set(parsed.fileNames);
+  for (const reference of parsed.projectReferences ?? []) {
+    const path = reference.path.endsWith('.json')
+      ? reference.path
+      : join(reference.path, 'tsconfig.json');
+    const ref = compiler.readConfigFile(path, compiler.sys.readFile);
+    const files = compiler.parseJsonConfigFileContent(
+      ref.config ?? {},
+      compiler.sys,
+      dirname(path),
+    ).fileNames;
+    for (const f of files) fileNames.add(f);
+  }
+  const rootNames = [...fileNames];
+  if (
+    state.result &&
+    rootNames.length === state.rootNames.length &&
+    rootNames.every((f, i) => f === state.rootNames[i]) &&
+    unchanged(state.seen)
+  )
+    return state.result;
+  if (compiler === ts) parsed.options.ignoreDeprecations = '6.0';
+  if (!state.host) {
     const hostOptions = { ...parsed.options, noEmit: true, skipLibCheck: true };
     const host =
       compiler === ts ? bundledHost(hostOptions) : compiler.createCompilerHost(hostOptions);
     // Type roots and `types` resolve from the workspace, as its own `tsc` would; from the
     // process's directory, an isolated pnpm layout sees no @types at all.
     host.getCurrentDirectory = () => dir;
-    const program = compiler.createProgram({
-      host,
-      rootNames: [...fileNames],
-      options: {
-        ...parsed.options,
-        noEmit: true,
-        rootDir: root,
-        composite: false,
-        incremental: false,
-        paths: { ...parsed.options.paths, ...sources.paths },
-      },
-    });
-    const errors = [
-      ...parsed.errors,
-      ...(config.error ? [config.error] : []),
-      ...program.getOptionsDiagnostics(),
-      ...program.getGlobalDiagnostics(),
-    ];
-    for (const file of program.getSourceFiles()) {
-      if (
-        file.isDeclarationFile ||
-        !file.fileName.startsWith(`${root}/`) ||
-        file.fileName.includes('/node_modules/')
-      )
-        continue;
-      // Source dependencies provide types to this program, but their implementation
-      // diagnostics belong to their own tsconfig (module resolution may differ).
-      let owner = dirname(file.fileName);
-      while (owner !== root && !existsSync(join(owner, 'tsconfig.json'))) owner = dirname(owner);
-      if (owner !== dir && owner !== root) {
-        const other = relative(root, owner);
-        if (!visited.has(other)) queue.push(other);
-        continue;
-      }
-      errors.push(
-        ...program.getSyntacticDiagnostics(file),
-        ...program.getSemanticDiagnostics(file),
-      );
-    }
-    for (const d of errors) {
-      if (d.category !== ts.DiagnosticCategory.Error) continue;
-      const location = d.file?.getLineAndCharacterOfPosition(d.start ?? 0);
-      const expected = expectedShape(compiler, program, d);
-      const related = relatedDeclarations(root, compiler, d);
-      const relatedLocations = (d.relatedInformation ?? []).flatMap((info) => {
-        if (!info.file || info.start === undefined) return [];
-        const at = info.file.getLineAndCharacterOfPosition(info.start);
-        return [
-          { file: relative(root, info.file.fileName), line: at.line + 1, column: at.character + 1 },
-        ];
-      });
-      const value: FixDiagnostic = {
-        file: d.file ? relative(root, d.file.fileName) : join(workspace, 'tsconfig.json'),
-        line: (location?.line ?? 0) + 1,
-        column: (location?.character ?? 0) + 1,
-        code: d.code,
-        message: ts.flattenDiagnosticMessageText(d.messageText, '\n').split(root).join('<repo>'),
-        ...(expected ? { expected } : {}),
-        ...(related.length ? { relatedDeclarations: related } : {}),
-        ...(relatedLocations.length ? { relatedLocations } : {}),
-      };
-      all.set(`${value.file}:${value.line}:${value.column}:${value.code}:${value.message}`, value);
-    }
+    state.host = remembering(host, root);
   }
-  return [...all.values()].sort(
-    (a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column,
+  const builder = compiler.createSemanticDiagnosticsBuilderProgram(
+    rootNames,
+    {
+      ...parsed.options,
+      noEmit: true,
+      rootDir: root,
+      composite: false,
+      incremental: false,
+      paths: { ...parsed.options.paths, ...sources.paths },
+    },
+    state.host,
+    state.builder,
   );
+  // The builder refreshes what it remembers per file only while its affected files are walked:
+  // the changed files and every file whose types depend on them. Then per-file answers hold.
+  while (builder.getSemanticDiagnosticsOfNextAffectedFile());
+  const program = builder.getProgram();
+  const errors = [
+    ...parsed.errors,
+    ...(config.error ? [config.error] : []),
+    ...builder.getOptionsDiagnostics(),
+    ...builder.getGlobalDiagnostics(),
+  ];
+  const discovered: string[] = [];
+  const seen = new Map<string, string>();
+  for (const file of program.getSourceFiles()) {
+    if (
+      file.isDeclarationFile ||
+      !file.fileName.startsWith(`${root}/`) ||
+      file.fileName.includes('/node_modules/')
+    )
+      continue;
+    seen.set(file.fileName, file.text);
+    // Source dependencies provide types to this program, but their implementation
+    // diagnostics belong to their own tsconfig (module resolution may differ).
+    let owner = dirname(file.fileName);
+    while (owner !== root && !existsSync(join(owner, 'tsconfig.json'))) owner = dirname(owner);
+    if (owner !== dir && owner !== root) {
+      discovered.push(relative(root, owner));
+      continue;
+    }
+    errors.push(...builder.getSyntacticDiagnostics(file), ...builder.getSemanticDiagnostics(file));
+  }
+  const found: FixDiagnostic[] = [];
+  for (const d of errors) {
+    if (d.category !== ts.DiagnosticCategory.Error) continue;
+    const location = d.file?.getLineAndCharacterOfPosition(d.start ?? 0);
+    const expected = expectedShape(compiler, program, d);
+    const related = relatedDeclarations(root, compiler, d);
+    const relatedLocations = (d.relatedInformation ?? []).flatMap((info) => {
+      if (!info.file || info.start === undefined) return [];
+      const at = info.file.getLineAndCharacterOfPosition(info.start);
+      return [
+        { file: relative(root, info.file.fileName), line: at.line + 1, column: at.character + 1 },
+      ];
+    });
+    found.push({
+      file: d.file ? relative(root, d.file.fileName) : join(workspace, 'tsconfig.json'),
+      line: (location?.line ?? 0) + 1,
+      column: (location?.character ?? 0) + 1,
+      code: d.code,
+      message: ts.flattenDiagnosticMessageText(d.messageText, '\n').split(root).join('<repo>'),
+      ...(expected ? { expected } : {}),
+      ...(related.length ? { relatedDeclarations: related } : {}),
+      ...(relatedLocations.length ? { relatedLocations } : {}),
+    });
+  }
+  Object.assign(state, { builder, rootNames, seen, result: { diagnostics: found, discovered } });
+  return { diagnostics: found, discovered };
+}
+
+/**
+ * The repository's type errors, checked again on demand: each workspace keeps its program
+ * between checks and is re-checked only when a repository file it reads changed, and then
+ * only the files that change can affect. `--agent sdk` checks after every task with one.
+ */
+export function typeChecker(root: string, workspaces: string[]): { check(): FixDiagnostic[] } {
+  const states = new Map<string, CheckedWorkspace>();
+  return {
+    check() {
+      const all = new Map<string, FixDiagnostic>();
+      const queue = [...workspaces];
+      const visited = new Set<string>();
+      for (const workspace of queue) {
+        if (visited.has(workspace)) continue;
+        visited.add(workspace);
+        const dir = join(root, workspace);
+        let state = states.get(workspace);
+        if (!state) {
+          state = { dir, compiler: resolveCompiler(dir), rootNames: [], seen: new Map() };
+          states.set(workspace, state);
+        }
+        const { diagnostics: found, discovered } = checkWorkspace(root, workspace, state);
+        for (const other of discovered) if (!visited.has(other)) queue.push(other);
+        for (const value of found)
+          all.set(
+            `${value.file}:${value.line}:${value.column}:${value.code}:${value.message}`,
+            value,
+          );
+      }
+      return [...all.values()].sort(
+        (a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column,
+      );
+    },
+  };
+}
+
+export function diagnostics(root: string, workspaces: string[]): FixDiagnostic[] {
+  return typeChecker(root, workspaces).check();
 }
 /** "Cannot find type definition file / module / name": the codes a missing package produces. */
 const RESOLUTION_CODES = new Set([2307, 2580, 2581, 2582, 2591, 2592, 2593, 2688, 2792]);
@@ -327,6 +410,9 @@ export function diagnosticKey(d: FixDiagnostic): string {
   ];
   return JSON.stringify([position(d), d.code, (d.relatedLocations ?? []).map(position).sort()]);
 }
+/** Identity without position: what an error keeps when lines above it move. */
+export const unplacedKey = (d: Pick<FixDiagnostic, 'file' | 'code' | 'message'>): string =>
+  JSON.stringify([d.file, d.code, d.message.split('\n')[0]]);
 /** Position and code identify an error even when TypeScript expands its message chain. */
 export function newDiagnostics(
   baseline: FixDiagnostic[],
@@ -487,6 +573,12 @@ export interface TestOptions {
    * may reset it, and verification must not touch the user's services uninvited.
    */
   withServices?: boolean;
+  /**
+   * Only what can see `files`: the workspaces that own one and those that depend on them,
+   * and a script that is just the runner (`vitest run`, `jest`) in its related-tests mode.
+   * For the agent's own checks between tasks; verification runs the full selection.
+   */
+  related?: boolean;
 }
 
 const VITEST_CONFIGS = ['vitest.config', 'vitest.workspace'].flatMap((base) =>
@@ -498,7 +590,15 @@ const JEST_CONFIGS = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json'].map(
 const quote = (arg: string): string =>
   /^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replaceAll("'", "'\\''")}'`;
 
-function manifest(dir: string): { scripts?: Record<string, string>; jest?: unknown } | undefined {
+function manifest(dir: string):
+  | {
+      name?: string;
+      scripts?: Record<string, string>;
+      jest?: unknown;
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    }
+  | undefined {
   try {
     return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
   } catch {
@@ -534,6 +634,56 @@ function runnerFor(
   return undefined;
 }
 
+/** The workspaces that own one of `files`, and those that depend on one of them by name. */
+function relatedWorkspaces(root: string, workspaces: string[], files: string[]): string[] {
+  const owner = (file: string) =>
+    workspaces
+      .filter((w) => w === '.' || file.startsWith(`${w}/`))
+      .sort((a, b) => b.length - a.length)[0];
+  const owners = new Set(files.map(owner).filter((w): w is string => w !== undefined));
+  const names = new Set(
+    [...owners].map((w) => manifest(join(root, w))?.name).filter((n): n is string => !!n),
+  );
+  return workspaces.filter((w) => {
+    if (owners.has(w)) return true;
+    // The root's script usually runs every workspace's (`pnpm -r test`): only its own files ask for it.
+    if (w === '.') return false;
+    const m = manifest(join(root, w));
+    return Object.keys({ ...m?.dependencies, ...m?.devDependencies }).some((d) => names.has(d));
+  });
+}
+
+/** A `test` script that is only the runner, run in related-tests mode on `files`. */
+function relatedScript(
+  root: string,
+  workspace: string,
+  script: string | undefined,
+  files: string[],
+): TestPlan | undefined {
+  const runner = /^\s*(?:(?:npx|pnpm exec|yarn)\s+)?(vitest(?:\s+run)?|jest)\s*$/.exec(
+    script ?? '',
+  )?.[1];
+  const dir = join(root, workspace);
+  const bin = runner?.startsWith('vitest') ? 'vitest' : runner;
+  if (!bin || !upTo(root, dir).some((d) => existsSync(join(d, 'node_modules/.bin', bin))))
+    return undefined;
+  const paths = files
+    .filter((f) => existsSync(join(root, f)))
+    .map((f) => relative(dir, join(root, f)));
+  if (!paths.length) return undefined;
+  const args =
+    bin === 'vitest'
+      ? ['related', '--run', '--passWithNoTests', ...paths]
+      : ['--findRelatedTests', ...paths, '--passWithNoTests'];
+  return {
+    workspace,
+    covers: [workspace],
+    cwd: dir,
+    command: [bin, ...args.map(quote)].join(' '),
+    scope: `${bin} tests related to ${paths.length} changed file${paths.length === 1 ? '' : 's'} (its \`test\` script is the runner)`,
+  };
+}
+
 /**
  * The same detection for every run, baseline and target alike. Per workspace, in order: its
  * own `test` script; a vitest or jest configuration that covers it (its own or an ancestor's,
@@ -553,8 +703,15 @@ export function planTests(
     { runner: 'vitest' | 'jest'; dir: string; config: string; covers: string[] }
   >();
   const rootScript: string[] = [];
-  for (const workspace of workspaces) {
+  const selected = options.related ? relatedWorkspaces(root, workspaces, files) : workspaces;
+  for (const workspace of selected) {
     const script = manifest(join(root, workspace))?.scripts?.test;
+    const scoped =
+      options.related && files.length ? relatedScript(root, workspace, script, files) : undefined;
+    if (scoped) {
+      plans.push(scoped);
+      continue;
+    }
     // A script that is just the runner is planned as the runner: scoped, and classified.
     const bare = /^\s*(?:(?:npx|pnpm exec|yarn)\s+)?(vitest|jest)\b/.exec(script ?? '')?.[1];
     if (script && !(bare && runnerFor(root, workspace)?.runner === bare)) {

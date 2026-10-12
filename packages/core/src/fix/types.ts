@@ -112,6 +112,35 @@ export interface LintResult {
   /** What the tool printed when it did not pass. */
   output: string;
 }
+/** What an `--agent sdk` session says it did, in the structured summary it ends with. */
+export interface AgentSummary {
+  changed: { file: string; what: string }[];
+  newFiles: string[];
+  decisions: string[];
+  assumptions: string[];
+  couldNotDo: string[];
+}
+/** One `--agent sdk` task: a pack rule over its files, measured, and the gate's verdict. */
+export interface AgentTaskRecord {
+  id: string;
+  rule: string;
+  files: string[];
+  sites: number;
+  fixed: number;
+  turns: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  durationMs: number;
+  toolCalls: Record<string, number>;
+  gate: 'accepted' | 'rejected' | 'no-change' | 'error';
+  rejection?: string;
+  /** The SDK's stop reason when it did not finish cleanly (`error_max_budget_usd`). */
+  stop?: string;
+  /** How many single-site tasks shared this task's gate. */
+  batch?: number;
+  summary?: AgentSummary;
+}
 export interface FixRequest {
   finding: Finding;
   guide: string;
@@ -215,6 +244,9 @@ export interface FixReport {
     disabled?: boolean;
     /** Set when `--max-cost` stopped the agent: the limit and unfinished sites (including stopped retries). */
     costLimit?: { limitUsd: number; notAttempted: number };
+    /** Experimental `--agent sdk`: Agent SDK sessions instead of the patch agent. */
+    agent?: 'sdk';
+    tasks?: AgentTaskRecord[];
   };
   timingMs: number;
   prBody: string;

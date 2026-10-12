@@ -143,6 +143,16 @@ export function widenFixtureCast(
  */
 export const PERIOD_HELPER =
   'type PeriodItem = { current_period_start: number; current_period_end: number };\n/**\n * The billing period of a subscription, from its items: Stripe moved current_period_start and\n * current_period_end there in API 2025-03-31.basil. The item that ends last, start and end from\n * that same item, so the period is always coherent; identical to the old subscription-level\n * values for a single-item subscription. Undefined when there are no items, which Stripe never\n * returns: the caller decides what that means where it stands.\n */\nexport function subscriptionPeriod(s: { items: { data: PeriodItem[] } }): { start: number; end: number } | undefined {\n  const latest = s.items.data.reduce<PeriodItem | undefined>(\n    (best, item) => (best === undefined || item.current_period_end > best.current_period_end ? item : best),\n    undefined,\n  );\n  return latest && { start: latest.current_period_start, end: latest.current_period_end };\n}';
+/**
+ * What the subscription-period change means, without prescribing code. Webhook payloads are
+ * the case types do not show: their shape follows the endpoint, not the SDK pin.
+ */
+export const PERIOD_KNOWLEDGE = [
+  'API 2025-03-31.basil moved current_period_start and current_period_end from the Subscription to each subscription item (items.data[].current_period_start/end).',
+  "Webhook payloads follow the API version configured on the webhook endpoint, not the SDK's apiVersion: until every endpoint is moved to 2025-03-31.basil or later, customer.subscription.* events still carry the period on the subscription and not on its items. A handler that reads the period from an event must accept both shapes: the items' period when present, else the subscription-level fields, read through a type that says they may be absent.",
+  'Never turn a possibly missing timestamp into a number with a cast (`as number`, `!`): new Date(undefined * 1000) is an Invalid Date that the database or the UI accepts silently. When neither shape has a period, fail loudly or take the path the code already has for a missing period.',
+  'Objects the SDK returns from API calls (subscriptions.retrieve, list) use the pinned apiVersion: only the items carry the period there.',
+].join(' ');
 /** SDK differences remain distinct from server API behaviour, even when they share a type diagnostic. */
 export function stripeConcerns(findings: Finding[], context: PackContext) {
   const api = context.apiVersions;
@@ -231,7 +241,8 @@ export const stripePack: Pack = {
       severity: 'breaking',
       kinds: [],
       symbols: /current_period_(?:end|start)/,
-      guide: 'See the subscription period guide above.',
+      // The patch agent reads `periodGuide`; this is what an `--agent sdk` task is told.
+      guide: PERIOD_KNOWLEDGE,
     },
     {
       id: 'fixture-cast',
@@ -444,6 +455,7 @@ export const stripePack: Pack = {
       choices.push(
         '- The subscription billing period now comes from one item: the item that ends last, start and end from that same item. Identical to the old subscription-level values for a single-item subscription. Items can have different periods: this chooses the latest-ending item, not a shared billing period. Confirm that this is the desired business rule.',
         '- A subscription with no items (Stripe never returns one) makes the helper return undefined: a webhook keeps its existing path of fetching the full subscription; an API route throws "subscription has no items". No sentinel timestamps. Pagination can omit items: the helper uses the returned items.data, so review subscriptions with more items than one response page.',
+        '- Webhook payloads follow the API version set on each webhook endpoint, not the SDK pin: until every endpoint is moved to 2025-03-31.basil or later, `customer.subscription.*` events still carry the period on the subscription, not on its items. Check that the webhook handler in this PR reads both shapes (items first, then the subscription-level fields) and fails loudly when neither has a period, with no `as number` cast that would store an Invalid Date; then move the endpoints in the Stripe dashboard.',
       );
     const kept = (context.payloadVersions ?? []).filter((p) => p.value !== context.apiVersions?.to);
     if (kept.length === 0) return choices;

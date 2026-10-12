@@ -716,6 +716,50 @@ describe('test detection', () => {
     });
   });
 
+  it('plans only what can see the files when asked for related tests, and nothing else changes', () => {
+    const root = mkdtempSync(join(scratch, 'related-'));
+    const write = (file: string, text: string, mode?: number) => {
+      mkdirSync(join(root, file, '..'), { recursive: true });
+      writeFileSync(join(root, file), text, mode ? { mode } : {});
+    };
+    write('package.json', JSON.stringify({ name: 'mono', scripts: { test: 'pnpm -r run test' } }));
+    write('node_modules/.bin/vitest', '#!/bin/sh\n', 0o755);
+    write(
+      'packages/schema/package.json',
+      JSON.stringify({ name: '@m/schema', scripts: { test: 'vitest run' } }),
+    );
+    write('packages/schema/src/a.ts', '');
+    write(
+      'packages/engine/package.json',
+      JSON.stringify({
+        name: '@m/engine',
+        scripts: { test: 'vitest run' },
+        dependencies: { '@m/schema': 'workspace:*' },
+      }),
+    );
+    write(
+      'packages/viewer/package.json',
+      JSON.stringify({ name: '@m/viewer', scripts: { test: 'vitest run --coverage' } }),
+    );
+    const workspaces = ['.', 'packages/schema', 'packages/engine', 'packages/viewer'];
+    const files = ['packages/schema/src/a.ts'];
+    // The owner and its dependent, each in related mode; not the root's run of everything,
+    // not a workspace that cannot see the file.
+    expect(
+      planTests(root, workspaces, files, { related: true }).map((p) => [p.workspace, p.command]),
+    ).toEqual([
+      ['packages/schema', 'vitest related --run --passWithNoTests src/a.ts'],
+      ['packages/engine', 'vitest related --run --passWithNoTests ../schema/src/a.ts'],
+    ]);
+    // Verification still runs every workspace's own script.
+    expect(planTests(root, workspaces, files).map((p) => p.command)).toEqual([
+      'pnpm -r run test',
+      'vitest run',
+      'vitest run',
+      'vitest run --coverage',
+    ]);
+  });
+
   it('knows jest, prefers a workspace script, then the root script, and says when nothing covers a workspace', () => {
     const jest = monorepo('jest');
     expect(planTests(jest, ['packages/api'], ['packages/api/src/a.ts'])[0]).toMatchObject({

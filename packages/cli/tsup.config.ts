@@ -32,7 +32,10 @@ export default defineConfig({
   target: 'node20',
   splitting: true,
   // `npx uptide` installs one package: the engine and every dependency are inlined.
-  noExternal: [/.*/],
+  // Except the Agent SDK behind the experimental `--agent sdk`: not open source, so never
+  // inlined; an optional peer the user installs, loaded only when the flag asks for it.
+  noExternal: [/^(?!@anthropic-ai\/claude-agent-sdk)/],
+  external: ['@anthropic-ai/claude-agent-sdk'],
   banner: { js: cjsGlobals },
   // A quarter off the install size; identifiers stay, so stack traces remain readable.
   minifyWhitespace: true,
