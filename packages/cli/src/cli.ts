@@ -759,6 +759,8 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
       )
       // The flag's earlier name, still accepted.
       .addOption(new Option('--keep').hideHelp())
+      // Experimental: assisted fixes as Claude Agent SDK sessions (docs/architecture.md).
+      .addOption(new Option('--agent <kind>').choices(['patch', 'sdk']).hideHelp())
       .option('--debug', 'keep the temporary clone and print every phase (--keep-temp --verbose)')
       .option('--pr', 'open a draft PR after verification passes; requires --yes')
       .option(
@@ -816,6 +818,7 @@ ${PRIVACY}`,
           pinCurrentApi?: boolean;
           llm?: boolean;
           maxCost?: string;
+          agent?: 'patch' | 'sdk';
           provider?: string;
           model?: string;
           withServices?: boolean;
@@ -954,6 +957,7 @@ ${PRIVACY}`,
                     provider: selection.provider,
                     model: selection.model,
                     ...(maxCost !== undefined ? { maxCostUsd: maxCost } : {}),
+                    ...(flags.agent === 'sdk' ? { agent: 'sdk' as const } : {}),
                     withServices: flags.withServices,
                     ...(flags.keepTemp || flags.keep || flags.debug ? { keep: true } : {}),
                     pr: flags.pr,

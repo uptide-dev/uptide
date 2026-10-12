@@ -23,7 +23,11 @@ describe('published package', () => {
     expect(manifest.name).toBe('uptide');
     expect(manifest.bin).toEqual({ uptide: './dist/index.js' });
     expect(manifest.dependencies).toBeUndefined();
-    expect(manifest.peerDependencies).toBeUndefined();
+    // The experimental `--agent sdk` loads the Claude Agent SDK only if the user installed it.
+    expect(manifest.peerDependencies).toEqual({ '@anthropic-ai/claude-agent-sdk': '>=0.3.296' });
+    expect(manifest.peerDependenciesMeta).toEqual({
+      '@anthropic-ai/claude-agent-sdk': { optional: true },
+    });
     expect(manifest.engines.node).toBe('>=20');
     // The bundle, the legal assets that must travel with it, and nothing of the build.
     expect(manifest.files).toEqual([
@@ -49,6 +53,9 @@ describe('published package', () => {
     expect(sources).not.toMatch(
       /from\s*["'](ts-morph|commander|picocolors|semver|ignore|picomatch)["']/,
     );
+    // Not open source: imported at run time, never inlined (it once came in through core's dist).
+    expect(sources).toMatch(/import\(\s*["']@anthropic-ai\/claude-agent-sdk["']\s*\)/);
+    expect(sources).not.toMatch(/Anthropic PBC|claude-agent-sdk-darwin-arm64/);
   });
 
   it.skipIf(!existsSync(bin))('reports the package version, not the engine constant', () => {

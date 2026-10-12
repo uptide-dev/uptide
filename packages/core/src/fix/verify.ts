@@ -326,6 +326,27 @@ export function diagnosticKey(d: FixDiagnostic): string {
   ];
   return JSON.stringify([position(d), d.code, (d.relatedLocations ?? []).map(position).sort()]);
 }
+/** Identity without position: what an error keeps when lines above it move. */
+export const unplacedKey = (d: Pick<FixDiagnostic, 'file' | 'code' | 'message'>): string =>
+  JSON.stringify([d.file, d.code, d.message.split('\n')[0]]);
+/**
+ * `newDiagnostics`, then an error that only moved is not new: one with the same file, code and
+ * first message line as a baseline error no longer at its position. `--agent sdk` only, whose
+ * whole-file edits shift every line below them.
+ */
+export function newDiagnosticsAcrossShifts(
+  baseline: FixDiagnostic[],
+  target: FixDiagnostic[],
+): FixDiagnostic[] {
+  const moved = new Map<string, number>();
+  for (const d of newDiagnostics(target, baseline))
+    moved.set(unplacedKey(d), (moved.get(unplacedKey(d)) ?? 0) + 1);
+  return newDiagnostics(baseline, target).filter((d) => {
+    const n = moved.get(unplacedKey(d)) ?? 0;
+    if (n) moved.set(unplacedKey(d), n - 1);
+    return n === 0;
+  });
+}
 /** Position and code identify an error even when TypeScript expands its message chain. */
 export function newDiagnostics(
   baseline: FixDiagnostic[],
