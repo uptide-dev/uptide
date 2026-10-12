@@ -82,6 +82,13 @@ const ran = (s: AgentSummary | undefined): TaskRun => ({
   toolCalls: { Edit: 1 },
   ...(s ? { summary: s } : {}),
 });
+/** An agent that makes `edit` in the clone and ends with `said`. */
+const doing =
+  (edit: (root: string) => void, said = summary()) =>
+  (root: string): AgentSummary => {
+    edit(root);
+    return said;
+  };
 const ORIGINAL = 'line1\nsub.current_period_end\nline3\n';
 const migrate = (root: string) =>
   writeFileSync(
@@ -159,7 +166,7 @@ describe('guard: what an SDK session may touch', () => {
 describe('end-of-task gate', () => {
   it('accepts a migration that moved an old error down, and commits it', async () => {
     const { root, sites, record } = await task({
-      agent: (r) => (migrate(r), summary()),
+      agent: doing(migrate),
       after: [diag('src/a.ts', 5, 2304, "Cannot find name 'line3'.")],
     });
     expect(record).toMatchObject({ gate: 'accepted', fixed: 1, turns: 3, costUsd: 0.01 });
@@ -188,37 +195,37 @@ describe('end-of-task gate', () => {
       migrate(root);
       writeFileSync(join(root, 'src/period.ts'), 'export const period = 1;\n');
     };
-    const undeclared = await task({ agent: (r) => (write(r), summary()), after: [] });
+    const undeclared = await task({ agent: doing(write), after: [] });
     expect(undeclared.record?.rejection).toMatch(/did not declare: src\/period\.ts/);
     expect(git(undeclared.root, 'status', '--porcelain')).toBe('');
     const declared = await task({
-      agent: (r) => (write(r), summary({ newFiles: ['src/period.ts'] })),
+      agent: doing(write, summary({ newFiles: ['src/period.ts'] })),
       after: [],
     });
     expect(declared.record?.gate).toBe('accepted');
   });
   it('rejects a new type error, a silenced compiler and a new test failure', async () => {
     const typed = await task({
-      agent: (r) => (migrate(r), summary()),
+      agent: doing(migrate),
       after: [diag('src/a.ts', 4, 2322, "Type 'number' is not assignable to type 'Date'.")],
     });
     expect(typed.record?.rejection).toMatch(/new type errors: src\/a\.ts:4 TS2322/);
     const silenced = await task({
-      agent: (r) => (
-        writeFileSync(join(r, 'src/a.ts'), '// @ts-ignore\nsub.current_period_end\n'), summary()
+      agent: doing((r) =>
+        writeFileSync(join(r, 'src/a.ts'), '// @ts-ignore\nsub.current_period_end\n'),
       ),
       after: [],
     });
     expect(silenced.record?.rejection).toMatch(/silences the compiler/);
     const tested = await task({
-      agent: (r) => (migrate(r), summary()),
+      agent: doing(migrate),
       after: [],
       tests: [{ workspace: '.', status: 'failed', output: 'FAIL src/new.test.ts' }],
     });
     expect(tested.record?.rejection).toMatch(/tests fail/);
     // A failure the baseline already had is the repository's, not the agent's.
     const old = await task({
-      agent: (r) => (migrate(r), summary()),
+      agent: doing(migrate),
       after: [],
       tests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
     });
