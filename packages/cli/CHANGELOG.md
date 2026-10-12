@@ -1,5 +1,23 @@
 # uptide
 
+## 0.8.0
+
+### Minor Changes
+
+- [#89](https://github.com/uptide-dev/uptide/pull/89) [`405f429`](https://github.com/uptide-dev/uptide/commit/405f429c88b417c3005f02090031d3dc5a09d1ce) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Experimental, hidden: `uptide fix <package> --agent sdk` runs assisted fixes as Claude Agent SDK sessions in the temporary clone, one per pack rule over its files, gated at the end of each task. Anthropic only; needs `@anthropic-ai/claude-agent-sdk` installed (an optional peer, never bundled). The default agent is unchanged. See `docs/decisions/0016-agent-sdk-executor.md`.
+
+- [#91](https://github.com/uptide-dev/uptide/pull/91) [`d2ef2f1`](https://github.com/uptide-dev/uptide/commit/d2ef2f14d0b4a0f09efd860c4e1950f342c3fa56) Thanks [@lucasbraum](https://github.com/lucasbraum)! - New `uptide init`: writes `.github/workflows/uptide.yml` and `uptide.yml` for the repository, the same files the Uptide GitHub App proposes in its "Add Uptide" pull request. It detects the package manager, Node version and workspaces, pins every action to a commit, installs with lifecycle scripts off, and refuses with a reason (Bun, no lockfile, no package.json, a lockfile that disagrees with `packageManager`) instead of writing files that would not work. `--dry-run` prints the files and the pull request text. No commit, no push, no network.
+  
+  New `uptide.yml` settings file (`version: 1`, JSON Schema in `schema/uptide.v1.json`): `packages.allow`/`deny`, `schedule` (cron, or `manual` for a workflow that runs only when started by hand), `maxOpenPrs`, `llm.enabled`/`provider`, `maxCost` and `executor`. `list`, `check` and `fix` read it when present (or the file `--config` names), and flags override it; `fix` gains `--llm` to turn assisted fixes back on when the file turns them off. See `docs/config.md`.
+  
+  The generator is published as `uptide/onboarding` (ES module with types): `repoFacts` and `generateOnboarding` from the repository's root files, and the `uptide.yml` loader. It contains no analysis engine; the command line is unchanged.
+
+### Patch Changes
+
+- [#87](https://github.com/uptide-dev/uptide/pull/87) [`158d68e`](https://github.com/uptide-dev/uptide/commit/158d68e0e18358272e364f261704c1e45e318b32) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `fix` gets the assisted Stripe migration through on real repositories. The guide suggests the import the way the file's neighbours write theirs (a tsconfig `paths` alias such as `@/lib/stripe`, else an extensionless relative path; `.js`/`.ts` only where the repository already uses them), and no longer requires one spelling. A pre-existing error that an added import moves down a line is matched to itself, not reported as new. Sites of the same change in one file go to the agent as one task, with every enclosing function shown, and are accepted together. Jest related-tests runs pass the affected files before `--testPathIgnorePatterns`, which swallowed them; when a related-tests run fails before any test, or finds none, the repository's own suite runs and the report shows the scoped command and its output. Reports print the published CLI version instead of 0.1.0.
+
+- [#89](https://github.com/uptide-dev/uptide/pull/89) [`405f429`](https://github.com/uptide-dev/uptide/commit/405f429c88b417c3005f02090031d3dc5a09d1ce) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Stripe pack: the subscription-period decisions now say that webhook payloads follow the API version set on each webhook endpoint, not the SDK pin, so a handler must read both the item-level and the subscription-level period until the endpoints move, and must not cast a missing timestamp into an Invalid Date.
+
 ## 0.7.5
 
 ### Patch Changes
