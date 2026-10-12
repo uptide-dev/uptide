@@ -1,0 +1,35 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      old-tool:
+        specifier: ^1.0.0
+        version: 1.0.0
+
+  packages/ui:
+    devDependencies:
+      lib:
+        specifier: ^1.0.0
+        version: 1.0.0
+
+packages:
+
+  lib@1.0.0:
+    resolution: {integrity: sha512-0bafc6389e70fc592ccca76053bb171b03e61fb555eff10c49bb91f1d772ce85}
+
+  old-tool@1.0.0:
+    resolution: {integrity: sha512-6a2785f64dd7297bfe0ae5db90577f4422dce0432b0049219eb1f35e3c2e4dfb}
+
+snapshots:
+
+  lib@1.0.0: {}
+
+  old-tool@1.0.0:
+    dependencies:
+      lib: 1.0.0

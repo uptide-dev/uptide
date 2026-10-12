@@ -22,6 +22,12 @@ export interface Upgrade {
   /** Packages whose peer edges the user explicitly overrides, without changing their ranges. */
   allowedPeers?: string[];
 }
+/**
+ * What a workspace installs, and so what names a lockfile descriptor. A peer range is a
+ * promise to consumers, validated and widened in the manifest only (`^18.3.1 || ^19.0.0`):
+ * never an install descriptor, a `set resolution` or the range a resolved version is read by.
+ */
+const INSTALLED = ['dependencies', 'devDependencies', 'optionalDependencies'] as const;
 export interface InstallReport extends LockDiff {
   manager: string;
   file: string;
@@ -75,12 +81,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       // a second @ai-sdk/provider next to the 4.0.1 that ai pins.
       for (const [file, text] of originals) {
         const json = JSON.parse(text);
-        for (const section of [
-          'dependencies',
-          'devDependencies',
-          'optionalDependencies',
-          'peerDependencies',
-        ])
+        for (const section of INSTALLED)
           for (const m of moves) {
             const spec = json[section]?.[m.name];
             if (!spec) continue;
@@ -102,7 +103,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
     const descriptors = new Map<string, string>();
     for (const [, text] of originals) {
       const json = JSON.parse(text);
-      for (const section of ['dependencies', 'devDependencies', 'optionalDependencies'])
+      for (const section of INSTALLED)
         for (const move of moves) {
           const spec = json[section]?.[move.name];
           if (!spec) continue;
@@ -154,12 +155,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
   for (const workspace of upgrade.workspaces) {
     const json = JSON.parse(readFileSync(join(root, workspace, 'package.json'), 'utf8'));
     const ranges = new Map<string, string>();
-    for (const section of [
-      'dependencies',
-      'devDependencies',
-      'optionalDependencies',
-      'peerDependencies',
-    ])
+    for (const section of INSTALLED)
       for (const m of moves) if (json[section]?.[m.name]) ranges.set(m.name, json[section][m.name]);
     const parse = pm.kind === 'npm' ? parseNpm : pm.kind === 'pnpm' ? parsePnpm : parseYarn;
     const resolved = parse(afterText, { importer: workspace, declared: ranges });
