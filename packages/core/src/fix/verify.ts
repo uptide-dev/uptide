@@ -477,6 +477,12 @@ export interface TestOptions {
    * may reset it, and verification must not touch the user's services uninvited.
    */
   withServices?: boolean;
+  /**
+   * Only what can see `files`: the workspaces that own one and those that depend on them,
+   * and a script that is just the runner (`vitest run`, `jest`) in its related-tests mode.
+   * For the agent's own checks between tasks; verification runs the full selection.
+   */
+  related?: boolean;
 }
 
 const VITEST_CONFIGS = ['vitest.config', 'vitest.workspace'].flatMap((base) =>
@@ -488,7 +494,15 @@ const JEST_CONFIGS = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json'].map(
 const quote = (arg: string): string =>
   /^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replaceAll("'", "'\\''")}'`;
 
-function manifest(dir: string): { scripts?: Record<string, string>; jest?: unknown } | undefined {
+function manifest(dir: string):
+  | {
+      name?: string;
+      scripts?: Record<string, string>;
+      jest?: unknown;
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    }
+  | undefined {
   try {
     return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
   } catch {
@@ -524,6 +538,56 @@ function runnerFor(
   return undefined;
 }
 
+/** The workspaces that own one of `files`, and those that depend on one of them by name. */
+function relatedWorkspaces(root: string, workspaces: string[], files: string[]): string[] {
+  const owner = (file: string) =>
+    workspaces
+      .filter((w) => w === '.' || file.startsWith(`${w}/`))
+      .sort((a, b) => b.length - a.length)[0];
+  const owners = new Set(files.map(owner).filter((w): w is string => w !== undefined));
+  const names = new Set(
+    [...owners].map((w) => manifest(join(root, w))?.name).filter((n): n is string => !!n),
+  );
+  return workspaces.filter((w) => {
+    if (owners.has(w)) return true;
+    // The root's script usually runs every workspace's (`pnpm -r test`): only its own files ask for it.
+    if (w === '.') return false;
+    const m = manifest(join(root, w));
+    return Object.keys({ ...m?.dependencies, ...m?.devDependencies }).some((d) => names.has(d));
+  });
+}
+
+/** A `test` script that is only the runner, run in related-tests mode on `files`. */
+function relatedScript(
+  root: string,
+  workspace: string,
+  script: string | undefined,
+  files: string[],
+): TestPlan | undefined {
+  const runner = /^\s*(?:(?:npx|pnpm exec|yarn)\s+)?(vitest(?:\s+run)?|jest)\s*$/.exec(
+    script ?? '',
+  )?.[1];
+  const dir = join(root, workspace);
+  const bin = runner?.startsWith('vitest') ? 'vitest' : runner;
+  if (!bin || !upTo(root, dir).some((d) => existsSync(join(d, 'node_modules/.bin', bin))))
+    return undefined;
+  const paths = files
+    .filter((f) => existsSync(join(root, f)))
+    .map((f) => relative(dir, join(root, f)));
+  if (!paths.length) return undefined;
+  const args =
+    bin === 'vitest'
+      ? ['related', '--run', '--passWithNoTests', ...paths]
+      : ['--findRelatedTests', ...paths, '--passWithNoTests'];
+  return {
+    workspace,
+    covers: [workspace],
+    cwd: dir,
+    command: [bin, ...args.map(quote)].join(' '),
+    scope: `${bin} tests related to ${paths.length} changed file${paths.length === 1 ? '' : 's'} (its \`test\` script is the runner)`,
+  };
+}
+
 /**
  * The same detection for every run, baseline and target alike. Per workspace, in order: its
  * own `test` script; a vitest or jest configuration that covers it (its own or an ancestor's,
@@ -543,8 +607,15 @@ export function planTests(
     { runner: 'vitest' | 'jest'; dir: string; config: string; covers: string[] }
   >();
   const rootScript: string[] = [];
-  for (const workspace of workspaces) {
+  const selected = options.related ? relatedWorkspaces(root, workspaces, files) : workspaces;
+  for (const workspace of selected) {
     const script = manifest(join(root, workspace))?.scripts?.test;
+    const scoped =
+      options.related && files.length ? relatedScript(root, workspace, script, files) : undefined;
+    if (scoped) {
+      plans.push(scoped);
+      continue;
+    }
     // A script that is just the runner is planned as the runner: scoped, and classified.
     const bare = /^\s*(?:(?:npx|pnpm exec|yarn)\s+)?(vitest|jest)\b/.exec(script ?? '')?.[1];
     if (script && !(bare && runnerFor(root, workspace)?.runner === bare)) {

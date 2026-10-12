@@ -505,6 +505,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           tests: (files) =>
             services.tests(root, workspaces, options.testTimeoutMs, files, {
               withServices: options.withServices === true,
+              related: true,
             }),
           ...(services.lint
             ? {

@@ -697,10 +697,10 @@ const sdkRunner: TaskRunner = async ({
           HOME: process.env.HOME ?? '',
           ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
           // Telemetry, error reports, surveys and updates off; the two switches it leaves out too.
-        // What each covers: docs/privacy.md, "Experimental: fix --agent sdk".
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-        DISABLE_FEEDBACK_COMMAND: '1',
-        CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
+          // What each covers: docs/privacy.md, "Experimental: fix --agent sdk".
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+          DISABLE_FEEDBACK_COMMAND: '1',
+          CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
           CLAUDE_AGENT_SDK_CLIENT_APP: 'uptide',
         },
       },
