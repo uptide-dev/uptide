@@ -195,14 +195,16 @@ export async function assist(
       } else site.reason += '; no remaining compiler diagnostic to validate an assisted edit';
       continue;
     }
-    const declarations = (diagnostic.relatedDeclarations ?? []).filter((d) => {
-      if (d.file.split('/').includes('node_modules')) return false;
-      try {
-        return !realpathSync(safeFile(root, d.file)).split('/').includes('node_modules');
-      } catch {
-        return false;
-      }
-    });
+    const owned = (d: FixDiagnostic) =>
+      (d.relatedDeclarations ?? []).filter((r) => {
+        if (r.file.split('/').includes('node_modules')) return false;
+        try {
+          return !realpathSync(safeFile(root, r.file)).split('/').includes('node_modules');
+        } catch {
+          return false;
+        }
+      });
+    const declarations = owned(diagnostic);
     const keys = new Set(declarations.map(declarationKey));
     const group = [{ site, diagnostic }];
     for (const other of sites) {
@@ -218,7 +220,12 @@ export async function assist(
     }
     // Sites of the same change in this file (the period fields read in two handlers) are one
     // task: the agent sees every enclosing function and the edit is accepted only when all
-    // of their diagnostics are gone. Each site keeps its own entry in the report.
+    // of their diagnostics are gone. Each site keeps its own entry in the report. Only when
+    // the fix is in the same place, though: the same repository declarations behind each
+    // error, or none. Two `RefObject<T | null>` errors in one file whose prop types live in
+    // two presenters are two fixes, and one task could edit only the first one's file.
+    const fixedAt = (d: FixDiagnostic) => owned(d).map(declarationKey).sort().join('|');
+    const location = fixedAt(diagnostic);
     const sameChange = new Set<FixSite>();
     for (const other of sites) {
       if (
@@ -233,7 +240,12 @@ export async function assist(
       )
         continue;
       const d = diagnosticFor(other, before, original);
-      if (!d || group.some((g) => diagnosticKey(g.diagnostic) === diagnosticKey(d))) continue;
+      if (
+        !d ||
+        fixedAt(d) !== location ||
+        group.some((g) => diagnosticKey(g.diagnostic) === diagnosticKey(d))
+      )
+        continue;
       group.push({ site: other, diagnostic: d });
       sameChange.add(other);
     }
