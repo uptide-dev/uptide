@@ -229,6 +229,37 @@ function withoutTargetPeerVersion(text: string, target: Targets): string {
   return out;
 }
 
+const edgeFields = ['dependencies', 'optionalDependencies'];
+/**
+ * Variants of one package that differ only by the target's version, as one record: their
+ * dependencies are the union of theirs. A dependency resolved to different versions by two
+ * variants, or any other difference, keeps them apart (`undefined`). Dependency versions are
+ * compared without the target's peer version, and the target itself is not among them: each
+ * variant points at its own target version, and every target entry is in scope anyway.
+ */
+function mergeVariants(variants: LockRecord[]): LockRecord | undefined {
+  const [first, ...rest] = variants;
+  if (!first) return undefined;
+  const besidesDependencies = (r: LockRecord) =>
+    stable([r.identity, Object.entries(r.data).filter(([k]) => !edgeFields.includes(k))]);
+  const data = structuredClone(first.data);
+  const edges = { ...first.edges };
+  for (const variant of rest) {
+    if (besidesDependencies(variant) !== besidesDependencies(first)) return undefined;
+    for (const field of edgeFields) {
+      if (variant.data[field] === undefined) continue;
+      const union = (data[field] ?? {}) as Record<string, unknown>;
+      data[field] = union;
+      for (const [name, version] of Object.entries((variant.data[field] ?? {}) as object)) {
+        if (Object.hasOwn(union, name) && union[name] !== version) return undefined;
+        union[name] = version;
+      }
+    }
+    for (const [name, key] of Object.entries(variant.edges)) edges[name] ??= key;
+  }
+  return { ...first, data, edges };
+}
+
 export function pnpmGraph(raw: string, target: Targets): LockGraph {
   const lock = parseYaml(raw);
   if (!lock || typeof lock !== 'object' || Array.isArray(lock) || !lock.lockfileVersion)
@@ -296,10 +327,8 @@ export function pnpmGraph(raw: string, target: Targets): LockGraph {
       ]);
     }
     for (const [peerlessKey, each] of variants) {
-      const same = (r: LockRecord) => stable([r.data, r.identity]);
-      const first = each[0] as { record: LockRecord };
-      if (each.every(({ record }) => same(record) === same(first.record)))
-        records.set(`${section}:${peerlessKey}`, first.record);
+      const merged = mergeVariants(each.map(({ record }) => record));
+      if (merged) records.set(`${section}:${peerlessKey}`, merged);
       else for (const { key, record } of each) records.set(`${section}:${key}`, record);
     }
   }

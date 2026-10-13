@@ -319,7 +319,35 @@ describe('pnpm: a package installed once per target version (band-sdk shape)', (
     expect(diff.changed).toEqual([]);
   });
 
-  it('keeps variants that differ otherwise apart, and still catches a change to one', () => {
+  it('merges variants by the union of their dependencies', () => {
+    // Only the zod 4.3.6 copy depends on cross-spawn: nothing conflicts, so still one entry.
+    const extra = before
+      .replace(
+        '  ajv@8.18.0:\n',
+        '  ajv@8.18.0:\n    resolution: {integrity: sha512-ajv}\n\n  cross-spawn@7.0.6:\n',
+      )
+      .replace('  ajv@8.18.0: {}', '  ajv@8.18.0: {}\n\n  cross-spawn@7.0.6: {}')
+      .replace(
+        '      ajv: 8.18.0\n      zod: 4.3.6',
+        '      ajv: 8.18.0\n      cross-spawn: 7.0.6\n      zod: 4.3.6',
+      );
+    const graph = pnpmGraph(extra, 'zod');
+    const mcp = graph.records.get(
+      'snapshots:@modelcontextprotocol/sdk@1.28.0(@cfworker/json-schema@4.1.1)(zod@*)',
+    );
+    expect(mcp?.data.dependencies).toEqual({
+      ajv: '8.18.0',
+      'cross-spawn': '7.0.6',
+      'zod-to-json-schema': '3.25.1(zod@*)',
+    });
+    expect(mcp?.dependencies).toContain('snapshots:cross-spawn@7.0.6');
+    expect(mcp?.dependencies).toContain('snapshots:ajv@8.18.0');
+    // Dropping the extra dependency from the zod 4.3.6 copy is a change outside zod.
+    const dropped = extra.replace('      cross-spawn: 7.0.6\n      zod: 4.3.6', '      zod: 4.3.6');
+    expect(() => assertLockScope(graph, pnpmGraph(dropped, 'zod'), 'zod')).toThrow('outside zod');
+  });
+
+  it('keeps variants apart when a dependency resolves to different versions, and still catches a change to one', () => {
     const drift = (text: string) =>
       text
         .replace(
