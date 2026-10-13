@@ -88,7 +88,11 @@ export function verificationOf(report: FixReport): Verification {
   const lint = v.lint ?? [];
   const ran = (v.tests ?? []).filter((t) => t.status !== 'missing');
   return {
-    typecheck: { before: v.baseline?.length ?? 0, after: v.after?.length ?? 0 },
+    typecheck: {
+      before: v.baseline?.length ?? 0,
+      ...(v.target ? { afterUpgrade: v.target.length } : {}),
+      after: v.after?.length ?? 0,
+    },
     lint: {
       before: lint.filter((l) => l.status === 'pre-existing').length,
       after: lint.filter((l) => l.status !== 'passed').length,

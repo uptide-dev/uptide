@@ -43,8 +43,12 @@ export interface BreakingSite {
 }
 
 export interface Verification {
-  /** Type errors, before the upgrade and after the migration. */
-  typecheck: { before: number; after: number };
+  /**
+   * Type errors: before the upgrade, right after the version bump (`afterUpgrade`, before any
+   * fix: what the upgrade broke), and after the migration. `afterUpgrade` is absent in reports
+   * written before it.
+   */
+  typecheck: { before: number; afterUpgrade?: number; after: number };
   /** Lint tools failing on the edited files, before and after. */
   lint: { before: number; after: number };
   /** Test runs (one per workspace or scope) that passed and failed; null when none ran. */
@@ -107,6 +111,10 @@ const BEFORE_AFTER = {
   additionalProperties: false,
   required: ['before', 'after'],
   properties: { before: COUNT, after: COUNT },
+} as const;
+const TYPECHECK = {
+  ...BEFORE_AFTER,
+  properties: { before: COUNT, afterUpgrade: COUNT, after: COUNT },
 } as const;
 
 /** JSON Schema (draft 2020-12) of `uptide.run/v1`; `schema/uptide.run.v1.json` is its copy. */
@@ -209,7 +217,7 @@ export const RUN_REPORT_SCHEMA = {
                 additionalProperties: false,
                 required: ['typecheck', 'lint', 'tests'],
                 properties: {
-                  typecheck: BEFORE_AFTER,
+                  typecheck: TYPECHECK,
                   lint: BEFORE_AFTER,
                   tests: {
                     anyOf: [

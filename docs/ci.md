@@ -147,6 +147,7 @@ real `fix` run on the [storefront fixture](../fixtures/repos/storefront) without
       "verification": {
         "typecheck": {
           "before": 1,
+          "afterUpgrade": 29,
           "after": 5
         },
         "lint": {
@@ -173,7 +174,10 @@ symbol explains. `status` is `up_to_date`, `available` (behind, not migrated thi
 pull request open), `failed` (did not verify, or could not be published; `error` says why) or
 `skipped` (a pull request is already open, or `maxCost` was reached). `verification` counts
 type errors and failing lint tools before and after, and test runs (one per workspace or
-scope); it is null when no migration ran.
+scope); it is null when no migration ran. `typecheck.afterUpgrade` is the count right after
+the version bump, before any fix: next to `before` and `after` it says what the upgrade broke
+and what the migration left (the job summary prints `types 0 → 4 with the upgrade → 0 after
+Uptide`). It is optional, absent in reports written before it.
 
 `analysis` says what an empty `breaking` means. `pack`: a migration pack analyzed the upgrade,
 so none breaks. `none`: no pack covers it yet, so none was confirmed, which is no answer (the

@@ -433,7 +433,7 @@ describe('runs are scoped to their own repository', () => {
       '| **Behavior** | ✅ 12 API changes, none affect your code, all additive |',
     );
     // One error is one error.
-    expect(body).toContain('| **Types** | ✅ 1 error after the bump → 0 |');
+    expect(body).toContain('| **Types** | ✅ the upgrade broke 1 · Uptide left 0 |');
     expect(body).toContain('| **Tests** | ✅ 1 workspace passed |');
   });
 

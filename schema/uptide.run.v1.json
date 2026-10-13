@@ -161,6 +161,10 @@
                         "type": "integer",
                         "minimum": 0
                       },
+                      "afterUpgrade": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
                       "after": {
                         "type": "integer",
                         "minimum": 0
