@@ -240,13 +240,19 @@ describe('fix transaction', () => {
     );
     expect(result.verification.passed).toBe(false);
     expect(result.prUrl).toBeUndefined();
-    expect(result.publication?.refused).toEqual(['verification failed: 1 new type error']);
-    expect(result.notes).toContain('PR not opened: verification failed: 1 new type error');
+    expect(result.publication?.refused).toEqual([
+      'verification failed: 1 type error introduced by the upgrade',
+    ]);
+    expect(result.notes).toContain(
+      'PR not opened: verification failed: 1 type error introduced by the upgrade',
+    );
     // The branch exists locally and nothing left the machine: there is not even a remote.
     expect(git(root, 'branch', '--show-current')).toBe('uptide/zod-4.6.5');
     expect(git(root, 'remote')).toBe('');
     const stored = JSON.parse(readFileSync(join(root, '.uptide/report.json'), 'utf8'));
-    expect(stored.publication.refused).toEqual(['verification failed: 1 new type error']);
+    expect(stored.publication.refused).toEqual([
+      'verification failed: 1 type error introduced by the upgrade',
+    ]);
   });
   it('--pr without --yes is a verified run whose plan was printed and nothing pushed', async () => {
     const { root, services } = fixture();
