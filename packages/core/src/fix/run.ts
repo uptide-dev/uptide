@@ -644,15 +644,16 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   });
   // Without a pack the type-check does not see what the upgrade changed in the build (its
   // configuration, removed commands): the repository's own build has to pass too.
-  const beforeBuild = generic ? git(root, 'status', '--porcelain', '--untracked-files=all') : '';
-  const build = generic
+  const needsBuild = generic || pack.requiresBuild === true;
+  const beforeBuild = needsBuild ? git(root, 'status', '--porcelain', '--untracked-files=all') : '';
+  const build = needsBuild
     ? await verify(`build (${names(workspaces)})`, () =>
         (services.build ?? buildWorkspaces)(root, workspaces),
       )
     : [];
   // What the build wrote and git does not ignore is not part of the migration. Files left
   // before it stay, for the check below to report.
-  if (generic && !beforeBuild && git(root, 'status', '--porcelain', '--untracked-files=all')) {
+  if (needsBuild && !beforeBuild && git(root, 'status', '--porcelain', '--untracked-files=all')) {
     git(root, 'checkout', '--', '.');
     git(root, 'clean', '-fdq');
   }
@@ -691,7 +692,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       newErrors,
       baselineTests,
       tests,
-      ...(generic ? { build } : {}),
+      ...(needsBuild ? { build } : {}),
+      ...(pack.requiresBuild ? { buildRequired: true } : {}),
       ...(lint.length ? { lint } : {}),
       ...(formatted.length ? { formatted } : {}),
       ...(unverified ? { typesUnverified: unverified } : {}),
@@ -701,6 +703,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         newErrors.length === 0 &&
         !pending &&
         tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
+        (!pack.requiresBuild || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
         build.every((b) => b.status === 'passed' || b.status === 'missing') &&
         lint.every((l) => l.status !== 'failed'),
     },

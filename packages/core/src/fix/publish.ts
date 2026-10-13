@@ -23,6 +23,18 @@ export function publicationBlockers(
   const blockers: string[] = [];
   if (report.exportError) blockers.push(`export failed: ${report.exportError}`);
   const v = report.verification;
+  if (v.buildRequired && (!v.build?.length || v.build.some((b) => b.status !== 'passed')))
+    blockers.push(
+      'build required by the migration pack: ' +
+        (!v.build?.length
+          ? 'not run'
+          : v.build
+              .filter((b) => b.status !== 'passed')
+              .map(
+                (b) => `${b.workspace}: ${b.status === 'missing' ? 'no build script' : b.status}`,
+              )
+              .join('; ')),
+    );
   if (report.verificationPending) blockers.push('verification has not run');
   else if (!v.passed && !report.exportError) {
     const failing = (v.tests ?? []).filter((t) => t.status === 'failed' || t.status === 'timeout');

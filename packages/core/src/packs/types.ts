@@ -114,6 +114,8 @@ export interface MigrationPack {
    * need no entry.
    */
   readonly companions?: readonly PackCompanion[];
+  /** Build-time contracts must pass before a migrated repository can be published. */
+  readonly requiresBuild?: boolean;
   readonly defaultTarget: string;
   readonly rules: readonly MigrationRule[];
   supports(from: string, to: string): boolean;
