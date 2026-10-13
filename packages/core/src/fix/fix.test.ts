@@ -9,7 +9,8 @@ import { git } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { formatFix, prBody, summaryCells } from './report.js';
 import { reverify } from './reverify.js';
-import { fix } from './run.js';
+import { type FixOptions, fix } from './run.js';
+import * as sdkAgent from './sdk-agent.js';
 import { stripeFixture, zodFixture } from './test-fixture.js';
 import {
   diagnostics,
@@ -27,6 +28,114 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 const fixture = () => zodFixture(scratch);
 const CLEAN_TOOL = { uptideVersion: version, uptideCommit: 'a'.repeat(40), uptideDirty: false };
 describe('fix transaction', () => {
+  it.each([
+    { line: 2, remainingError: false, outcome: 'mechanical' },
+    { line: 1, remainingError: false, outcome: 'manual' },
+    { line: 2, remainingError: true, outcome: 'manual' },
+  ])(
+    'recognizes compiler sites resolved by rules (%j)',
+    async ({ line, remainingError, outcome }) => {
+      const { root, services } = fixture();
+      const fixer = {
+        id: 'test',
+        fix: vi.fn(async () => {
+          throw new Error('no unresolved diagnostic to patch');
+        }),
+      };
+      const result = await fix(
+        {
+          cwd: root,
+          only: 'zod',
+          fixer,
+          pack: {
+            ...zodPack,
+            transform: (source, finding, context) =>
+              finding.change.path === 'deferred'
+                ? { applied: false, text: source, reason: 'needs assistance', rule: 'deferred' }
+                : zodPack.transform(source, finding, context),
+          },
+        },
+        {
+          ...services,
+          check: async (options) => {
+            const report = await services.check(options);
+            const entry = report.packages[0];
+            if (!entry?.findings[0]) throw new Error('fixture has no finding');
+            const first = entry.findings[0];
+            entry.findings.push({
+              ...first,
+              change: { ...first.change, kind: 'type', path: 'deferred' },
+              usage: { ...first.usage, line, compileError: 'required_error removed' },
+            });
+            return report;
+          },
+          diagnostics: (r, w) => [
+            ...services.diagnostics(r, w),
+            ...(remainingError
+              ? [{ file: 'index.ts', line: 99, column: 1, code: 2304, message: 'unrelated error' }]
+              : []),
+          ],
+        },
+      );
+      expect(result.sites.find((s) => s.rule === 'deferred')?.outcome).toBe(outcome);
+      expect(fixer.fix).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each<{ name: string; options: Partial<FixOptions>; key: string; sdk: boolean }>([
+    { name: 'Anthropic defaults to SDK', options: {}, key: 'test-key', sdk: true },
+    { name: 'explicit SDK', options: { agent: 'sdk' }, key: 'test-key', sdk: true },
+    { name: 'explicit patch', options: { agent: 'patch' }, key: 'test-key', sdk: false },
+    { name: 'no key', options: {}, key: '', sdk: false },
+    {
+      name: 'no LLM overrides SDK',
+      options: { agent: 'sdk', fixer: null },
+      key: 'test-key',
+      sdk: false,
+    },
+    {
+      name: 'supplied fixer',
+      options: {
+        fixer: {
+          id: 'custom',
+          fix: async () => {
+            throw new Error('unexpected patch');
+          },
+        },
+      },
+      key: 'test-key',
+      sdk: false,
+    },
+    { name: 'OpenAI', options: { provider: 'openai' }, key: 'test-key', sdk: false },
+    { name: 'Gemini', options: { provider: 'gemini' }, key: 'test-key', sdk: false },
+  ])('$name selects the expected executor', async ({ options, key, sdk }) => {
+    const { root, services } = fixture();
+    vi.stubEnv('ANTHROPIC_API_KEY', key);
+    const tests = vi.spyOn(services, 'tests');
+    const assist = vi.spyOn(sdkAgent, 'assistWithSdk').mockResolvedValue({
+      available: true,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      agent: 'sdk',
+    });
+    try {
+      const report = await fix(
+        { cwd: root, only: 'zod', provider: 'anthropic', ...options },
+        services,
+      );
+      expect(assist).toHaveBeenCalledTimes(sdk ? 1 : 0);
+      expect(report.llm.agent).toBe(sdk ? 'sdk' : undefined);
+      expect(tests.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(tests.mock.calls.every(([, , , , options]) => !!options?.fullSuite === sdk)).toBe(
+        true,
+      );
+    } finally {
+      assist.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('does not pass a run whose baseline cannot see a package the repository installs', async () => {
     const { root, services } = fixture();
     // The repository's own tsc sees zod; a compiler host that does not hides every zod error
@@ -758,10 +867,22 @@ describe('test detection', () => {
       'vitest run',
       'vitest run --coverage',
     ]);
+    expect(planTests(root, workspaces, files, { fullSuite: true })).toEqual([
+      {
+        workspace: '.',
+        covers: workspaces,
+        cwd: root,
+        command: 'pnpm -r --no-bail run test',
+        scope: 'the recursive `test` script of the repository',
+      },
+    ]);
   });
 
   it('knows jest, prefers a workspace script, then the root script, and says when nothing covers a workspace', () => {
     const jest = monorepo('jest');
+    expect(
+      planTests(jest, ['packages/api'], ['packages/api/src/a.ts'], { fullSuite: true })[0],
+    ).toMatchObject({ command: 'jest --passWithNoTests packages/api' });
     expect(planTests(jest, ['packages/api'], ['packages/api/src/a.ts'])[0]).toMatchObject({
       command: 'jest --findRelatedTests packages/api/src/a.ts --passWithNoTests',
       scope: 'jest tests related to 1 affected file, jest.config.ts',
@@ -837,6 +958,21 @@ describe('a related-tests run that fails', () => {
   }
   const related = 'jest --findRelatedTests lib/stripe.ts --passWithNoTests';
 
+  it.each([0, 1])('does not widen an SDK task check to the full suite (exit %s)', async (code) => {
+    const root = repo();
+    writeFileSync(
+      join(root, 'node_modules/.bin/jest'),
+      `#!/bin/sh\ncase "$*" in *--findRelatedTests*) echo "${code ? 'runner refused' : 'No tests found, exiting with code 0'}"; exit ${code};; esac\necho FULL_SUITE\n`,
+      { mode: 0o755 },
+    );
+    const [result] = await testWorkspaces(root, ['.'], 10_000, ['lib/stripe.ts'], {
+      related: true,
+    });
+    expect(result?.status).toBe(code ? 'failed' : 'missing');
+    expect(result?.fallback).toBeUndefined();
+    expect(result?.output).not.toContain('FULL_SUITE');
+  });
+
   it("falls back to the repository's own test script, and keeps what the scoped run printed", async () => {
     const [result] = await testWorkspaces(repo(), ['.'], 10_000, ['lib/stripe.ts']);
     expect(result).toMatchObject({
@@ -911,6 +1047,19 @@ describe('a failure outside the affected files', () => {
       retried: ['src/routes/customerSessionRoutes.e2e.test.ts'],
     });
   });
+
+  it.each([{ related: true }, { fullSuite: true }])(
+    'does not retry a failure in an SDK check into a pass (%j)',
+    async (options) => {
+      const root = flaky('src/routes/customerSessionRoutes.e2e.test.ts');
+      const [result] = await testWorkspaces(root, ['.'], 10_000, affected, options);
+      expect(result?.status).toBe('failed');
+      expect(result?.retried).toBeUndefined();
+      expect(failedTestFiles(result?.output ?? '')).toEqual([
+        'src/routes/customerSessionRoutes.e2e.test.ts',
+      ]);
+    },
+  );
 
   it('still fails when the rerun fails too', async () => {
     const root = flaky('src/routes/customerSessionRoutes.e2e.test.ts', true);

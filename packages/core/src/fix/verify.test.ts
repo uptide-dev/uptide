@@ -114,6 +114,10 @@ it('re-checks a workspace only when a file its program reads changed, and sees e
   // Nothing changed: the last result, not a new program.
   const again = checker.check();
   expect(again).toEqual([]);
+  checker.clear();
+  write('packages/a/src/index.ts', 'export const n: number = "wrong";\n');
+  expect(checker.check()).toEqual(diagnostics(root, ['packages/a', 'packages/b']));
+  expect(checker.check().map((d) => d.file)).toEqual(['packages/a/src/index.ts']);
 });
 
 it('matches a pre-existing error that an added line moved down, never one on an edited line', () => {

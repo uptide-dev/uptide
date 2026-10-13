@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -10,7 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { stripePack } from '../packs/stripe/index.js';
+import { PERIOD_KNOWLEDGE, stripePack } from '../packs/stripe/index.js';
 import type { MigrationPack } from '../packs/types.js';
 import { fix } from './run.js';
 import { assistWithSdk, guard, planTasks, type TaskRun, taskPrompt } from './sdk-agent.js';
@@ -103,7 +104,7 @@ const migrate = (root: string) =>
  */
 async function task(input: {
   agent: (root: string) => AgentSummary | undefined;
-  after: FixDiagnostic[];
+  after: FixDiagnostic[] | ((root: string) => FixDiagnostic[]);
   tests?: TestResult[];
   /** The tests when the task starts: after the upgrade, before the agent. */
   startTests?: TestResult[];
@@ -124,7 +125,12 @@ async function task(input: {
     model: 'claude-sonnet-5-5',
     maxCostUsd: 1,
     // Planning sees the baseline; the check after the task sees `after`.
-    diagnostics: () => (calls++ < 1 ? [siteError, preexisting] : input.after),
+    diagnostics: () =>
+      calls++ < 1
+        ? [siteError, preexisting]
+        : typeof input.after === 'function'
+          ? input.after(root)
+          : input.after,
     tests: async () =>
       // The end of the task first; the start only when something failed at the end.
       (testRuns++ === 0 ? input.tests : input.startTests) ?? [
@@ -165,8 +171,20 @@ describe('guard: what an SDK session may touch', () => {
   });
   it('creates new files, but not in node_modules or .git', () => {
     expect(guard(root, allowed, 'Write', { file_path: 'src/period.ts' })).toBeUndefined();
-    expect(guard(root, allowed, 'Write', { file_path: 'node_modules/x.js' })).toMatch(/not one/);
+    expect(guard(root, allowed, 'Write', { file_path: 'node_modules/x.js' })).toMatch(
+      /node_modules/,
+    );
     expect(guard(root, allowed, 'Write', { file_path: '.git/hooks/pre-commit' })).toMatch(/git/);
+  });
+  it('refuses new-file escapes and aliases into protected directories', () => {
+    symlinkSync(`${root}-missing`, join(root, 'dangling'));
+    symlinkSync(join(root, '.git'), join(root, 'metadata'));
+    symlinkSync(join(root, 'node_modules'), join(root, 'deps'));
+    expect(guard(root, allowed, 'Write', { file_path: 'escape/new.ts' })).toMatch(/escapes/);
+    expect(guard(root, allowed, 'Write', { file_path: 'dangling' })).toBeDefined();
+    expect(guard(root, allowed, 'Read', { file_path: 'metadata/config' })).toMatch(/git/);
+    expect(guard(root, allowed, 'Write', { file_path: 'deps/new.ts' })).toMatch(/node_modules/);
+    expect(guard(root, allowed, 'Read', { file_path: 'deps/stripe/index.d.ts' })).toBeUndefined();
   });
   it('reads anywhere inside the clone, nothing outside it', () => {
     expect(
@@ -213,19 +231,34 @@ describe('end-of-task gate', () => {
     expect(git(root, 'status', '--porcelain')).toBe('');
     expect(readFileSync(join(root, 'src/a.ts'), 'utf8')).toBe(ORIGINAL);
   });
-  it('allows a new file only when the agent declares it', async () => {
+  it('discards undeclared new files before checking the remaining edits', async () => {
     const write = (root: string) => {
       migrate(root);
       writeFileSync(join(root, 'src/period.ts'), 'export const period = 1;\n');
     };
     const undeclared = await task({ agent: doing(write), after: [] });
-    expect(undeclared.record?.rejection).toMatch(/did not declare: src\/period\.ts/);
+    expect(undeclared.record).toMatchObject({
+      gate: 'accepted',
+      fixed: 1,
+      discardedFiles: ['src/period.ts'],
+    });
+    expect(existsSync(join(undeclared.root, 'src/period.ts'))).toBe(false);
     expect(git(undeclared.root, 'status', '--porcelain')).toBe('');
     const declared = await task({
       agent: doing(write, summary({ newFiles: ['src/period.ts'] })),
       after: [],
     });
     expect(declared.record?.gate).toBe('accepted');
+    expect(existsSync(join(declared.root, 'src/period.ts'))).toBe(true);
+    const needed = await task({
+      agent: doing(write),
+      after: (root) =>
+        existsSync(join(root, 'src/period.ts'))
+          ? []
+          : [diag('src/a.ts', 2, 2307, 'missing period module')],
+    });
+    expect(needed.record?.rejection).toMatch(/new type errors/);
+    expect(readFileSync(join(needed.root, 'src/a.ts'), 'utf8')).toBe(ORIGINAL);
   });
   it('rejects a new type error, a silenced compiler and a new test failure', async () => {
     const typed = await task({
@@ -266,59 +299,72 @@ describe('end-of-task gate', () => {
 });
 
 describe('batched gate', () => {
-  it('gates single-site tasks together, then one at a time when the batch fails', async () => {
-    const root = repo({ 'src/a.ts': 'old a\n', 'src/b.ts': 'old b\n', 'src/c.ts': 'c\n' });
-    // A compiler stand-in that reads the files: `old` is a site error, `BAD` a new one.
-    const diagnostics = () =>
-      ['src/a.ts', 'src/b.ts'].flatMap((file) => {
-        const text = readFileSync(join(root, file), 'utf8');
-        return [
-          ...(text.includes('old') ? [diag(file, 1, 2339, `old in ${file}`)] : []),
-          ...(text.includes('BAD') ? [diag(file, 2, 2322, 'bad')] : []),
-        ];
+  it.each([false, true])(
+    'uses one session for single-site rules and gates it atomically (bad: %s)',
+    async (bad) => {
+      const root = repo({ 'src/a.ts': 'old a\n', 'src/b.ts': 'old b\n', 'src/c.ts': 'c\n' });
+      // A compiler stand-in that reads the files: `old` is a site error, `BAD` a new one.
+      const diagnostics = () =>
+        ['src/a.ts', 'src/b.ts'].flatMap((file) => {
+          const text = readFileSync(join(root, file), 'utf8');
+          return [
+            ...(text.includes('old') ? [diag(file, 1, 2339, `old in ${file}`)] : []),
+            ...(text.includes('BAD') ? [diag(file, 2, 2322, 'bad')] : []),
+          ];
+        });
+      const sites = ['a', 'b'].map((n) => ({
+        ...site(`src/${n}.ts`, 1, diag(`src/${n}.ts`, 1, 2339, `old in src/${n}.ts`)),
+        rule: n,
+      }));
+      const ran2: string[][] = [];
+      let sessions = 0;
+      const llm = await assistWithSdk({
+        root,
+        workspaces: ['.'],
+        sites,
+        pack,
+        context: { from: '1.0.0', to: '2.0.0', includeDeprecated: false },
+        model: 'claude-sonnet-5-5',
+        maxCostUsd: 1,
+        diagnostics,
+        tests: async (files) => {
+          ran2.push(files);
+          return [{ workspace: '.', status: 'passed', output: '' }];
+        },
+        lint: async () => [],
+        format: async () => [],
+        baselineTests: [{ workspace: '.', status: 'passed', output: '' }],
+        baselineLint: [],
+        affected: ['src/a.ts', 'src/b.ts', 'src/c.ts'],
+        runner: async ({ root, task, checks }) => {
+          sessions++;
+          expect(task.files).toEqual(['src/a.ts', 'src/b.ts']);
+          writeFileSync(join(root, 'src/a.ts'), 'new a\n');
+          await checks.tests();
+          await checks.tests();
+          writeFileSync(join(root, 'src/b.ts'), bad ? 'new b\nBAD\n' : 'new b\n');
+          await checks.tests();
+          return ran(
+            summary({ changed: task.files.map((file) => ({ file, what: `migrated ${file}` })) }),
+          );
+        },
       });
-    const sites = ['a', 'b'].map((n) => ({
-      ...site(`src/${n}.ts`, 1, diag(`src/${n}.ts`, 1, 2339, `old in src/${n}.ts`)),
-      rule: n,
-    }));
-    const ran2: string[][] = [];
-    const llm = await assistWithSdk({
-      root,
-      workspaces: ['.'],
-      sites,
-      pack,
-      context: { from: '1.0.0', to: '2.0.0', includeDeprecated: false },
-      model: 'claude-sonnet-5-5',
-      maxCostUsd: 1,
-      diagnostics,
-      tests: async (files) => {
-        ran2.push(files);
-        return [{ workspace: '.', status: 'passed', output: '' }];
-      },
-      lint: async () => [],
-      format: async () => [],
-      baselineTests: [{ workspace: '.', status: 'passed', output: '' }],
-      baselineLint: [],
-      affected: ['src/a.ts', 'src/b.ts', 'src/c.ts'],
-      runner: async ({ root, task }) => {
-        const file = task.files[0] as string;
-        writeFileSync(join(root, file), task.rule === 'a' ? 'new a\n' : 'new b\nBAD\n');
-        return ran(summary({ changed: [{ file, what: `migrated ${file}` }] }));
-      },
-    });
-    expect(llm.tasks?.map((t) => [t.rule, t.gate, t.batch])).toEqual([
-      ['a', 'accepted', 2],
-      ['b', 'rejected', 2],
-    ]);
-    expect(llm.tasks?.[1]?.rejection).toMatch(/new type errors: src\/b\.ts:2 TS2322/);
-    expect(sites.map((s) => s.outcome)).toEqual(['agent', 'manual']);
-    expect(readFileSync(join(root, 'src/a.ts'), 'utf8')).toBe('new a\n');
-    expect(readFileSync(join(root, 'src/b.ts'), 'utf8')).toBe('old b\n');
-    expect(git(root, 'log', '--format=%s', '-2')).toBe('fix(stripe): a (agent)\nbase');
-    expect(git(root, 'status', '--porcelain')).toBe('');
-    // Only the tests that can see the task's own file ran; c.ts never asked for any.
-    expect(ran2).toEqual([['src/a.ts']]);
-  });
+      expect(sessions).toBe(1);
+      expect(llm.tasks?.map((t) => [t.rule, t.gate])).toEqual([
+        ['a, b', bad ? 'rejected' : 'accepted'],
+      ]);
+      if (bad) expect(llm.tasks?.[0]?.rejection).toMatch(/new type errors: src\/b\.ts:2 TS2322/);
+      expect(sites.map((s) => s.outcome)).toEqual(bad ? ['manual', 'manual'] : ['agent', 'agent']);
+      expect(readFileSync(join(root, 'src/a.ts'), 'utf8')).toBe(bad ? 'old a\n' : 'new a\n');
+      expect(readFileSync(join(root, 'src/b.ts'), 'utf8')).toBe(bad ? 'old b\n' : 'new b\n');
+      expect(git(root, 'status', '--porcelain')).toBe('');
+      // Repeated tool calls and the gate reuse results; changing b.ts invalidates them.
+      expect(ran2).toEqual([
+        ['src/a.ts', 'src/b.ts'],
+        ['src/a.ts', 'src/b.ts'],
+      ]);
+    },
+  );
 
   it('runs the start-of-task tests only to explain a failure, and restores the tree after', async () => {
     const { root, record } = await task({
@@ -334,6 +380,40 @@ describe('batched gate', () => {
 });
 
 describe('planTasks', () => {
+  it('combines all manual sites without losing any rule knowledge', () => {
+    const sites = ['a', 'b', 'c', 'c'].map((rule, i) => ({
+      ...site(`src/${i}.ts`, 1, diag(`src/${i}.ts`, 1, 2339, 'old')),
+      rule,
+    }));
+    const context = { from: '1', to: '2', includeDeprecated: false };
+    const tasks = planTasks(sites, context);
+    expect(tasks.map((t) => [t.rule, t.sites.length])).toEqual([['a, b, c', 4]]);
+    expect(
+      planTasks(
+        sites.map((site) => ({ ...site, outcome: 'mechanical' })),
+        context,
+      ),
+    ).toEqual([]);
+    const task = tasks[0];
+    if (!task) throw new Error('missing combined task');
+    const prompt = taskPrompt({
+      pack: {
+        ...pack,
+        rules: ['a', 'b', 'c'].map((id) => ({
+          id,
+          guide: `Knowledge for ${id}`,
+          kinds: [],
+          symbols: /./,
+        })),
+      },
+      context,
+      task,
+      conventions: [],
+    });
+    expect(prompt).toContain('Knowledge for a');
+    expect(prompt).toContain('Knowledge for b');
+    expect(prompt).toContain('Knowledge for c');
+  });
   it('lets a task edit the repository declarations its site errors point at', () => {
     const d = {
       ...diag(
@@ -385,6 +465,10 @@ describe('taskPrompt', () => {
       },
       conventions: [],
     });
+    expect(prompt).toContain(PERIOD_KNOWLEDGE);
+    expect(
+      stripePack.guide(site('webhook.ts', 1, diag('webhook.ts', 1, 2339, 'x')).finding),
+    ).toContain(PERIOD_KNOWLEDGE);
     expect(prompt).toMatch(
       /Webhook payloads follow the API version configured on the webhook endpoint/,
     );

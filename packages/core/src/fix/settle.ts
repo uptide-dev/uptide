@@ -115,6 +115,8 @@ export interface SettleInput {
   affected: string[];
   /** Workspaces whose tests run; default: every workspace. Diagnostics always cover them all. */
   testWorkspaces?: string[];
+  /** SDK migrations compare the full suite before and after their scoped session checks. */
+  fullSuite?: boolean;
   from: string;
   target: string;
   baselineLint: LintResult[];
@@ -195,6 +197,7 @@ export async function settle(input: SettleInput): Promise<{
         input.affected,
         {
           withServices: input.withServices === true,
+          fullSuite: input.fullSuite,
         },
       ),
     );

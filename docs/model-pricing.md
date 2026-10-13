@@ -31,6 +31,12 @@ tokens costs 4 input / 18 output / 0.40 cached input. Gemini 3.8/3.7 Flash promo
 rates end on 2026-12-31; from 2027-01-01 the table automatically uses 1.50 input /
 7.50 output / 0.15 cached input.
 
+## Agent SDK budget
+
+Anthropic defaults to the Agent SDK executor. Its reported session cost comes from the SDK;
+the package's session receives its budget, and enforcement after each turn can overshoot
+by one turn. The reservation model below applies to `--agent patch`, OpenAI and Gemini.
+
 ## Reservation and actual spend
 
 The default budget is $1 for every package. Every call, including a retry with error

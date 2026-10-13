@@ -500,13 +500,14 @@ repository and the elapsed time, one row per dependency, one line per rule, and 
 block with the exact commands for the repository. `--details` keeps the full listing
 (`format-check-details.ts`).
 
-### Assisted fixes: the patch agent, and the experimental SDK executor
+### Assisted fixes: SDK and patch executors
 
-By default the sites a rule leaves manual go to the patch agent (`src/fix/assisted.ts`):
+With `--agent patch` or a non-Anthropic provider, sites a rule leaves manual go to
+the patch agent (`src/fix/assisted.ts`):
 one site at a time, a snippet and a guide in, one unified diff out, applied and judged per
-attempt by exact diagnostic position. The hidden `--agent sdk` (Anthropic only) replaces
+attempt by exact diagnostic position. Authenticated Anthropic runs default to `--agent sdk`, replacing
 that step with `assistWithSdk` (`src/fix/sdk-agent.ts`). It runs one Claude Agent SDK session
-per rule over the rule's files, in the clone, with read and edit tools, Uptide's own checks
+for the package's manual sites and their rule knowledge, in the clone, with read and edit tools, Uptide's own checks
 as in-process tools and no shell. One gate runs at the end of each task, matching diagnostics
 across line moves (`gitLineMoves`). Everything around the step is unchanged. See
 `decisions/0016-agent-sdk-executor.md`.
@@ -1204,8 +1205,10 @@ the evidenced entries for the repository because that pin changes all its reques
 
 The period guide covers `current_period_start` and `current_period_end` with one helper
 (`PERIOD_HELPER`): the item that ends last, start and end from that same item, so the two
-never come from different items; `undefined` on an empty list, which Stripe never returns,
-and no sentinel timestamp anywhere (the validator refuses `?? 0`). Each site says what
+never come from different items. If no item has a complete, finite period, it falls back
+to the subscription-level fields used by older webhook endpoints. It returns `undefined`
+when neither shape has a complete, finite period, with no sentinel timestamp anywhere
+(the validator refuses `?? 0`). Both executors receive `PERIOD_KNOWLEDGE`. Each site says what
 `undefined` means where it stands: a webhook keeps its path of fetching the full
 subscription, an API route throws "subscription has no items", the one new throw allowed.
 The helper is placed once, by rule, in the module that creates the Stripe client in a

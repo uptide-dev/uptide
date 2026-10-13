@@ -33,8 +33,8 @@ export interface FixRequest {
   allowPeer?: string[];
   /** `--max-cost`: where the agent stops, in USD. */
   maxCostUsd?: number;
-  /** Hidden, experimental `--agent sdk`: Claude Agent SDK sessions instead of the patch agent. */
-  agent?: 'sdk';
+  /** Executor override; authenticated Anthropic runs default to the SDK. */
+  agent?: 'patch' | 'sdk';
   target?: string;
   includeDeprecated?: boolean;
   /** `--pin-current-api`: stripe stays; the SDK's default apiVersion is written on every client. */

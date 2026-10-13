@@ -790,7 +790,7 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
       .option('--no-llm', 'rule-based fixes only: never send code to the LLM provider')
       .option(
         '--max-cost <usd>',
-        'reserve the worst-case cost before each LLM call, including retries (default: maxCost in uptide.yml, else 1 USD)',
+        'assisted-fix budget in USD (SDK may overshoot by one turn; default: maxCost in uptide.yml, else 1)',
       )
       .option('--config <path>', 'settings file (default: the nearest uptide.yml)')
       .option(
@@ -803,8 +803,12 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
       )
       // The flag's earlier name, still accepted.
       .addOption(new Option('--keep').hideHelp())
-      // Experimental: assisted fixes as Claude Agent SDK sessions (docs/architecture.md).
-      .addOption(new Option('--agent <kind>').choices(['patch', 'sdk']).hideHelp())
+      .addOption(
+        new Option(
+          '--agent <kind>',
+          'assisted-fix executor (default: sdk for Anthropic, patch otherwise)',
+        ).choices(['patch', 'sdk']),
+      )
       .option('--debug', 'keep the temporary clone and print every phase (--keep-temp --verbose)')
       .option('--pr', 'open a draft PR after verification passes; requires --yes')
       .option(
@@ -899,7 +903,8 @@ ${PRIVACY}`,
             const maxCost =
               flags.maxCost !== undefined ? Number(flags.maxCost) : (loaded?.config.maxCost ?? 1);
             const llmOn = flags.llm ?? loaded?.config.llm.enabled ?? true;
-            const agent = flags.agent ?? (loaded?.config.executor === 'sdk' ? 'sdk' : undefined);
+            const executor = loaded?.config.executor;
+            const agent = flags.agent ?? (executor && executor !== 'auto' ? executor : undefined);
             const selection = selectLlm(cwd, flags, io.env, loaded?.given.llm?.provider);
             if (maxCost !== undefined && (!Number.isFinite(maxCost) || maxCost <= 0))
               throw new CliError(`--max-cost ${flags.maxCost}: expected an amount in USD`, {
@@ -1010,7 +1015,7 @@ ${PRIVACY}`,
                     provider: selection.provider,
                     model: selection.model,
                     ...(maxCost !== undefined ? { maxCostUsd: maxCost } : {}),
-                    ...(agent === 'sdk' ? { agent: 'sdk' as const } : {}),
+                    ...(agent ? { agent: agent as 'patch' | 'sdk' } : {}),
                     withServices: flags.withServices,
                     ...(flags.keepTemp || flags.keep || flags.debug ? { keep: true } : {}),
                     pr: flags.pr,

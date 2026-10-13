@@ -66,6 +66,18 @@ one declaration are attempted together. Every edit still has to remove those err
 without introducing an error anywhere in the program; otherwise all files are restored.
 Declarations outside the repository or in `node_modules` are never editable.
 
+## Assisted-fix executor
+
+With `ANTHROPIC_API_KEY` set and Anthropic selected, assisted fixes use the Claude Agent SDK
+by default. The SDK installs automatically as a dependency, so `npx uptide` needs no
+separate SDK install. This adds the platform-specific Claude Code binary to the download.
+
+Use `--agent patch` for the snippet-and-diff executor. OpenAI and Gemini keep that executor;
+`--agent sdk` requires Anthropic. The SDK is never bundled with Uptide.
+Without a key, rule-based packs still work; `--no-llm` disables both executors.
+SDK sessions can read files throughout the temporary clone and send their contents and check
+output to Anthropic; see [privacy](../privacy.md#agent-sdk-executor).
+
 ## Peer planning and the baseline lockfile
 
 Before cloning, `fix` checks the installed direct dependencies' peer ranges against the
@@ -189,10 +201,13 @@ repository, and there:
    the sites `check` reported, such as zod's `required_error` / `invalid_type_error` (add
    `--include-deprecated` for `z.string().email()`-style chains). One commit.
 5. **Assisted fixes (optional; all there is for a generic package).** With the selected
-   provider's API key set, sites the rules cannot migrate go to the LLM one at a time. A
-   patch is kept only if it removes its compiler error, introduces none, and passes the
-   pack's own validator; otherwise it is reverted and the site is left for you. `--no-llm`
-   turns this off. Which provider and what it costs: [models](../models.md).
+   provider's API key set, sites the rules cannot migrate go to the chosen executor.
+   Anthropic defaults to one SDK session for the package's manual sites, with repository
+   read/edit tools and Uptide's checks. Its edits are accepted together only if they add no
+   type errors, lint failures or related-test failures compared with the session's start.
+   OpenAI, Gemini and `--agent patch` use snippet patches judged per attempt, including
+   the pack's validator. Rejected edits are reverted and left manual. `--no-llm` turns
+   assistance off. Which provider and what it costs: [models](../models.md).
 6. **Verifies.** Type-checks with *your* TypeScript (or the bundled compiler when absent)
    before and after and subtracts the errors you already had; runs the tests of the affected
    workspaces (each workspace's `test` script, else the vitest or jest configuration that
@@ -230,7 +245,9 @@ as for a verified dependency.
 - It needs the selected provider's environment API key ([models](../models.md)). Without
   one, or with `--no-llm`, it says what it cannot do and exits before creating a clone, a
   branch or an install.
-- `--max-cost <usd>` (default 1) reserves the worst-case cost before every call, including
+- `--max-cost <usd>` (default 1) divides the remaining SDK budget across tasks; enforcement
+  after each turn can overshoot by one turn. With `--agent patch`, it reserves the
+  worst-case cost before every call, including
   retries. Sites not completed stay manual, the summary and the pull request say how many,
   and a run with sites left does not verify, so it cannot be published.
 - The pull request opens with a note that no migration pack covers the package, and its

@@ -366,7 +366,9 @@ it('rejects new failure paths, sentinels and local copies; the helper is undefin
   const period = new Function(
     `${ts.transpileModule(PERIOD_HELPER.replace(/^export /m, ''), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText}; return subscriptionPeriod;`,
   )() as (s: {
-    items: { data: { current_period_start: number; current_period_end: number }[] };
+    current_period_start?: number;
+    current_period_end?: number;
+    items?: { data: { current_period_start?: number; current_period_end?: number }[] };
   }) => { start: number; end: number } | undefined;
   const sub = (...items: [number, number][]) => ({
     items: {
@@ -377,6 +379,13 @@ it('rejects new failure paths, sentinels and local copies; the helper is undefin
     },
   });
   expect(period(sub([10, 42]))).toEqual({ start: 10, end: 42 });
+  const legacy = { current_period_start: 10, current_period_end: 42 };
+  expect(period(legacy)).toEqual({ start: 10, end: 42 });
+  expect(period({ ...legacy, items: { data: [{}] } })).toEqual({ start: 10, end: 42 });
+  expect(period({ ...legacy, ...sub([20, 50]) })).toEqual({ start: 20, end: 50 });
+  expect(period({ current_period_start: 10 })).toBeUndefined();
+  expect(period({ ...legacy, current_period_end: NaN })).toBeUndefined();
+  expect(period(sub([10, Infinity]))).toBeUndefined();
   // Both from the latest-ending item, never a max of ends with a min of starts.
   expect(period(sub([10, 42], [30, 55]))).toEqual({ start: 30, end: 55 });
   // No sentinel: the caller decides what no items means where it stands.

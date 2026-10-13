@@ -18,6 +18,8 @@ describe('privacy statement', () => {
   it('says the four things that matter', () => {
     const text = flat(PRIVACY);
     expect(text).toContain('Analysis runs locally.');
+    expect(text).toContain('files throughout the temporary clone');
+    expect(text).toContain('output from type-checks, lint and tests');
     expect(text).toContain('only for assisted fixes');
     expect(text).toContain('only with your own API key from ANTHROPIC_API_KEY');
     expect(text).toContain('Anonymous telemetry is off by default');
@@ -59,6 +61,8 @@ describe('fix --no-llm', () => {
     expect(engine.calls[0]).toMatchObject({ llm: true });
     expect(io.stderr()).toContain('note: assisted fixes are on.');
     expect(io.stderr()).toContain('compiler-linked repository declarations');
+    expect(io.stderr()).toContain('files throughout the temporary clone');
+    expect(io.stderr()).toContain('Use --agent patch to opt out.');
     expect(io.stderr()).toContain('Pass --no-llm to keep code on this machine.');
   });
 
