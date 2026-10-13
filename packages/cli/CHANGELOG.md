@@ -1,5 +1,12 @@
 # uptide
 
+## 0.11.1
+
+### Patch Changes
+
+- [#112](https://github.com/uptide-dev/uptide/pull/112) [`b545027`](https://github.com/uptide-dev/uptide/commit/b5450273aecaa45683bd182a42c63e0b82f226fc) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `uptide init` writes a workflow that runs the Uptide Action of v0.11.0 (pinned by commit), the
+  release that requires `anthropic-api-key`, instead of v0.9.0.
+
 ## 0.11.0
 
 ### Minor Changes
