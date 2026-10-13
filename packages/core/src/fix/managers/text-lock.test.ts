@@ -300,3 +300,44 @@ packages:
     ),
   ).toThrow('packages:parent@1.0.0');
 });
+
+describe('pnpm: a package installed once per target version (band-sdk shape)', () => {
+  const dir = resolve(import.meta.dirname, '../../../../../fixtures/lockfiles/peer-variants');
+  const before = readFileSync(join(dir, 'pnpm-lock.yaml'), 'utf8');
+  // packages/sdk moves from zod 3 to 4.6.5; packages/cli stays on 4.3.6.
+  const after = before.replaceAll('3.25.76', '4.6.5').replace('^3.22.4', '^4.6.5');
+
+  it('reads the variants that only differ by the target version as one entry', () => {
+    const graph = pnpmGraph(before, 'zod');
+    expect([...graph.records.keys()].filter((k) => k.includes('modelcontextprotocol'))).toEqual([
+      'packages:@modelcontextprotocol/sdk@1.28.0',
+      'snapshots:@modelcontextprotocol/sdk@1.28.0(@cfworker/json-schema@4.1.1)(zod@*)',
+    ]);
+    const diff = assertLockScope(graph, pnpmGraph(after, 'zod'), 'zod');
+    expect(diff.added).toEqual(['packages:zod@4.6.5', 'snapshots:zod@4.6.5']);
+    expect(diff.removed).toEqual(['packages:zod@3.25.76', 'snapshots:zod@3.25.76']);
+    expect(diff.changed).toEqual([]);
+  });
+
+  it('keeps variants that differ otherwise apart, and still catches a change to one', () => {
+    const drift = (text: string) =>
+      text
+        .replace(
+          'ajv@8.18.0:\n    resolution',
+          'ajv@8.17.1:\n    resolution: {integrity: sha512-ajv-old}\n\n  ajv@8.18.0:\n    resolution',
+        )
+        .replace('  ajv@8.18.0: {}', '  ajv@8.17.1: {}\n\n  ajv@8.18.0: {}')
+        .replace('      ajv: 8.18.0\n      zod: 3.25.76', '      ajv: 8.17.1\n      zod: 3.25.76');
+    const graph = pnpmGraph(drift(before), 'zod');
+    expect([...graph.records.keys()].filter((k) => k.startsWith('snapshots:@model'))).toEqual([
+      'snapshots:@modelcontextprotocol/sdk@1.28.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)',
+      'snapshots:@modelcontextprotocol/sdk@1.28.0(@cfworker/json-schema@4.1.1)(zod@4.3.6)',
+    ]);
+    // The zod 4.3.6 copy picking up the older ajv is outside zod's subtree.
+    const outside = drift(before).replace(
+      '      ajv: 8.18.0\n      zod: 4.3.6',
+      '      ajv: 8.17.1\n      zod: 4.3.6',
+    );
+    expect(() => assertLockScope(graph, pnpmGraph(outside, 'zod'), 'zod')).toThrow('outside zod');
+  });
+});

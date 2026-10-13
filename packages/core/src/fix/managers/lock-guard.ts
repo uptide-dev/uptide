@@ -19,7 +19,7 @@ const sections = ['dependencies', 'devDependencies', 'optionalDependencies', 'pe
 export type Targets = string | readonly string[];
 export const targetNames = (targets: Targets): readonly string[] =>
   typeof targets === 'string' ? [targets] : targets;
-function stable(value: unknown): string {
+export function stable(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
   if (value && typeof value === 'object')
     return `{${Object.entries(value)
