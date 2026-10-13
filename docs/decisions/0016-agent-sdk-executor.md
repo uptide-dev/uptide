@@ -56,30 +56,36 @@ unchanged.
   - it added `@ts-ignore`, `@ts-nocheck`, `@ts-expect-error`, `as any` or `as unknown as`.
 
   Otherwise its edits become one commit.
-- **Gate, once per batch.** A rule with several sites is its own batch; all single-site rules
-  share one (`batches()`), so a zod or React upgrade's many one-line changes pay for one
-  check, not one each. The batch is rejected if any of these holds:
-  - it introduced type errors, compared with the batch's start by
-    `newDiagnostics` with the batch's line moves (`gitLineMoves`, shared with the rest of
-    `fix`): an error on a line the batch kept is the old one, one on a line it edited is new;
-  - lint fails on the files it changed (after formatting them) where the baseline did not;
-  - a test related to its files fails that did not fail at the batch's start.
+- **Types and lint, once per batch.** A rule with several sites is its own batch; all
+  single-site rules share one (`batches()`), so a zod or React upgrade's many one-line
+  changes pay for one check, not one each. The batch is rejected if either holds:
+  - it introduced type errors, compared with the batch's start by `newDiagnostics` with the
+    batch's line moves (`gitLineMoves`, shared with the rest of `fix`): an error on a line
+    the batch kept is the old one, one on a line it edited is new;
+  - lint fails on the files it changed (after formatting them) where the baseline did not.
 
-  Only what the batch can affect runs:
-  - The type-check is `typeChecker()`. It keeps one TypeScript builder program per workspace
-    across checks and re-checks a workspace only when a repository file its program reads
-    changed, and then only the files that depend on the change. On a seven-workspace
-    monorepo, a fresh check takes 7.1s, a re-check after a one-file edit 2.3s, and an
-    unchanged one 41ms.
-  - The tests are those related to the batch's files. Until every site is migrated, an
-    upgrade can break tests the pre-upgrade baseline passed, so a batch answers only for
-    what it changes, as with types. The same tests run at the batch's start, by checking
-    that commit's files out for the run, only when something fails at the end.
+  The type-check is `typeChecker()`. It keeps one TypeScript builder program per workspace
+  across checks, and re-checks a workspace only when a repository file its program reads
+  changed, and then only the files that depend on the change. On a seven-workspace
+  monorepo, a fresh check takes 7.1s, a re-check after a one-file edit 2.3s, and an
+  unchanged one 41ms. A rejected batch of several tasks is retried one task at a time from
+  its start, cherry-picking each task's commit and gating it alone, so one bad task does not
+  take the others with it.
+- **Tests, once, after every batch.** These are the tests related to everything the agent
+  changed (`TestOptions.related`): the workspaces that own a changed file and their direct
+  dependents, never the root's aggregate script unless the root owns a file, and a `test`
+  script that is just the runner in its related-tests mode. The workspaces run side by side.
+  - Until every site is migrated, an upgrade can break tests the pre-upgrade baseline passed,
+    so the agent answers only for what it changes, as with types. The same tests run at the
+    start (that commit's files checked out for the run) only when one fails at the end.
+  - If one fails, the batches are replayed from the start in order, and a batch whose related
+    tests fail where they passed before it is dropped.
+  - Tests are the slow judge on a monorepo whose core package everything depends on: there,
+    "related" is nearly the whole suite. Run per task, they cost more than the sessions.
 
-  The full selected suite runs once, in `settle`, and the final verdict still compares with
-  the pre-upgrade baseline. A rejected batch of several tasks is retried one task at a time
-  from its start (cherry-picking each task's commit and gating it alone), so one bad task
-  does not take the others with it. A rejected task is reset to its start, in the clone only,
+  The agent's own `run_tests` covers the workspaces that own its files, without dependents.
+  The full selected suite runs once more, in `settle`, and the final verdict still compares
+  with the pre-upgrade baseline. A rejected task is reset to its start, in the clone only,
   and its sites stay manual with the agent's own words. A site counts as
   fixed when the compiler error it had at the start of the task is gone, wherever the edit
   was. A site without a compiler error counts as fixed when its file changed.
