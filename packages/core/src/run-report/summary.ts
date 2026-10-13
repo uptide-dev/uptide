@@ -32,7 +32,11 @@ function verification(u: Upgrade): string {
   const v = u.verification;
   if (!v) return '';
   const tests = v.tests ? `tests ${v.tests.passed} passed, ${v.tests.failed} failed` : 'no tests';
-  return `types ${v.typecheck.before} → ${v.typecheck.after}, lint ${v.lint.before} → ${v.lint.after}, ${tests}`;
+  const types =
+    v.typecheck.afterUpgrade === undefined
+      ? `types ${v.typecheck.before} → ${v.typecheck.after}`
+      : `types ${v.typecheck.before} → ${v.typecheck.afterUpgrade} with the upgrade → ${v.typecheck.after} after Uptide`;
+  return `${types}, lint ${v.lint.before} → ${v.lint.after}, ${tests}`;
 }
 
 /** The report as Markdown for `$GITHUB_STEP_SUMMARY`: the same fields, nothing more. */

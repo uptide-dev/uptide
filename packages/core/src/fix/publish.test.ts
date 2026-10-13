@@ -89,7 +89,22 @@ it('names what failed, and refuses a run produced by a dirty Uptide checkout', a
   } as unknown as FixReport;
   expect(publicationBlockers(report, clean)).toEqual([]);
   expect(publicationBlockers(failed, clean)).toEqual([
-    'verification failed: 1 new type error, tests failed in packages/api',
+    'verification failed: 1 type error introduced by the upgrade, tests failed in packages/api',
+  ]);
+  // On an unhealthy baseline, what was already broken is named apart, never as the failure.
+  const unhealthy = {
+    ...failed,
+    verification: {
+      ...failed.verification,
+      baselineHealth: { healthy: false, typeErrors: 2, failingTests: 1, missingModules: [] },
+      tests: [
+        { workspace: 'packages/api', status: 'failed', output: '' },
+        { workspace: 'packages/web', status: 'failed', output: '', preexisting: ['*'] },
+      ],
+    },
+  } as unknown as FixReport;
+  expect(publicationBlockers(unhealthy, clean)).toEqual([
+    'verification failed: 1 type error introduced by the upgrade, 2 pre-existing, tests failed in packages/api, tests in packages/web already failing before the upgrade',
   ]);
   expect(publicationBlockers({ ...report, verificationPending: true }, clean)).toEqual([
     'verification has not run',

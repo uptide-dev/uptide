@@ -21,7 +21,7 @@ import {
   type Upgrade,
 } from '../run-report/schema.js';
 import { type EngineRun, parseJson } from './engine.js';
-import { pullNumber } from './github.js';
+import { type CommitIdentity, FALLBACK_IDENTITY, pullNumber } from './github.js';
 
 export interface ActionInputs {
   /** The repository's checkout (`GITHUB_WORKSPACE`). */
@@ -45,13 +45,18 @@ export interface ActionInputs {
 }
 
 export interface ActionServices {
-  /** Run the CLI with these arguments; `apiKey` is passed to it only when assisted fixes may run. */
-  engine(args: string[], apiKey?: string): Promise<EngineRun>;
+  /**
+   * Run the CLI with these arguments; `apiKey` is passed to it only when assisted fixes may
+   * run. Its commits are by `identity`, or the fallback identity without one.
+   */
+  engine(args: string[], apiKey?: string, identity?: CommitIdentity): Promise<EngineRun>;
   /** The installation token (exchanged on first use). Throws `ActionAuthError`. */
   token(): Promise<string>;
+  /** The App's bot, resolved with the installation token; undefined when it cannot be. */
+  commitIdentity?(token: string): Promise<CommitIdentity | undefined>;
   openUptideBranches(token: string): Promise<string[]>;
   /** `uptide pr --branch <branch> --yes --json` with the token; the PR URL. */
-  publish(branch: string, token: string): Promise<string>;
+  publish(branch: string, token: string, identity?: CommitIdentity): Promise<string>;
   now(): number;
   log(line: string): void;
 }
@@ -119,9 +124,9 @@ function byPackage(packages: PackageReport[]): Upgrade[] {
 }
 
 /**
- * A companion (`react-dom`, `@types/react`) that `check` also reports on its own, at the
- * version installed: it is not up to date, it moves with its lead's upgrade. Its row takes the
- * versions the lead's plan gives it and names the lead.
+ * A companion (`react-dom`, `@types/react`) moves with its lead's upgrade: its row takes the
+ * versions the lead's plan gives it and names the lead, whether `check` analyzed it in the
+ * lead's group (no report of its own) or reported it apart, at the version installed.
  */
 function movingWithLeads(packages: PackageReport[], rows: Map<string, Upgrade>): void {
   const moves = (u: Upgrade): boolean => u.from !== u.to && u.status !== 'up_to_date';
@@ -133,11 +138,17 @@ function movingWithLeads(packages: PackageReport[], rows: Map<string, Upgrade>):
       ...(pkg.members ?? []).map((m) => ({ name: m.name, from: m.installed, to: m.target })),
     ];
     for (const c of together) {
-      const row = rows.get(c.name);
-      if (!row || c.name === lead.package || moves(row)) continue;
-      if (row.status !== 'up_to_date' && row.status !== 'available') continue;
+      if (c.name === lead.package) continue;
       if (c.from === c.to || reportVersion(c.from) !== c.from || reportVersion(c.to) !== c.to)
         continue;
+      // Analyzed in its lead's group, a companion has no report of its own: its row starts here.
+      let row = rows.get(c.name);
+      if (!row) {
+        row = skipped({ package: c.name, from: c.from }, 'up_to_date');
+        rows.set(c.name, row);
+      }
+      if (moves(row)) continue;
+      if (row.status !== 'up_to_date' && row.status !== 'available') continue;
       row.from = c.from;
       row.to = c.to;
       row.kind = kindOf(c.from, c.to);
@@ -266,14 +277,22 @@ export async function runAction(
 
   // fix: the token first. A run that cannot publish spends nothing on migrations.
   let open: string[];
+  let author: CommitIdentity | undefined;
   try {
-    open = await services.openUptideBranches(await services.token());
+    const token = await services.token();
+    open = await services.openUptideBranches(token);
+    // The commits are the App's: its bot account, so GitHub links them to it.
+    author = await services.commitIdentity?.(token).catch(() => undefined);
   } catch (err) {
     upgrades.push(...candidates.map(fromListed));
     return report(
       `cannot open pull requests: ${err instanceof Error && err.name === 'ActionAuthError' ? err.message : 'GitHub could not be reached'}`,
     );
   }
+  if (!author)
+    services.log(
+      `::warning title=Uptide commit identity::The Uptide app's bot account could not be resolved with the installation token; commits are authored as ${FALLBACK_IDENTITY.name} <${FALLBACK_IDENTITY.email}>, which GitHub links to no account.`,
+    );
   let slots = config.maxOpenPrs - open.length;
   let attempts = Math.max(0, slots);
   let budget = config.maxCost;
@@ -316,7 +335,7 @@ export async function runAction(
         : ['--no-llm']),
     ];
     services.log(`::group::uptide fix ${dep.name}`);
-    const run = await services.engine(args, llm ? inputs.apiKey : undefined);
+    const run = await services.engine(args, llm ? inputs.apiKey : undefined, author);
     services.log('::endgroup::');
     const fixed = parseJson<FixReport>(run);
     if (!fixed || run.code === 2) {
@@ -335,7 +354,7 @@ export async function runAction(
     let error: string | undefined;
     if (fixed.verification.passed && !fixed.exportError) {
       try {
-        const url = await services.publish(fixed.branch, await services.token());
+        const url = await services.publish(fixed.branch, await services.token(), author);
         const number = pullNumber(url);
         if (number) {
           pr = { number, url };

@@ -77,6 +77,13 @@ grants only `contents: read`, and `id-token: write` for this:
    `uptide pr`, which runs `git push` and `gh pr create` and nothing of your repository: no
    install, build or test. `gh` reads it from a private config directory removed afterwards;
    `git` gets it as an HTTP header, never in `.git/config`, a URL or a command line.
+4. The commits are the App's: authored and committed by its bot account,
+   `<app slug>[bot]` with the address `<bot user id>+<app slug>[bot]@users.noreply.github.com`,
+   so GitHub links them to the App. The slug is the `appSlug` the Uptide app adds to its answer,
+   else `GET /app` when GitHub answers it for the installation token; the id is the bot user's
+   (`GET /users/<app slug>[bot]`). When neither works, the commits keep
+   `uptide[bot] <uptide@users.noreply.github.com>`, which links to no account, and the job log
+   has a warning saying so.
 
 `fix` therefore needs the Uptide GitHub App installed on the repository. `list` and `check`
 do not; without the app, only the run report is not sent.
@@ -147,7 +154,16 @@ real `fix` run on the [storefront fixture](../fixtures/repos/storefront) without
       "verification": {
         "typecheck": {
           "before": 1,
+          "afterUpgrade": 29,
           "after": 5
+        },
+        "baselineHealth": {
+          "typeErrors": 1,
+          "failingTests": 0,
+          "missingModules": {
+            "local": 0,
+            "packages": 0
+          }
         },
         "lint": {
           "before": 0,
@@ -173,7 +189,14 @@ symbol explains. `status` is `up_to_date`, `available` (behind, not migrated thi
 pull request open), `failed` (did not verify, or could not be published; `error` says why) or
 `skipped` (a pull request is already open, or `maxCost` was reached). `verification` counts
 type errors and failing lint tools before and after, and test runs (one per workspace or
-scope); it is null when no migration ran.
+scope); it is null when no migration ran. `typecheck.afterUpgrade` is the count right after
+the version bump, before any fix: next to `before` and `after` it says what the upgrade broke
+and what the migration left (the job summary prints `types 0 → 4 with the upgrade → 0 after
+Uptide`). It is optional, absent in reports written before it. `verification.baselineHealth`
+is the repository before the upgrade, in counts only: type errors, failing test runs, and the
+missing-module errors among those type errors, under the repository's own paths (`local`:
+relative imports and path aliases) and in `packages`. Which modules or aliases are missing
+stays in the fix report; the run report never names them. Also optional.
 
 `analysis` says what an empty `breaking` means. `pack`: a migration pack analyzed the upgrade,
 so none breaks. `none`: no pack covers it yet, so none was confirmed, which is no answer (the

@@ -9,7 +9,7 @@ import { fitPieces, must, type Piece } from './budget.js';
 import { describeTransitive } from './managers/lock-guard.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import type { FixDiagnostic, FixReport, FixSite, ReviewSection } from './types.js';
-import { missingPackages } from './verify.js';
+import { missingPackages, newDiagnostics } from './verify.js';
 
 export function fixCounts(report: FixReport) {
   return {
@@ -540,10 +540,24 @@ export function summaryCells(report: FixReport): {
       ? '⚠️ verification pending'
       : report.verification.typesUnverified
         ? '⚠️ not verified (type resolution failed)'
-        : `${report.verification.newErrors.length ? '❌' : '✅'} ${count(report.verification.target.length, 'error')} ${report.mode === 'pin' ? 'before' : 'after the bump'} → ${report.verification.after.length}${report.verification.baseline.length ? ` (${report.verification.baseline.length} pre-existing, ${report.verification.newErrors.length} introduced by the upgrade)` : ''}`,
+        : typesCell(report),
     behavior,
     tests: cell(report.verificationPending ? '⚠️ not run' : tests),
   };
+}
+/**
+ * What the upgrade broke and what Uptide left: errors right after the bump that the repository
+ * did not have before (the bump moves no source line, so they compare as they are), then the
+ * new errors once the migration is done.
+ */
+function typesCell(report: FixReport): string {
+  const v = report.verification;
+  const mark = v.newErrors.length ? '❌' : '✅';
+  const pre = v.baseline.length ? ` (${v.baseline.length} pre-existing, not counted)` : '';
+  if (report.mode === 'pin')
+    return `${mark} ${count(v.target.length, 'error')} before → ${v.after.length}${pre}`;
+  const broke = newDiagnostics(v.baseline, v.target).length;
+  return `${mark} the upgrade broke ${broke} · Uptide left ${v.newErrors.length}${pre}`;
 }
 function summaryRows(report: FixReport): string[] {
   const c = summaryCells(report);

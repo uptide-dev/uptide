@@ -98,7 +98,7 @@ uptide fix · zod 3.25.76 → 4.6.5 (latest on npm) · verification passed · 36
 
   Risk      Medium: request validation in webhooks
   Changes   29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM)
-  Types     ✅ 29 errors after the bump → 1 (1 pre-existing)
+  Types     ✅ the upgrade broke 28 · Uptide left 0 (1 pre-existing, not counted)
   Behavior  ✅ 9 schemas identical · 2 not checked · 21/21 custom-message assertions
   Tests     ✅ 5 tests in 3 files passed
 ```
