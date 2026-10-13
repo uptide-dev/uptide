@@ -81,6 +81,40 @@ describe('uptide.run/v1', () => {
     expect(reportProblems(run([negative as typeof upgrade]))).not.toEqual([]);
   });
 
+  it('counts the baseline health, and never names a missing module or alias', () => {
+    const fix = storefront();
+    const missing = (specifier: string) => ({
+      file: 'src/a.ts',
+      line: 1,
+      column: 1,
+      code: 2307,
+      message: `Cannot find module '${specifier}' or its corresponding type declarations.`,
+    });
+    fix.verification.baseline = [
+      missing('@/ee/features/billing'),
+      missing('@/ee/features/sso'),
+      missing('./generated/client'),
+      missing('@react-email/components'),
+      { file: 'src/b.ts', line: 2, column: 1, code: 2322, message: 'not a module error' },
+    ];
+    delete fix.verification.baselineHealth;
+    fix.verification.baselineTests = [{ workspace: '.', status: 'failed', output: '' }];
+    const upgrade = fromFix(fix, { pr: PR, durationMs: 1 });
+    expect(upgrade.verification?.baselineHealth).toEqual({
+      typeErrors: 5,
+      failingTests: 1,
+      missingModules: { local: 3, packages: 1 },
+    });
+    expect(reportProblems(run([upgrade]))).toEqual([]);
+    const text = JSON.stringify(upgrade);
+    for (const name of ['@/ee', 'generated', 'react-email']) expect(text).not.toContain(name);
+    // A report written before the field still validates.
+    const { baselineHealth: _, ...older } = upgrade.verification as NonNullable<
+      typeof upgrade.verification
+    >;
+    expect(reportProblems(run([{ ...upgrade, verification: older }]))).toEqual([]);
+  });
+
   it('carries no source, diff, snippet, message, command, output or environment value', () => {
     const fix = storefront();
     const secret = `sk-ant-api03-${'q'.repeat(30)}`;

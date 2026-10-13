@@ -43,12 +43,14 @@ export interface BreakingSite {
 }
 
 export interface Verification {
-  /**
-   * Type errors: before the upgrade, right after the version bump (`afterUpgrade`, before any
-   * fix: what the upgrade broke), and after the migration. `afterUpgrade` is absent in reports
-   * written before it.
-   */
+  /** Type errors before the upgrade, right after the bump (before any fix), after the migration. */
   typecheck: { before: number; afterUpgrade?: number; after: number };
+  /** The repository before the upgrade, in counts; missing modules: its own paths, packages. */
+  baselineHealth?: {
+    typeErrors: number;
+    failingTests: number;
+    missingModules: { local: number; packages: number };
+  };
   /** Lint tools failing on the edited files, before and after. */
   lint: { before: number; after: number };
   /** Test runs (one per workspace or scope) that passed and failed; null when none ran. */
@@ -218,6 +220,21 @@ export const RUN_REPORT_SCHEMA = {
                 required: ['typecheck', 'lint', 'tests'],
                 properties: {
                   typecheck: TYPECHECK,
+                  baselineHealth: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['typeErrors', 'failingTests', 'missingModules'],
+                    properties: {
+                      typeErrors: COUNT,
+                      failingTests: COUNT,
+                      missingModules: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['local', 'packages'],
+                        properties: { local: COUNT, packages: COUNT },
+                      },
+                    },
+                  },
                   lint: BEFORE_AFTER,
                   tests: {
                     anyOf: [

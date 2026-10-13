@@ -150,6 +150,14 @@ real `fix` run on the [storefront fixture](../fixtures/repos/storefront) without
           "afterUpgrade": 29,
           "after": 5
         },
+        "baselineHealth": {
+          "typeErrors": 1,
+          "failingTests": 0,
+          "missingModules": {
+            "local": 0,
+            "packages": 0
+          }
+        },
         "lint": {
           "before": 0,
           "after": 0
@@ -177,7 +185,11 @@ type errors and failing lint tools before and after, and test runs (one per work
 scope); it is null when no migration ran. `typecheck.afterUpgrade` is the count right after
 the version bump, before any fix: next to `before` and `after` it says what the upgrade broke
 and what the migration left (the job summary prints `types 0 → 4 with the upgrade → 0 after
-Uptide`). It is optional, absent in reports written before it.
+Uptide`). It is optional, absent in reports written before it. `verification.baselineHealth`
+is the repository before the upgrade, in counts only: type errors, failing test runs, and the
+missing-module errors among those type errors, under the repository's own paths (`local`:
+relative imports and path aliases) and in `packages`. Which modules or aliases are missing
+stays in the fix report; the run report never names them. Also optional.
 
 `analysis` says what an empty `breaking` means. `pack`: a migration pack analyzed the upgrade,
 so none breaks. `none`: no pack covers it yet, so none was confirmed, which is no answer (the

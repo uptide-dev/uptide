@@ -171,6 +171,36 @@
                       }
                     }
                   },
+                  "baselineHealth": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["typeErrors", "failingTests", "missingModules"],
+                    "properties": {
+                      "typeErrors": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "failingTests": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "missingModules": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["local", "packages"],
+                        "properties": {
+                          "local": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "packages": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  },
                   "lint": {
                     "type": "object",
                     "additionalProperties": false,

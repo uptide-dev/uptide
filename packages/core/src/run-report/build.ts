@@ -1,5 +1,6 @@
 import semver from 'semver';
 import type { Finding, PackageReport, Tier } from '../domain/report.js';
+import { baselineHealthOf } from '../fix/baseline.js';
 import type { FixReport } from '../fix/types.js';
 import type { ListedDependency } from '../list/list.js';
 import type {
@@ -82,6 +83,30 @@ export function breakingSites(findings: readonly Finding[]): BreakingSite[] {
   return sites;
 }
 
+/**
+ * The baseline's health in counts only: which specifiers or aliases are missing stays in the
+ * fix report. A group of the repository's own paths (relative, or an alias such as `@/ee/`) is
+ * local; any other is a package.
+ */
+function baselineCounts(report: FixReport): NonNullable<Verification['baselineHealth']> {
+  const health = baselineHealthOf({
+    ...report,
+    verification: {
+      ...report.verification,
+      baseline: report.verification.baseline ?? [],
+      baselineTests: report.verification.baselineTests ?? [],
+    },
+  });
+  const local = (under: string) => /^[./]/.test(under) || under.endsWith('/');
+  const errors = (keep: boolean) =>
+    health.missingModules.filter((g) => local(g.under) === keep).reduce((n, g) => n + g.errors, 0);
+  return {
+    typeErrors: health.typeErrors,
+    failingTests: health.failingTests,
+    missingModules: { local: errors(true), packages: errors(false) },
+  };
+}
+
 /** Counts from a fix run's verification: errors, failing lint tools, test runs. */
 export function verificationOf(report: FixReport): Verification {
   const v = report.verification;
@@ -93,6 +118,7 @@ export function verificationOf(report: FixReport): Verification {
       ...(v.target ? { afterUpgrade: v.target.length } : {}),
       after: v.after?.length ?? 0,
     },
+    baselineHealth: baselineCounts(report),
     lint: {
       before: lint.filter((l) => l.status === 'pre-existing').length,
       after: lint.filter((l) => l.status !== 'passed').length,
