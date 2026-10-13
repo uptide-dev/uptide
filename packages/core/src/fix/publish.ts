@@ -25,21 +25,31 @@ export function publicationBlockers(
   const v = report.verification;
   if (report.verificationPending) blockers.push('verification has not run');
   else if (!v.passed && !report.exportError) {
-    const failed = (v.tests ?? []).filter((t) => t.status === 'failed' || t.status === 'timeout');
+    const failing = (v.tests ?? []).filter((t) => t.status === 'failed' || t.status === 'timeout');
+    // What the upgrade introduced, apart from what was already broken (`fixVerdict`): on an
+    // unhealthy baseline the pre-existing errors and failing runs are named, never blamed.
+    const preexisting = v.baselineHealth?.typeErrors ?? v.baseline?.length ?? 0;
     const reasons = [
       ...(v.typesUnverified
         ? [`types not verified (type resolution failed: ${v.typesUnverified})`]
         : []),
-      ...(v.newErrors?.length ? [count(v.newErrors.length, 'new type error')] : []),
+      ...(v.newErrors?.length
+        ? [
+            `${count(v.newErrors.length, 'type error')} introduced by the upgrade${preexisting ? `, ${preexisting} pre-existing` : ''}`,
+          ]
+        : []),
       ...(v.lint ?? [])
         .filter((l) => l.status === 'failed')
         .map((l) => `lint (${l.tool}) fails on the edited files`),
       ...(v.build ?? [])
         .filter((b) => b.status === 'failed' || b.status === 'timeout')
         .map((b) => `build ${b.status === 'timeout' ? 'timed out' : 'failed'} in ${b.workspace}`),
-      ...failed.map(
-        (t) => `tests ${t.status === 'timeout' ? 'timed out' : 'failed'} in ${t.workspace}`,
-      ),
+      ...failing
+        .filter((t) => !t.preexisting)
+        .map((t) => `tests ${t.status === 'timeout' ? 'timed out' : 'failed'} in ${t.workspace}`),
+      ...failing
+        .filter((t) => t.preexisting)
+        .map((t) => `tests in ${t.workspace} already failing before the upgrade`),
     ];
     blockers.push(
       `verification failed${reasons.length ? `: ${reasons.join(', ')}` : ' (files were left uncommitted)'}`,

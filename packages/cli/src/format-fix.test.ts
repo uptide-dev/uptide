@@ -58,7 +58,7 @@ describe('formatFixSummary', () => {
         '',
         '  Risk      Medium: no tests',
         '  Changes   none: versions and lockfile only',
-        '  Types     ✅ 0 errors after the bump → 0',
+        '  Types     ✅ the upgrade broke 0 · Uptide left 0',
         '  Behavior  ⚠️ not checked',
         '  Tests     ⚠️ no tests ran',
         '',

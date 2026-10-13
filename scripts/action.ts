@@ -2,14 +2,15 @@
  * The Uptide Action (action.yml): one run of list, check or fix in the customer's own job,
  * with the CLI of this commit. Inputs arrive as UPTIDE_* variables from action.yml.
  *
- * Secrets: the Anthropic key is read once and removed from this process's environment; it is
- * passed to `uptide fix` only when assisted fixes may run. The installation token is masked
+ * Secrets: the Anthropic key is required; without it the run stops before doing anything
+ * (`LLM_KEY_MISSING`). It is read once and removed from this process's environment, and
+ * passed to `uptide fix` alone. The installation token is masked
  * on arrival and reaches only the `uptide pr` process. Nothing here prints either.
  */
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { engineEnv, engineFromBuild, publishEnv } from '../packages/core/src/action/engine.ts';
-import { openUptideBranches } from '../packages/core/src/action/github.ts';
+import { appBotIdentity, openUptideBranches } from '../packages/core/src/action/github.ts';
 import { installationTokens, maskWithRunner } from '../packages/core/src/action/oidc.ts';
 import { postResults } from '../packages/core/src/action/results.ts';
 import { runAction } from '../packages/core/src/action/run.ts';
@@ -49,8 +50,16 @@ const report = await runAction(
     },
   },
   {
-    engine: (args, key) => engine(args, engineEnv(env, key ? { ANTHROPIC_API_KEY: key } : {})),
+    engine: (args, key, identity) =>
+      engine(args, engineEnv(env, key ? { ANTHROPIC_API_KEY: key } : {}, identity)),
     token: () => tokens.get(),
+    commitIdentity: (token) =>
+      appBotIdentity({
+        token,
+        fetch,
+        ...(tokens.appSlug() ? { appSlug: tokens.appSlug() } : {}),
+        ...(env.GITHUB_API_URL ? { apiUrl: env.GITHUB_API_URL } : {}),
+      }),
     openUptideBranches: (token) =>
       openUptideBranches({
         repository: env.GITHUB_REPOSITORY ?? '',
@@ -58,8 +67,8 @@ const report = await runAction(
         fetch,
         ...(env.GITHUB_API_URL ? { apiUrl: env.GITHUB_API_URL } : {}),
       }),
-    async publish(branch, token) {
-      const { env: withToken, cleanup } = publishEnv(env, token);
+    async publish(branch, token, identity) {
+      const { env: withToken, cleanup } = publishEnv(env, token, undefined, identity);
       try {
         const run = await engine(
           ['pr', '--branch', branch, '--yes', '--json', '--ci', '--cwd', workspace],

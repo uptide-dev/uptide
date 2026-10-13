@@ -19,7 +19,7 @@ uptide fix · zod 3.25.76 → 4.6.5 (latest on npm) · verification passed · 36
 
   Risk      Medium: request validation in webhooks
   Changes   29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM)
-  Types     ✅ 29 errors after the bump → 1 (1 pre-existing)
+  Types     ✅ the upgrade broke 28 · Uptide left 0 (1 pre-existing, not counted)
   Behavior  ✅ 9 schemas identical · 2 not checked · 21/21 custom-message assertions
   Tests     ✅ 5 tests in 3 files passed
 ```
@@ -39,7 +39,7 @@ uptide fix · stripe 14.25.0 → 23.0.0 (latest on npm) · verification passed �
 
   Risk      High: behavior changes
   Changes   6 sites in 3 files · 3 auto-fixed · 3 fixed by the agent (LLM)
-  Types     ✅ 5 errors after the bump → 1 (1 pre-existing)
+  Types     ✅ the upgrade broke 4 · Uptide left 0 (1 pre-existing, not counted)
   Behavior  ⚠️ 1 of 570 API changes affects your code · 47 touch resources you use (8 breaking)
   Tests     ✅ 3 tests in 2 files passed · the test script of packages/api
 ```

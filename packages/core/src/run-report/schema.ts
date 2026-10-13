@@ -43,8 +43,14 @@ export interface BreakingSite {
 }
 
 export interface Verification {
-  /** Type errors, before the upgrade and after the migration. */
-  typecheck: { before: number; after: number };
+  /** Type errors before the upgrade, right after the bump (before any fix), after the migration. */
+  typecheck: { before: number; afterUpgrade?: number; after: number };
+  /** The repository before the upgrade, in counts; missing modules: its own paths, packages. */
+  baselineHealth?: {
+    typeErrors: number;
+    failingTests: number;
+    missingModules: { local: number; packages: number };
+  };
   /** Lint tools failing on the edited files, before and after. */
   lint: { before: number; after: number };
   /** Test runs (one per workspace or scope) that passed and failed; null when none ran. */
@@ -77,6 +83,12 @@ export interface Upgrade {
   error?: string;
 }
 
+/**
+ * Whether the run had an Anthropic API key: never the key, nor any part of it. The Action
+ * does not run without one (`LLM_KEY_MISSING`). Absent in reports written before it.
+ */
+export type LlmKey = 'present' | 'missing';
+
 export interface RunReport {
   schema: typeof RUN_REPORT_SCHEMA_ID;
   engineVersion: string;
@@ -88,6 +100,7 @@ export interface RunReport {
   startedAt: string;
   finishedAt: string;
   upgrades: Upgrade[];
+  llmKey?: LlmKey;
   error?: string;
 }
 
@@ -107,6 +120,10 @@ const BEFORE_AFTER = {
   additionalProperties: false,
   required: ['before', 'after'],
   properties: { before: COUNT, after: COUNT },
+} as const;
+const TYPECHECK = {
+  ...BEFORE_AFTER,
+  properties: { before: COUNT, afterUpgrade: COUNT, after: COUNT },
 } as const;
 
 /** JSON Schema (draft 2020-12) of `uptide.run/v1`; `schema/uptide.run.v1.json` is its copy. */
@@ -209,7 +226,22 @@ export const RUN_REPORT_SCHEMA = {
                 additionalProperties: false,
                 required: ['typecheck', 'lint', 'tests'],
                 properties: {
-                  typecheck: BEFORE_AFTER,
+                  typecheck: TYPECHECK,
+                  baselineHealth: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['typeErrors', 'failingTests', 'missingModules'],
+                    properties: {
+                      typeErrors: COUNT,
+                      failingTests: COUNT,
+                      missingModules: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['local', 'packages'],
+                        properties: { local: COUNT, packages: COUNT },
+                      },
+                    },
+                  },
                   lint: BEFORE_AFTER,
                   tests: {
                     anyOf: [
@@ -251,6 +283,7 @@ export const RUN_REPORT_SCHEMA = {
         },
       },
     },
+    llmKey: { enum: ['present', 'missing'] },
     error: { type: 'string', pattern: SENTENCE },
   },
 } as const;

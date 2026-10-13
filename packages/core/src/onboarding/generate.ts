@@ -38,10 +38,16 @@ export function generateOnboarding(
     version: 1,
     schedule: options.config?.schedule ?? weeklySchedule(seed),
   });
-  if (config.llm.enabled && config.llm.provider !== 'anthropic')
+  // An older uptide.yml may still turn the LLM off; the Uptide Action no longer runs that way.
+  if (!config.llm.enabled)
+    throw new OnboardingRefusal(
+      'llm-disabled',
+      'uptide.yml sets llm.enabled to false, which Uptide no longer supports: the Uptide workflow always uses an Anthropic key (ANTHROPIC_API_KEY). Remove llm.enabled from uptide.yml.',
+    );
+  if (config.llm.provider !== 'anthropic')
     throw new OnboardingRefusal(
       'unsupported-provider',
-      `uptide.yml sets llm.provider to ${config.llm.provider}; the Uptide workflow passes only an Anthropic key (ANTHROPIC_API_KEY) for now. Use provider anthropic, or set llm.enabled to false.`,
+      `uptide.yml sets llm.provider to ${config.llm.provider}; the Uptide workflow passes only an Anthropic key (ANTHROPIC_API_KEY). Use provider anthropic.`,
     );
   return {
     files: [

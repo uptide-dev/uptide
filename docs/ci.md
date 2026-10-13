@@ -36,10 +36,27 @@ steps:
 | `config` | `uptide.yml` | The settings file, relative to the repository root ([uptide.yml](config.md)). Without the file, the defaults apply. |
 | `mode` | `check` | `list`: what is behind. `check`: what each upgrade breaks, at which call sites. `fix`: verified migrations, opened as draft pull requests. |
 | `package` | (empty) | One dependency. Empty: every dependency `uptide.yml` allows, most urgent first. |
-| `anthropic-api-key` | (empty) | For assisted fixes; pass `secrets.ANTHROPIC_API_KEY`. Empty: rule-based fixes only. |
+| `anthropic-api-key` | (empty) | Required: pass `secrets.ANTHROPIC_API_KEY`. Empty: the run stops before doing anything and the job fails ([below](#the-anthropic-key-is-required)). |
 | `app-url` | `https://uptide-app.vercel.app` | The Uptide app: it issues the push token and receives the run report. |
 
 Output: `report`, the path of this run's report (JSON, `uptide.run/v1`).
+
+## The Anthropic key is required
+
+Uptide without the LLM gives worse answers, and no run is better than a poor one. So the
+Action checks `anthropic-api-key` before anything else, in every mode. When it is missing or
+empty, the run:
+
+- does not build the engine, read `uptide.yml`, list, check or fix anything, or ask for a push
+  token;
+- writes a job summary that says what to add: in the repository, **Settings → Secrets and
+  variables → Actions → New repository secret**, named `ANTHROPIC_API_KEY`, passed to the step
+  as `anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}`;
+- sends a run report with no upgrades, `"llmKey": "missing"` and an `error` that starts with
+  the code `LLM_KEY_MISSING`;
+- fails the job.
+
+The key is never written anywhere: the report says only `present` or `missing`.
 
 ## What a run does
 
@@ -63,8 +80,8 @@ Output: `report`, the path of this run's report (JSON, `uptide.run/v1`).
    sends it to the Uptide app. If sending fails, the job warns and goes on: the pull request
    is the product, the dashboard is secondary.
 
-The job fails only when the run as a whole could not do its job: an invalid `uptide.yml`, no
-push token in `fix` mode, or the engine not answering. A migration that does not verify is
+The job fails only when the run as a whole could not do its job: no Anthropic key, an
+invalid `uptide.yml`, no push token in `fix` mode, or the engine not answering. A migration that does not verify is
 a result, reported as `failed`, not a failed job.
 
 ## How it pushes
@@ -80,6 +97,13 @@ grants only `contents: read`, and `id-token: write` for this:
    `uptide pr`, which runs `git push` and `gh pr create` and nothing of your repository: no
    install, build or test. `gh` reads it from a private config directory removed afterwards;
    `git` gets it as an HTTP header, never in `.git/config`, a URL or a command line.
+4. The commits are the App's: authored and committed by its bot account,
+   `<app slug>[bot]` with the address `<bot user id>+<app slug>[bot]@users.noreply.github.com`,
+   so GitHub links them to the App. The slug is the `appSlug` the Uptide app adds to its answer,
+   else `GET /app` when GitHub answers it for the installation token; the id is the bot user's
+   (`GET /users/<app slug>[bot]`). When neither works, the commits keep
+   `uptide[bot] <uptide@users.noreply.github.com>`, which links to no account, and the job log
+   has a warning saying so.
 
 `fix` therefore needs the Uptide GitHub App installed on the repository. `list` and `check`
 do not; without the app, only the run report is not sent.
@@ -89,7 +113,7 @@ do not; without the app, only the run report is not sent.
 - **The run report**, to the Uptide app (`{app-url}/api/action/results`, with a fresh OIDC
   token as bearer).
 - **Code around the call sites no rule fixes**, to Anthropic, with your own API key, in `fix`
-  mode only, when `llm.enabled` is true and the secret is set.
+  mode only.
 
 Nothing else. The Anthropic key is given to the migration process alone; installs, builds
 and tests run with every variable whose name says token, secret, key or password removed.
@@ -102,7 +126,8 @@ summary renderer) and `uptide/report/schema.json` (JSON Schema). Like `uptide/on
 ESM and bundles for a browser (`pnpm smoke:onboarding` checks both from the packed tarball).
 One row per dependency. A
 real `fix` run on the [storefront fixture](../fixtures/repos/storefront) without an API key
-(rule-based only; `breaking` cut to 3 of 28 here):
+(rule-based only, from before the key was required, so it has no `llmKey`; `breaking` cut to
+3 of 28 here):
 
 ```json
 {
@@ -150,7 +175,16 @@ real `fix` run on the [storefront fixture](../fixtures/repos/storefront) without
       "verification": {
         "typecheck": {
           "before": 1,
+          "afterUpgrade": 29,
           "after": 5
+        },
+        "baselineHealth": {
+          "typeErrors": 1,
+          "failingTests": 0,
+          "missingModules": {
+            "local": 0,
+            "packages": 0
+          }
         },
         "lint": {
           "before": 0,
@@ -177,7 +211,14 @@ pull request open), `failed` (did not verify, or could not be published; `error`
 `skipped` (a pull request is already open, `maxCost` was reached, or no pack covers it:
 `no pack yet`, with `analysis: "none"`, so each one counts as demand for a pack). `verification` counts
 type errors and failing lint tools before and after, and test runs (one per workspace or
-scope); it is null when no migration ran.
+scope); it is null when no migration ran. `typecheck.afterUpgrade` is the count right after
+the version bump, before any fix: next to `before` and `after` it says what the upgrade broke
+and what the migration left (the job summary prints `types 0 → 4 with the upgrade → 0 after
+Uptide`). It is optional, absent in reports written before it. `verification.baselineHealth`
+is the repository before the upgrade, in counts only: type errors, failing test runs, and the
+missing-module errors among those type errors, under the repository's own paths (`local`:
+relative imports and path aliases) and in `packages`. Which modules or aliases are missing
+stays in the fix report; the run report never names them. Also optional.
 
 `analysis` says what an empty `breaking` means. `pack`: a migration pack analyzed the upgrade,
 so none breaks. `none`: no pack covers it yet, so none was confirmed, which is no answer (the
@@ -186,6 +227,10 @@ analyzed this run. A companion that moves with another package's upgrade (`react
 `@types/react` with `react`) carries the versions that upgrade gives it and `movesWith`, the
 package it moves with; it is analyzed as part of that package. Both fields are optional:
 readers of reports written before them see neither.
+
+`llmKey` is `present` or `missing`: whether the run had an Anthropic key. It is never the key or
+any part of it. The Action always sets it; reports written before it have none. A run with
+`missing` has no upgrades and an `error` starting with `LLM_KEY_MISSING`.
 
 The report never holds source code, diffs, snippets, compiler messages, commands, output or
 environment values: package names, versions, repository-relative paths, line numbers,

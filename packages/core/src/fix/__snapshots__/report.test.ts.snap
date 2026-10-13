@@ -12,7 +12,7 @@ exports[`storefront-zod > snapshots the full PR description and compact terminal
 | **Verified by** | ✅ the zod migration pack · ✅ type-check · build not required (pack-verified migration) · ✅ tests (2 runs) |
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing, 0 introduced by the upgrade) |
+| **Types** | ✅ the upgrade broke 28 · Uptide left 0 (1 pre-existing, not counted) |
 | **Behavior** | ✅ 9 schemas identical · 2 not checked · 21/21 custom-message assertions |
 | **Tests** | ✅ 5 tests in 3 files passed |
 
@@ -267,7 +267,7 @@ exports[`storefront-zod > snapshots the full PR description and compact terminal
 | **Verified by** | ✅ the zod migration pack · ✅ type-check · build not required (pack-verified migration) · ✅ tests (2 runs) |
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing, 0 introduced by the upgrade) |
+| **Types** | ✅ the upgrade broke 28 · Uptide left 0 (1 pre-existing, not counted) |
 | **Behavior** | ✅ 9 schemas identical · 2 not checked · 21/21 custom-message assertions |
 | **Tests** | ✅ 5 tests in 3 files passed |
 
@@ -290,7 +290,7 @@ exports[`stripe > snapshots the full PR description and compact terminal/comment
 | **Verified by** | ✅ type-check · build not required (pack-verified migration) · ⚠️ tests not run: none ran |
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 4 errors after the bump → 0 |
+| **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
 | **Behavior** | ⚠️ not checked |
 | **Tests** | ⚠️ no test script in the repository |
 
@@ -741,7 +741,7 @@ exports[`stripe > snapshots the full PR description and compact terminal/comment
 | **Verified by** | ✅ type-check · build not required (pack-verified migration) · ⚠️ tests not run: none ran |
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 4 errors after the bump → 0 |
+| **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
 | **Behavior** | ⚠️ not checked |
 | **Tests** | ⚠️ no test script in the repository |
 

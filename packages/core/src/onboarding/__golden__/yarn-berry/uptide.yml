@@ -21,9 +21,8 @@ schedule: '54 7 * * 1'
 maxOpenPrs: 3
 
 llm:
-  # Assisted fixes for call sites no rule covers. false: no code is sent to an LLM.
-  enabled: true
-  # Who receives that code, with this repository's own key (secret ANTHROPIC_API_KEY).
+  # Who receives the code around call sites no rule covers, with this repository's own key
+  # (secret ANTHROPIC_API_KEY). The Uptide workflow does not run without that key.
   provider: anthropic
 
 # LLM budget in USD; the SDK may overshoot by one turn.

@@ -8,8 +8,15 @@ import type { ListedDependency, ListReport } from '../list/list.js';
 import { reportProblems } from '../run-report/safe.js';
 import { renderSummary } from '../run-report/summary.js';
 import type { EngineRun } from './engine.js';
+import type { CommitIdentity } from './github.js';
 import { ActionAuthError } from './oidc.js';
-import { type ActionInputs, type ActionServices, runAction } from './run.js';
+import {
+  type ActionInputs,
+  type ActionServices,
+  LLM_DISABLED,
+  LLM_KEY_MISSING,
+  runAction,
+} from './run.js';
 
 const fixture = <T>(path: string): T =>
   JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -76,13 +83,15 @@ function services(answers: {
   open?: string[];
   token?: () => Promise<string>;
   publish?: (branch: string) => Promise<string>;
+  identity?: ActionServices['commitIdentity'];
 }) {
-  const calls: { args: string[]; apiKey?: string }[] = [];
-  const published: { branch: string; token: string }[] = [];
+  const calls: { args: string[]; apiKey?: string; identity?: CommitIdentity }[] = [];
+  const published: { branch: string; token: string; identity?: CommitIdentity }[] = [];
+  const logs: string[] = [];
   let clock = Date.UTC(2026, 9, 13, 6, 17);
   const s: ActionServices = {
-    async engine(args, apiKey) {
-      calls.push({ args, ...(apiKey ? { apiKey } : {}) });
+    async engine(args, apiKey, identity) {
+      calls.push({ args, ...(apiKey ? { apiKey } : {}), ...(identity ? { identity } : {}) });
       const [command, name] = args;
       if (command === 'list') return { code: 0, stdout: JSON.stringify(answers.list) };
       if (command === 'check') return { code: 1, stdout: JSON.stringify(answers.check) };
@@ -91,16 +100,19 @@ function services(answers: {
     },
     token: answers.token ?? (async () => 'installation-token'),
     openUptideBranches: async () => answers.open ?? [],
-    async publish(branch, token) {
-      published.push({ branch, token });
+    ...(answers.identity ? { commitIdentity: answers.identity } : {}),
+    async publish(branch, token, identity) {
+      published.push({ branch, token, ...(identity ? { identity } : {}) });
       return answers.publish
         ? answers.publish(branch)
         : 'https://github.com/acme/storefront/pull/9';
     },
     now: () => (clock += 1000),
-    log: () => {},
+    log: (line) => {
+      logs.push(line);
+    },
   };
-  return { s, calls, published };
+  return { s, calls, published, logs };
 }
 const fixRun = (report: FixReport, code = 0): EngineRun => ({
   code,
@@ -215,6 +227,52 @@ describe('the Uptide Action run', () => {
     expect(summary).not.toContain('### Breaking sites');
   });
 
+  it('check: companions analyzed in their lead group get a row of their own', async () => {
+    // What `check react` answers now: one report for the group, the companions as members.
+    const { s } = services({
+      list: listReport([dep('react', '18.3.1', '19.2.0')]),
+      check: {
+        repo: '.',
+        workspaces: ['.'],
+        packages: [
+          {
+            workspace: '.',
+            name: 'react',
+            installed: '18.3.1',
+            latest: '19.2.0',
+            target: '19.2.0',
+            members: [
+              { name: 'react', installed: '18.3.1', target: '19.2.0' },
+              { name: '@types/react', installed: '18.3.12', target: '19.2.2' },
+              { name: 'react-dom', installed: '18.3.1', target: '19.2.0' },
+            ],
+            companions: [
+              { name: '@types/react', from: '18.3.12', to: '19.2.2', reason: 'types react' },
+              { name: 'react-dom', from: '18.3.1', to: '19.2.0', reason: 'released with react' },
+            ],
+            majorsBehind: 1,
+            findings: [],
+            callSitesChecked: 3,
+            unanalyzed: [],
+            status: 'safe',
+            tier: 'generic',
+            notes: [],
+            timing: { fetchMs: 0, diffMs: 0, usagesMs: 0, compileMs: 0 },
+          },
+        ],
+        summary: {},
+        timing: { totalMs: 1 },
+      },
+    });
+    const report = await runAction(inputs(workspace('version: 1\n'), { mode: 'check' }), s);
+    expect(reportProblems(report)).toEqual([]);
+    expect(report.upgrades.map((u) => [u.package, u.from, u.to, u.status, u.movesWith])).toEqual([
+      ['react', '18.3.1', '19.2.0', 'available', undefined],
+      ['@types/react', '18.3.12', '19.2.2', 'available', 'react'],
+      ['react-dom', '18.3.1', '19.2.0', 'available', 'react'],
+    ]);
+  });
+
   it('fix: migrates, opens the PR with the installation token, and reports it', async () => {
     const { s, calls, published } = services({
       list: listReport([dep('zod', '3.25.76', '4.6.5')]),
@@ -234,6 +292,43 @@ describe('the Uptide Action run', () => {
       pr: { number: 9, url: 'https://github.com/acme/storefront/pull/9' },
     });
     expect(report.error).toBeUndefined();
+  });
+
+  it("fix: commits by the App's bot, resolved with the installation token", async () => {
+    const bot = { name: 'uptide-app[bot]', email: '1234+uptide-app[bot]@users.noreply.github.com' };
+    const asked: string[] = [];
+    const { s, calls, published, logs } = services({
+      list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+      fix: () => fixRun(storefrontFix()),
+      identity: async (token) => {
+        asked.push(token);
+        return bot;
+      },
+    });
+    await runAction(inputs(workspace('version: 1\n')), s);
+    expect(asked).toEqual(['installation-token']);
+    expect(calls.find((c) => c.args[0] === 'fix')?.identity).toEqual(bot);
+    expect(published[0]?.identity).toEqual(bot);
+    expect(logs.some((l) => l.includes('commit identity'))).toBe(false);
+  });
+
+  it('fix: keeps the fallback identity, with a warning, when the bot cannot be resolved', async () => {
+    for (const identity of [async () => undefined, async () => Promise.reject(new Error('x'))]) {
+      const { s, calls, published, logs } = services({
+        list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+        fix: () => fixRun(storefrontFix()),
+        identity,
+      });
+      const report = await runAction(inputs(workspace('version: 1\n')), s);
+      expect(report.upgrades[0]?.status).toBe('fixed');
+      expect(calls.find((c) => c.args[0] === 'fix')?.identity).toBeUndefined();
+      expect(published[0]?.identity).toBeUndefined();
+      expect(logs).toContainEqual(
+        expect.stringMatching(
+          /^::warning title=Uptide commit identity::.*uptide\[bot\] <uptide@users\.noreply\.github\.com>/,
+        ),
+      );
+    }
   });
 
   it('fix: never more open pull requests than maxOpenPrs, and never a second for a package', async () => {
@@ -256,22 +351,88 @@ describe('the Uptide Action run', () => {
     expect(calls.filter((c) => c.args[0] === 'fix')).toHaveLength(1);
   });
 
-  it('fix: rule-based only without a key, or with the LLM off; the patch executor without --agent', async () => {
-    for (const [settings, apiKey, expected] of [
-      ['version: 1\n', undefined, '--no-llm'],
-      ['version: 1\nllm:\n  enabled: false\n', 'test-key', '--no-llm'],
-      ['version: 1\nexecutor: patch\n', 'test-key', '--llm'],
+  it('fix: always assisted, with the key passed to fix alone; the patch executor without --agent', async () => {
+    for (const [settings, agent] of [
+      ['version: 1\n', true],
+      ['version: 1\nllm:\n  enabled: true\n', true],
+      ['version: 1\nexecutor: patch\n', false],
     ] as const) {
       const { s, calls } = services({
         list: listReport([dep('zod', '3.25.76', '4.6.5')]),
         fix: () => fixRun(storefrontFix()),
       });
-      await runAction(inputs(workspace(settings), apiKey ? { apiKey } : { apiKey: undefined }), s);
+      const report = await runAction(inputs(workspace(settings)), s);
+      expect(report.llmKey).toBe('present');
       const fix = calls.find((c) => c.args[0] === 'fix');
-      expect(fix?.args).toContain(expected);
-      expect(fix?.args.includes('--agent')).toBe(false);
-      expect(fix?.apiKey).toBe(expected === '--llm' ? 'test-key' : undefined);
+      expect(fix?.args).toContain('--llm');
+      expect(fix?.args).not.toContain('--no-llm');
+      expect(fix?.args.includes('--agent')).toBe(agent);
+      expect(fix?.apiKey).toBe('test-key');
+      expect(calls.filter((c) => c.args[0] !== 'fix').every((c) => !c.apiKey)).toBe(true);
     }
+  });
+
+  it('without a key, in every mode, stops before anything runs and says what to add', async () => {
+    for (const mode of ['list', 'check', 'fix', 'nonsense'])
+      for (const apiKey of [undefined, '', '  \n']) {
+        const { s, calls, published } = services({
+          list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+          fix: () => fixRun(storefrontFix()),
+        });
+        let tokens = 0;
+        s.token = async () => {
+          tokens++;
+          return 'installation-token';
+        };
+        // Not even the settings are read: an invalid file is not what this run reports.
+        const ws = workspace('version: 1\nmaxOpenPrs: lots\n');
+        const report = await runAction(inputs(ws, { mode, apiKey }), s);
+        expect(calls).toEqual([]);
+        expect(published).toEqual([]);
+        expect(tokens).toBe(0);
+        expect(report.upgrades).toEqual([]);
+        expect(report.llmKey).toBe('missing');
+        expect(report.error).toBe(LLM_KEY_MISSING);
+        expect(report.error).toMatch(/^LLM_KEY_MISSING: /);
+        expect(reportProblems(report)).toEqual([]);
+        const summary = renderSummary(report);
+        expect(summary).toContain('Settings → Secrets and variables → Actions');
+        expect(summary).toContain('`ANTHROPIC_API_KEY`');
+        expect(summary).not.toContain('| Package |');
+      }
+  });
+
+  it('reports that a key was present, never the key or any part of it', async () => {
+    const key = `sk-ant-api03-${'k'.repeat(40)}`;
+    const { s } = services({ list: listReport([dep('zod', '3.25.76', '4.6.5')]) });
+    const report = await runAction(
+      inputs(workspace('version: 1\n'), { mode: 'list', apiKey: key }),
+      s,
+    );
+    expect(report.llmKey).toBe('present');
+    const text = JSON.stringify(report);
+    for (const part of [key, key.slice(0, 12), key.slice(-8)]) expect(text).not.toContain(part);
+    expect(reportProblems(report)).toEqual([]);
+  });
+
+  it('an uptide.yml that turns the LLM off is rejected, saying why, before anything runs', async () => {
+    const { s, calls } = services({ list: listReport([dep('zod', '3.25.76', '4.6.5')]) });
+    const report = await runAction(
+      inputs(workspace('version: 1\nllm:\n  enabled: false\n'), { mode: 'check' }),
+      s,
+    );
+    expect(calls).toEqual([]);
+    expect(report.error).toBe(LLM_DISABLED);
+    expect(report.error).toContain('Remove llm.enabled from uptide.yml');
+    expect(report.llmKey).toBe('present');
+    expect(reportProblems(report)).toEqual([]);
+  });
+
+  it('an uptide.yml naming another provider is rejected: the Action passes only an Anthropic key', async () => {
+    const { s, calls } = services({ list: listReport([]) });
+    const report = await runAction(inputs(workspace('version: 1\nllm:\n  provider: openai\n')), s);
+    expect(calls).toEqual([]);
+    expect(report.error).toContain('passes only an Anthropic key');
   });
 
   it('fix: a migration that does not verify is reported failed and never published', async () => {

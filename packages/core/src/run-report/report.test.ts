@@ -54,6 +54,67 @@ describe('uptide.run/v1', () => {
     }
   });
 
+  it('counts type errors right after the bump, before any fix, next to before and after', () => {
+    const fix = storefront();
+    const upgrade = fromFix(fix, { pr: PR, durationMs: 1 });
+    expect(upgrade.verification?.typecheck).toEqual({
+      before: fix.verification.baseline.length,
+      afterUpgrade: fix.verification.target.length,
+      after: fix.verification.after.length,
+    });
+    expect(reportProblems(run([upgrade]))).toEqual([]);
+    const { typecheck } = upgrade.verification as NonNullable<typeof upgrade.verification>;
+    expect(renderSummary(run([upgrade]))).toContain(
+      `types ${typecheck.before} → ${typecheck.afterUpgrade} with the upgrade → ${typecheck.after} after Uptide`,
+    );
+    // Written before the field: still valid, and summarized as before → after.
+    const older = {
+      ...upgrade,
+      verification: { ...upgrade.verification, typecheck: { before: 1, after: 0 } },
+    };
+    expect(reportProblems(run([older as typeof upgrade]))).toEqual([]);
+    expect(renderSummary(run([older as typeof upgrade]))).toContain('types 1 → 0, lint');
+    const negative = {
+      ...older,
+      verification: { ...older.verification, typecheck: { before: 0, afterUpgrade: -1, after: 0 } },
+    };
+    expect(reportProblems(run([negative as typeof upgrade]))).not.toEqual([]);
+  });
+
+  it('counts the baseline health, and never names a missing module or alias', () => {
+    const fix = storefront();
+    const missing = (specifier: string) => ({
+      file: 'src/a.ts',
+      line: 1,
+      column: 1,
+      code: 2307,
+      message: `Cannot find module '${specifier}' or its corresponding type declarations.`,
+    });
+    fix.verification.baseline = [
+      missing('@/ee/features/billing'),
+      missing('@/ee/features/sso'),
+      missing('./generated/client'),
+      missing('@react-email/components'),
+      { file: 'src/b.ts', line: 2, column: 1, code: 2322, message: 'not a module error' },
+    ];
+    delete fix.verification.baselineHealth;
+    fix.verification.baselineTests = [{ workspace: '.', status: 'failed', output: '' }];
+    const upgrade = fromFix(fix, { pr: PR, durationMs: 1 });
+    expect(upgrade.verification?.baselineHealth).toEqual({
+      typeErrors: 5,
+      failingTests: 1,
+      missingModules: { local: 3, packages: 1 },
+    });
+    expect(reportProblems(run([upgrade]))).toEqual([]);
+    const text = JSON.stringify(upgrade);
+    for (const name of ['@/ee', 'generated', 'react-email']) expect(text).not.toContain(name);
+    // A report written before the field still validates.
+    const { baselineHealth: _, ...older } = upgrade.verification as NonNullable<
+      typeof upgrade.verification
+    >;
+    expect(reportProblems(run([{ ...upgrade, verification: older }]))).toEqual([]);
+  });
+
   it('carries no source, diff, snippet, message, command, output or environment value', () => {
     const fix = storefront();
     const secret = `sk-ant-api03-${'q'.repeat(30)}`;
@@ -100,7 +161,7 @@ describe('uptide.run/v1', () => {
         r.diff = '-a\n+b';
       }),
     ).toContain(
-      'diff is not a setting here (known: schema, engineVersion, repo, sha, runId, runAttempt, mode, startedAt, finishedAt, upgrades, error)',
+      'diff is not a setting here (known: schema, engineVersion, repo, sha, runId, runAttempt, mode, startedAt, finishedAt, upgrades, llmKey, error)',
     );
     expect(
       tamper((r) => {
@@ -220,6 +281,29 @@ describe('uptide.run/v1', () => {
     expect(reportProblems(run([{ ...base, analysis: 'maybe' as 'none' }]))).toEqual([
       'upgrades[0].analysis must be one of pack, none',
     ]);
+  });
+
+  it('says whether the run had an Anthropic key, as present or missing only', () => {
+    expect(reportProblems(run([], { llmKey: 'present' }))).toEqual([]);
+    expect(reportProblems(run([], { llmKey: 'missing' }))).toEqual([]);
+    // Reports written before the field still validate.
+    expect(reportProblems(run([]))).toEqual([]);
+    expect(reportProblems(run([], { llmKey: 'sk-ant' as 'present' }))).toEqual([
+      'llmKey must be one of present, missing',
+    ]);
+    expect(RUN_REPORT_SCHEMA.required).not.toContain('llmKey');
+  });
+
+  it('tells a run without a key exactly what to add, and where', () => {
+    const summary = renderSummary(
+      run([], { mode: 'check', llmKey: 'missing', error: 'LLM_KEY_MISSING: no key' }),
+    );
+    expect(summary).toContain('**The run stopped:** LLM_KEY_MISSING: no key');
+    expect(summary).toContain('### Add the Anthropic API key');
+    expect(summary).toContain('**Settings → Secrets and variables → Actions**');
+    expect(summary).toContain('name it `ANTHROPIC_API_KEY`');
+    expect(summary).not.toContain('No dependency upgrades to report');
+    expect(renderSummary(run([], { llmKey: 'present' }))).not.toContain('Add the Anthropic');
   });
 
   it('prints no kind when nothing moves, and a companion as moving with its lead', () => {

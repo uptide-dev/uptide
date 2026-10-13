@@ -69,9 +69,7 @@ export function renderWorkflow(facts: RepoFacts, config: UptideConfig): string {
     `          config: ${UPTIDE_CONFIG_FILE}`,
     "          mode: ${{ inputs.mode || 'fix' }}",
     '          package: ${{ inputs.package }}',
-    ...(config.llm.enabled
-      ? ['          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}']
-      : []),
+    '          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}',
   ].join('\n');
   // `manual`: no schedule trigger at all, only workflow_dispatch.
   const trigger =
@@ -162,9 +160,8 @@ schedule: '${config.schedule}'
 maxOpenPrs: ${config.maxOpenPrs}
 
 llm:
-  # Assisted fixes for call sites no rule covers. false: no code is sent to an LLM.
-  enabled: ${config.llm.enabled}
-  # Who receives that code, with this repository's own key (secret ANTHROPIC_API_KEY).
+  # Who receives the code around call sites no rule covers, with this repository's own key
+  # (secret ANTHROPIC_API_KEY). The Uptide workflow does not run without that key.
   provider: ${config.llm.provider}
 
 # LLM budget in USD; the SDK may overshoot by one turn.
@@ -190,7 +187,6 @@ export function describeSchedule(cron: string): string {
 /** The pull request description: what runs, when, where, and what leaves CI. */
 export function renderPrBody(facts: RepoFacts, config: UptideConfig): string {
   const m = facts.manager;
-  const llm = config.llm.enabled;
   const detected = [
     `- Package manager: ${managerLabel(m)}`,
     `- Lockfile: \`${m.lockfile}\`, installed with \`${m.install}\``,
@@ -237,24 +233,16 @@ With that proof, the Uptide GitHub App gives the run a token that expires within
 
 ## Set the API key
 
-${
-  llm
-    ? `Assisted fixes need an Anthropic API key, stored as a repository secret named \`ANTHROPIC_API_KEY\`:
+Uptide needs an Anthropic API key, stored as a repository secret named \`ANTHROPIC_API_KEY\`:
 
-- In GitHub: Settings, Secrets and variables, Actions, New repository secret.
+- In GitHub: Settings → Secrets and variables → Actions → New repository secret.
 - Or with the GitHub CLI: \`gh secret set ANTHROPIC_API_KEY\`
 
-Without the secret, Uptide still runs and applies only its rule-based fixes. The key is passed to the Uptide step alone, never to the install step or to your tests.`
-    : 'Not needed: the LLM is turned off in uptide.yml.'
-}
-
-## Turn the LLM off
-
-Set \`enabled: false\` under \`llm\` in \`uptide.yml\`. Uptide then sends no code anywhere and applies only rule-based fixes. You can also delete the \`ANTHROPIC_API_KEY\` secret.
+Without the secret, the workflow does not run Uptide: the job fails and its summary says what to add. The key is passed to the Uptide step alone, never to the install step or to your tests.
 
 ## Remove Uptide
 
-Delete \`${WORKFLOW_PATH}\` and \`${UPTIDE_CONFIG_FILE}\`, and the \`ANTHROPIC_API_KEY\` secret if you added it. If you installed the Uptide GitHub App, uninstall it in Settings, GitHub Apps. To not start at all, close this pull request.
+Delete \`${WORKFLOW_PATH}\` and \`${UPTIDE_CONFIG_FILE}\`, and the \`ANTHROPIC_API_KEY\` secret. If you installed the Uptide GitHub App, uninstall it in Settings, GitHub Apps. To not start at all, close this pull request.
 
 ## Detected in this repository
 
@@ -270,8 +258,6 @@ export const TRUST_URL = 'https://uptide-app.vercel.app/trust';
  * generator refuses another provider), and the Agent SDK unless \`executor: patch\`.
  */
 function llmLine(config: UptideConfig): string {
-  if (!config.llm.enabled)
-    return '**No code sent to an LLM**: assisted fixes are off in uptide.yml.';
   const budget = `Spending stops at $${config.maxCost} per run (\`maxCost\` in uptide.yml).`;
   return config.executor === 'patch'
     ? `**Code sent to Anthropic, with this repository's own API key**, for call sites no rule can fix: the code around each one. ${budget}`

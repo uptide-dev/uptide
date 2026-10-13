@@ -198,13 +198,14 @@ describe('the workflow', () => {
     expect(steps[3].with).toEqual({ 'node-version-file': '.nvmrc', cache: 'pnpm' });
   });
 
-  it('passes no key when uptide.yml turns the LLM off, and says so in the pull request', () => {
-    const o = generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
-      config: { version: 1, llm: { enabled: false } },
-    });
-    expect(file(o, '.github/workflows/uptide.yml')).not.toContain('ANTHROPIC_API_KEY');
-    expect(o.prBody).toContain('the LLM is turned off in uptide.yml');
-    expect(file(o, 'uptide.yml')).toContain('enabled: false');
+  it('always passes the key, and offers no switch to turn the LLM off', () => {
+    for (const snapshot of Object.values(CASES)) {
+      const o = generate(snapshot);
+      expect(file(o, '.github/workflows/uptide.yml')).toContain(
+        'anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}',
+      );
+      expect(file(o, 'uptide.yml')).not.toMatch(/enabled/);
+    }
   });
 });
 
@@ -243,17 +244,19 @@ describe('the pull request', () => {
     return [o.prBody, ...o.files.map((f) => f.content)];
   });
 
-  it('covers what runs, when, where, what leaves the runner, the secret, the LLM switch and removal', () => {
+  it('covers what runs, when, where, what leaves the runner, the required secret and removal', () => {
     const body = generate(CASES.npm as RepoSnapshot).prBody;
     for (const heading of [
       '## What runs, and when',
       '## Where it runs',
       '## What leaves the runner',
       '## Set the API key',
-      '## Turn the LLM off',
       '## Remove Uptide',
     ])
       expect(body).toContain(heading);
+    expect(body).not.toContain('## Turn the LLM off');
+    expect(body).not.toMatch(/enabled: false|rule-based fixes only/);
+    expect(body).toContain('Without the secret, the workflow does not run Uptide');
     expect(body).toContain('every Monday at');
     expect(body).toContain('gh secret set ANTHROPIC_API_KEY');
     // Every place the runner talks to, and what the report never holds.
@@ -275,7 +278,6 @@ describe('the pull request', () => {
     expect(body({ executor: 'patch' })).not.toContain('can read any file');
     // The workflow passes only an Anthropic key: the generator refuses another provider.
     expect(() => body({ llm: { provider: 'openai' } })).toThrow(/passes only an Anthropic key/);
-    expect(body({ llm: { enabled: false } })).toContain('assisted fixes are off in uptide.yml');
   });
 
   it('is plain English: no em or en dashes, no hype words', () => {
@@ -444,6 +446,19 @@ describe('refusals', () => {
     });
     expect(err.reason).toBe('unsupported-provider');
     expect(err.message).toContain('ANTHROPIC_API_KEY');
+  });
+
+  it('refuses an existing uptide.yml that turns the LLM off, which the Action rejects', () => {
+    const err = refusal(CASES.npm?.files as RepoSnapshot['files'], {
+      config: { version: 1, llm: { enabled: false } },
+    });
+    expect(err.reason).toBe('llm-disabled');
+    expect(err.message).toContain('Remove llm.enabled from uptide.yml');
+    // An older file that says true still generates: true is what the Action does anyway.
+    const o = generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
+      config: { version: 1, llm: { enabled: true } },
+    });
+    expect(file(o, 'uptide.yml')).not.toMatch(/enabled/);
   });
 
   it('chooses the lockfile packageManager names when there are several', () => {

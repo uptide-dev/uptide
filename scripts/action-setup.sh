@@ -16,6 +16,13 @@ npm install --prefix "$tools" --no-save --no-audit --no-fund --ignore-scripts --
   "pnpm@${pnpm_version}"
 "$tools/node_modules/.bin/pnpm" install --frozen-lockfile --ignore-scripts --reporter=append-only
 
+# No Anthropic key: the run stops before using the engine (scripts/action.ts reports why), so
+# it is not built.
+if [ "${UPTIDE_LLM_KEY:-present}" = missing ]; then
+  echo "No anthropic-api-key: skipping the engine build; the next step says what to add."
+  exit 0
+fi
+
 # The engine, built from this commit's source (run from source, its worker threads could not
 # load TypeScript). No declarations: nothing here imports types.
 export UPTIDE_BUILD_NO_DTS=1

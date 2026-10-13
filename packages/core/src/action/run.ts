@@ -22,7 +22,7 @@ import {
   type Upgrade,
 } from '../run-report/schema.js';
 import { type EngineRun, parseJson } from './engine.js';
-import { pullNumber } from './github.js';
+import { type CommitIdentity, FALLBACK_IDENTITY, pullNumber } from './github.js';
 
 export interface ActionInputs {
   /** The repository's checkout (`GITHUB_WORKSPACE`). */
@@ -32,7 +32,7 @@ export interface ActionInputs {
   mode: string;
   /** `package`: one dependency; empty for every one uptide.yml allows. */
   package?: string;
-  /** `anthropic-api-key`; empty when the repository has no secret. */
+  /** `anthropic-api-key`; empty when the repository has no secret, and then nothing runs. */
   apiKey?: string;
   engineVersion: string;
   /** `GITHUB_REPOSITORY`, `GITHUB_REPOSITORY_ID`, `GITHUB_SHA`, `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`. */
@@ -46,16 +46,28 @@ export interface ActionInputs {
 }
 
 export interface ActionServices {
-  /** Run the CLI with these arguments; `apiKey` is passed to it only when assisted fixes may run. */
-  engine(args: string[], apiKey?: string): Promise<EngineRun>;
+  /**
+   * Run the CLI with these arguments; `apiKey` is passed to `uptide fix` alone. Its commits
+   * are by `identity`, or the fallback identity without one.
+   */
+  engine(args: string[], apiKey?: string, identity?: CommitIdentity): Promise<EngineRun>;
   /** The installation token (exchanged on first use). Throws `ActionAuthError`. */
   token(): Promise<string>;
+  /** The App's bot, resolved with the installation token; undefined when it cannot be. */
+  commitIdentity?(token: string): Promise<CommitIdentity | undefined>;
   openUptideBranches(token: string): Promise<string[]>;
   /** `uptide pr --branch <branch> --yes --json` with the token; the PR URL. */
-  publish(branch: string, token: string): Promise<string>;
+  publish(branch: string, token: string, identity?: CommitIdentity): Promise<string>;
   now(): number;
   log(line: string): void;
 }
+
+/** The report's error when the run has no Anthropic key: its code, then what to do. */
+export const LLM_KEY_MISSING =
+  'LLM_KEY_MISSING: the Anthropic API key is missing. Add a repository secret named ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions) and pass it to the Uptide step as anthropic-api-key';
+/** The report's error when uptide.yml turns the LLM off, which the Action no longer runs without. */
+export const LLM_DISABLED =
+  'uptide.yml sets llm.enabled to false, which the Uptide Action no longer supports: it always uses the Anthropic key. Remove llm.enabled from uptide.yml';
 
 /** How many packages `check` analyzes in a run without `package`: the rest stay listed. */
 export const CHECK_LIMIT = 10;
@@ -120,9 +132,9 @@ function byPackage(packages: PackageReport[]): Upgrade[] {
 }
 
 /**
- * A companion (`react-dom`, `@types/react`) that `check` also reports on its own, at the
- * version installed: it is not up to date, it moves with its lead's upgrade. Its row takes the
- * versions the lead's plan gives it and names the lead.
+ * A companion (`react-dom`, `@types/react`) moves with its lead's upgrade: its row takes the
+ * versions the lead's plan gives it and names the lead, whether `check` analyzed it in the
+ * lead's group (no report of its own) or reported it apart, at the version installed.
  */
 function movingWithLeads(packages: PackageReport[], rows: Map<string, Upgrade>): void {
   const moves = (u: Upgrade): boolean => u.from !== u.to && u.status !== 'up_to_date';
@@ -134,11 +146,17 @@ function movingWithLeads(packages: PackageReport[], rows: Map<string, Upgrade>):
       ...(pkg.members ?? []).map((m) => ({ name: m.name, from: m.installed, to: m.target })),
     ];
     for (const c of together) {
-      const row = rows.get(c.name);
-      if (!row || c.name === lead.package || moves(row)) continue;
-      if (row.status !== 'up_to_date' && row.status !== 'available') continue;
+      if (c.name === lead.package) continue;
       if (c.from === c.to || reportVersion(c.from) !== c.from || reportVersion(c.to) !== c.to)
         continue;
+      // Analyzed in its lead's group, a companion has no report of its own: its row starts here.
+      let row = rows.get(c.name);
+      if (!row) {
+        row = skipped({ package: c.name, from: c.from }, 'up_to_date');
+        rows.set(c.name, row);
+      }
+      if (moves(row)) continue;
+      if (row.status !== 'up_to_date' && row.status !== 'available') continue;
       row.from = c.from;
       row.to = c.to;
       row.kind = kindOf(c.from, c.to);
@@ -163,6 +181,7 @@ export async function runAction(
   const startedAt = services.now();
   const mode = (MODES.includes(inputs.mode as RunMode) ? inputs.mode : 'check') as RunMode;
   const upgrades: Upgrade[] = [];
+  const apiKey = inputs.apiKey?.trim() || undefined;
   const report = (error?: string): RunReport => ({
     schema: RUN_REPORT_SCHEMA_ID,
     engineVersion: /^[0-9A-Za-z.+-]{1,64}$/.test(inputs.engineVersion)
@@ -173,8 +192,12 @@ export async function runAction(
     startedAt: iso(startedAt),
     finishedAt: iso(services.now()),
     upgrades,
+    llmKey: apiKey ? 'present' : 'missing',
     ...(error ? { error: sentence(error) } : {}),
   });
+  // The key before anything else, in every mode: without the LLM, Uptide's answers are worse,
+  // and no run beats a poor one. Nothing is read, listed, checked or fixed.
+  if (!apiKey) return report(LLM_KEY_MISSING);
   if (!MODES.includes(inputs.mode as RunMode))
     return report(`mode must be list, check or fix, not "${inputs.mode.slice(0, 20)}"`);
 
@@ -195,12 +218,16 @@ export async function runAction(
       `::notice::No ${UPTIDE_CONFIG_FILE} in the repository: running with the defaults.`,
     );
   }
+  // Older files may still say `llm.enabled`; true changes nothing, false is no longer offered.
+  if (!config.llm.enabled) return report(LLM_DISABLED);
+  if (config.llm.provider !== 'anthropic')
+    return report(
+      `uptide.yml sets llm.provider to ${config.llm.provider}; the Uptide Action passes only an Anthropic key. Use provider anthropic`,
+    );
   const common = ['--json', '--ci', '--cwd', inputs.workspace];
   const configArgs = existsSync(join(inputs.workspace, inputs.config || UPTIDE_CONFIG_FILE))
     ? ['--config', inputs.config || UPTIDE_CONFIG_FILE]
     : [];
-  // Assisted fixes need the key, the setting, and the one provider the workflow passes a key for.
-  const llm = !!inputs.apiKey && config.llm.enabled && config.llm.provider === 'anthropic';
   const only = inputs.package?.trim() || undefined;
 
   // Discovery: what is behind, already narrowed by uptide.yml `packages`.
@@ -267,14 +294,22 @@ export async function runAction(
 
   // fix: the token first. A run that cannot publish spends nothing on migrations.
   let open: string[];
+  let author: CommitIdentity | undefined;
   try {
-    open = await services.openUptideBranches(await services.token());
+    const token = await services.token();
+    open = await services.openUptideBranches(token);
+    // The commits are the App's: its bot account, so GitHub links them to it.
+    author = await services.commitIdentity?.(token).catch(() => undefined);
   } catch (err) {
     upgrades.push(...candidates.map(fromListed));
     return report(
       `cannot open pull requests: ${err instanceof Error && err.name === 'ActionAuthError' ? err.message : 'GitHub could not be reached'}`,
     );
   }
+  if (!author)
+    services.log(
+      `::warning title=Uptide commit identity::The Uptide app's bot account could not be resolved with the installation token; commits are authored as ${FALLBACK_IDENTITY.name} <${FALLBACK_IDENTITY.email}>, which GitHub links to no account.`,
+    );
   let slots = config.maxOpenPrs - open.length;
   let attempts = Math.max(0, slots);
   let budget = config.maxCost;
@@ -302,7 +337,7 @@ export async function runAction(
       );
       continue;
     }
-    if (llm && budget < 0.01) {
+    if (budget < 0.01) {
       upgrades.push(skipped(row, 'skipped', `maxCost of $${config.maxCost} reached this run`));
       continue;
     }
@@ -313,17 +348,13 @@ export async function runAction(
       dep.name,
       ...common,
       ...configArgs,
-      ...(llm
-        ? [
-            '--llm',
-            '--max-cost',
-            budget.toFixed(2),
-            ...(config.executor === 'patch' ? [] : ['--agent', 'sdk']),
-          ]
-        : ['--no-llm']),
+      '--llm',
+      '--max-cost',
+      budget.toFixed(2),
+      ...(config.executor === 'patch' ? [] : ['--agent', 'sdk']),
     ];
     services.log(`::group::uptide fix ${dep.name}`);
-    const run = await services.engine(args, llm ? inputs.apiKey : undefined);
+    const run = await services.engine(args, apiKey, author);
     services.log('::endgroup::');
     const fixed = parseJson<FixReport>(run);
     if (!fixed || run.code === 2) {
@@ -343,7 +374,7 @@ export async function runAction(
     // `uptide pr` refuses these too; asking it would only turn the reason into a failure.
     if (fixed.verification.passed && !fixed.exportError && !noPackBlockers(fixed).length) {
       try {
-        const url = await services.publish(fixed.branch, await services.token());
+        const url = await services.publish(fixed.branch, await services.token(), author);
         const number = pullNumber(url);
         if (number) {
           pr = { number, url };

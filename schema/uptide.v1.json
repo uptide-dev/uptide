@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/uptide-dev/uptide/main/schema/uptide.v1.json",
   "title": "uptide.yml",
-  "description": "Settings for Uptide: which dependencies it upgrades, when, and whether it may call an LLM.",
+  "description": "Settings for Uptide: which dependencies it upgrades, when, and how it uses the LLM.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version"],
@@ -54,7 +54,7 @@
       "additionalProperties": false,
       "properties": {
         "enabled": {
-          "description": "false: no code is sent to an LLM provider; rule-based fixes only.",
+          "description": "No longer offered; accepted so older files still load. The Uptide Action requires the Anthropic key and rejects false. The local CLI still reads it.",
           "type": "boolean",
           "default": true
         },
