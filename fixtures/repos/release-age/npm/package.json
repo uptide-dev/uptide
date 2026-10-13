@@ -1,0 +1,9 @@
+{
+  "name": "synthetic-release-age-npm",
+  "private": true,
+  "dependencies": {
+    "widget": "4.6.0",
+    "gadget": "4.0.0",
+    "@acme/tool": "1.0.0"
+  }
+}

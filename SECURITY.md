@@ -50,6 +50,14 @@ Anonymous telemetry is off by default; opt-in sends only the fields documented i
 [docs/telemetry.md](docs/telemetry.md) to PostHog EU. No IP, code, paths or repo/user names
 are collected. `UPTIDE_TELEMETRY=0` always disables it.
 
+**Release age.** Uptide never targets a release younger than the repository's own policy
+(npm `min-release-age`, pnpm `minimumReleaseAge` with `minimumReleaseAgeExclude`, Yarn
+`npmMinimalAgeGate` with `npmPreapprovedPackages`), than the default of the package manager
+version it pins (pnpm 11 and 12, Yarn 4.15 and later), or than `minReleaseAgeDays` in
+`uptide.yml` when the repository sets none. It never changes the policy and never suggests
+turning it off: when no release is old enough, the package is skipped and the reason says so
+([docs/config.md](docs/config.md#release-age)).
+
 **Not a sandbox.** Uptide does not contain a malicious repository: `fix` runs that
 repository's tests with your user's permissions, as you would. Run it on code you would
 run yourself. The dependency being upgraded is treated as untrusted (no lifecycle scripts,

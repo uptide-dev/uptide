@@ -118,6 +118,12 @@ export interface PlanGroup {
 
 export interface PackageReport {
   skipReason?: ErrorCode;
+  /**
+   * Set when the newest release is younger than the repository's release-age policy: why the
+   * target is older (`4.6.7 is 2 days old; your policy is 7 days (…); targeting 4.6.5`), or
+   * why nothing was checked (`skipped`, `skipReason: RELEASE_AGE`).
+   */
+  releaseAge?: string;
   /** Set on every report `check` returns. */
   tier?: Tier;
   /** The migration plan for the findings worth acting on; see `PlanGroup`. */

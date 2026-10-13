@@ -7,6 +7,8 @@ import type { PackageFetcher } from '../domain/io.js';
 import { type ProgressListener, progress } from '../domain/progress.js';
 import type { CheckReport, Finding } from '../domain/report.js';
 import { UptideError } from '../errors.js';
+import { createNpmFetcher } from '../fetch/npm-fetcher.js';
+import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { DEFAULT_MAX_COST_USD, providerFixer } from '../llm/fixer.js';
 import { genericPack } from '../packs/generic.js';
@@ -36,7 +38,7 @@ import { assistWithSdk, sdkInstalled, type TaskRunner } from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
 import { lintFiles } from './style.js';
-import { resolveTarget } from './target.js';
+import { type ResolvedTarget, resolveTarget } from './target.js';
 import type { FixDiagnostic, Fixer, FixReport, FixSite, LintResult, TestResult } from './types.js';
 import {
   describeServices,
@@ -237,9 +239,17 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     );
   if (!options.pinCurrentApi) assertNpmLockSync(root);
   const peerPlan = options.peerPlan ?? (await peerPreflight(options, services));
-  const resolved = peerPlan
-    ? { version: peerPlan.target, source: peerPlan.targetSource }
-    : await resolveTarget(pack, options.target, services.resolve);
+  // Without an injected resolver, the repository's own registry and release-age policy.
+  const registry = services.resolve
+    ? undefined
+    : createNpmFetcher({ config: loadRegistryConfig({ cwd: root }) });
+  const resolved: ResolvedTarget = peerPlan
+    ? {
+        version: peerPlan.target,
+        source: peerPlan.targetSource,
+        ...(peerPlan.releaseAge ? { releaseAge: peerPlan.releaseAge } : {}),
+      }
+    : await resolveTarget(pack, options.target, services.resolve ?? registry?.resolve, registry);
   const target = resolved.version;
   validateVersionRanges(root, [{ name: pack.name, to: target }]);
   if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(target))
@@ -618,6 +628,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     from: initialContext.from,
     target,
     targetSource: resolved.source,
+    ...(resolved.releaseAge ? { releaseAge: resolved.releaseAge } : {}),
     ...(companions.length ? { companions } : {}),
     ...(peerPlan?.conflicts.length ? { peerConflicts: groupPeerBlockers(peerPlan.conflicts) } : {}),
     ...(report.importersNotAnalyzed?.length

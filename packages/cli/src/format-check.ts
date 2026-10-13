@@ -68,6 +68,7 @@ const planOf = (p: PackageReport): PlanGroup[] => p.plan ?? planPackage(p);
 /** `--target` when the version was asked for, `latest on npm` when it is the registry's dist-tag. */
 function targetSource(p: PackageReport, opts: FormatCheckOptions): string {
   if (opts.repeat?.targets?.[p.name] !== undefined) return '--target';
+  if (p.releaseAge) return 'release-age policy';
   return p.target === p.latest ? 'latest on npm' : '';
 }
 
@@ -157,7 +158,9 @@ function rowOf(p: PackageReport, multi: boolean, colors: Colors): Row | undefine
   const gaps = (p.importers ?? []).filter((i) => !i.analyzed).length;
   let verdict: string;
   let by = '';
-  if (p.status === 'no-types' || p.status === 'skipped') {
+  if (p.skipReason === 'RELEASE_AGE') {
+    verdict = colors.dim('– skipped: no newer release is old enough');
+  } else if (p.status === 'no-types' || p.status === 'skipped') {
     const reason =
       p.notes.find((n) => n.startsWith('types in ')) ??
       p.notes.find((n) => /type declarations|not installed/.test(n)) ??
@@ -510,6 +513,10 @@ export function formatCheck(report: CheckReport, opts: FormatCheckOptions = {}):
         `${colors.green('✓')} ${folded.length} more with no impact on your code: ${named.join(', ')}${folded.length > named.length ? `, and ${folded.length - named.length} more` : ''} ${colors.dim(`· 0 breaking · ${how}`)}`,
       );
     }
+    // Why a target is older than the newest release, or why a package was skipped: the
+    // repository's release-age policy, in full.
+    const held = [...new Map(rows.filter((r) => r.p.releaseAge).map((r) => [r.p.name, r.p]))];
+    for (const [name, p] of held) lines.push(colors.dim(`  ${name}: ${p.releaseAge}`));
     const missing = notAnalyzed(report, opts, colors);
     if (rows.length === 0 && missing.length === 0)
       lines.push(colors.dim('Nothing to upgrade: every checked dependency is up to date.'));

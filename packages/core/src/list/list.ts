@@ -9,6 +9,7 @@ import type { PackageFetcher } from '../domain/io.js';
 import type { Tier } from '../domain/report.js';
 import { errorCode } from '../errors.js';
 import { loadRegistryConfig, registryFor } from '../fetch/npmrc.js';
+import { type HeldBack, heldBackText } from '../fetch/release-age.js';
 import { advisoriesEnabled } from '../llm/config.js';
 import { packageSelected } from '../onboarding/config.js';
 import { activePacks } from '../packs/index.js';
@@ -102,6 +103,12 @@ export interface ListReport {
   scanWarnings?: string[];
   /** Packages whose latest version could not be checked; never counted as up to date. */
   unknown?: { name: string; currentVersions: string[]; workspaces: string[]; reason: string }[];
+  /**
+   * Packages whose newest release is younger than the repository's release-age policy: the
+   * listed target is the newest one old enough. A package here and not in `packages` has
+   * nothing newer than what is installed that qualifies.
+   */
+  releaseAge?: { name: string; current?: string; reason: string }[];
   /** Intentional skips, separate from incomplete discovery and network unknowns. */
   skipped?: { name: string; source: string; reason: string; workspaces: string[] }[];
   failures: {
@@ -141,7 +148,7 @@ export interface ListOptions {
   cwd: string;
   only?: string[];
   adapter?: LanguageAdapter;
-  fetcher?: Pick<PackageFetcher, 'resolve' | 'metadata'> & Partial<RegistrySignals>;
+  fetcher?: Pick<PackageFetcher, 'resolve' | 'metadata' | 'heldBack'> & Partial<RegistrySignals>;
   details?: boolean;
   verbose?: boolean;
   /** "Now" for the support window; tests pin it. */
@@ -389,12 +396,15 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
   const deprecations = new Map<string, string>();
   const published = new Map<string, Record<string, string>>();
   const allVersions = new Map<string, string[]>();
+  const heldBack = new Map<string, HeldBack>();
   await mapWithLimit(names, 16, async (name) => {
     const items = metadata.get(name) as Manifest[];
     // Resolve each package independently within the bounded request pool.
     if (selected(localName(name))) {
       try {
         const latest = await fetcher.resolve(registryName(name), 'latest');
+        const held = fetcher.heldBack?.(registryName(name));
+        if (held) heldBack.set(name, held);
         latestVersions.set(name, latest);
         if (
           fetcher.metadata &&
@@ -410,8 +420,13 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
         }
         await collectSignals(name, latest);
       } catch (error) {
-        fail(name, error);
-        blocked.add(name);
+        const held = fetcher.heldBack?.(registryName(name));
+        // No release is old enough: not a failure, said under releaseAge.
+        if (held && errorCode(error) === 'RELEASE_AGE') heldBack.set(name, held);
+        else {
+          fail(name, error);
+          blocked.add(name);
+        }
       }
     }
     for (const version of missingVersions.get(name) ?? []) {
@@ -622,7 +637,7 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
   const unknown = new Map<string, NonNullable<ListReport['unknown']>[number]>();
   for (const key of names) {
     const name = localName(key);
-    if (!selected(name) || latestVersions.has(key)) continue;
+    if (!selected(name) || latestVersions.has(key) || heldBack.has(key)) continue;
     const previous = unknown.get(name);
     unknown.set(name, {
       name,
@@ -656,6 +671,22 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
               reason: 'every package comes from a private registry',
             },
     ...(scanStats.warnings?.length ? { scanWarnings: scanStats.warnings } : {}),
+    ...(heldBack.size
+      ? {
+          releaseAge: [...heldBack]
+            .map(([key, held]) => {
+              const name = localName(key);
+              const newest = [...(declared.get(key)?.keys() ?? [])].sort(compareVersions).at(-1);
+              const listed = packages.some((p) => p.name === name);
+              return {
+                name,
+                ...(newest ? { current: newest } : {}),
+                reason: heldBackText(held, listed ? undefined : newest),
+              };
+            })
+            .sort((a, b) => compareText(a.name, b.name)),
+        }
+      : {}),
     skipped: [...skipped.values()].sort(
       (a, b) => compareText(a.name, b.name) || compareText(a.source, b.source),
     ),

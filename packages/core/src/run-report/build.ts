@@ -138,6 +138,14 @@ export function fromListed(dep: ListedDependency): Upgrade {
  * engine's error code (an identifier, never its message), when it could not be analyzed.
  */
 export function fromChecked(pkg: PackageReport, durationMs = 0): Upgrade {
+  // Nothing newer is old enough for the repository's policy: skipped, and why, in Uptide's words.
+  if (pkg.skipReason === 'RELEASE_AGE' && pkg.releaseAge)
+    return skipped(
+      { package: pkg.name, from: pkg.installed },
+      'skipped',
+      `${pkg.name} ${pkg.releaseAge}`,
+      durationMs,
+    );
   const upToDate = pkg.installed === pkg.target;
   const failed = !!pkg.skipReason || pkg.status === 'skipped' || pkg.status === 'unknown';
   const code =

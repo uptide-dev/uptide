@@ -9,6 +9,7 @@ declare module 'semver' {
     minor(version: string): number;
     coerce(version: string): { version: string } | null;
     intersects(a: string, b: string): boolean;
+    subset(sub: string, sup: string): boolean;
   };
   export default semver;
 }

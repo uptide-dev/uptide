@@ -27,7 +27,9 @@ import {
   UptideError,
 } from '../errors.js';
 import { createNpmFetcher, releasePackage } from '../fetch/npm-fetcher.js';
+import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { maxSatisfying } from '../fetch/range.js';
+import { heldBackText } from '../fetch/release-age.js';
 import { planPackage } from '../fix/plan.js';
 import { scanImports } from '../list/scan.js';
 import { packFixability } from '../packs/fixability.js';
@@ -157,7 +159,9 @@ export interface CheckResult extends CheckReport {
 export async function check(opts: CheckOptions): Promise<CheckResult> {
   const started = Date.now();
   const adapter = opts.adapter ?? typescriptAdapter;
-  const fetcher = opts.fetcher ?? createNpmFetcher();
+  // The repository's .npmrc: its registries, and its release-age policy.
+  const fetcher =
+    opts.fetcher ?? createNpmFetcher({ config: loadRegistryConfig({ cwd: opts.cwd }) });
   const cache = opts.cache ?? createFsSurfaceCache();
   const findUsages = requireFindUsages(adapter);
   if (!adapter.installedDependencies) throw new AdapterCapabilityError(adapter.id, 'findUsages');
@@ -515,6 +519,7 @@ export function isFailure(p: Pick<PackageReport, 'status' | 'skipReason'>): bool
       'PACKAGE_NOT_INSTALLED',
       'PACKAGE_NOT_FOUND',
       'REGISTRY_AUTH',
+      'RELEASE_AGE',
     ].includes(p.skipReason)
   );
 }
@@ -808,7 +813,7 @@ export async function checkWorkspaceJob(
   const adapter = typescriptAdapter;
   const ctx: Ctx = {
     adapter,
-    fetcher: memoizingFetcher(createNpmFetcher()),
+    fetcher: memoizingFetcher(createNpmFetcher({ config: loadRegistryConfig({ cwd: job.cwd }) })),
     cache: createFsSurfaceCache(),
     findUsages: requireFindUsages(adapter),
     opts: { ...job.opts, cwd: job.cwd, ...(onProgress ? { onProgress } : {}) },
@@ -1179,6 +1184,7 @@ function memoizingFetcher(inner: PackageFetcher): RunFetcher {
   return {
     resolve: (name, requested) =>
       once(resolved, `${name}@${requested}`, () => inner.resolve(name, requested)),
+    ...(inner.heldBack ? { heldBack: (name: string) => inner.heldBack?.(name) } : {}),
     fetch: (name, version) => once(fetched, `${name}@${version}`, () => inner.fetch(name, version)),
     ...(inner.versions
       ? {
@@ -1361,7 +1367,9 @@ async function prepare(
 ): Promise<Prepared | PackageReport> {
   const timing = { fetchMs: 0, diffMs: 0, usagesMs: 0, compileMs: 0 };
   const notes: string[] = [];
+  let releaseAge: string | undefined;
   const base = (status: PackageStatus, target: string, latest: string): PackageReport => ({
+    ...(releaseAge ? { releaseAge } : {}),
     workspace,
     name,
     installed: installedVersion,
@@ -1388,10 +1396,25 @@ async function prepare(
       notes.push(err instanceof RegistryAuthError ? 'registry auth' : 'not on the registry');
       return { ...base('private', installedVersion, installedVersion), skipReason: errorCode(err) };
     }
+    const held = ctx.fetcher.heldBack?.(name);
+    if (held && errorCode(err) === 'RELEASE_AGE') {
+      releaseAge = heldBackText(held, installedVersion);
+      notes.push(releaseAge);
+      return { ...base('skipped', installedVersion, installedVersion), skipReason: 'RELEASE_AGE' };
+    }
     notes.push(`could not resolve latest: ${(err as Error).message}`);
     return { ...base('skipped', installedVersion, installedVersion), skipReason: errorCode(err) };
   }
   const target = ctx.opts.targets?.[name] ?? latest;
+  // The policy chose an older target than the newest release: say why.
+  const held = ctx.fetcher.heldBack?.(name);
+  if (held && target === held.allowed) {
+    releaseAge = heldBackText(held, installedVersion);
+    notes.push(releaseAge);
+    // Newer releases exist, none old enough: nothing to check.
+    if (compareVersions(target, installedVersion) <= 0)
+      return { ...base('skipped', installedVersion, installedVersion), skipReason: 'RELEASE_AGE' };
+  }
   if (compareVersions(target, installedVersion) <= 0) {
     notes.push('up to date');
     return base('safe', target, latest);

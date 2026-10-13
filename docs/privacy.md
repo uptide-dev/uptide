@@ -110,3 +110,8 @@ registries and host/path-scoped credentials. Credentials and registry responses 
 written to the discovery cache. Only packages served by the public npm registry are named to
 npm's advisory endpoint; `--no-advisories` or `"advisories": false` in `uptide.config.json`
 turns that request off ([`uptide list`](commands/list.md#registry-access-and-advisories)).
+
+With a release-age policy ([docs/config.md](config.md#release-age)), Uptide also asks your
+registry for the full package document, which carries publish dates, for a package that
+changed inside the policy's window: the same registry and credentials, one request per
+package, nothing sent beyond the package name.

@@ -262,6 +262,31 @@ describe('the Uptide Action run', () => {
     ]);
   });
 
+  it('a package with no release old enough for the policy is skipped, with the reason', async () => {
+    const reason =
+      '5.0.0 is 1 day old; your policy is 7 days (min-release-age in .npmrc); nothing newer than 4.0.0 qualifies';
+    const list = {
+      ...listReport([dep('zod', '3.25.76', '4.6.5')]),
+      releaseAge: [{ name: 'gadget', current: '4.0.0', reason }],
+    };
+    const all = await runAction(
+      inputs(workspace('version: 1\n'), { mode: 'list' }),
+      services({ list }).s,
+    );
+    expect(reportProblems(all)).toEqual([]);
+    expect(all.upgrades.map((u) => [u.package, u.status, u.from, u.error])).toEqual([
+      ['gadget', 'skipped', '4.0.0', `gadget ${reason}`],
+      ['zod', 'available', '3.25.76', undefined],
+    ]);
+    const named = await runAction(
+      inputs(workspace('version: 1\n'), { package: 'gadget' }),
+      services({ list }).s,
+    );
+    expect(named.upgrades).toEqual([
+      expect.objectContaining({ package: 'gadget', status: 'skipped', error: `gadget ${reason}` }),
+    ]);
+  });
+
   it('runs with the defaults when the repository has no uptide.yml', async () => {
     const { s, calls } = services({ list: listReport([]) });
     const report = await runAction(inputs(workspace(), { mode: 'list' }), s);

@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { parse } from 'ini';
 import { workspacePackagesOrRoot } from '../workspaces.js';
+import { managerPolicies, type ReleaseAgePolicy } from './release-age.js';
 
 export const DEFAULT_REGISTRY = 'https://registry.npmjs.org';
 export interface RegistryConfig {
@@ -11,6 +12,8 @@ export interface RegistryConfig {
   /** Host/path-scoped credentials stay in memory, never in reports or cache keys. */
   tokens: Record<string, string>;
   basicAuth?: Record<string, string>;
+  /** How old a release must be before it may be a target; empty or absent: no policy. */
+  releaseAge?: ReleaseAgePolicy[];
 }
 const stripSlash = (url: string): string => url.replace(/\/+$/, '');
 
@@ -115,7 +118,8 @@ export function loadRegistryConfig(
   const cwd = opts.cwd ?? process.cwd();
   const home = env.HOME ?? homedir();
   const pathOf = (value: string): string => resolve(cwd, value.replace(/^~(?=\/|$)/, home));
-  const project = fields(readIfExists(join(projectRoot(cwd), '.npmrc')), env);
+  const root = projectRoot(cwd);
+  const project = fields(readIfExists(join(root, '.npmrc')), env);
   const userFile = String(environment.userconfig ?? project.userconfig ?? join(home, '.npmrc'));
   const user = fields(readIfExists(pathOf(userFile)), env);
   const prefix = String(
@@ -131,16 +135,38 @@ export function loadRegistryConfig(
       user.globalconfig ??
       join(prefix, 'etc/npmrc'),
   );
+  const global = fields(readIfExists(pathOf(globalFile)), env);
+  // npm's `min-release-age` is days; the highest layer that sets it wins.
+  const npm = (
+    [
+      ['npm_config_min_release_age', environment],
+      ['.npmrc', project],
+      ['~/.npmrc', user],
+      ['the global npmrc', global],
+    ] as const
+  ).find(([, values]) => values['min-release-age'] !== undefined);
+  const days = Number(npm?.[1]['min-release-age']);
+  const releaseAge: ReleaseAgePolicy[] = [
+    ...(npm && days > 0
+      ? [{ minutes: days * 24 * 60, source: `min-release-age in ${npm[0]}`, exclude: [] }]
+      : []),
+    ...managerPolicies(root),
+  ];
+  // uptide.yml's `minReleaseAgeDays`, set by the CLI from the settings it read: only when the
+  // repository sets no policy itself. A package manager's built-in default is not one; both apply.
+  const fallback = Number(env.UPTIDE_MIN_RELEASE_AGE_DAYS);
+  if (!releaseAge.some((p) => !p.builtIn) && fallback > 0)
+    releaseAge.push({
+      minutes: fallback * 24 * 60,
+      source: 'minReleaseAgeDays in uptide.yml',
+      exclude: [],
+    });
   return {
     registry: DEFAULT_REGISTRY,
     scoped: {},
     tokens: {},
-    ...registryConfig({
-      ...fields(readIfExists(pathOf(globalFile)), env),
-      ...user,
-      ...project,
-      ...environment,
-    }),
+    ...registryConfig({ ...global, ...user, ...project, ...environment }),
+    ...(releaseAge.length ? { releaseAge } : {}),
   };
 }
 export function registryFor(name: string, config: RegistryConfig): string {

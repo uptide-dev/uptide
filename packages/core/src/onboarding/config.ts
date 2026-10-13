@@ -22,6 +22,7 @@ export type UptideConfigInput = {
   llm?: { enabled?: boolean; provider?: UptideConfig['llm']['provider'] };
   maxCost?: number;
   executor?: UptideConfig['executor'];
+  minReleaseAgeDays?: number;
 };
 
 export interface LoadedConfig {
@@ -59,6 +60,9 @@ export function withDefaults(given: UptideConfigInput): UptideConfig {
     },
     maxCost: given.maxCost ?? DEFAULT_CONFIG.maxCost,
     executor: given.executor ?? DEFAULT_CONFIG.executor,
+    ...(given.minReleaseAgeDays !== undefined
+      ? { minReleaseAgeDays: given.minReleaseAgeDays }
+      : {}),
   };
 }
 

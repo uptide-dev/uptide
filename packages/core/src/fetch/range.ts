@@ -18,3 +18,8 @@ export function minVersion(range: string): string | undefined {
 export function validRange(range: string): boolean {
   return semver.validRange(range) !== null;
 }
+
+/** Whether every version `sub` admits, `sup` admits too. */
+export function subset(sub: string, sup: string): boolean {
+  return semver.validRange(sub) !== null && semver.subset(sub, sup);
+}

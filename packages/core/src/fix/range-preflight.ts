@@ -35,6 +35,7 @@ export async function rangePreflight(
     pack ?? { name: options.only, defaultTarget: '' },
     options.target,
     services?.resolve ?? fetcher.resolve,
+    services?.resolve ? undefined : fetcher,
   );
   validateVersionRanges(root, [{ name: options.only, to: target }], read);
   if (names.size === 1) return target;

@@ -15,10 +15,18 @@ import {
   listVersions,
   manifestUrl,
   packumentUrl,
+  publishTimes,
   type ResolvedVersion,
   resolveVersion,
   withRetry,
 } from './registry.js';
+import {
+  allowedVersions,
+  type HeldBack,
+  newestAllowed,
+  releaseAgeError,
+  windowStart,
+} from './release-age.js';
 import { extractTgz } from './tar.js';
 
 export interface NpmFetcherOptions {
@@ -155,6 +163,30 @@ export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
     return tgz;
   }
 
+  const allVersions = (name: string): Promise<string[]> =>
+    remembered([...packagePathSegments(name), 'versions'], false, () =>
+      listVersions(name, config, fetchFn),
+    );
+  /**
+   * The release-age policy, when the repository has one: `latest` is the newest version old
+   * enough, and versions and manifests leave out the younger ones, so no companion or peer
+   * moves to one either. Publish dates are kept for this fetcher only: a cached `latest` is
+   * then never newer than the dates it is judged by.
+   */
+  const policies = config.releaseAge ?? [];
+  const held = new Map<string, HeldBack>();
+  const times = new Map<string, Promise<Record<string, string>>>();
+  const timesOf = (name: string): Promise<Record<string, string>> => {
+    let request = times.get(name);
+    if (!request) {
+      request = publishTimes(name, config, fetchFn, windowStart(policies));
+      times.set(name, request);
+    }
+    return request;
+  };
+  const allowed = async (name: string, versions: string[]): Promise<string[]> =>
+    policies.length ? allowedVersions(policies, name, versions, await timesOf(name)) : versions;
+
   return {
     metadata: (name, version) =>
       remembered(
@@ -170,17 +202,35 @@ export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
         },
       ),
     async resolve(name, requested) {
-      return (await resolved(name, requested)).version;
+      const version = (await resolved(name, requested)).version;
+      if (!policies.length || EXACT_VERSION.test(requested)) return version;
+      const result = newestAllowed(
+        policies,
+        name,
+        version,
+        await allVersions(name),
+        await timesOf(name),
+      );
+      if (result.held) held.set(name, result.held);
+      else held.delete(name);
+      if (!result.version) throw releaseAgeError(name, result.held as HeldBack);
+      return result.version;
+    },
+    heldBack: (name) => held.get(name),
+    async releaseAge(name, version) {
+      if (!policies.length) return undefined;
+      return newestAllowed(policies, name, version, await allVersions(name), await timesOf(name))
+        .held;
     },
     async versions(name) {
-      return remembered([...packagePathSegments(name), 'versions'], false, () =>
-        listVersions(name, config, fetchFn),
-      );
+      return allowed(name, await allVersions(name));
     },
     async manifests(name) {
-      return remembered([...packagePathSegments(name), 'manifests'], false, () =>
+      const all = await remembered([...packagePathSegments(name), 'manifests'], false, () =>
         listManifests(name, config, fetchFn),
       );
+      const keep = new Set(await allowed(name, Object.keys(all)));
+      return Object.fromEntries(Object.entries(all).filter(([version]) => keep.has(version)));
     },
     async fetch(name, version): Promise<PackageDir> {
       const target = await resolved(name, version);

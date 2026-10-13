@@ -1,0 +1,10 @@
+{
+  "name": "synthetic-release-age-pnpm-11-default",
+  "private": true,
+  "packageManager": "pnpm@11.2.0",
+  "dependencies": {
+    "widget": "4.6.0",
+    "gadget": "4.0.0",
+    "@acme/tool": "1.0.0"
+  }
+}

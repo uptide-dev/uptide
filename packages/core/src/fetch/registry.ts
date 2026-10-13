@@ -35,6 +35,8 @@ interface Manifest {
 interface AbbreviatedPackument {
   'dist-tags'?: Record<string, string>;
   versions?: Record<string, Manifest>;
+  /** When anything about the package last changed; the abbreviated document has no `time`. */
+  modified?: string;
 }
 
 export function packumentUrl(name: string, registry: string): string {
@@ -106,11 +108,12 @@ async function getJson<T>(
   url: string,
   config: RegistryConfig,
   fetchFn: FetchFn,
+  // The abbreviated document is a fraction of the size and has everything but publish dates.
+  accept = 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8',
 ): Promise<T | undefined> {
   const res = await request(fetchFn, url, {
     headers: {
-      // The abbreviated document is a fraction of the size and has everything we need.
-      accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8',
+      accept,
       ...authHeaders(url, config),
     },
   });
@@ -242,4 +245,29 @@ export async function listManifests(
     };
   }
   return out;
+}
+
+/**
+ * Publish dates (`time`), which only the full document carries. The abbreviated one is asked
+ * first: when nothing changed since `since`, no release is that recent and the full document,
+ * tens of megabytes for some packages, is not downloaded. Empty then.
+ */
+export async function publishTimes(
+  name: string,
+  config: RegistryConfig,
+  fetchFn: FetchFn,
+  since: number,
+): Promise<Record<string, string>> {
+  const registry = registryFor(name, config);
+  const url = packumentUrl(name, registry);
+  const abbreviated = await getJson<AbbreviatedPackument>(url, config, fetchFn);
+  if (!abbreviated) throw new PackageNotFoundError(name, registry);
+  if (abbreviated.modified && Date.parse(abbreviated.modified) < since) return {};
+  const full = await getJson<{ time?: Record<string, string> }>(
+    url,
+    config,
+    fetchFn,
+    'application/json',
+  );
+  return full?.time ?? {};
 }
