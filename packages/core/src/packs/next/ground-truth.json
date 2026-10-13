@@ -1,0 +1,124 @@
+{
+  "$comment": "Expectations derived from merged upgrade diffs and independent scripts-off installations with the repository TypeScript 5.9.3, before running Uptide. Both parents pass tsc. See RESEARCH.md for root-cause grouping, helper-resolution artifacts, and excluded repositories. Configuration/rename expectations deliberately remain false negatives until the engine supports them.",
+  "package": "next",
+  "repos": [
+    {
+      "repo": "sambecker/exif-photo-blog",
+      "commit": "3f1a36354d203e5a28f7c2cd55eceda95a13e3bd",
+      "migration": "https://github.com/sambecker/exif-photo-blog/pull/351",
+      "from": "15.5.5",
+      "to": "16.0.1",
+      "with": {
+        "@next/bundle-analyzer": "16.0.1",
+        "@next/eslint-plugin-next": "16.0.1",
+        "eslint-config-next": "16.0.1"
+      },
+      "why": "App Router, one package; parent tsc clean with scripts disabled. Upgrade c8ea51cdd1c2604e0ad0f7f2420e7e07160a85fa. Independent target tsc has ten revalidation errors. Middleware rename uses the OLD path, not the truth helper new-path artifact. Image priority is grouped at its shared wrapper, with three downstream uses. Static-generation helpers are two root causes, not every reformatted line.",
+      "findings": [
+        {
+          "file": "src/photo/cache.ts",
+          "line": 105,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 108,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 111,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 114,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 117,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 120,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 123,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 126,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 129,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 154,
+          "rule": "revalidate-tag-profile",
+          "note": "TS2554 and actual upgrade add a cache profile; each wrapper independently invalidates a different cache tag."
+        },
+        {
+          "file": "middleware.ts",
+          "line": 13,
+          "rule": "middleware-proxy",
+          "note": "Upgrade renames middleware.ts to proxy.ts and its exported function; convention decision, no rename operation in pack contract."
+        },
+        {
+          "file": "src/components/image/ImageWithFallback.tsx",
+          "line": 16,
+          "rule": "image-priority",
+          "note": "TS6385 at shared ImageProps wrapper; PhotoForm:375, PhotoLarge:230 and PhotoMedium:82 propagate the same deprecated wrapper contract."
+        },
+        {
+          "file": "src/app/static.ts",
+          "line": 24,
+          "rule": "generic",
+          "note": "Upgrade removes the production-only gate for photo static generation; one helper root cause, not every line of its reformatted body."
+        },
+        {
+          "file": "src/app/static.ts",
+          "line": 50,
+          "rule": "generic",
+          "note": "Upgrade removes the production-only gate for category static generation; second helper root cause."
+        }
+      ]
+    },
+    {
+      "repo": "stoczec/wortkarte",
+      "commit": "e3bd3679ae6ea60ce2a78aefebec0caa48c4febd",
+      "migration": "https://github.com/stoczec/wortkarte/pull/65",
+      "from": "15.5.27",
+      "to": "16.3.8",
+      "with": {
+        "eslint-config-next": "16.3.8"
+      },
+      "why": "Small single-package App Router application; parent tsc clean with scripts disabled. Upgrade 92f8a566fd5a54ac49e89fc98d1fb1de4fbd24a1 removes next.config eslint. ESLint flat-config rewrites belong to eslint-config-next; JSX tsconfig setting is tooling configuration, not a compiler-required source migration.",
+      "findings": [
+        {
+          "file": "next.config.mjs",
+          "line": 3,
+          "rule": "lint-removal",
+          "note": "One removed eslint config object, old lines 3-5; deliberately expected despite no import-based discovery for JSDoc-only config."
+        }
+      ]
+    }
+  ]
+}
