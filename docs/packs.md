@@ -235,6 +235,11 @@ uptide pack test zod --fixtures-only # no repository
 uptide pack test zod --write         # record the result in verification.json
 ```
 
+Each pack runs in a process of its own. One that runs longer than `--pack-timeout`
+(minutes, default 20) is stopped with everything it started, and is reported as failed with
+the pack's name and the last thing it logged; the other packs still run. The fetch of a
+repository, every install, and every registry request have their own deadlines too.
+
 For each ground-truth repository it runs `check` with the pack (the same code path users
 get), takes the sites of the plan for the package, and compares them with the expected
 findings:

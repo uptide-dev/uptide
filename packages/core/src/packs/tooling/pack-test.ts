@@ -375,3 +375,34 @@ export function writeVerification(root: string, dir: string, record: PackVerific
   writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
   return file;
 }
+
+/**
+ * A pack whose test never finished (it ran past its deadline, or its process died): failed,
+ * with the reason as its problem, so the run names the pack instead of stalling or vanishing.
+ */
+export function unfinishedPack(entry: RegisteredPack, reason: string): PackTestReport {
+  const none = tally(0, 0, 0);
+  return {
+    package: entry.pack.name,
+    dir: entry.dir,
+    status: 'candidate',
+    recorded: recordedStatus(entry.verification),
+    stale: false,
+    fixturesOnly: false,
+    verification: entry.verification,
+    problems: [reason],
+    fixtures: {
+      cases: [],
+      rules: {},
+      falsePositives: [],
+      falseNegatives: [],
+      rewriteFailures: [],
+      unknown: [],
+    },
+    repos: [],
+    rules: {},
+    overall: none,
+    breaking: none,
+    passed: false,
+  };
+}

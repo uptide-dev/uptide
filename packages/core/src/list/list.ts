@@ -195,7 +195,8 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
       code.startsWith('REGISTRY_') ||
       code === 'PACKAGE_NOT_FOUND' ||
       code === 'VERSION_NOT_FOUND';
-    if (code === 'REGISTRY_AUTH' || code === 'REGISTRY_UNREACHABLE') blocked.add(name);
+    if (code === 'REGISTRY_AUTH' || code === 'REGISTRY_UNREACHABLE' || code === 'REGISTRY_TIMEOUT')
+      blocked.add(name);
     failures.push({
       name: localName(name),
       ...(registry ? { kind: 'registry' as const } : {}),

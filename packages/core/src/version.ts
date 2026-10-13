@@ -68,6 +68,8 @@ export function uptideVersionInfo(env: NodeJS.ProcessEnv = process.env): {
       execFileSync('git', ['-C', root, ...args], {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 30_000,
+        killSignal: 'SIGKILL',
       }).trim();
     return {
       uptideVersion: published,
