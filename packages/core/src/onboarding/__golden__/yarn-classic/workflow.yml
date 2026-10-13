@@ -47,7 +47,7 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts --non-interactive
       # Reads uptide.yml, runs Uptide, opens draft pull requests and uploads the results JSON.
-      - uses: uptide-dev/uptide@2045c7dc0fcb7cd86522595de06308f154b1d8bf # v0.9.0
+      - uses: uptide-dev/uptide@e27dd6bbf8d97d9ce0c106d50fea58dd32de66c9 # v0.11.0
         with:
           config: uptide.yml
           mode: ${{ inputs.mode || 'fix' }}

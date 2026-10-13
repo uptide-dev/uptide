@@ -26,6 +26,11 @@ it('pins the Uptide Action in this repository by a release tag', () => {
   expect(UPTIDE_ACTION.repo).toBe('uptide-dev/uptide');
   expect(UPTIDE_ACTION.tag).toMatch(/^v\d+\.\d+\.\d+$/);
   expect(UPTIDE_ACTION.sha).toMatch(/^[0-9a-f]{40}$/);
+  expect(UPTIDE_ACTION).toMatchObject({
+    sha: 'e27dd6bbf8d97d9ce0c106d50fea58dd32de66c9',
+    tag: 'v0.11.0',
+    released: true,
+  });
 });
 
 /** The commit a tag names in this checkout, or undefined when the tag was not fetched. */
