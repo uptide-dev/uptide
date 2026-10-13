@@ -13,23 +13,37 @@ export type RunEngine = (args: string[], env: NodeJS.ProcessEnv) => Promise<Engi
 /** Variables no engine process inherits: credentials, and the runner's own token endpoints. */
 const SECRET = /(?:TOKEN|SECRET|API_KEY|PASSWORD|CREDENTIAL)|^ACTIONS_(?:ID_TOKEN|RUNTIME|CACHE)_/i;
 
+/** Who commits: the name and email git records as author and committer. */
+export interface GitAuthor {
+  name: string;
+  email: string;
+}
+
+/** Until the App's bot account is known: the commits are Uptide's, linked to no account. */
+export const FALLBACK_AUTHOR: GitAuthor = {
+  name: 'uptide[bot]',
+  email: 'uptide@users.noreply.github.com',
+};
+
 /**
  * The environment the engine runs with: the job's, minus every credential, plus what the
  * caller passes on purpose (`ANTHROPIC_API_KEY` for assisted fixes, nothing else). Commits
- * Uptide makes are authored by `uptide[bot]`. The engine's own installs and tests drop
- * credentials again (`fix/process.ts`), so the key reaches the LLM client only.
+ * Uptide makes are authored by `author`: the App's bot account when it is known
+ * (`github.ts`, `botAuthor`). The engine's own installs and tests drop credentials again
+ * (`fix/process.ts`), so the key reaches the LLM client only.
  */
 export function engineEnv(
   env: NodeJS.ProcessEnv,
   extra: Record<string, string> = {},
+  author: GitAuthor = FALLBACK_AUTHOR,
 ): NodeJS.ProcessEnv {
   return {
     ...Object.fromEntries(Object.entries(env).filter(([key]) => !SECRET.test(key))),
     CI: 'true',
-    GIT_AUTHOR_NAME: 'uptide[bot]',
-    GIT_COMMITTER_NAME: 'uptide[bot]',
-    GIT_AUTHOR_EMAIL: 'uptide@users.noreply.github.com',
-    GIT_COMMITTER_EMAIL: 'uptide@users.noreply.github.com',
+    GIT_AUTHOR_NAME: author.name,
+    GIT_COMMITTER_NAME: author.name,
+    GIT_AUTHOR_EMAIL: author.email,
+    GIT_COMMITTER_EMAIL: author.email,
     // Telemetry is opt-in and off in CI; the Action's own report is what leaves.
     UPTIDE_TELEMETRY: '0',
     ...extra,
@@ -77,6 +91,7 @@ export function publishEnv(
   env: NodeJS.ProcessEnv,
   token: string,
   serverUrl = env.GITHUB_SERVER_URL ?? 'https://github.com',
+  author: GitAuthor = FALLBACK_AUTHOR,
 ): { env: NodeJS.ProcessEnv; cleanup: () => void } {
   const host = new URL(serverUrl).host;
   const dir = mkdtempSync(join(env.RUNNER_TEMP ?? tmpdir(), 'uptide-gh-'));
@@ -87,16 +102,20 @@ export function publishEnv(
   );
   const header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
   return {
-    env: engineEnv(env, {
-      GH_CONFIG_DIR: dir,
-      GH_PROMPT_DISABLED: '1',
-      GH_NO_UPDATE_NOTIFIER: '1',
-      ...(host === 'github.com' ? {} : { GH_HOST: host }),
-      GIT_CONFIG_COUNT: '1',
-      GIT_CONFIG_KEY_0: `http.${new URL(serverUrl).origin}/.extraheader`,
-      GIT_CONFIG_VALUE_0: header,
-      GIT_TERMINAL_PROMPT: '0',
-    }),
+    env: engineEnv(
+      env,
+      {
+        GH_CONFIG_DIR: dir,
+        GH_PROMPT_DISABLED: '1',
+        GH_NO_UPDATE_NOTIFIER: '1',
+        ...(host === 'github.com' ? {} : { GH_HOST: host }),
+        GIT_CONFIG_COUNT: '1',
+        GIT_CONFIG_KEY_0: `http.${new URL(serverUrl).origin}/.extraheader`,
+        GIT_CONFIG_VALUE_0: header,
+        GIT_TERMINAL_PROMPT: '0',
+      },
+      author,
+    ),
     cleanup: () => rmSync(dir, { recursive: true, force: true }),
   };
 }

@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { RUN_REPORT_SCHEMA_ID, type RunReport } from '../run-report/schema.js';
 import { engineEnv, publishEnv } from './engine.js';
+import { botAuthor } from './github.js';
 import {
   appEndpoint,
   exchangeToken,
@@ -262,5 +263,81 @@ describe('the engine environment', () => {
     expect(env.GITHUB_TOKEN).toBeUndefined();
     cleanup();
     expect(existsSync(hosts)).toBe(false);
+  });
+});
+
+describe('the commit author', () => {
+  const BOT = { login: 'uptide-app[bot]', id: 241_557_013, type: 'Bot' };
+
+  it("is the App's bot account: <bot user id>+<slug>[bot]@users.noreply.github.com", async () => {
+    const { fetch, calls } = fakeFetch({ '/users/uptide-app%5Bbot%5D': () => ok(BOT) });
+    expect(await botAuthor({ slug: 'uptide-app', token: INSTALLATION, fetch })).toEqual({
+      name: 'uptide-app[bot]',
+      email: '241557013+uptide-app[bot]@users.noreply.github.com',
+    });
+    expect(calls[0]?.url).toBe('https://api.github.com/users/uptide-app%5Bbot%5D');
+    expect(auth(calls[0])).toBe(`Bearer ${INSTALLATION}`);
+    // GitHub Enterprise Server: its own API and noreply domain.
+    const ghes = fakeFetch({ '/api/v3/users/uptide-app%5Bbot%5D': () => ok(BOT) });
+    expect(
+      (
+        await botAuthor({
+          slug: 'uptide-app',
+          token: INSTALLATION,
+          fetch: ghes.fetch,
+          apiUrl: 'https://ghe.example.com/api/v3',
+        })
+      ).email,
+    ).toBe('241557013+uptide-app[bot]@users.noreply.ghe.example.com');
+  });
+
+  it('refuses an answer that is not the bot account, and a slug that is not one', async () => {
+    const wrong = fakeFetch({
+      '/users/uptide-app%5Bbot%5D': () => ok({ ...BOT, login: 'someone' }),
+    });
+    await expect(
+      botAuthor({ slug: 'uptide-app', token: INSTALLATION, fetch: wrong.fetch }),
+    ).rejects.toThrow('without its account id');
+    const missing = fakeFetch({ '/users/uptide-app%5Bbot%5D': () => ok({}, 404) });
+    await expect(
+      botAuthor({ slug: 'uptide-app', token: INSTALLATION, fetch: missing.fetch }),
+    ).rejects.toThrow('HTTP 404');
+    await expect(
+      botAuthor({ slug: '../evil', token: INSTALLATION, fetch: missing.fetch }),
+    ).rejects.toThrow('not a GitHub App slug');
+  });
+
+  it('takes the App slug from the token exchange, when the Uptide app names it', async () => {
+    const named = fakeFetch({
+      ...oidcAnswer,
+      '/api/action/token': () =>
+        ok({ token: INSTALLATION, expiresAt: '2099-01-01T00:00:00Z', app: { slug: 'uptide-app' } }),
+    });
+    const tokens = installationTokens({
+      appUrl: 'https://app.example',
+      env: ENV,
+      fetch: named.fetch,
+      mask: () => {},
+    });
+    expect(tokens.appSlug()).toBeUndefined();
+    await tokens.get();
+    expect(tokens.appSlug()).toBe('uptide-app');
+    const bad = fakeFetch({
+      '/api/action/token': () =>
+        ok({ token: INSTALLATION, expiresAt: '2099-01-01T00:00:00Z', app: { slug: 'a b' } }),
+    });
+    expect((await exchangeToken('https://app.example', JWT, bad.fetch, () => {})).app).toBe(
+      undefined,
+    );
+  });
+
+  it('is what git records for the engine and for uptide pr', () => {
+    const author = { name: 'uptide-app[bot]', email: '1+uptide-app[bot]@users.noreply.github.com' };
+    const env = engineEnv({}, {}, author);
+    expect([env.GIT_AUTHOR_NAME, env.GIT_COMMITTER_NAME]).toEqual([author.name, author.name]);
+    expect([env.GIT_AUTHOR_EMAIL, env.GIT_COMMITTER_EMAIL]).toEqual([author.email, author.email]);
+    const { env: publish, cleanup } = publishEnv({}, INSTALLATION, undefined, author);
+    expect(publish.GIT_AUTHOR_EMAIL).toBe(author.email);
+    cleanup();
   });
 });

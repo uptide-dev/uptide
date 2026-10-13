@@ -959,6 +959,15 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
           for (const m of g) if (!members.includes(m)) members.push(m);
       groups = [...groups.filter((g) => !g.some((m) => members.includes(m))), members];
     }
+    // A companion this workspace does not analyze on its own (never imported, a types
+    // package) is analyzed with its lead, at the version the lead's upgrade gives it: never
+    // reported on its own at the installed version, as if nothing moved it.
+    const leadOf = new Map<string, { lead: string; to: string }>();
+    for (const [lead, plan] of Object.entries(opts.companions ?? {})) {
+      if (!analyzable.some(([name]) => name === lead)) continue;
+      for (const c of plan.companions)
+        if (c.from !== c.to && !leadOf.has(c.name)) leadOf.set(c.name, { lead, to: c.to });
+    }
     const groupOf = new Map(groups.flatMap((g) => g.map((m) => [m, g] as const)));
     const done = new Set<string>();
     // The analysis is CPU-bound on one thread: six at once finish together, late, and each
@@ -977,6 +986,9 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
           linked.notes = [];
           return [linked];
         }
+        const moves = leadOf.get(name);
+        if (moves && !groupOf.has(name))
+          return [movesWith(workspace, name, installedVersion, moves.lead, moves.to)];
         // Type-only packages and dependencies nothing imports cannot affect a call site; say so instead of fetching them.
         if (
           !opts.allDeps &&
@@ -1203,6 +1215,24 @@ function memoizingFetcher(inner: PackageFetcher): RunFetcher {
         await dir.then((pkg) => releasePackage(inner, pkg)).catch(() => undefined);
       }
     },
+  };
+}
+
+/** A companion analyzed with its lead: the versions the lead's upgrade gives it, and the lead. */
+function movesWith(
+  workspace: string,
+  name: string,
+  installed: string,
+  lead: string,
+  target: string,
+): PackageReport {
+  return {
+    ...notImported(workspace, name, installed),
+    latest: target,
+    target,
+    majorsBehind: majorsBehind(installed, target),
+    movesWith: lead,
+    notes: [`moves with ${lead}; analyzed with it at ${target}`],
   };
 }
 
@@ -1657,6 +1687,25 @@ async function checkGroup(
       return { ...base('skipped'), skipReason: errorCode(err) };
     }
   }
+  // What moves with the leader and is not a member here (never imported by this workspace,
+  // a types package, or no usages): it is still part of the upgrade, so the target program
+  // links it at the version the plan gives it, as `fix` installs it.
+  const covered = new Set(prepared.flatMap((p) => [p.name, ...(p.types ? [p.types.name] : [])]));
+  const moving: { name: string; dir: string }[] = [];
+  for (const c of plan?.companions ?? []) {
+    if (covered.has(c.name) || c.from === c.to) continue;
+    try {
+      const pkg = await progress(
+        ctx.opts.onProgress,
+        { phase: 'fetch', package: c.name, workspace },
+        () => ctx.fetcher.fetch(c.name, c.to),
+      );
+      moving.push({ name: c.name, dir: pkg.dir });
+    } catch (err) {
+      notes.push(`could not fetch ${c.name}@${c.to}: ${(err as Error).message}`);
+      return { ...base('skipped'), skipReason: errorCode(err) };
+    }
+  }
   timing.fetchMs = Date.now() - tFetch;
   const node = resolveNodeVersion([repo.dir, ctx.opts.cwd]);
   const nodeRange = node?.range;
@@ -1744,11 +1793,14 @@ async function checkGroup(
         () =>
           compileMany(
             repo,
-            fetched.map(({ p, pkg }) =>
-              p.types
-                ? { name: p.types.name, dir: pkg.dir, specifier: p.name }
-                : { name: p.name, dir: pkg.dir },
-            ),
+            [
+              ...fetched.map(({ p, pkg }) =>
+                p.types
+                  ? { name: p.types.name, dir: pkg.dir, specifier: p.name }
+                  : { name: p.name, dir: pkg.dir },
+              ),
+              ...moving,
+            ],
             {
               fetcher: ctx.fetcher,
               files: [

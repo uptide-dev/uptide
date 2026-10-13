@@ -235,6 +235,43 @@ describe('the Uptide Action run', () => {
     expect(report.error).toBeUndefined();
   });
 
+  it("fix: commits are the App's bot account's, and a run that cannot resolve it says so", async () => {
+    const author = { name: 'uptide-app[bot]', email: '7+uptide-app[bot]@users.noreply.github.com' };
+    const authors: unknown[] = [];
+    const { s, calls } = services({
+      list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+      fix: () => fixRun(storefrontFix()),
+    });
+    const engine = s.engine;
+    const logged: string[] = [];
+    const run = (resolve: ActionServices['author']) =>
+      runAction(inputs(workspace('version: 1\n')), {
+        ...s,
+        engine: (args, key, a) => {
+          if (args[0] === 'fix') authors.push(a);
+          return engine(args, key, a);
+        },
+        publish: async (branch, token, a) => {
+          authors.push(a);
+          return s.publish(branch, token);
+        },
+        author: resolve,
+        log: (line) => logged.push(line),
+      });
+    await run(async (token) => (token === 'installation-token' ? author : undefined));
+    expect(authors).toEqual([author, author]);
+    expect(logged.join('\n')).not.toContain('::warning');
+    authors.length = 0;
+    await run(async () => {
+      throw new Error('HTTP 404');
+    });
+    expect(authors).toEqual([undefined, undefined]);
+    expect(logged.join('\n')).toContain(
+      '::warning title=Uptide::the Uptide GitHub App bot account could not be resolved',
+    );
+    expect(calls.some((c) => c.args[0] === 'fix')).toBe(true);
+  });
+
   it('fix: never more open pull requests than maxOpenPrs, and never a second for a package', async () => {
     const { s, calls } = services({
       list: listReport([

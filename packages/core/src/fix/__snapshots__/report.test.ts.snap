@@ -11,7 +11,7 @@ exports[`storefront-zod > snapshots the full PR description and compact terminal
 |---|---|
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing, 0 introduced by the upgrade) |
+| **Types** | ✅ the upgrade broke 28, Uptide left 0 · 1 error before → 29 after the bump → 1 after the migration |
 | **Behavior** | ✅ 9 schemas identical · 2 not checked · 21/21 custom-message assertions |
 | **Tests** | ✅ 5 tests in 3 files passed |
 
@@ -265,7 +265,7 @@ exports[`storefront-zod > snapshots the full PR description and compact terminal
 |---|---|
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing, 0 introduced by the upgrade) |
+| **Types** | ✅ the upgrade broke 28, Uptide left 0 · 1 error before → 29 after the bump → 1 after the migration |
 | **Behavior** | ✅ 9 schemas identical · 2 not checked · 21/21 custom-message assertions |
 | **Tests** | ✅ 5 tests in 3 files passed |
 
@@ -287,7 +287,7 @@ exports[`stripe > snapshots the full PR description and compact terminal/comment
 |---|---|
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 4 errors after the bump → 0 |
+| **Types** | ✅ the upgrade broke 4, Uptide left 0 · 0 errors before → 4 after the bump → 0 after the migration |
 | **Behavior** | ⚠️ not checked |
 | **Tests** | ⚠️ no test script in the repository |
 
@@ -708,8 +708,7 @@ Type errors: baseline 0; target 4; after 0; 0 new. Verification: PASS.
 - 2025-07-30.basil: [Adds a new value to payment review closed reasons](https://docs.stripe.com/changelog/basil/2025-07-30/add-new-enum-to-payment-review-close-reason.md) — non-breaking; Radar
 - 2025-07-30.basil: [Adds a duration parameter for schedule phases](https://docs.stripe.com/changelog/basil/2025-07-30/add-schedule-phase-duration.md) — non-breaking; Billing
 - 2025-07-30.basil: [Adds support for the America/Coyhaique time zone](https://docs.stripe.com/changelog/basil/2025-07-30/america_coyhaique_timezone.md) — non-breaking; All products
-- 2025-07-30.basil: [Adds support for billing thresholds on flexible billing mode Subscriptions](https://docs.stripe.com/changelog/basil/2025-07-30/billing-thresholds.md) — non-breaking; Billing
-- … 256 more not shown here: [Stripe's changelog](https://docs.stripe.com/changelog).
+- … 257 more not shown here: [Stripe's changelog](https://docs.stripe.com/changelog).
 
 </details>
 
@@ -738,7 +737,7 @@ exports[`stripe > snapshots the full PR description and compact terminal/comment
 |---|---|
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 4 errors after the bump → 0 |
+| **Types** | ✅ the upgrade broke 4, Uptide left 0 · 0 errors before → 4 after the bump → 0 after the migration |
 | **Behavior** | ⚠️ not checked |
 | **Tests** | ⚠️ no test script in the repository |
 

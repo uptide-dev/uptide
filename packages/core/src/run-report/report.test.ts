@@ -196,6 +196,33 @@ describe('uptide.run/v1', () => {
     expect(section).toMatch(/\*\*`zod`\*\* \(\d+\)/);
   });
 
+  it('counts the type errors right after the bump, and says what the upgrade broke and Uptide left', () => {
+    const fix = storefront();
+    const upgrade = fromFix(fix, { pr: PR, durationMs: 1 });
+    expect(upgrade.verification?.typecheck).toEqual({
+      before: fix.verification.baseline.length,
+      afterUpgrade: fix.verification.target.length,
+      after: fix.verification.after.length,
+    });
+    expect(reportProblems(run([upgrade]))).toEqual([]);
+    const counts = { before: 1, afterUpgrade: 5, after: 1 };
+    const row = {
+      ...upgrade,
+      verification: {
+        ...(upgrade.verification as NonNullable<typeof upgrade.verification>),
+        typecheck: counts,
+      },
+    };
+    expect(renderSummary(run([row]))).toContain(
+      'types: the upgrade broke 4, Uptide left 0 (1 before → 5 after the upgrade → 1)',
+    );
+    // A report written before the count was kept still renders, as it did.
+    const { afterUpgrade: _, ...old } = counts;
+    expect(
+      renderSummary(run([{ ...row, verification: { ...row.verification, typecheck: old } }])),
+    ).toContain('types 1 → 1, lint');
+  });
+
   it('omits the breaking-sites section when nothing breaks', () => {
     const upgrade = fromFix(storefront(), { pr: PR, durationMs: 1 });
     const summary = renderSummary(run([{ ...upgrade, breaking: [] }]));
@@ -220,6 +247,29 @@ describe('uptide.run/v1', () => {
     expect(reportProblems(run([{ ...base, analysis: 'maybe' as 'none' }]))).toEqual([
       'upgrades[0].analysis must be one of pack, none',
     ]);
+  });
+
+  it('reports a companion check analyzed with its lead as moving with it', () => {
+    const pkg = {
+      ...check().packages[0],
+      name: 'react-dom',
+      installed: '18.3.1',
+      target: '19.3.0',
+      latest: '19.3.0',
+      status: 'not-imported',
+      movesWith: 'react',
+      findings: [],
+    } as unknown as CheckReport['packages'][number];
+    expect(fromChecked(pkg)).toMatchObject({
+      package: 'react-dom',
+      from: '18.3.1',
+      to: '19.3.0',
+      kind: 'major',
+      status: 'available',
+      movesWith: 'react',
+      breaking: [],
+    });
+    expect(fromChecked(pkg).analysis).toBeUndefined();
   });
 
   it('prints no kind when nothing moves, and a companion as moving with its lead', () => {

@@ -152,6 +152,11 @@ export interface PackageReport {
    * the versions that agree with its target, each with why; `fix` upgrades them together.
    */
   companions?: { name: string; from: string; to: string; reason: string }[];
+  /**
+   * Set on a companion's own entry when it is analyzed with the package it moves with (named
+   * here): its `target` is the version that upgrade gives it, and the lead's report covers it.
+   */
+  movesWith?: string;
   /** Members of that group with no release that agrees with the target. */
   companionConflicts?: string[];
   /**

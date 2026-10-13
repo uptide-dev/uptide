@@ -1393,3 +1393,102 @@ describe('check on a pnpm workspace with the isolated node-linker', () => {
     ).toEqual(['packages/a/index.ts:6 breaking', 'packages/b/index.ts:6 breaking']);
   });
 });
+
+describe('companions this workspace never imports', () => {
+  // `ui` is imported; `ui-dom` (released with it, as react-dom with react) and its types are
+  // installed but never imported by the sources, as in a Next.js app that leaves react-dom to Next.
+  const manifest = (name: string, version: string) => ({
+    name,
+    version,
+    types: 'index.d.ts',
+    ...(name === 'ui-dom' ? { peerDependencies: { ui: `^${version}` } } : {}),
+  });
+  const write = (dir: string, name: string, version: string) => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'package.json'), JSON.stringify(manifest(name, version)));
+    writeFileSync(
+      join(dir, 'index.d.ts'),
+      name === 'ui' ? 'export declare function render(): string;\n' : 'export {};\n',
+    );
+  };
+  const NAMES = ['ui', 'ui-dom', '@types/ui-dom'];
+  function repo(): string {
+    const root = mkdtempSync(join(tmpdir(), 'uptide-companions-'));
+    mkdirSync(join(root, 'src'));
+    for (const name of NAMES) write(join(root, 'node_modules', name), name, '1.0.0');
+    const deps = Object.fromEntries(NAMES.map((n) => [n, '1.0.0']));
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'app', dependencies: deps }));
+    writeFileSync(
+      join(root, 'package-lock.json'),
+      JSON.stringify({
+        name: 'app',
+        lockfileVersion: 3,
+        packages: {
+          '': { dependencies: deps },
+          ...Object.fromEntries(NAMES.map((n) => [`node_modules/${n}`, { version: '1.0.0' }])),
+        },
+      }),
+    );
+    writeFileSync(
+      join(root, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { strict: true, noEmit: true }, include: ['src'] }),
+    );
+    writeFileSync(
+      join(root, 'src/index.ts'),
+      "import { render } from 'ui';\nexport const html = render();\n",
+    );
+    return root;
+  }
+
+  it("analyzes them with the lead, at the versions the lead's upgrade gives them", async () => {
+    const fetched: string[] = [];
+    const linked: string[][] = [];
+    const registry: PackageFetcher = {
+      async resolve(_name, requested) {
+        return requested === 'latest' ? '2.0.0' : requested;
+      },
+      async versions() {
+        return ['1.0.0', '2.0.0'];
+      },
+      async manifests(name) {
+        return { '1.0.0': manifest(name, '1.0.0'), '2.0.0': manifest(name, '2.0.0') };
+      },
+      async fetch(name, version) {
+        fetched.push(`${name}@${version}`);
+        const dir = mkdtempSync(join(tmpdir(), 'uptide-target-'));
+        write(dir, name, version);
+        return { name, version, dir };
+      },
+    };
+    const result = await check({
+      cwd: repo(),
+      only: ['ui'],
+      adapter: {
+        ...adapter,
+        compileAgainstMany: (r, targets, o) => {
+          linked.push(targets.map((t) => t.name));
+          return adapter.compileAgainstMany?.(r, targets, o) as never;
+        },
+      },
+      fetcher: registry,
+      cache: memoryCache(),
+      runtime: false,
+    });
+    const report = (name: string) => result.packages.find((p) => p.name === name);
+    expect(report('ui')?.companions?.map((c) => `${c.name} ${c.from} → ${c.to}`)).toEqual([
+      '@types/ui-dom 1.0.0 → 2.0.0',
+      'ui-dom 1.0.0 → 2.0.0',
+    ]);
+    // Compiled together: the lead's target program links what moves with it.
+    expect(fetched).toEqual(expect.arrayContaining(['ui-dom@2.0.0', '@types/ui-dom@2.0.0']));
+    expect(linked).toEqual([expect.arrayContaining(['ui', 'ui-dom', '@types/ui-dom'])]);
+    // Never reported at the installed version as if nothing moved them.
+    for (const name of ['ui-dom', '@types/ui-dom'])
+      expect(report(name)).toMatchObject({
+        installed: '1.0.0',
+        target: '2.0.0',
+        movesWith: 'ui',
+        notes: ['moves with ui; analyzed with it at 2.0.0'],
+      });
+  });
+});

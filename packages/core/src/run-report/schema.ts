@@ -43,8 +43,11 @@ export interface BreakingSite {
 }
 
 export interface Verification {
-  /** Type errors, before the upgrade and after the migration. */
-  typecheck: { before: number; after: number };
+  /**
+   * Type errors: before the upgrade, right after the version bump (before any edit; absent in
+   * reports written before it was kept), and after the migration.
+   */
+  typecheck: { before: number; afterUpgrade?: number; after: number };
   /** Lint tools failing on the edited files, before and after. */
   lint: { before: number; after: number };
   /** Test runs (one per workspace or scope) that passed and failed; null when none ran. */
@@ -209,7 +212,12 @@ export const RUN_REPORT_SCHEMA = {
                 additionalProperties: false,
                 required: ['typecheck', 'lint', 'tests'],
                 properties: {
-                  typecheck: BEFORE_AFTER,
+                  typecheck: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['before', 'after'],
+                    properties: { before: COUNT, afterUpgrade: COUNT, after: COUNT },
+                  },
                   lint: BEFORE_AFTER,
                   tests: {
                     anyOf: [

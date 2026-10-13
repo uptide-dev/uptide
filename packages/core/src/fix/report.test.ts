@@ -11,8 +11,9 @@ import {
   PR_BODY_BUDGET,
   prBody,
   renderMigration,
+  typesStory,
 } from './report.js';
-import type { FixReport } from './types.js';
+import type { FixDiagnostic, FixReport } from './types.js';
 
 function first<T>(items: T[] | undefined): T {
   const value = items?.[0];
@@ -60,6 +61,28 @@ for (const name of ['storefront-zod', 'stripe'])
       );
     });
   });
+it('says what the upgrade broke and what Uptide left, before the counts behind them', () => {
+  const error = (line: number): FixDiagnostic =>
+    ({ file: 'src/a.ts', line, column: 1, code: 2345, message: 'x' }) as FixDiagnostic;
+  const old = error(1);
+  const broken = [error(10), error(11), error(12), error(13)];
+  expect(
+    typesStory({ baseline: [old], target: [old, ...broken], after: [old], newErrors: [] }),
+  ).toBe(
+    '✅ the upgrade broke 4, Uptide left 0 · 1 error before → 5 after the bump → 1 after the migration',
+  );
+  expect(
+    typesStory({
+      baseline: [],
+      target: broken,
+      after: [broken[0] as FixDiagnostic],
+      newErrors: [broken[0] as FixDiagnostic],
+    }),
+  ).toBe(
+    '❌ the upgrade broke 4, Uptide left 1 · 0 errors before → 4 after the bump → 1 after the migration',
+  );
+});
+
 it('matches the storefront counts and folds the two resolved diagnostics into one fix', () => {
   const body = prBody(fixture('storefront-zod'));
   expect(body).toContain('29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM)');
@@ -432,8 +455,10 @@ describe('runs are scoped to their own repository', () => {
     expect(body).toContain(
       '| **Behavior** | ✅ 12 API changes, none affect your code, all additive |',
     );
-    // One error is one error.
-    expect(body).toContain('| **Types** | ✅ 1 error after the bump → 0 |');
+    // What the bump broke, what the migration left, and the counts behind both.
+    expect(body).toContain(
+      '| **Types** | ✅ the upgrade broke 1, Uptide left 0 · 0 errors before → 1 after the bump → 0 after the migration |',
+    );
     expect(body).toContain('| **Tests** | ✅ 1 workspace passed |');
   });
 

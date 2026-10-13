@@ -10,6 +10,8 @@
  * is masked the moment it arrives, and failures say what failed, not what was sent.
  */
 
+import { APP_SLUG } from './github.js';
+
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 /** Registers a secret with the runner so it is replaced by *** in every later log line. */
 export type Mask = (secret: string) => void;
@@ -84,6 +86,11 @@ export async function requestIdToken(
 export interface InstallationToken {
   token: string;
   expiresAt: Date;
+  /**
+   * The GitHub App the token belongs to, when the Uptide app names it (it reads `GET /app`
+   * with the App's JWT, which never reaches the runner): its slug names the bot account.
+   */
+  app?: { slug: string };
 }
 
 /** POST the OIDC token to `{app-url}/api/action/token`; the installation token comes back. */
@@ -104,6 +111,7 @@ export async function exchangeToken(
   const body = (await response.json().catch(() => ({}))) as {
     token?: unknown;
     expiresAt?: unknown;
+    app?: { slug?: unknown };
   };
   // Masked before anything else happens with the answer, even a refusal that carries one.
   if (typeof body.token === 'string' && body.token) mask(body.token);
@@ -118,7 +126,12 @@ export async function exchangeToken(
     throw new ActionAuthError(
       'the Uptide app answered the token exchange without { token, expiresAt }',
     );
-  return { token: body.token, expiresAt };
+  const slug = body.app?.slug;
+  return {
+    token: body.token,
+    expiresAt,
+    ...(typeof slug === 'string' && APP_SLUG.test(slug) ? { app: { slug } } : {}),
+  };
 }
 
 /**
@@ -131,7 +144,7 @@ export function installationTokens(options: {
   fetch: Fetch;
   mask: Mask;
   now?: () => number;
-}): { get(): Promise<string> } {
+}): { get(): Promise<string>; appSlug(): string | undefined } {
   const now = options.now ?? Date.now;
   let current: InstallationToken | undefined;
   return {
@@ -142,5 +155,7 @@ export function installationTokens(options: {
       }
       return current.token;
     },
+    /** The App's slug, once a token was exchanged and the Uptide app named it. */
+    appSlug: () => current?.app?.slug,
   };
 }

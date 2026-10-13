@@ -9,7 +9,7 @@
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { engineEnv, engineFromBuild, publishEnv } from '../packages/core/src/action/engine.ts';
-import { openUptideBranches } from '../packages/core/src/action/github.ts';
+import { botAuthor, openUptideBranches } from '../packages/core/src/action/github.ts';
 import { installationTokens, maskWithRunner } from '../packages/core/src/action/oidc.ts';
 import { postResults } from '../packages/core/src/action/results.ts';
 import { runAction } from '../packages/core/src/action/run.ts';
@@ -49,8 +49,19 @@ const report = await runAction(
     },
   },
   {
-    engine: (args, key) => engine(args, engineEnv(env, key ? { ANTHROPIC_API_KEY: key } : {})),
+    engine: (args, key, author) =>
+      engine(args, engineEnv(env, key ? { ANTHROPIC_API_KEY: key } : {}, author)),
     token: () => tokens.get(),
+    async author(token) {
+      const slug = tokens.appSlug();
+      if (!slug) return undefined;
+      return botAuthor({
+        slug,
+        token,
+        fetch,
+        ...(env.GITHUB_API_URL ? { apiUrl: env.GITHUB_API_URL } : {}),
+      });
+    },
     openUptideBranches: (token) =>
       openUptideBranches({
         repository: env.GITHUB_REPOSITORY ?? '',
@@ -58,8 +69,8 @@ const report = await runAction(
         fetch,
         ...(env.GITHUB_API_URL ? { apiUrl: env.GITHUB_API_URL } : {}),
       }),
-    async publish(branch, token) {
-      const { env: withToken, cleanup } = publishEnv(env, token);
+    async publish(branch, token, author) {
+      const { env: withToken, cleanup } = publishEnv(env, token, undefined, author);
       try {
         const run = await engine(
           ['pr', '--branch', branch, '--yes', '--json', '--ci', '--cwd', workspace],

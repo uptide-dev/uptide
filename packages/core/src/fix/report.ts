@@ -9,7 +9,7 @@ import { fitPieces, must, type Piece } from './budget.js';
 import { describeTransitive } from './managers/lock-guard.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import type { FixDiagnostic, FixReport, FixSite, ReviewSection } from './types.js';
-import { missingPackages } from './verify.js';
+import { missingPackages, newDiagnostics } from './verify.js';
 
 export function fixCounts(report: FixReport) {
   return {
@@ -540,11 +540,27 @@ export function summaryCells(report: FixReport): {
       ? '⚠️ verification pending'
       : report.verification.typesUnverified
         ? '⚠️ not verified (type resolution failed)'
-        : `${report.verification.newErrors.length ? '❌' : '✅'} ${count(report.verification.target.length, 'error')} ${report.mode === 'pin' ? 'before' : 'after the bump'} → ${report.verification.after.length}${report.verification.baseline.length ? ` (${report.verification.baseline.length} pre-existing, ${report.verification.newErrors.length} introduced by the upgrade)` : ''}`,
+        : report.mode === 'pin'
+          ? `${report.verification.newErrors.length ? '❌' : '✅'} ${count(report.verification.target.length, 'error')} before → ${report.verification.after.length}${report.verification.baseline.length ? ` (${report.verification.baseline.length} pre-existing, ${report.verification.newErrors.length} introduced)` : ''}`
+          : typesStory(report.verification),
     behavior,
     tests: cell(report.verificationPending ? '⚠️ not run' : tests),
   };
 }
+/**
+ * What the upgrade broke and what the migration left, then the three counts behind it:
+ * `✅ the upgrade broke 4, Uptide left 0 · 1 error before → 5 after the bump → 1 after the
+ * migration`. Broken and left are errors the baseline does not have, matched the same way.
+ */
+export function typesStory(
+  v: Pick<FixReport['verification'], 'baseline' | 'target' | 'after' | 'newErrors'>,
+): string {
+  // The bump commit touches manifests and the lockfile only: no line moved since the baseline.
+  const broke = newDiagnostics(v.baseline, v.target).length;
+  const left = v.newErrors.length;
+  return `${left ? '❌' : '✅'} the upgrade broke ${broke}, Uptide left ${left} · ${count(v.baseline.length, 'error')} before → ${v.target.length} after the bump → ${v.after.length} after the migration`;
+}
+
 function summaryRows(report: FixReport): string[] {
   const c = summaryCells(report);
   return [

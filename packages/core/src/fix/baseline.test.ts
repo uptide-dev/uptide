@@ -116,7 +116,7 @@ describe('unhealthy baseline', () => {
       'verification failed: 1 type error introduced by the upgrade, 2 pre-existing',
     );
     expect(summaryCells(report).types).toBe(
-      '❌ 3 errors after the bump → 3 (2 pre-existing, 1 introduced by the upgrade)',
+      '❌ the upgrade broke 1, Uptide left 1 · 2 errors before → 3 after the bump → 3 after the migration',
     );
   });
 

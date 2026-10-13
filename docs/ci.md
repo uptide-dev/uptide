@@ -78,6 +78,12 @@ grants only `contents: read`, and `id-token: write` for this:
    install, build or test. `gh` reads it from a private config directory removed afterwards;
    `git` gets it as an HTTP header, never in `.git/config`, a URL or a command line.
 
+Commits are authored and committed by the App's bot account, as GitHub links it:
+`<slug>[bot]` and `<bot user id>+<slug>[bot]@users.noreply.github.com`. The Uptide app names
+the App (`app.slug`) in its token answer, from `GET /app`, which needs the App's own key; the
+Action reads the bot user id with the installation token (`GET /users/<slug>[bot]`). When
+either is missing, the job warns and commits as `uptide[bot] <uptide@users.noreply.github.com>`.
+
 `fix` therefore needs the Uptide GitHub App installed on the repository. `list` and `check`
 do not; without the app, only the run report is not sent.
 
@@ -147,6 +153,7 @@ real `fix` run on the [storefront fixture](../fixtures/repos/storefront) without
       "verification": {
         "typecheck": {
           "before": 1,
+          "afterUpgrade": 29,
           "after": 5
         },
         "lint": {
@@ -172,7 +179,8 @@ A `symbol` is the canonical path of the dependency's symbol (`ZodType`,
 symbol explains. `status` is `up_to_date`, `available` (behind, not migrated this run), `fixed` (verified,
 pull request open), `failed` (did not verify, or could not be published; `error` says why) or
 `skipped` (a pull request is already open, or `maxCost` was reached). `verification` counts
-type errors and failing lint tools before and after, and test runs (one per workspace or
+type errors before the upgrade, right after the version bump (`afterUpgrade`, before any edit)
+and after the migration, failing lint tools before and after, and test runs (one per workspace or
 scope); it is null when no migration ran.
 
 `analysis` says what an empty `breaking` means. `pack`: a migration pack analyzed the upgrade,

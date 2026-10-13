@@ -28,6 +28,7 @@ const FILE = new RegExp(
   RUN_REPORT_SCHEMA.properties.upgrades.items.properties.breaking.items.properties.file.pattern,
 );
 const VERSION = /^[0-9A-Za-z.+-]{1,64}$/;
+const PACKAGE = new RegExp(RUN_REPORT_SCHEMA.properties.upgrades.items.properties.package.pattern);
 
 /** A version the report can carry; `unknown` otherwise. */
 export const version = (v: string | undefined): string => (v && VERSION.test(v) ? v : 'unknown');
@@ -88,7 +89,11 @@ export function verificationOf(report: FixReport): Verification {
   const lint = v.lint ?? [];
   const ran = (v.tests ?? []).filter((t) => t.status !== 'missing');
   return {
-    typecheck: { before: v.baseline?.length ?? 0, after: v.after?.length ?? 0 },
+    typecheck: {
+      before: v.baseline?.length ?? 0,
+      ...(v.target ? { afterUpgrade: v.target.length } : {}),
+      after: v.after?.length ?? 0,
+    },
     lint: {
       before: lint.filter((l) => l.status === 'pre-existing').length,
       after: lint.filter((l) => l.status !== 'passed').length,
@@ -160,6 +165,17 @@ export function fromChecked(pkg: PackageReport, durationMs = 0): Upgrade {
       `${pkg.name} ${pkg.releaseAge}`,
       durationMs,
     );
+  // Analyzed with the package it moves with, at the version that upgrade gives it.
+  if (pkg.movesWith && PACKAGE.test(pkg.movesWith) && pkg.installed !== pkg.target)
+    return {
+      package: pkg.name,
+      from: version(pkg.installed),
+      to: version(pkg.target),
+      kind: kindOf(pkg.installed, pkg.target),
+      status: 'available',
+      ...blank(durationMs),
+      movesWith: pkg.movesWith,
+    };
   const upToDate = pkg.installed === pkg.target;
   const failed = !!pkg.skipReason || pkg.status === 'skipped' || pkg.status === 'unknown';
   const code =

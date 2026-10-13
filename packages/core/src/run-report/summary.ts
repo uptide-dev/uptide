@@ -32,7 +32,13 @@ function verification(u: Upgrade): string {
   const v = u.verification;
   if (!v) return '';
   const tests = v.tests ? `tests ${v.tests.passed} passed, ${v.tests.failed} failed` : 'no tests';
-  return `types ${v.typecheck.before} → ${v.typecheck.after}, lint ${v.lint.before} → ${v.lint.after}, ${tests}`;
+  const t = v.typecheck;
+  // From counts alone: what the bump added over the baseline, and what the migration left.
+  const types =
+    t.afterUpgrade === undefined
+      ? `types ${t.before} → ${t.after}`
+      : `types: the upgrade broke ${Math.max(0, t.afterUpgrade - t.before)}, Uptide left ${Math.max(0, t.after - t.before)} (${t.before} before → ${t.afterUpgrade} after the upgrade → ${t.after})`;
+  return `${types}, lint ${v.lint.before} → ${v.lint.after}, ${tests}`;
 }
 
 /** The report as Markdown for `$GITHUB_STEP_SUMMARY`: the same fields, nothing more. */

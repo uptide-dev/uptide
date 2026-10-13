@@ -20,7 +20,7 @@ import {
   type RunReport,
   type Upgrade,
 } from '../run-report/schema.js';
-import { type EngineRun, parseJson } from './engine.js';
+import { type EngineRun, type GitAuthor, parseJson } from './engine.js';
 import { pullNumber } from './github.js';
 
 export interface ActionInputs {
@@ -45,13 +45,21 @@ export interface ActionInputs {
 }
 
 export interface ActionServices {
-  /** Run the CLI with these arguments; `apiKey` is passed to it only when assisted fixes may run. */
-  engine(args: string[], apiKey?: string): Promise<EngineRun>;
+  /**
+   * Run the CLI with these arguments; `apiKey` is passed to it only when assisted fixes may
+   * run, and its commits are authored by `author` (the fallback identity when absent).
+   */
+  engine(args: string[], apiKey?: string, author?: GitAuthor): Promise<EngineRun>;
   /** The installation token (exchanged on first use). Throws `ActionAuthError`. */
   token(): Promise<string>;
+  /**
+   * The App's bot account, resolved with the installation token: who the migration commits
+   * are by. Undefined, or a throw, when it cannot be known.
+   */
+  author?(token: string): Promise<GitAuthor | undefined>;
   openUptideBranches(token: string): Promise<string[]>;
   /** `uptide pr --branch <branch> --yes --json` with the token; the PR URL. */
-  publish(branch: string, token: string): Promise<string>;
+  publish(branch: string, token: string, author?: GitAuthor): Promise<string>;
   now(): number;
   log(line: string): void;
 }
@@ -266,8 +274,16 @@ export async function runAction(
 
   // fix: the token first. A run that cannot publish spends nothing on migrations.
   let open: string[];
+  let author: GitAuthor | undefined;
   try {
-    open = await services.openUptideBranches(await services.token());
+    const token = await services.token();
+    open = await services.openUptideBranches(token);
+    // Commits are the App's bot account's, so GitHub links them to it; the run goes on without.
+    author = await services.author?.(token).catch(() => undefined);
+    if (services.author && !author)
+      services.log(
+        '::warning title=Uptide::the Uptide GitHub App bot account could not be resolved; commits are authored as uptide[bot]',
+      );
   } catch (err) {
     upgrades.push(...candidates.map(fromListed));
     return report(
@@ -316,7 +332,7 @@ export async function runAction(
         : ['--no-llm']),
     ];
     services.log(`::group::uptide fix ${dep.name}`);
-    const run = await services.engine(args, llm ? inputs.apiKey : undefined);
+    const run = await services.engine(args, llm ? inputs.apiKey : undefined, author);
     services.log('::endgroup::');
     const fixed = parseJson<FixReport>(run);
     if (!fixed || run.code === 2) {
@@ -335,7 +351,7 @@ export async function runAction(
     let error: string | undefined;
     if (fixed.verification.passed && !fixed.exportError) {
       try {
-        const url = await services.publish(fixed.branch, await services.token());
+        const url = await services.publish(fixed.branch, await services.token(), author);
         const number = pullNumber(url);
         if (number) {
           pr = { number, url };
