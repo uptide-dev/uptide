@@ -29,17 +29,14 @@ export const PINNED_ACTIONS = {
  * the CLI's tags and pinned by the commit of a release tag. A release cannot name its own
  * commit, so each release pins the one before it, and the release process bumps this pin.
  *
- * TODO: this pin (v0.7.5) is the older pull-request checker, which does not take these
- * inputs, so the generated workflow cannot run yet. The Uptide Action ships in the next
- * release (0.9.0); a follow-up pins that tag's commit here and sets `released` to true;
- * nothing else in the generator changes. The inputs the workflow passes are only `config`,
- * `mode`, `package` and `anthropic-api-key`.
+ * v0.9.0 is the first release that ships the Uptide Action; the inputs the workflow passes
+ * are only `config`, `mode`, `package` and `anthropic-api-key`.
  */
 export const UPTIDE_ACTION: PinnedAction & { released: boolean } = {
   repo: 'uptide-dev/uptide',
-  sha: '9172aece4e429af11425aa592d5fb8dd5757fd70',
-  tag: 'v0.7.5',
-  released: false,
+  sha: '2045c7dc0fcb7cd86522595de06308f154b1d8bf',
+  tag: 'v0.9.0',
+  released: true,
 };
 
 /**

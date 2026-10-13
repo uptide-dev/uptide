@@ -37,7 +37,7 @@ describe('uptide init', () => {
     expect(out).toContain('cache: pnpm');
     expect(existsSync(join(cwd, WORKFLOW))).toBe(false);
     expect(existsSync(join(cwd, 'uptide.yml'))).toBe(false);
-    expect(io.stderr()).toContain('not released yet');
+    expect(io.stderr()).not.toContain('not released yet');
   });
 
   it('writes the files the App would propose, without committing', async () => {

@@ -27,3 +27,20 @@ it('pins the Uptide Action in this repository by a release tag', () => {
   expect(UPTIDE_ACTION.tag).toMatch(/^v\d+\.\d+\.\d+$/);
   expect(UPTIDE_ACTION.sha).toMatch(/^[0-9a-f]{40}$/);
 });
+
+/** The commit a tag names in this checkout, or undefined when the tag was not fetched. */
+function localTagCommit(tag: string): string | undefined {
+  try {
+    return execFileSync('git', ['rev-parse', '--verify', '--quiet', `${tag}^{commit}`], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+const localPin = localTagCommit(UPTIDE_ACTION.tag);
+it.skipIf(!localPin)(`pins the commit ${UPTIDE_ACTION.tag} names in this checkout`, () => {
+  expect(UPTIDE_ACTION.sha).toBe(localPin);
+});
