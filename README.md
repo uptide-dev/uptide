@@ -59,6 +59,7 @@ verified with two or more public repositories and no false positive. The contrac
 | `ai` | 6.x → 7.x | 100% | 82% | vercel/chatbot, miurla/morphic | verified |
 | `next` | 15.x → 16.x | 100% | 85% | sambecker/exif-photo-blog, stoczec/wortkarte | verified |
 | `react` | 18.x → 19.x | 100% | 69% | excalidraw/excalidraw, tldraw/tldraw | verified |
+| `recharts` | 2.x → 3.x | 21% | 31% | shadcn-ui/ui, hyperdxio/hyperdx | candidate |
 | `stripe` | 14 and newer | 100% | 90% | unkeyed/unkey, nextjs/saas-starter | verified |
 | `vitest` | 4.x → 5.x | 100% | 50% | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
 | `zod` | 3.x → 4.x | 100% | 74% | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript | verified |
