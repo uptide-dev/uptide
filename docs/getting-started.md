@@ -77,4 +77,5 @@ and later are Apache-2.0.
 
 ## In CI
 
-The GitHub Action checks and migrates Renovate and Dependabot pull requests: [CI](ci.md).
+`npx uptide init` writes a workflow that runs the Uptide Action on a schedule in your own GitHub
+Actions and opens draft pull requests with verified migrations: [CI](ci.md).

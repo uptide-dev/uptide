@@ -1,4 +1,5 @@
 import { isMap, isScalar, isSeq, LineCounter, type Node, parseDocument } from 'yaml';
+import { CREDENTIAL } from '../credentials.js';
 import { UptideError } from '../errors.js';
 import { globRegExp } from '../glob.js';
 import { keyLike } from '../llm/types.js';
@@ -31,9 +32,6 @@ export interface LoadedConfig {
   given: UptideConfigInput;
 }
 
-/** Credentials by shape: provider keys, GitHub and Slack tokens, bearer headers. */
-const TOKEN =
-  /(?:sk-[\w-]{8,}|AIza[\w-]{12,}|phc_[\w-]{8,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|xox[abpr]-[\w-]{8,}|bearer\s)/i;
 /** The largest `uptide.yml` read: a configuration file, not a data file. */
 export const MAX_CONFIG_BYTES = 64 * 1024;
 
@@ -113,7 +111,7 @@ export function parseUptideConfig(
         scan(pair.value, [...path, name]);
       }
     else if (isSeq(node)) node.items.forEach((item, i) => void scan(item, [...path, i]));
-    else if (isScalar(node) && typeof node.value === 'string' && TOKEN.test(node.value))
+    else if (isScalar(node) && typeof node.value === 'string' && CREDENTIAL.test(node.value))
       secrets.push(at(path, 'looks like a credential'));
   };
   scan(doc.contents, []);

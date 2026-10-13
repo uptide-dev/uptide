@@ -1,79 +1,95 @@
-/** Trusted Action entry point. Consumer work is confined to temporary git worktrees. */
-import { execFileSync } from 'node:child_process';
+/**
+ * The Uptide Action (action.yml): one run of list, check or fix in the customer's own job,
+ * with the CLI of this commit. Inputs arrive as UPTIDE_* variables from action.yml.
+ *
+ * Secrets: the Anthropic key is read once and removed from this process's environment; it is
+ * passed to `uptide fix` only when assisted fixes may run. The installation token is masked
+ * on arrival and reaches only the `uptide pr` process. Nothing here prints either.
+ */
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { githubComments, type PullEvent } from '../packages/core/src/action/github.ts';
-import { type ActionServices, runAction } from '../packages/core/src/action/run.ts';
-import { check } from '../packages/core/src/check/check.ts';
-import { diagnostics, testWorkspaces } from '../packages/core/src/fix/verify.ts';
-import { install } from '../packages/core/src/fix/versions.ts';
+import { engineEnv, engineFromBuild, publishEnv } from '../packages/core/src/action/engine.ts';
+import { openUptideBranches } from '../packages/core/src/action/github.ts';
+import { installationTokens, maskWithRunner } from '../packages/core/src/action/oidc.ts';
+import { postResults } from '../packages/core/src/action/results.ts';
+import { runAction } from '../packages/core/src/action/run.ts';
+import { assertSafeReport } from '../packages/core/src/run-report/safe.ts';
+import { renderSummary } from '../packages/core/src/run-report/summary.ts';
 
-const env = process.env;
-const token = env.UPTIDE_GITHUB_TOKEN ?? '';
-const apiKey = env.UPTIDE_ANTHROPIC_API_KEY || undefined;
-// Credentials stay in the orchestrator and are never inherited by installs/tests.
-for (const key of Object.keys(env))
-  if (/(?:TOKEN|SECRET|API_KEY|PASSWORD)/i.test(key)) delete env[key];
-env.GIT_AUTHOR_NAME = env.GIT_COMMITTER_NAME = 'uptide[bot]';
-env.GIT_AUTHOR_EMAIL = env.GIT_COMMITTER_EMAIL = 'uptide@users.noreply.github.com';
-if (!token) throw new Error('github-token is required for the sticky PR comment');
-const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH ?? '', 'utf8')) as PullEvent;
-const only = (env.UPTIDE_ONLY ?? 'zod,stripe').split(/[\s,]+/).filter(Boolean);
-if (only.some((p) => p !== 'zod' && p !== 'stripe')) throw new Error('only supports zod,stripe');
-const repository = env.GITHUB_REPOSITORY ?? '';
-const api = env.GITHUB_API_URL ?? 'https://api.github.com';
-const comments = githubComments(repository, event.number, token, api);
-const server = env.GITHUB_SERVER_URL ?? 'https://github.com';
-const remote = `${server}/${repository}.git`;
-const services: ActionServices = {
-  // PR-derived names are always explicit; discovery is a separate CLI step (uptide list).
-  check,
-  install,
-  diagnostics,
-  tests: testWorkspaces,
-  async push(root, _remote, branch) {
-    // Temporary HTTP configuration: never persist a token in .git/config or put it in argv.
-    execFileSync(
-      'git',
-      ['-c', 'core.hooksPath=/dev/null', 'push', remote, `HEAD:refs/heads/${branch}`],
-      {
-        cwd: root,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env: {
-          ...env,
-          GIT_CONFIG_COUNT: '1',
-          GIT_CONFIG_KEY_0: `http.${server}/.extraheader`,
-          GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`,
-        },
-      },
-    );
-  },
-};
-const result = await runAction(
+const env = { ...process.env };
+const apiKey = env.UPTIDE_ANTHROPIC_API_KEY?.trim() || undefined;
+// Read once; from here on no environment, ours or a child's, carries it.
+delete env.UPTIDE_ANTHROPIC_API_KEY;
+Reflect.deleteProperty(process.env, 'UPTIDE_ANTHROPIC_API_KEY');
+const actionPath = env.GITHUB_ACTION_PATH ?? join(import.meta.dirname, '..');
+const write = (text: string) => process.stdout.write(text);
+const mask = maskWithRunner(write);
+const appUrl = env.UPTIDE_APP_URL || 'https://uptide-app.vercel.app';
+const workspace = env.GITHUB_WORKSPACE ?? process.cwd();
+const engine = engineFromBuild(actionPath);
+const tokens = installationTokens({ appUrl, env, fetch, mask });
+const engineVersion = JSON.parse(
+  readFileSync(join(actionPath, 'packages/cli/package.json'), 'utf8'),
+).version as string;
+
+const report = await runAction(
   {
-    cwd: env.GITHUB_WORKSPACE ?? '.',
-    repository,
-    event,
-    only: only as ('zod' | 'stripe')[],
-    paths: (env.UPTIDE_PATHS ?? '')
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean),
-    fix: env.UPTIDE_FIX === 'true',
+    workspace,
+    config: env.UPTIDE_CONFIG ?? 'uptide.yml',
+    mode: env.UPTIDE_MODE ?? 'check',
+    package: env.UPTIDE_PACKAGE,
     apiKey,
-    remote,
+    engineVersion,
+    github: {
+      repository: env.GITHUB_REPOSITORY ?? '',
+      repositoryId: env.GITHUB_REPOSITORY_ID ?? '',
+      sha: env.GITHUB_SHA ?? '',
+      runId: env.GITHUB_RUN_ID ?? '',
+      runAttempt: env.GITHUB_RUN_ATTEMPT ?? '1',
+    },
   },
-  comments,
-  services,
+  {
+    engine: (args, key) => engine(args, engineEnv(env, key ? { ANTHROPIC_API_KEY: key } : {})),
+    token: () => tokens.get(),
+    openUptideBranches: (token) =>
+      openUptideBranches({
+        repository: env.GITHUB_REPOSITORY ?? '',
+        token,
+        fetch,
+        ...(env.GITHUB_API_URL ? { apiUrl: env.GITHUB_API_URL } : {}),
+      }),
+    async publish(branch, token) {
+      const { env: withToken, cleanup } = publishEnv(env, token);
+      try {
+        const run = await engine(
+          ['pr', '--branch', branch, '--yes', '--json', '--ci', '--cwd', workspace],
+          withToken,
+        );
+        let url: unknown;
+        try {
+          url = (JSON.parse(run.stdout) as { url?: unknown }).url;
+        } catch {}
+        if (run.code !== 0 || typeof url !== 'string')
+          throw new Error(`uptide pr exited ${run.code}`);
+        return url;
+      } finally {
+        cleanup();
+      }
+    },
+    now: Date.now,
+    log: (line) => write(`${line}\n`),
+  },
 );
-console.log(result.comment);
-if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${result.comment}\n`);
-if (env.GITHUB_OUTPUT)
-  appendFileSync(
-    env.GITHUB_OUTPUT,
-    `commit=${result.commit ?? ''}\nskipped=${result.skipped ?? ''}\n`,
-  );
-writeFileSync(
-  join(env.RUNNER_TEMP ?? '/tmp', 'uptide-action-result.json'),
-  JSON.stringify(result, null, 2),
-);
+
+assertSafeReport(report);
+const file = join(env.RUNNER_TEMP ?? actionPath, 'uptide-report.json');
+writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
+if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, renderSummary(report));
+if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, `report=${file}\n`);
+
+const sent = await postResults(report, { appUrl, env, fetch, mask });
+if (!sent.ok) write(`::warning title=Uptide dashboard::${sent.warning}\n`);
+if (report.error) {
+  write(`::error title=Uptide::${report.error}\n`);
+  process.exitCode = 1;
+}

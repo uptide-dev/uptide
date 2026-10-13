@@ -1,7 +1,8 @@
-// `uptide/onboarding` as a consumer gets it: from the packed tarball, installed with npm.
-// 1. Plain Node ESM imports both entries and generates the "Add Uptide" files.
-// 2. esbuild bundles `uptide/onboarding` for the browser: no fs, path or other Node builtin
-//    may be reached, and the bundle runs.
+// The library entries as a consumer gets them: from the packed tarball, installed with npm.
+// 1. Plain Node ESM imports `uptide/onboarding`, `uptide/onboarding/node` and `uptide/report`,
+//    generates the "Add Uptide" files and validates a run report.
+// 2. esbuild bundles `uptide/onboarding` and `uptide/report` for the browser: no fs, path or
+//    other Node builtin may be reached, and the bundle runs.
 // Usage: pnpm smoke:onboarding
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
@@ -46,7 +47,12 @@ writeFileSync(
   join(app, 'node.mjs'),
   `import { generateOnboarding, repoFacts, WORKFLOW_PATH } from 'uptide/onboarding';
 import { loadUptideConfig, snapshotFromDisk } from 'uptide/onboarding/node';
+import { reportProblems, RUN_REPORT_SCHEMA_ID } from 'uptide/report';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+if (WORKFLOW_PATH !== '.github/workflows/uptide.yml') throw new Error('WORKFLOW_PATH moved: ' + WORKFLOW_PATH);
+if (!reportProblems({}).length || !RUN_REPORT_SCHEMA_ID) throw new Error('uptide/report accepted an empty report');
+createRequire(import.meta.url).resolve('uptide/report/schema.json');
 const files = generateOnboarding(repoFacts(${JSON.stringify(snapshot)})).files;
 if (!files.some((f) => f.path === WORKFLOW_PATH)) throw new Error('no workflow generated');
 mkdirSync('repo');
@@ -55,7 +61,7 @@ writeFileSync('repo/pnpm-lock.yaml', ${JSON.stringify(snapshot.files['pnpm-lock.
 writeFileSync('repo/uptide.yml', 'version: 1\\nmaxCost: 3\\n');
 if (loadUptideConfig('repo')?.config.maxCost !== 3) throw new Error('uptide.yml not read');
 repoFacts(snapshotFromDisk('repo', { slug: 'acme/shop', defaultBranch: 'main' }));
-console.log('smoke:onboarding: plain Node ESM imports both entries');
+console.log('smoke:onboarding: plain Node ESM imports uptide/onboarding, its node entry and uptide/report');
 `,
 );
 run(process.execPath, ['node.mjs'], app);
@@ -68,7 +74,9 @@ const { build } = await import(esbuild);
 const result = await build({
   stdin: {
     contents: `import { generateOnboarding, repoFacts } from 'uptide/onboarding';
-globalThis.files = generateOnboarding(repoFacts(${JSON.stringify(snapshot)})).files.length;`,
+import { reportProblems } from 'uptide/report';
+globalThis.files = generateOnboarding(repoFacts(${JSON.stringify(snapshot)})).files.length;
+globalThis.problems = reportProblems({}).length;`,
     resolveDir: app,
   },
   bundle: true,
@@ -87,6 +95,11 @@ if (reached.length) {
   process.exit(1);
 }
 const bundle = join(out, 'browser.mjs');
-writeFileSync(bundle, `${result.outputFiles[0].text}\nif (!globalThis.files) process.exit(1);\n`);
+writeFileSync(
+  bundle,
+  `${result.outputFiles[0].text}\nif (!globalThis.files || !globalThis.problems) process.exit(1);\n`,
+);
 run(process.execPath, [bundle], app);
-console.log('smoke:onboarding: the browser bundle builds without fs and runs');
+console.log(
+  'smoke:onboarding: uptide/onboarding and uptide/report bundle for the browser without fs, and run',
+);

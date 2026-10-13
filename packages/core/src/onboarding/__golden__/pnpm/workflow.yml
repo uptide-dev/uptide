@@ -19,11 +19,12 @@ on:
         type: string
         required: false
 
-# Nothing else: no access to issues, packages, deployments or other repositories.
+# Read-only, plus an identity. Branches and pull requests are pushed with a short-lived token
+# of the Uptide GitHub App, issued to this run once GitHub proves who it is (id-token), so
+# Uptide's pull requests run your CI like anyone else's.
 permissions:
-  contents: write # push migration branches
-  pull-requests: write # open draft pull requests
-  id-token: write # prove to Uptide that the results JSON comes from this workflow
+  contents: read # check out the repository
+  id-token: write # prove to Uptide that this run is this repository's workflow
 
 concurrency:
   group: uptide

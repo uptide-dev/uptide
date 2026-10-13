@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/uptide-dev/uptide/main/schema/uptide.run.v1.json",
+  "title": "uptide.run/v1",
+  "description": "One run of the Uptide Action. No source code, diffs, snippets or environment values: paths, line numbers, symbol names and counts only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "engineVersion",
+    "repo",
+    "sha",
+    "runId",
+    "runAttempt",
+    "mode",
+    "startedAt",
+    "finishedAt",
+    "upgrades"
+  ],
+  "properties": {
+    "schema": {
+      "const": "uptide.run/v1"
+    },
+    "engineVersion": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z.+-]{1,64}$"
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "name"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "owner": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$"
+        }
+      }
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "runId": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runAttempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "mode": {
+      "enum": ["list", "check", "fix"]
+    },
+    "startedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$"
+    },
+    "finishedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$"
+    },
+    "upgrades": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "package",
+          "from",
+          "to",
+          "kind",
+          "status",
+          "breaking",
+          "verification",
+          "pr",
+          "costUsd",
+          "durationMs"
+        ],
+        "properties": {
+          "package": {
+            "type": "string",
+            "pattern": "^(?:@[A-Za-z0-9._~-]+/)?[A-Za-z0-9._~-]+$",
+            "maxLength": 214
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^[0-9A-Za-z.+-]{1,64}$"
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^[0-9A-Za-z.+-]{1,64}$"
+          },
+          "kind": {
+            "enum": ["major", "minor", "patch"]
+          },
+          "status": {
+            "enum": ["up_to_date", "available", "fixed", "failed", "skipped"]
+          },
+          "breaking": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["symbol", "file", "line", "change"],
+              "properties": {
+                "symbol": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_$.#\\[\\]@/:*-]{1,300}$"
+                },
+                "file": {
+                  "type": "string",
+                  "pattern": "^(?![/\\\\])(?!(?:.*/)?\\.\\.(?:/|$))[^\\u0000-\\u001f]{1,500}$"
+                },
+                "line": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "change": {
+                  "enum": [
+                    "removed",
+                    "renamed",
+                    "moved",
+                    "signature",
+                    "type",
+                    "widened",
+                    "narrowed",
+                    "required",
+                    "added",
+                    "deprecated",
+                    "cause",
+                    "module-format"
+                  ]
+                }
+              }
+            }
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["typecheck", "lint", "tests"],
+                "properties": {
+                  "typecheck": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["before", "after"],
+                    "properties": {
+                      "before": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "after": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "lint": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["before", "after"],
+                    "properties": {
+                      "before": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "after": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "tests": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["passed", "failed"],
+                        "properties": {
+                          "passed": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "failed": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "pr": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["number", "url"],
+                "properties": {
+                  "number": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "url": {
+                    "type": "string",
+                    "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+$"
+                  }
+                }
+              }
+            ]
+          },
+          "costUsd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error": {
+            "type": "string",
+            "pattern": "^[^\\u0000-\\u001f`]{1,300}$"
+          }
+        }
+      }
+    },
+    "error": {
+      "type": "string",
+      "pattern": "^[^\\u0000-\\u001f`]{1,300}$"
+    }
+  }
+}

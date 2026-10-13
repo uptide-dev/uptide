@@ -17,18 +17,19 @@ The workflow runs every Monday at 06:43 UTC (`43 6 * * 1`), and when someone sta
 
 ## Where it runs
 
-In this repository's own GitHub Actions, on GitHub's runners, like your other workflows. The workflow can push branches and open pull requests in this repository and nothing else:
+In this repository's own GitHub Actions, on GitHub's runners, like your other workflows. The workflow itself only reads the repository:
 
-- `contents: write` to push migration branches
-- `pull-requests: write` to open draft pull requests
-- `id-token: write` to prove to Uptide that the results come from this workflow
+- `contents: read` to check it out
+- `id-token: write` to prove to Uptide that a run is this repository's workflow
 
-## What leaves CI
+With that proof, the Uptide GitHub App gives the run a token that expires within the hour, and Uptide pushes its migration branches and opens its draft pull requests with it, in this repository only. Pull requests opened that way run your CI; ones opened with the workflow's own token would not.
 
-- **The results of each run, as JSON, sent to Uptide**: which dependencies were checked, what an upgrade breaks and where, and which pull requests were opened. Your source code is not sent.
-- **Code sent to Anthropic, with this repository's own API key**, only for call sites no rule can fix: the code around each one. Spending stops at $1 per run (`maxCost` in uptide.yml).
+## What leaves the runner
 
-Nothing else leaves the runner.
+- **The run report, to Uptide**, as `uptide.run/v1` JSON: which dependencies were checked, what an upgrade breaks and where (file paths, line numbers and symbol names), how verification went, and which pull requests were opened. It never contains source code, diffs or environment values. With it goes the job's OIDC token, which proves the run is this repository's workflow. [How Uptide handles your data](https://uptide-app.vercel.app/trust).
+- **The npm registry**: the Uptide engine's own dependencies during setup, metadata and tarballs of the packages Uptide compares, and the public names and installed versions of your dependencies to npm's advisory endpoint.
+- **GitHub**: the checkout, and the migration branches and draft pull requests Uptide pushes with the Uptide GitHub App's token.
+- **Code sent to Anthropic, with this repository's own API key**, for call sites no rule can fix. The assisted fixer (the Claude Agent SDK) can read any file in the checkout to work out a fix, and what it reads goes to Anthropic with its requests. Spending stops at $1 per run (`maxCost` in uptide.yml).
 
 ## Set the API key
 

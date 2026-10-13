@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import { PINNED_ACTIONS, UPTIDE_ACTION } from './actions.js';
-import { parseUptideConfig } from './config.js';
+import { parseUptideConfig, type UptideConfigInput } from './config.js';
 import { OnboardingRefusal, type RefusalReason, type RepoSnapshot, repoFacts } from './facts.js';
 import { generateOnboarding, type Onboarding } from './generate.js';
 
@@ -134,11 +134,9 @@ describe('the workflow', () => {
       expect(workflow.on.schedule).toEqual([{ cron: o.config.schedule }]);
       expect(Object.keys(workflow.on.workflow_dispatch.inputs)).toEqual(['mode', 'package']);
       expect(workflow.on.workflow_dispatch.inputs.mode.options).toEqual(['list', 'check', 'fix']);
-      expect(workflow.permissions).toEqual({
-        contents: 'write',
-        'pull-requests': 'write',
-        'id-token': 'write',
-      });
+      // Read-only plus an identity: the Uptide Action pushes with the App's installation token,
+      // so its pull requests run the repository's CI (GITHUB_TOKEN's would not).
+      expect(workflow.permissions).toEqual({ contents: 'read', 'id-token': 'write' });
       const steps = workflow.jobs.uptide.steps as {
         uses?: string;
         run?: string;
@@ -242,12 +240,12 @@ describe('the pull request', () => {
     return [o.prBody, ...o.files.map((f) => f.content)];
   });
 
-  it('covers what runs, when, where, what leaves CI, the secret, the LLM switch and removal', () => {
+  it('covers what runs, when, where, what leaves the runner, the secret, the LLM switch and removal', () => {
     const body = generate(CASES.npm as RepoSnapshot).prBody;
     for (const heading of [
       '## What runs, and when',
       '## Where it runs',
-      '## What leaves CI',
+      '## What leaves the runner',
       '## Set the API key',
       '## Turn the LLM off',
       '## Remove Uptide',
@@ -255,7 +253,26 @@ describe('the pull request', () => {
       expect(body).toContain(heading);
     expect(body).toContain('every Monday at');
     expect(body).toContain('gh secret set ANTHROPIC_API_KEY');
-    expect(body).toContain('Your source code is not sent');
+    // Every place the runner talks to, and what the report never holds.
+    expect(body).toContain('It never contains source code, diffs or environment values.');
+    expect(body).toContain('(https://uptide-app.vercel.app/trust)');
+    expect(body).toContain('**The npm registry**');
+    expect(body).toContain('**GitHub**');
+    expect(body).not.toContain('Nothing else leaves the runner');
+  });
+
+  it('says what goes to an LLM as the Action does it: the SDK reads any file, patch only the site', () => {
+    const body = (config: Omit<UptideConfigInput, 'version'> = {}) =>
+      generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
+        config: { version: 1, ...config },
+      }).prBody;
+    // The default executor is the Agent SDK, which can read the whole checkout.
+    expect(body()).toContain('can read any file in the checkout');
+    expect(body({ executor: 'patch' })).toContain('the code around each one');
+    expect(body({ executor: 'patch' })).not.toContain('can read any file');
+    // The workflow passes only an Anthropic key: the generator refuses another provider.
+    expect(() => body({ llm: { provider: 'openai' } })).toThrow(/passes only an Anthropic key/);
+    expect(body({ llm: { enabled: false } })).toContain('assisted fixes are off in uptide.yml');
   });
 
   it('is plain English: no em or en dashes, no hype words', () => {

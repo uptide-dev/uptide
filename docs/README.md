@@ -21,7 +21,7 @@ what help cannot show.
 | [`uptide init`](commands/init.md) | The Uptide workflow and `uptide.yml` for a repository, as the GitHub App proposes them |
 | [`uptide.yml`](config.md) | Every setting, its default, which command reads it, the JSON Schema |
 | [Models](models.md) | Providers, defaults, `--max-cost`, `OPENAI_BASE_URL` |
-| [CI](ci.md) | Checking and migrating Renovate and Dependabot pull requests with the GitHub Action |
+| [CI](ci.md) | The Uptide Action: scheduled runs in your own GitHub Actions, how it pushes, the run report |
 | [Privacy](privacy.md) | What runs where, what leaves your machine, and the isolation model |
 | [Troubleshooting](troubleshooting.md) | Yarn PnP, bun lockfiles, proxies and corepack, memory limits, "advisories not checked" |
 | [FAQ](faq.md) | Renovate and Dependabot, where code goes, packages without a pack, pushing |

@@ -1,50 +1,51 @@
 name: Uptide
-description: Check and migrate zod/stripe dependency upgrade PRs from Renovate or Dependabot.
+description: Dependency upgrades checked and migrated in this repository's own Actions, opened as draft pull requests verified by its compiler and tests.
+author: uptide-dev
+branding:
+  icon: arrow-up-circle
+  color: blue
 inputs:
-  github-token:
-    description: Token with pull-requests write and (for fix) contents write. Dependabot requires appropriately configured bot secrets/token.
-    default: ${{ github.token }}
-  anthropic-api-key:
-    description: Required with fix true. Never passed to consumer installs/tests.
-    required: false
-  fix:
-    description: Verify and push one migration commit on the existing PR branch.
-    default: 'false'
-  only:
-    description: Comma-separated verified dependencies to select from the PR; never checks every dependency. Use uptide list locally for discovery.
-    default: zod,stripe
-  paths:
-    description: Repository-relative source globs or directories, comma/newline separated. Empty includes all.
+  config:
+    description: The settings file, relative to the repository root.
+    default: uptide.yml
+  mode:
+    description: 'list: what is behind. check: what each upgrade breaks. fix: verified migrations as draft pull requests.'
+    default: check
+  package:
+    description: One dependency to check or fix. Empty for every dependency the settings allow.
     default: ''
+  anthropic-api-key:
+    description: For assisted fixes. Pass a secret (secrets.ANTHROPIC_API_KEY); empty for rule-based fixes only. Never given to installs or tests.
+    default: ''
+  app-url:
+    description: The Uptide app, which issues the push token and receives the run report.
+    default: https://uptide-app.vercel.app
 outputs:
-  commit:
-    description: Migration commit SHA (empty if nothing pushed).
-    value: ${{ steps.run.outputs.commit }}
-  skipped:
-    description: Reason the event was skipped.
-    value: ${{ steps.run.outputs.skipped }}
+  report:
+    description: Path of the uptide.run/v1 report of this run (JSON).
+    value: ${{ steps.run.outputs.report }}
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v6
-      with:
-        version: 10.17.1
-        run_install: false
-    - uses: actions/setup-node@v7
-      with:
-        node-version: '22'
-    - name: Install Uptide tooling
-      shell: bash
-      working-directory: ${{ github.action_path }}
-      run: pnpm install --frozen-lockfile --ignore-scripts
-    - id: run
-      name: Check and optionally migrate PR
+    # The engine of this commit, from its frozen lockfile with install scripts off, built in
+    # place. pnpm is installed into the runner's temp directory and never put on PATH, so the
+    # repository's own package manager and Node stay as the workflow set them up.
+    - name: Set up the Uptide engine
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
-        UPTIDE_GITHUB_TOKEN: ${{ inputs.github-token }}
+        UPTIDE_TOOLS: ${{ runner.temp }}/uptide-tools
+        # The commit the workflow pinned: recorded in every run, as the archive has no .git.
+        UPTIDE_BUILD_COMMIT: ${{ github.action_ref }}
+      run: bash scripts/action-setup.sh
+    - id: run
+      name: Run Uptide
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        UPTIDE_CONFIG: ${{ inputs.config }}
+        UPTIDE_MODE: ${{ inputs.mode }}
+        UPTIDE_PACKAGE: ${{ inputs.package }}
+        UPTIDE_APP_URL: ${{ inputs.app-url }}
         UPTIDE_ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
-        UPTIDE_FIX: ${{ inputs.fix }}
-        UPTIDE_ONLY: ${{ inputs.only }}
-        UPTIDE_PATHS: ${{ inputs.paths }}
-      run: pnpm exec tsx scripts/action.ts
+      run: node --conditions=source --import tsx scripts/action.ts
