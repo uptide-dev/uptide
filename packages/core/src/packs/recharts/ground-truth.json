@@ -1,0 +1,416 @@
+{
+  "$comment": "Ground truth for the recharts pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own Recharts 2 to 3 upgrade. Expected findings come from two sources that are not Uptide: the diagnostics the repository's TypeScript reports with recharts at the upgrade's version linked in and not without it, and the lines the upgrade commit changed (pnpm packs:truth, read by hand). One finding per place a person edits: diagnostics that share one cause are evidence of it and are not listed. In shadcn-ui/ui every copy of chart.tsx (seven) has one finding at the props type of ChartTooltipContent (the line the upgrade changed; its payload, label and implicit-any errors are evidence) and one at the Pick<LegendProps> of ChartLegendContent (its payload and length errors, and the TS2741 'payload is missing' error at the 21 <ChartLegend content={<ChartLegendContent />} /> sites, are evidence). Each Pie/Bar activeIndex plus activeShape or activeBar is one site, at the activeIndex line. A Cell import (TS6385 at the import) is evidence of the Cell element it imports. Left out on purpose: generated registry JSON under apps/v4/public/r, docs, and everything in either upgrade commit that is not about recharts (|| to ?? rewrites, key={index}, the reworked nearest-series tooltip in hyperdxio/hyperdx, tests that follow the code, the focus-ring CSS for accessibilityLayer, ResponsiveContainer initialDimension, partial margin objects gaining top and bottom, an e2e selector). Sites under 'generic' are breaks the 3.x declarations introduced that the 3.0 migration guide does not list (ReferenceArea SVG props, Bar layout, dataKey symbol, render function prop types), so no rule of the pack claims them. hyperdxio/hyperdx's packages/app cannot be compiled by check in this sandbox (its workspace packages are not built, scripts off: 22 of 33 files cannot resolve their imports), so the compiler-visible sites there are false negatives of the engine's compile signal, not of a rule. The Yarn lockfile of hyperdxio/hyperdx resolves ^3.2.1 to 3.9.1. Both repositories install at their root: check cannot install a workspace subdirectory whose lockfile is at the repository root.",
+  "package": "recharts",
+  "repos": [
+    {
+      "repo": "shadcn-ui/ui",
+      "commit": "f900bd57d0d197d22b1a620bc43c964cb44a73ef",
+      "migration": "https://github.com/shadcn-ui/ui/pull/8486",
+      "from": "2.15.1",
+      "to": "3.8.0",
+      "why": "the component registry behind shadcn/ui charts: seven copies of the ChartContainer, ChartTooltipContent and ChartLegendContent wrappers over recharts, and about forty chart demos with Pie and Bar activeIndex, Cell, custom tooltip and legend content, custom dots, ticks and labels",
+      "findings": [
+        {
+          "file": "apps/v4/app/(examples)/dashboard-03/components/chart-visitors.tsx",
+          "line": 139,
+          "rule": "active-index",
+          "note": "activeIndex and activeShape on Pie became one shape function"
+        },
+        {
+          "file": "apps/v4/app/(examples)/dashboard-03/components/chart-visitors.tsx",
+          "line": 155,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/app/(internal)/sink/components/chart-bar-mixed.tsx",
+          "line": 89,
+          "rule": "generic",
+          "note": "layout is no longer a prop of Bar; the upgrade deleted it"
+        },
+        {
+          "file": "apps/v4/examples/base/chart-demo.tsx",
+          "line": 154,
+          "rule": "generic",
+          "note": "dataKey of Bar and Line no longer accepts a symbol, which keyof typeof config includes"
+        },
+        {
+          "file": "apps/v4/examples/base/ui-rtl/chart.tsx",
+          "line": 127,
+          "rule": "tooltip-content-props",
+          "note": "ChartTooltipContent props are typed from Tooltip, which no longer has payload or label; the upgrade appended DefaultTooltipContentProps"
+        },
+        {
+          "file": "apps/v4/examples/base/ui-rtl/chart.tsx",
+          "line": 261,
+          "rule": "legend-payload",
+          "note": "ChartLegendContent picks payload from LegendProps, which no longer has it; the upgrade typed it with DefaultLegendContentProps"
+        },
+        {
+          "file": "apps/v4/examples/base/ui/chart.tsx",
+          "line": 127,
+          "rule": "tooltip-content-props",
+          "note": "ChartTooltipContent props are typed from Tooltip, which no longer has payload or label; the upgrade appended DefaultTooltipContentProps"
+        },
+        {
+          "file": "apps/v4/examples/base/ui/chart.tsx",
+          "line": 261,
+          "rule": "legend-payload",
+          "note": "ChartLegendContent picks payload from LegendProps, which no longer has it; the upgrade typed it with DefaultLegendContentProps"
+        },
+        {
+          "file": "apps/v4/examples/radix/chart-demo.tsx",
+          "line": 154,
+          "rule": "generic",
+          "note": "dataKey of Bar and Line no longer accepts a symbol, which keyof typeof config includes"
+        },
+        {
+          "file": "apps/v4/examples/radix/ui-rtl/chart.tsx",
+          "line": 127,
+          "rule": "tooltip-content-props",
+          "note": "ChartTooltipContent props are typed from Tooltip, which no longer has payload or label; the upgrade appended DefaultTooltipContentProps"
+        },
+        {
+          "file": "apps/v4/examples/radix/ui-rtl/chart.tsx",
+          "line": 261,
+          "rule": "legend-payload",
+          "note": "ChartLegendContent picks payload from LegendProps, which no longer has it; the upgrade typed it with DefaultLegendContentProps"
+        },
+        {
+          "file": "apps/v4/examples/radix/ui/chart.tsx",
+          "line": 127,
+          "rule": "tooltip-content-props",
+          "note": "ChartTooltipContent props are typed from Tooltip, which no longer has payload or label; the upgrade appended DefaultTooltipContentProps"
+        },
+        {
+          "file": "apps/v4/examples/radix/ui/chart.tsx",
+          "line": 261,
+          "rule": "legend-payload",
+          "note": "ChartLegendContent picks payload from LegendProps, which no longer has it; the upgrade typed it with DefaultLegendContentProps"
+        },
+        {
+          "file": "apps/v4/registry/bases/base/blocks/preview/cards/pie-chart-card.tsx",
+          "line": 96,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/bases/base/examples/chart-example.tsx",
+          "line": 362,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/bases/base/examples/chart-example.tsx",
+          "line": 530,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/bases/base/ui/chart.tsx",
+          "line": 128,
+          "rule": "tooltip-content-props",
+          "note": "ChartTooltipContent props are typed from Tooltip, which no longer has payload or label; the upgrade appended DefaultTooltipContentProps"
+        },
+        {
+          "file": "apps/v4/registry/bases/base/ui/chart.tsx",
+          "line": 259,
+          "rule": "legend-payload",
+          "note": "ChartLegendContent picks payload from LegendProps, which no longer has it; the upgrade typed it with DefaultLegendContentProps"
+        },
+        {
+          "file": "apps/v4/registry/bases/radix/blocks/preview/cards/pie-chart-card.tsx",
+          "line": 96,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/bases/radix/examples/chart-example.tsx",
+          "line": 362,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/bases/radix/examples/chart-example.tsx",
+          "line": 530,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/bases/radix/ui/chart.tsx",
+          "line": 128,
+          "rule": "tooltip-content-props",
+          "note": "ChartTooltipContent props are typed from Tooltip, which no longer has payload or label; the upgrade appended DefaultTooltipContentProps"
+        },
+        {
+          "file": "apps/v4/registry/bases/radix/ui/chart.tsx",
+          "line": 259,
+          "rule": "legend-payload",
+          "note": "ChartLegendContent picks payload from LegendProps, which no longer has it; the upgrade typed it with DefaultLegendContentProps"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-bar-active.tsx",
+          "line": 85,
+          "rule": "active-index",
+          "note": "activeIndex and activeBar on Bar became a shape function that compares index"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-bar-interactive.tsx",
+          "line": 215,
+          "rule": "generic",
+          "note": "dataKey of Bar and Line no longer accepts a symbol, which keyof typeof config includes"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-bar-label-custom.tsx",
+          "line": 80,
+          "rule": "generic",
+          "note": "layout is no longer a prop of Bar; the upgrade deleted it"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-bar-mixed.tsx",
+          "line": 89,
+          "rule": "generic",
+          "note": "layout is no longer a prop of Bar; the upgrade deleted it"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-bar-negative.tsx",
+          "line": 56,
+          "rule": "cell",
+          "note": "Cell is deprecated"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-line-dots-colors.tsx",
+          "line": 92,
+          "rule": "generic",
+          "note": "the dot render function props lost their inferred type (payload implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-line-dots-custom.tsx",
+          "line": 77,
+          "rule": "generic",
+          "note": "the dot render function props lost their inferred type; cx and cy may be undefined"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-line-interactive.tsx",
+          "line": 216,
+          "rule": "generic",
+          "note": "dataKey of Bar and Line no longer accepts a symbol, which keyof typeof config includes"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-line-label-custom.tsx",
+          "line": 105,
+          "rule": "generic",
+          "note": "LabelList formatter now receives RenderableText, not the typed key"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-pie-donut-active.tsx",
+          "line": 81,
+          "rule": "active-index",
+          "note": "activeIndex and activeShape on Pie became one shape function"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-pie-donut-text.tsx",
+          "line": 87,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-pie-interactive.tsx",
+          "line": 142,
+          "rule": "active-index",
+          "note": "activeIndex and activeShape on Pie became one shape function"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-pie-interactive.tsx",
+          "line": 158,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-pie-label-custom.tsx",
+          "line": 77,
+          "rule": "generic",
+          "note": "the label render function props lost their inferred type (payload implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-pie-label-list.tsx",
+          "line": 79,
+          "rule": "generic",
+          "note": "LabelList formatter now receives RenderableText, not the typed key"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-radar-label-custom.tsx",
+          "line": 72,
+          "rule": "generic",
+          "note": "tick render function props: value is no longer given, others lost their inferred type"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-radar-label-custom.tsx",
+          "line": 78,
+          "rule": "generic",
+          "note": "tick y is number | string now, so arithmetic on it no longer compiles"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-radial-shape.tsx",
+          "line": 69,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-radial-stacked.tsx",
+          "line": 62,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/charts/chart-radial-text.tsx",
+          "line": 70,
+          "rule": "generic",
+          "note": "the content render function of Label gets props the compiler can no longer infer (viewBox implicitly any)"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/ui/chart.tsx",
+          "line": 128,
+          "rule": "tooltip-content-props",
+          "note": "ChartTooltipContent props are typed from Tooltip, which no longer has payload or label; the upgrade appended DefaultTooltipContentProps"
+        },
+        {
+          "file": "apps/v4/registry/new-york-v4/ui/chart.tsx",
+          "line": 262,
+          "rule": "legend-payload",
+          "note": "ChartLegendContent picks payload from LegendProps, which no longer has it; the upgrade typed it with DefaultLegendContentProps"
+        }
+      ]
+    },
+    {
+      "repo": "hyperdxio/hyperdx",
+      "commit": "a33686ef239757e39831323adf3659ecb2974081",
+      "migration": "https://github.com/hyperdxio/hyperdx/commit/d137eaab4eb63209ab5d108b775451bfae83e708",
+      "from": "2.13.3",
+      "to": "3.9.1",
+      "why": "an observability app with a zoomable time chart that reads chartX, chartY and activePayload from mouse handlers, a histogram that pins its tooltip with chart.setState, a custom tooltip typed with TooltipProps and Cell in three charts",
+      "findings": [
+        {
+          "file": "packages/app/src/HDXMultiSeriesTimeChart.tsx",
+          "line": 848,
+          "rule": "generic",
+          "note": "ResponsiveContainer onResize parameters lost their inferred type (width and height implicitly any)"
+        },
+        {
+          "file": "packages/app/src/HDXMultiSeriesTimeChart.tsx",
+          "line": 877,
+          "rule": "categorical-chart-state",
+          "note": "onMouseDown reads chartX and chartY, which the handler argument no longer has; the upgrade derives the position from activeCoordinate"
+        },
+        {
+          "file": "packages/app/src/HDXMultiSeriesTimeChart.tsx",
+          "line": 894,
+          "rule": "categorical-chart-state",
+          "note": "onMouseMove reads chartY, which the handler argument no longer has"
+        },
+        {
+          "file": "packages/app/src/HDXMultiSeriesTimeChart.tsx",
+          "line": 915,
+          "rule": "categorical-chart-state",
+          "note": "onMouseUp reads chartX, which the handler argument no longer has"
+        },
+        {
+          "file": "packages/app/src/HDXMultiSeriesTimeChart.tsx",
+          "line": 970,
+          "rule": "categorical-chart-state",
+          "note": "onClick reads chartX, chartY and activePayload, which the handler argument no longer has; the upgrade rebuilds the payload from its own data"
+        },
+        {
+          "file": "packages/app/src/HDXMultiSeriesTimeChart.tsx",
+          "line": 1065,
+          "rule": "generic",
+          "note": "ReferenceArea no longer accepts SVG presentation props such as strokeOpacity"
+        },
+        {
+          "file": "packages/app/src/components/Alerts.tsx",
+          "line": 163,
+          "rule": "generic",
+          "note": "ReferenceArea no longer accepts SVG presentation props such as fill"
+        },
+        {
+          "file": "packages/app/src/components/Alerts.tsx",
+          "line": 178,
+          "rule": "generic",
+          "note": "ReferenceArea no longer accepts SVG presentation props such as fill"
+        },
+        {
+          "file": "packages/app/src/components/Alerts.tsx",
+          "line": 186,
+          "rule": "generic",
+          "note": "ReferenceArea no longer accepts SVG presentation props such as fill"
+        },
+        {
+          "file": "packages/app/src/components/Alerts.tsx",
+          "line": 201,
+          "rule": "generic",
+          "note": "ReferenceArea no longer accepts SVG presentation props such as fill"
+        },
+        {
+          "file": "packages/app/src/components/Alerts.tsx",
+          "line": 215,
+          "rule": "generic",
+          "note": "ReferenceArea no longer accepts SVG presentation props such as fill"
+        },
+        {
+          "file": "packages/app/src/components/DBBarChart.tsx",
+          "line": 128,
+          "rule": "cell",
+          "note": "Cell is deprecated"
+        },
+        {
+          "file": "packages/app/src/components/DBPieChart.tsx",
+          "line": 140,
+          "rule": "cell",
+          "note": "Cell is deprecated"
+        },
+        {
+          "file": "packages/app/src/components/PropertyComparisonChart.tsx",
+          "line": 53,
+          "rule": "tooltip-content-props",
+          "note": "the custom tooltip props extend TooltipProps, which no longer has payload or label; the upgrade renamed the type to TooltipContentProps"
+        },
+        {
+          "file": "packages/app/src/components/PropertyComparisonChart.tsx",
+          "line": 148,
+          "rule": "categorical-chart-state",
+          "note": "the click handler reads activePayload from the chart state; the upgrade selects the bar through activeLabel and a lookup in the chart data"
+        },
+        {
+          "file": "packages/app/src/components/PropertyComparisonChart.tsx",
+          "line": 222,
+          "rule": "cell",
+          "note": "Cell is deprecated"
+        },
+        {
+          "file": "packages/app/src/components/PropertyComparisonChart.tsx",
+          "line": 242,
+          "rule": "cell",
+          "note": "Cell is deprecated"
+        },
+        {
+          "file": "packages/app/src/components/DBHistogramChart.tsx",
+          "line": 13,
+          "rule": "categorical-chart-state",
+          "note": "CategoricalChartState is no longer exported"
+        },
+        {
+          "file": "packages/app/src/components/DBHistogramChart.tsx",
+          "line": 53,
+          "rule": "categorical-chart-state",
+          "note": "the tooltip is pinned by calling setState on the chart instance, which has no state in 3; the upgrade uses the controlled active and defaultIndex props of Tooltip"
+        },
+        {
+          "file": "packages/app/src/components/DBHistogramChart.tsx",
+          "line": 85,
+          "rule": "categorical-chart-state",
+          "note": "the chart handlers keep the click event as a CategoricalChartState (activeCoordinate, activeLabel, activePayload) to replay it into setState"
+        }
+      ]
+    }
+  ]
+}
