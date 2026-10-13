@@ -31,7 +31,7 @@ import { pinCurrentApi } from './pin.js';
 import { command, git, projectRoot } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { changeRule, editDiff, prBody } from './report.js';
-import { assistWithSdk, type TaskRunner } from './sdk-agent.js';
+import { assistWithSdk, sdkInstalled, type TaskRunner } from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
 import { lintFiles } from './style.js';
@@ -125,6 +125,8 @@ export interface FixServices {
   manifests?: PackageFetcher['manifests'];
   /** `--agent sdk` sessions; the Claude Agent SDK by default. */
   agentRunner?: TaskRunner;
+  /** Whether the optional SDK peer can be imported; decides the default executor. */
+  sdkInstalled?: () => Promise<boolean>;
   /** The publish step of a `--pr` run; `publishVerified` by default. */
   publish?(
     result: FixReport,
@@ -191,13 +193,16 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   )
     throw new Error('--max-cost must be a positive finite amount in USD');
   const selection = selectLlm(root, options);
+  const sdkDefault =
+    options.agent === undefined &&
+    options.fixer === undefined &&
+    selection.provider === 'anthropic' &&
+    selection.available;
+  // The SDK is an optional peer: the default uses it only when it is installed.
+  const sdkMissing =
+    sdkDefault && !services.agentRunner && !(await (services.sdkInstalled ?? sdkInstalled)());
   const sdkAgent =
-    options.fixer !== null &&
-    (options.agent === 'sdk' ||
-      (options.agent === undefined &&
-        options.fixer === undefined &&
-        selection.provider === 'anthropic' &&
-        selection.available));
+    options.fixer !== null && (options.agent === 'sdk' || (sdkDefault && !sdkMissing));
   if (sdkAgent && selection.provider !== 'anthropic')
     throw new UptideError(
       'NO_FIXER',
@@ -642,7 +647,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
         lint.every((l) => l.status !== 'failed'),
     },
-    llm,
+    llm: sdkMissing ? { ...llm, sdkMissing: true } : llm,
     ...(behavior ? { behavior } : {}),
     timingMs: Date.now() - started,
     prBody: join(root, '.uptide/pr-body.md'),

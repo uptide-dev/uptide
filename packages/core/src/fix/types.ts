@@ -248,6 +248,8 @@ export interface FixReport {
     costLimit?: { limitUsd: number; notAttempted: number };
     /** Agent SDK sessions (the Anthropic default) instead of the patch agent. */
     agent?: 'sdk';
+    /** The SDK would have been the default but is not installed: the patch agent ran. */
+    sdkMissing?: true;
     tasks?: AgentTaskRecord[];
   };
   timingMs: number;

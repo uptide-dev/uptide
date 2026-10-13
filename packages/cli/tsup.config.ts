@@ -31,8 +31,9 @@ export default defineConfig({
   clean: true,
   target: 'node20',
   splitting: true,
-  // Inline the engine and open-source dependencies. Keep the proprietary SDK external;
-  // npm installs its unmodified package, loaded only for SDK assistance.
+  // `npx uptide` installs one package: the engine and every dependency are inlined.
+  // Except the Claude Agent SDK: not open source, so never inlined; an optional peer the
+  // user installs, loaded only for SDK assistance.
   noExternal: [/^(?!@anthropic-ai\/claude-agent-sdk)/],
   external: ['@anthropic-ai/claude-agent-sdk'],
   banner: { js: cjsGlobals },

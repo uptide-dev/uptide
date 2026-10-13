@@ -2,7 +2,8 @@
 
 Status: default for authenticated Anthropic fixes. `--agent patch` opts out; other providers
 and callers supplying a fixer retain the patch executor. Without a key, rule-based fixes
-remain available. `--no-llm` disables either executor. The SDK is a normal, non-bundled dependency.
+remain available. `--no-llm` disables either executor. The SDK is an optional peer, never
+bundled: without it installed, the default is the patch executor.
 
 ## Why
 
@@ -106,32 +107,39 @@ unchanged.
 
 ## Dependency and terms
 
-### Normal non-bundled dependency (finding, 2026-10-12)
+### Optional peer, the default only where installed (2026-10-12)
 
-**Decision:** install the pinned SDK as a normal dependency of `uptide`. `npx uptide`
-then has the default executor available without a separate install. The SDK stays external
-in both tsup builds, and the packaging test rejects inlined SDK code. Its proprietary
-license remains separate from Uptide's Apache-2.0 license.
+**Decision:** the SDK stays an optional peer of `uptide`, never a dependency. The default
+uses it when it can be imported; otherwise `fix` runs the patch executor and says, in one
+line of its output, what to install. `--agent sdk` without it fails the task and says what to
+install. The Uptide GitHub Action installs the SDK itself. The SDK stays external in both tsup
+builds, and the packaging test rejects inlined SDK code and any `dependencies` entry for it.
 
-This is our reading of the published conditions, not confirmation from Anthropic:
-
-- [Commercial Terms, A.1](https://www.anthropic.com/legal/commercial-terms) permits use of
-  the services in products offered to end users. Those terms govern API-key use.
-- [Claude Code's product and authentication conditions](https://code.claude.com/docs/en/legal-and-compliance)
-  allow running the published binary in products under the Commercial Terms. npm installs
-  Anthropic's unmodified package; Uptide neither patches its binary nor changes its built-in
-  authentication methods. Uptide uses the end user's API key, with usage billed directly
-  to that user. It does not offer Claude account login, collect subscription credentials,
-  resell usage, or claim Anthropic endorsement.
-- A normal dependency does not inline proprietary code into Uptide's published tarball.
-  The SDK is loaded dynamically only when assistance uses it. Both the dependency manifest
-  and the external import are covered by the packaging tests.
-
-**Tradeoff:** the earlier package-size measurement found about 270 MB of SDK, native binary
-and peer packages on top of Uptide's roughly 11 MB (unpacked sizes; network download sizes
-vary by platform and cache). Every installation now pays that size cost, including users
-of other providers. For the default rollout, automatic installation takes priority over
-that cost. The version stays pinned to the version tested here, `0.3.296`.
+- **Size.** The SDK is 5.5 MB, but it pulls in the Claude Code binary for the user's platform
+  through `optionalDependencies`: 240.7 MB on macOS arm64 and 257.1 MB on Linux x64. Its
+  required peers add about 24 MB more (`@anthropic-ai/sdk`, `zod`, `@modelcontextprotocol/sdk`).
+  As a dependency, every `npx uptide` would download about 270 MB against Uptide's 11 MB,
+  including `--no-llm` runs, OpenAI and Gemini users, and anything importing
+  `uptide/onboarding` or `uptide/report`. As an optional peer, only those who install it pay.
+- **Terms.** This is our reading of the published conditions, not confirmation from Anthropic:
+  - [Commercial Terms, A.1](https://www.anthropic.com/legal/commercial-terms) permits use of
+    the services in products offered to end users. Those terms govern API-key use.
+  - [Claude Code's product and authentication conditions](https://code.claude.com/docs/en/legal-and-compliance)
+    allow running the published binary in products under the Commercial Terms. npm installs
+    Anthropic's unmodified package; Uptide neither patches its binary nor changes its built-in
+    authentication methods. Uptide uses the end user's API key, with usage billed directly
+    to that user. It does not offer Claude account login, collect subscription credentials,
+    resell usage, or claim Anthropic endorsement.
+  - Neither grants a licence to ship the SDK's bytes inside Uptide's tarball. LICENSE.md is
+    "All rights reserved", so bundling stays out.
+- **To confirm with Anthropic (open; asked).** Each is a reading of the terms, not a
+  statement in them:
+  1. Does the publisher of a free CLI, whose users bring their own API key, need its own
+     Commercial Terms agreement?
+  2. Is an npm dependency "preinstalling" Claude Code in a product?
+  3. The legal page says the built-in claude.ai login must not be removed or disabled, and that
+     third parties must not offer claude.ai login. Is leaving the binary's login untouched,
+     while Uptide documents only API keys, consistent with both?
 
 The SDK's license and conditions still apply. What a session sends, and the switches Uptide
 sets, are in [privacy](../privacy.md#agent-sdk-executor).
@@ -139,5 +147,5 @@ sets, are in [privacy](../privacy.md#agent-sdk-executor).
 ## Not done
 
 - Non-Anthropic providers keep the patch agent. The flag refuses them.
-- No resume or retry of a rejected task. One session per task.
+- No resume or retry of a rejected session. One session per package.
 - The GitHub Action does not take the flag.

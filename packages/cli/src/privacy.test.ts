@@ -66,6 +66,16 @@ describe('fix --no-llm', () => {
     expect(io.stderr()).toContain('Pass --no-llm to keep code on this machine.');
   });
 
+  it.each([
+    { argv: ['--agent', 'patch'], env: { ANTHROPIC_API_KEY: 'test-key' } },
+    { argv: ['--provider', 'openai'], env: { OPENAI_API_KEY: 'test-key' } },
+  ])('names no SDK where it cannot run: $argv', async ({ argv, env }) => {
+    const io = memoryIo({ cwd: pnpmGitRepo(), env });
+    await run(['fix', '--only', 'zod', ...argv], io, fakeEngine());
+    expect(io.stderr()).toContain('note: assisted fixes are on.');
+    expect(io.stderr()).not.toContain('SDK executor');
+  });
+
   it('gives the engine no fixer at all, even with a key in the environment', async () => {
     const { runJob } = await import('./jobs.js');
     const request = { cwd: '/repo', only: 'zod' as const };

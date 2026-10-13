@@ -12,7 +12,7 @@ the [provider evaluation](provider-evaluation.md); rates in [model pricing](mode
 ## Choosing a provider and model
 
 Assisted fixes support Anthropic, OpenAI and Gemini (experimental), with the same final
-diagnostic comparison and publish gate. Anthropic uses the SDK executor by default; OpenAI and Gemini
+diagnostic comparison and publish gate. Anthropic uses the SDK executor by default when it is installed; OpenAI and Gemini
 use the patch executor. Set the chosen provider's key in your environment:
 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY`. Never put keys in repository
 config or command arguments.

@@ -82,8 +82,28 @@ describe('fix transaction', () => {
     },
   );
 
-  it.each<{ name: string; options: Partial<FixOptions>; key: string; sdk: boolean }>([
+  it.each<{
+    name: string;
+    options: Partial<FixOptions>;
+    key: string;
+    sdk: boolean;
+    installed?: boolean;
+  }>([
     { name: 'Anthropic defaults to SDK', options: {}, key: 'test-key', sdk: true },
+    {
+      name: 'default without the SDK installed falls back to patch',
+      options: {},
+      key: 'test-key',
+      sdk: false,
+      installed: false,
+    },
+    {
+      name: 'explicit SDK without it installed',
+      options: { agent: 'sdk' },
+      key: 'test-key',
+      sdk: true,
+      installed: false,
+    },
     { name: 'explicit SDK', options: { agent: 'sdk' }, key: 'test-key', sdk: true },
     { name: 'explicit patch', options: { agent: 'patch' }, key: 'test-key', sdk: false },
     { name: 'no key', options: {}, key: '', sdk: false },
@@ -108,7 +128,7 @@ describe('fix transaction', () => {
     },
     { name: 'OpenAI', options: { provider: 'openai' }, key: 'test-key', sdk: false },
     { name: 'Gemini', options: { provider: 'gemini' }, key: 'test-key', sdk: false },
-  ])('$name selects the expected executor', async ({ options, key, sdk }) => {
+  ])('$name selects the expected executor', async ({ options, key, sdk, installed = true }) => {
     const { root, services } = fixture();
     vi.stubEnv('ANTHROPIC_API_KEY', key);
     const tests = vi.spyOn(services, 'tests');
@@ -122,10 +142,13 @@ describe('fix transaction', () => {
     try {
       const report = await fix(
         { cwd: root, only: 'zod', provider: 'anthropic', ...options },
-        services,
+        { ...services, sdkInstalled: async () => installed },
       );
       expect(assist).toHaveBeenCalledTimes(sdk ? 1 : 0);
       expect(report.llm.agent).toBe(sdk ? 'sdk' : undefined);
+      const fellBack = !installed && !sdk;
+      expect(report.llm.sdkMissing).toBe(fellBack || undefined);
+      expect(formatFix(report).includes('@anthropic-ai/claude-agent-sdk')).toBe(fellBack);
       expect(tests.mock.calls.length).toBeGreaterThanOrEqual(2);
       expect(tests.mock.calls.every(([, , , , options]) => !!options?.fullSuite === sdk)).toBe(
         true,

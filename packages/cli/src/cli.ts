@@ -982,7 +982,12 @@ ${PRIVACY}`,
               io.err(
                 `LLM: ${selection.provider}${selection.provider === 'gemini' ? ' (experimental)' : ''} / ${selection.model} · budget $${maxCost.toFixed(2)}\n`,
               );
-              io.err(assistedNote(selection.provider));
+              io.err(
+                assistedNote(
+                  selection.provider,
+                  selection.provider === 'anthropic' && agent !== 'patch',
+                ),
+              );
               const price = priceFor(selection.provider, selection.model);
               if (price.fallback)
                 io.err(

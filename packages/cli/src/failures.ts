@@ -240,14 +240,18 @@ export function noApiKeyNote(only: string): string {
   ].join('\n');
 }
 
-/** Said before any code is sent, every time it can be. */
-export const assistedNote = (provider: string): string =>
+/** Said before any code is sent, every time it can be. `sdk`: the SDK executor may run. */
+export const assistedNote = (provider: string, sdk: boolean): string =>
   [
     'note: assisted fixes are on. For sites the rules cannot migrate, the finding, the',
     '  enclosing code, compiler-linked repository declarations and compiler error',
     `  are sent to ${provider} with your key.`,
-    '  The Anthropic SDK executor can also send files throughout the temporary clone',
-    '  and the output of type-checks, lint and tests. Use --agent patch to opt out.',
+    ...(sdk
+      ? [
+          '  The Anthropic SDK executor can also send files throughout the temporary clone',
+          '  and the output of type-checks, lint and tests. Use --agent patch to opt out.',
+        ]
+      : []),
     '  Pass --no-llm to keep code on this machine.',
     '',
   ].join('\n');

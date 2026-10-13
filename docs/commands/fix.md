@@ -69,8 +69,12 @@ Declarations outside the repository or in `node_modules` are never editable.
 ## Assisted-fix executor
 
 With `ANTHROPIC_API_KEY` set and Anthropic selected, assisted fixes use the Claude Agent SDK
-by default. The SDK installs automatically as a dependency, so `npx uptide` needs no
-separate SDK install. This adds the platform-specific Claude Code binary to the download.
+by default, when `@anthropic-ai/claude-agent-sdk` is installed next to Uptide. It is an
+optional peer, not a dependency: it brings the platform-specific Claude Code binary (about
+270 MB), which `--no-llm`, OpenAI and Gemini runs do not need. Without it, `fix` uses the
+patch executor and says so in one line of its output. With `npx`:
+`npx -p uptide -p @anthropic-ai/claude-agent-sdk uptide fix <package>`. The Uptide GitHub
+Action installs it.
 
 Use `--agent patch` for the snippet-and-diff executor. OpenAI and Gemini keep that executor;
 `--agent sdk` requires Anthropic. The SDK is never bundled with Uptide.

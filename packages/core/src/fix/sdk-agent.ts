@@ -182,6 +182,13 @@ function changedPaths(root: string): { modified: string[]; added: string[] } {
 // The patch gate's own refusals: silencing the compiler is not a migration.
 const ESCAPES = /@ts-ignore|@ts-nocheck|@ts-expect-error|\bas any\b|\bas unknown as\b/;
 
+/** The agent's declared new files as `git status` names them: `./a.ts` and `/abs/a.ts` are `a.ts`. */
+export function declaredFiles(root: string, summary: AgentSummary | undefined): string[] {
+  return (summary?.newFiles ?? []).map((f) =>
+    relative(root, resolve(root, f)).split('\\').join('/'),
+  );
+}
+
 /**
  * What a task's own edits must satisfy before anything runs: only the task's files plus the
  * new files the agent declared, and no compiler escape hatches. Returns why not, or undefined.
@@ -194,7 +201,7 @@ export function editRules(
   const { modified, added } = changedPaths(root);
   const outside = modified.filter((f) => !task.files.includes(f));
   if (outside.length) return `edited files outside the task: ${outside.join(', ')}`;
-  const declared = new Set(summary?.newFiles ?? []);
+  const declared = new Set(declaredFiles(root, summary));
   const undeclared = added.filter((f) => !declared.has(f) && !task.files.includes(f));
   if (undeclared.length) return `created files it did not declare: ${undeclared.join(', ')}`;
   const diff = git(root, 'diff', '--no-color', '-U0', 'HEAD');
@@ -534,9 +541,8 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       };
     }
     const { modified, added } = changedPaths(root);
-    const discardedFiles = run.summary
-      ? added.filter((file) => !run.summary?.newFiles.includes(file))
-      : [];
+    const declared = declaredFiles(root, run.summary);
+    const discardedFiles = run.summary ? added.filter((file) => !declared.includes(file)) : [];
     // Only declared additions enter the gate; scratch files must not forfeit otherwise valid edits.
     for (const file of discardedFiles) rmSync(join(root, file));
     const touched = [...modified, ...added.filter((file) => !discardedFiles.includes(file))];
@@ -593,7 +599,19 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
   };
 }
 
-/** The Claude Agent SDK is external to the bundle and loaded only here. */
+/** The Claude Agent SDK: an optional peer, external to the bundle, loaded only here. */
+const loadSdk = () => import('@anthropic-ai/claude-agent-sdk');
+
+/** Whether the default may use the SDK; without it the default is the patch agent. */
+export async function sdkInstalled(): Promise<boolean> {
+  try {
+    await loadSdk();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const sdkRunner: TaskRunner = async ({
   root,
   task,
@@ -605,7 +623,7 @@ const sdkRunner: TaskRunner = async ({
 }) => {
   let sdk: typeof import('@anthropic-ai/claude-agent-sdk');
   try {
-    sdk = await import('@anthropic-ai/claude-agent-sdk');
+    sdk = await loadSdk();
   } catch {
     throw new Error(
       '--agent sdk needs @anthropic-ai/claude-agent-sdk installed next to uptide (npm install -g @anthropic-ai/claude-agent-sdk), or use --agent patch',

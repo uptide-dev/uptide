@@ -41,7 +41,7 @@ build already runs.
 in uptide.config.json turns it off). The chosen Anthropic, OpenAI or Gemini API, only for
 assisted fixes in `fix`, only with your own environment API key, and never with `--no-llm`:
 the patch executor sends findings, enclosing code, compiler-linked declarations and errors.
-The Anthropic SDK executor is the default for Anthropic and can also send files it reads
+The Anthropic SDK executor is the default for Anthropic when installed and can also send files it reads
 throughout the temporary clone and output from type-checks, lint and tests. It has no shell
 or network tool. `--agent patch` selects the patch executor. GitHub, through your own `gh`,
 only when you pass `--pr` or

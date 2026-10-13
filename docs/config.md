@@ -37,7 +37,7 @@ Only `version` is required. Every other field has the default shown in the table
 | `llm.enabled` | boolean | `true` | `false`: no code is sent to an LLM; only rule-based fixes are made. |
 | `llm.provider` | `anthropic`, `openai`, `gemini` | `anthropic` | Who receives that code, with the repository's own API key. |
 | `maxCost` | USD, more than 0, at most 100 | `1` | LLM budget; the SDK may overshoot by one turn. |
-| `executor` | `auto`, `patch`, `sdk` | `auto` | With `auto`, SDK for Anthropic and patch for other providers. `patch` or `sdk` explicitly selects the executor. |
+| `executor` | `auto`, `patch`, `sdk` | `auto` | With `auto`, SDK for Anthropic when it is installed, patch otherwise. `patch` or `sdk` explicitly selects the executor. |
 
 There is no `draft` setting: Uptide pull requests are always drafts. A file that sets it is
 rejected rather than ignored.

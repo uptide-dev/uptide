@@ -66,10 +66,10 @@ provider you chose (or your `OPENAI_BASE_URL`); your provider's data policy appl
 
 ## Agent SDK executor
 
-Anthropic assisted fixes use the Claude Agent SDK by default (`--agent sdk`), which runs
-Anthropic's Claude Code binary on your machine
-([decision record](decisions/0016-agent-sdk-executor.md)). npm installs `@anthropic-ai/claude-agent-sdk` alongside Uptide, without bundling or modifying
-it. Its use is governed by
+Anthropic assisted fixes use the Claude Agent SDK by default (`--agent sdk`) when
+`@anthropic-ai/claude-agent-sdk` is installed next to Uptide, which runs Anthropic's Claude
+Code binary on your machine ([decision record](decisions/0016-agent-sdk-executor.md)). It is
+an optional peer: Uptide neither bundles nor modifies it, and without it the patch agent runs. Its use is governed by
 [Anthropic's terms](https://code.claude.com/docs/en/legal-and-compliance), not Uptide's
 license.
 
@@ -87,7 +87,9 @@ What leaves your machine:
   `DISABLE_FEEDBACK_COMMAND=1` and `CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1`,
   the two items that variable does not cover
   ([data usage](https://code.claude.com/docs/en/data-usage),
-  [environment variables](https://code.claude.com/docs/en/env-vars)).
+  [environment variables](https://code.claude.com/docs/en/env-vars)), and
+  `CLAUDE_AGENT_SDK_CLIENT_APP=uptide`, which names Uptide as the calling app in the SDK's
+  requests to Anthropic.
   - The session has no web tool, so Claude Code's WebFetch domain check never runs.
   - `persistSession: false`: no transcript is written under `~/.claude/projects/`.
   - `settingSources: []`: your Claude Code settings, hooks and `CLAUDE.md` files are not automatically loaded.

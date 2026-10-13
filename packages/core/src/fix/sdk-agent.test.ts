@@ -250,6 +250,14 @@ describe('end-of-task gate', () => {
     });
     expect(declared.record?.gate).toBe('accepted');
     expect(existsSync(join(declared.root, 'src/period.ts'))).toBe(true);
+    // Declared as the agent wrote it, not as git names it: still declared, never removed.
+    const dotted = await task({
+      agent: doing(write, summary({ newFiles: ['./src/period.ts'] })),
+      after: [],
+    });
+    expect(dotted.record?.gate).toBe('accepted');
+    expect(dotted.record?.discardedFiles).toBeUndefined();
+    expect(existsSync(join(dotted.root, 'src/period.ts'))).toBe(true);
     const needed = await task({
       agent: doing(write),
       after: (root) =>
