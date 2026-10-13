@@ -1,5 +1,71 @@
 # uptide
 
+## 0.10.0
+
+### Minor Changes
+
+- [#108](https://github.com/uptide-dev/uptide/pull/108) [`38dcd4b`](https://github.com/uptide-dev/uptide/commit/38dcd4b6a5390504e531d5caed292416fda8be7f) Thanks [@lucasbraum](https://github.com/lucasbraum)! - The Uptide Action now requires the Anthropic API key. Without `anthropic-api-key` (or with it
+  empty), in any mode, it stops before doing anything: the job summary says to add the
+  repository secret `ANTHROPIC_API_KEY` (Settings → Secrets and variables → Actions), the run
+  report has no upgrades and an error starting with `LLM_KEY_MISSING`, and the job fails.
+  `uptide.run/v1` gains `llmKey` (`present` or `missing`; never the key). `uptide init` no longer
+  writes `llm.enabled`, and refuses an existing `uptide.yml` that sets it to `false`, which the
+  Action rejects. The CLI on your own machine still runs without a key.
+
+- [#101](https://github.com/uptide-dev/uptide/pull/101) [`8452329`](https://github.com/uptide-dev/uptide/commit/845232920100cfa989f222ee98bb6535b04d1eed) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `list`, `check`, `fix`, `plan` and the Action never target a release younger than the
+  repository's release-age policy: npm `min-release-age` (`.npmrc`), pnpm `minimumReleaseAge`
+  with `minimumReleaseAgeExclude` (`pnpm-workspace.yaml`), or Yarn `npmMinimalAgeGate` with
+  `npmPreapprovedPackages` (`.yarnrc.yml`). When none is set, the default of the pinned package
+  manager version applies (pnpm 11 and 12, Yarn 4.15 and later: one day), labelled as such.
+  When the newest release is too young, the newest one old enough is the target and the output
+  says why (`4.6.7 is 2 days old; your policy is 7 days (min-release-age in .npmrc); targeting
+  4.6.5`). When nothing newer than the installed version qualifies, the package is skipped with
+  that reason, shown as `status: skipped` in `uptide.run/v1` and in the HTML list report.
+  Companions and peers follow the same policy. `minReleaseAgeDays` in `uptide.yml` applies when
+  the repository sets no policy itself. See `docs/config.md#release-age`.
+
+### Patch Changes
+
+- [#107](https://github.com/uptide-dev/uptide/pull/107) [`008f84a`](https://github.com/uptide-dev/uptide/commit/008f84a22fc8217340e3b3aea2637f9bd99abf75) Thanks [@lucasbraum](https://github.com/lucasbraum)! - The Action's commits are authored by the Uptide App's own bot account,
+  `<app slug>[bot] <<bot user id>+<app slug>[bot]@users.noreply.github.com>`, resolved with the
+  installation token, so GitHub links them to the App. When it cannot be resolved they keep
+  `uptide[bot] <uptide@users.noreply.github.com>` and the job log warns.
+
+- [#107](https://github.com/uptide-dev/uptide/pull/107) [`008f84a`](https://github.com/uptide-dev/uptide/commit/008f84a22fc8217340e3b3aea2637f9bd99abf75) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `uptide.run/v1` gains `verification.baselineHealth`: the repository before the upgrade in
+  counts only (type errors, failing test runs, and missing-module errors under its own paths and
+  in packages), so the dashboard can tell a run that could only compare from one that proved.
+  No module or alias name leaves the fix report. Optional; absent in older reports.
+
+- [#107](https://github.com/uptide-dev/uptide/pull/107) [`008f84a`](https://github.com/uptide-dev/uptide/commit/008f84a22fc8217340e3b3aea2637f9bd99abf75) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `check` analyzes a package's companions at the versions its upgrade moves them to, even when
+  nothing imports them or they only carry types: `check react` in a Next app used to report
+  `react-dom` and `@types/react` on their own at their installed versions, while `react` moved
+  to 19. They are now members of `react`'s group, linked into the compile at 19, and the
+  Action's job summary shows each one moving with `react`.
+
+- [#102](https://github.com/uptide-dev/uptide/pull/102) [`78f1f7a`](https://github.com/uptide-dev/uptide/commit/78f1f7a3cbebb15e6d6c5c7413c4018246a7dd27) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `uptide init` writes a workflow that runs the released Uptide Action, `uptide-dev/uptide@2045c7dc0fcb7cd86522595de06308f154b1d8bf # v0.9.0`, and no longer notes that the action is not released yet.
+
+- [#100](https://github.com/uptide-dev/uptide/pull/100) [`53f9f7d`](https://github.com/uptide-dev/uptide/commit/53f9f7ddf6e6c9a0409a21fc2f8fd9d108c91a1f) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `fix` reads pnpm lockfiles that install a package once per version of the upgraded one (`x@1(zod@3.25.76)` next to `x@1(zod@4.3.6)`) instead of failing with "Map keys must be unique". Variants that differ only by that version are compared as one entry; variants that differ in anything else are still checked one by one.
+
+- [#107](https://github.com/uptide-dev/uptide/pull/107) [`008f84a`](https://github.com/uptide-dev/uptide/commit/008f84a22fc8217340e3b3aea2637f9bd99abf75) Thanks [@lucasbraum](https://github.com/lucasbraum)! - When Uptide refuses to publish a migration that did not verify, it words the reason as the
+  run's verdict does: `1 type error introduced by the upgrade, 2 pre-existing` instead of
+  `1 new type error`, and a test run that was already failing before the upgrade is named as
+  such instead of as a failure of the migration.
+
+- [#104](https://github.com/uptide-dev/uptide/pull/104) [`8fd120e`](https://github.com/uptide-dev/uptide/commit/8fd120e91500e28f2367dcd4ae9e4bbb97b91daf) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Reports no longer show a breaking count of 0 for a package without a migration pack: the
+  terminal, the HTML report and the Action's job summary say `not analyzed: no pack yet`
+  instead, and `uptide.run/v1` gains `analysis` (`pack` or `none`, absent when nothing was
+  analyzed). A companion that `check` reports at its installed version (`react-dom` or
+  `@types/react` with `react`) shows the versions it moves to and `moves with react`, carried as
+  `movesWith`, instead of `up to date`; no upgrade kind is printed when nothing moves. The job
+  summary lists breaking sites per package by path and line, and has no breaking-sites section
+  when there are none. The generated workflow runs on `ubuntu-24.04` instead of `ubuntu-latest`.
+
+- [#107](https://github.com/uptide-dev/uptide/pull/107) [`008f84a`](https://github.com/uptide-dev/uptide/commit/008f84a22fc8217340e3b3aea2637f9bd99abf75) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Reports say what the upgrade broke and what the migration left. `uptide.run/v1` gains
+  `verification.typecheck.afterUpgrade`, the type errors right after the version bump and before
+  any fix, next to `before` and `after` (optional; absent in older reports). The job summary
+  prints `types 0 → 4 with the upgrade → 0 after Uptide`, and the pull request body and the
+  terminal say `the upgrade broke 4 · Uptide left 0`.
+
 ## 0.9.1
 
 ### Patch Changes
