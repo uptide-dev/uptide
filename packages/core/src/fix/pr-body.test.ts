@@ -141,7 +141,7 @@ it('never updates a PR from a failed or irreproducible run; --preview still rend
         r.verification.passed = false;
         r.verification.newErrors = [{ file: 'a.ts', line: 1, column: 1, code: 2322, message: 'x' }];
       },
-      /PR description not updated: verification failed: 1 new type error/,
+      /PR description not updated: verification failed: 1 type error introduced by the upgrade/,
     ],
     [
       (r: FixReport) => {

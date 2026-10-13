@@ -147,6 +147,27 @@ describe('the token exchange', () => {
     expect(fetch).toHaveBeenCalledTimes(4);
   });
 
+  it('carries the App slug the Uptide app names, and nothing when it names none', async () => {
+    const { fetch } = fakeFetch({
+      ...oidcAnswer,
+      '/api/action/token': () =>
+        ok({ token: INSTALLATION, expiresAt: '2026-10-13T07:17:00Z', appSlug: 'uptide-app' }),
+    });
+    const tokens = installationTokens({
+      appUrl: 'https://app.example',
+      env: ENV,
+      fetch,
+      mask: () => {},
+    });
+    expect(tokens.appSlug()).toBeUndefined();
+    await tokens.get();
+    expect(tokens.appSlug()).toBe('uptide-app');
+    const plain = fakeFetch({ ...oidcAnswer, ...exchangeAnswer });
+    expect(
+      (await exchangeToken('https://app.example', JWT, plain.fetch, () => {})).appSlug,
+    ).toBeUndefined();
+  });
+
   it('masks with the runner command, line by line', () => {
     const out: string[] = [];
     maskWithRunner((t) => out.push(t))(INSTALLATION);
@@ -244,6 +265,17 @@ describe('the engine environment', () => {
     ])
       expect(env[gone], gone).toBeUndefined();
     expect(env.GIT_AUTHOR_NAME).toBe('uptide[bot]');
+    expect(env.GIT_AUTHOR_EMAIL).toBe('uptide@users.noreply.github.com');
+  });
+
+  it("authors and commits as the identity it is given, uptide pr's commits included", () => {
+    const bot = { name: 'uptide-app[bot]', email: '1234+uptide-app[bot]@users.noreply.github.com' };
+    const env = engineEnv({}, {}, bot);
+    expect([env.GIT_AUTHOR_NAME, env.GIT_COMMITTER_NAME]).toEqual([bot.name, bot.name]);
+    expect([env.GIT_AUTHOR_EMAIL, env.GIT_COMMITTER_EMAIL]).toEqual([bot.email, bot.email]);
+    const { env: pr, cleanup } = publishEnv({}, INSTALLATION, undefined, bot);
+    expect(pr.GIT_COMMITTER_EMAIL).toBe(bot.email);
+    cleanup();
   });
 
   it('gives uptide pr the token through a private gh config and a git header, then removes it', () => {

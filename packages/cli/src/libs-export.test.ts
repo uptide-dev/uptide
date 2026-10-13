@@ -60,7 +60,8 @@ const LIBRARIES: Record<
     own: /^(run-report\/(index|schema|safe|summary)\.ts|credentials\.ts|onboarding\/validate\.ts)$/,
     // Pure: no file, network or process access at all.
     external: { index: [] },
-    budget: { js: 24 * 1024, dts: 16 * 1024 },
+    // The declarations carry the schema as a literal type: each field costs its JSON twice.
+    budget: { js: 24 * 1024, dts: 20 * 1024 },
     types: {
       index: ['RunReport', 'Upgrade', 'RUN_REPORT_SCHEMA', 'reportProblems', 'assertSafeReport'],
     },

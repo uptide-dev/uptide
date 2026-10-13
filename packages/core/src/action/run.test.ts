@@ -8,6 +8,7 @@ import type { ListedDependency, ListReport } from '../list/list.js';
 import { reportProblems } from '../run-report/safe.js';
 import { renderSummary } from '../run-report/summary.js';
 import type { EngineRun } from './engine.js';
+import type { CommitIdentity } from './github.js';
 import { ActionAuthError } from './oidc.js';
 import {
   type ActionInputs,
@@ -81,13 +82,15 @@ function services(answers: {
   open?: string[];
   token?: () => Promise<string>;
   publish?: (branch: string) => Promise<string>;
+  identity?: ActionServices['commitIdentity'];
 }) {
-  const calls: { args: string[]; apiKey?: string }[] = [];
-  const published: { branch: string; token: string }[] = [];
+  const calls: { args: string[]; apiKey?: string; identity?: CommitIdentity }[] = [];
+  const published: { branch: string; token: string; identity?: CommitIdentity }[] = [];
+  const logs: string[] = [];
   let clock = Date.UTC(2026, 9, 13, 6, 17);
   const s: ActionServices = {
-    async engine(args, apiKey) {
-      calls.push({ args, ...(apiKey ? { apiKey } : {}) });
+    async engine(args, apiKey, identity) {
+      calls.push({ args, ...(apiKey ? { apiKey } : {}), ...(identity ? { identity } : {}) });
       const [command, name] = args;
       if (command === 'list') return { code: 0, stdout: JSON.stringify(answers.list) };
       if (command === 'check') return { code: 1, stdout: JSON.stringify(answers.check) };
@@ -96,16 +99,19 @@ function services(answers: {
     },
     token: answers.token ?? (async () => 'installation-token'),
     openUptideBranches: async () => answers.open ?? [],
-    async publish(branch, token) {
-      published.push({ branch, token });
+    ...(answers.identity ? { commitIdentity: answers.identity } : {}),
+    async publish(branch, token, identity) {
+      published.push({ branch, token, ...(identity ? { identity } : {}) });
       return answers.publish
         ? answers.publish(branch)
         : 'https://github.com/acme/storefront/pull/9';
     },
     now: () => (clock += 1000),
-    log: () => {},
+    log: (line) => {
+      logs.push(line);
+    },
   };
-  return { s, calls, published };
+  return { s, calls, published, logs };
 }
 const fixRun = (report: FixReport, code = 0): EngineRun => ({
   code,
@@ -220,6 +226,52 @@ describe('the Uptide Action run', () => {
     expect(summary).not.toContain('### Breaking sites');
   });
 
+  it('check: companions analyzed in their lead group get a row of their own', async () => {
+    // What `check react` answers now: one report for the group, the companions as members.
+    const { s } = services({
+      list: listReport([dep('react', '18.3.1', '19.2.0')]),
+      check: {
+        repo: '.',
+        workspaces: ['.'],
+        packages: [
+          {
+            workspace: '.',
+            name: 'react',
+            installed: '18.3.1',
+            latest: '19.2.0',
+            target: '19.2.0',
+            members: [
+              { name: 'react', installed: '18.3.1', target: '19.2.0' },
+              { name: '@types/react', installed: '18.3.12', target: '19.2.2' },
+              { name: 'react-dom', installed: '18.3.1', target: '19.2.0' },
+            ],
+            companions: [
+              { name: '@types/react', from: '18.3.12', to: '19.2.2', reason: 'types react' },
+              { name: 'react-dom', from: '18.3.1', to: '19.2.0', reason: 'released with react' },
+            ],
+            majorsBehind: 1,
+            findings: [],
+            callSitesChecked: 3,
+            unanalyzed: [],
+            status: 'safe',
+            tier: 'generic',
+            notes: [],
+            timing: { fetchMs: 0, diffMs: 0, usagesMs: 0, compileMs: 0 },
+          },
+        ],
+        summary: {},
+        timing: { totalMs: 1 },
+      },
+    });
+    const report = await runAction(inputs(workspace('version: 1\n'), { mode: 'check' }), s);
+    expect(reportProblems(report)).toEqual([]);
+    expect(report.upgrades.map((u) => [u.package, u.from, u.to, u.status, u.movesWith])).toEqual([
+      ['react', '18.3.1', '19.2.0', 'available', undefined],
+      ['@types/react', '18.3.12', '19.2.2', 'available', 'react'],
+      ['react-dom', '18.3.1', '19.2.0', 'available', 'react'],
+    ]);
+  });
+
   it('fix: migrates, opens the PR with the installation token, and reports it', async () => {
     const { s, calls, published } = services({
       list: listReport([dep('zod', '3.25.76', '4.6.5')]),
@@ -239,6 +291,43 @@ describe('the Uptide Action run', () => {
       pr: { number: 9, url: 'https://github.com/acme/storefront/pull/9' },
     });
     expect(report.error).toBeUndefined();
+  });
+
+  it("fix: commits by the App's bot, resolved with the installation token", async () => {
+    const bot = { name: 'uptide-app[bot]', email: '1234+uptide-app[bot]@users.noreply.github.com' };
+    const asked: string[] = [];
+    const { s, calls, published, logs } = services({
+      list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+      fix: () => fixRun(storefrontFix()),
+      identity: async (token) => {
+        asked.push(token);
+        return bot;
+      },
+    });
+    await runAction(inputs(workspace('version: 1\n')), s);
+    expect(asked).toEqual(['installation-token']);
+    expect(calls.find((c) => c.args[0] === 'fix')?.identity).toEqual(bot);
+    expect(published[0]?.identity).toEqual(bot);
+    expect(logs.some((l) => l.includes('commit identity'))).toBe(false);
+  });
+
+  it('fix: keeps the fallback identity, with a warning, when the bot cannot be resolved', async () => {
+    for (const identity of [async () => undefined, async () => Promise.reject(new Error('x'))]) {
+      const { s, calls, published, logs } = services({
+        list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+        fix: () => fixRun(storefrontFix()),
+        identity,
+      });
+      const report = await runAction(inputs(workspace('version: 1\n')), s);
+      expect(report.upgrades[0]?.status).toBe('fixed');
+      expect(calls.find((c) => c.args[0] === 'fix')?.identity).toBeUndefined();
+      expect(published[0]?.identity).toBeUndefined();
+      expect(logs).toContainEqual(
+        expect.stringMatching(
+          /^::warning title=Uptide commit identity::.*uptide\[bot\] <uptide@users\.noreply\.github\.com>/,
+        ),
+      );
+    }
   });
 
   it('fix: never more open pull requests than maxOpenPrs, and never a second for a package', async () => {

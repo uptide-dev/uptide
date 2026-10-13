@@ -58,7 +58,7 @@ import { isBehind, rankCandidates } from './rank.js';
 import { foldSharedRoots, groupRootCauses } from './root-cause.js';
 import { runtimeChangeFindings } from './runtime-changes.js';
 import { confirmBreaking, evidenceOf, tierOf } from './tier.js';
-import { typesPackageOf, typesReleaseFor } from './types-release.js';
+import { typedPackageOf, typesPackageOf, typesReleaseFor } from './types-release.js';
 import { unattributedFindings } from './unattributed.js';
 import { verdictOf } from './verdict.js';
 import { compareVersions, majorsBehind, parseVersion } from './version.js';
@@ -948,12 +948,22 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
       })),
     );
     // A package asked for by name leads its companions' group, and absorbs any release group
-    // one of them was in: one overlay with every target linked.
+    // one of them was in: one overlay with every target linked. A companion joins even when
+    // nothing here imports it (`react-dom` in a Next app) or it only carries types
+    // (`@types/react`): it moves with the lead all the same, and left out it would be reported
+    // on its own, at the version installed.
     for (const [lead, plan] of Object.entries(opts.companions ?? {})) {
-      const members = [lead, ...plan.companions.map((c) => c.name)].filter((n) =>
-        analyzable.some(([name]) => name === n),
-      );
-      if (!members.includes(lead) || members.length < 2) continue;
+      if (!analyzable.some(([name]) => name === lead)) continue;
+      const members = [
+        lead,
+        ...plan.companions
+          .map((c) => c.name)
+          .filter((n) => {
+            const version = installed.get(n);
+            return version !== undefined && !/^(link|workspace|file):/.test(version);
+          }),
+      ];
+      if (members.length < 2) continue;
       for (const g of groups)
         if (g.some((m) => members.includes(m)))
           for (const m of g) if (!members.includes(m)) members.push(m);
@@ -977,9 +987,11 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
           linked.notes = [];
           return [linked];
         }
-        // Type-only packages and dependencies nothing imports cannot affect a call site; say so instead of fetching them.
+        // Type-only packages and dependencies nothing imports cannot affect a call site; say so
+        // instead of fetching them. A companion is analyzed in its lead's group instead.
         if (
           !opts.allDeps &&
+          (groupOf.get(name)?.length ?? 1) < 2 &&
           (name.startsWith('@types/') || (imported !== undefined && !imported.has(name)))
         ) {
           return [notImported(workspace, name, installedVersion)];
@@ -1578,7 +1590,21 @@ async function checkGroup(
 ): Promise<PackageReport> {
   const prepared: Prepared[] = [];
   const early: PackageReport[] = [];
-  for (const m of members) {
+  // A types package moving with the package it types (`@types/react` with `react`) is already
+  // diffed and linked as that package's declarations: preparing it again would link it twice.
+  const typedBy: { name: string; installed: string; target: string }[] = [];
+  const names = new Set(members.map((m) => m.name));
+  const typesLast = [...members].sort(
+    (a, b) =>
+      Number(names.has(typedPackageOf(a.name) ?? '')) -
+      Number(names.has(typedPackageOf(b.name) ?? '')),
+  );
+  for (const m of typesLast) {
+    const host = prepared.find((p) => p.types?.name === m.name);
+    if (host?.types) {
+      typedBy.push({ name: m.name, installed: m.installed, target: host.types.target });
+      continue;
+    }
     const p = await prepare(ctx, repo, workspace, m.name, m.installed);
     if ('scan' in p) prepared.push(p);
     else early.push(p);
@@ -1593,7 +1619,17 @@ async function checkGroup(
   // with it is one decision for the repository, whichever workspace the report comes from.
   const leader = prepared.find((p) => plans[p.name] !== undefined);
   const plan = leader ? plans[leader.name] : undefined;
-  const name = leader && prepared.length > 1 ? leader.name : groupName(prepared.map((p) => p.name));
+  // A companion with no usages of its own still moves with the leader: the overlay links it at
+  // the version the plan gives it, as the upgrade `fix` makes installs it, unless a member
+  // already links it (`@types/react` is how `react` is typed).
+  const linkedNames = new Set(prepared.map((p) => p.types?.name ?? p.name));
+  const carried = early.filter(
+    (e) =>
+      !linkedNames.has(e.name) &&
+      plan?.companions.some((c) => c.name === e.name && c.to === e.target),
+  );
+  const together = prepared.length + carried.length + typedBy.length;
+  const name = leader && together > 1 ? leader.name : groupName(prepared.map((p) => p.name));
   const notes = prepared.flatMap((p) =>
     prepared.length > 1 ? p.notes.map((n) => `${p.name}: ${n}`) : p.notes,
   );
@@ -1604,13 +1640,19 @@ async function checkGroup(
   const base = (status: PackageStatus): PackageReport => ({
     workspace,
     name,
-    ...(prepared.length > 1
+    ...(together > 1
       ? {
-          members: prepared.map((p) => ({
-            name: p.name,
-            installed: p.installedVersion,
-            target: p.target,
-          })),
+          members: [
+            ...prepared.map((p) => ({
+              name: p.name,
+              installed: p.installedVersion,
+              target: p.target,
+            })),
+            ...typedBy,
+            ...early
+              .filter((e) => plan?.companions.some((c) => c.name === e.name && c.to === e.target))
+              .map((e) => ({ name: e.name, installed: e.installed, target: e.target })),
+          ],
         }
       : {}),
     installed: (leader?.installedVersion ?? installed[0]) as string,
@@ -1654,6 +1696,20 @@ async function checkGroup(
       });
     } catch (err) {
       notes.push(`could not fetch ${p.name}@${p.target}: ${(err as Error).message}`);
+      return { ...base('skipped'), skipReason: errorCode(err) };
+    }
+  }
+  const companionDirs: { name: string; dir: string }[] = [];
+  for (const c of carried) {
+    try {
+      const pkg = await progress(
+        ctx.opts.onProgress,
+        { phase: 'fetch', package: c.name, workspace },
+        () => ctx.fetcher.fetch(c.name, c.target),
+      );
+      companionDirs.push({ name: c.name, dir: pkg.dir });
+    } catch (err) {
+      notes.push(`could not fetch ${c.name}@${c.target}: ${(err as Error).message}`);
       return { ...base('skipped'), skipReason: errorCode(err) };
     }
   }
@@ -1733,22 +1789,31 @@ async function checkGroup(
       const t2 = Date.now();
       // The baseline overlay links what the installed side is: the installed copy, or the
       // @types release the installed runtime should have.
-      const baselineTargets = prepared.map((p) => ({
-        name: p.types?.name ?? p.name,
-        dir: p.installedDir.dir,
-        specifier: p.name,
-      }));
+      const baselineTargets = [
+        ...prepared.map((p) => ({
+          name: p.types?.name ?? p.name,
+          dir: p.installedDir.dir,
+          specifier: p.name,
+        })),
+        ...carried.flatMap((c) => {
+          const dir = installedPackageDirOf(ctx.adapter, repo, c.name, c.installed)?.dir;
+          return dir ? [{ name: c.name, dir }] : [];
+        }),
+      ];
       const signal = await progress(
         ctx.opts.onProgress,
         { phase: 'compile', package: prepared.map((p) => p.name).join(', '), workspace },
         () =>
           compileMany(
             repo,
-            fetched.map(({ p, pkg }) =>
-              p.types
-                ? { name: p.types.name, dir: pkg.dir, specifier: p.name }
-                : { name: p.name, dir: pkg.dir },
-            ),
+            [
+              ...fetched.map(({ p, pkg }) =>
+                p.types
+                  ? { name: p.types.name, dir: pkg.dir, specifier: p.name }
+                  : { name: p.name, dir: pkg.dir },
+              ),
+              ...companionDirs,
+            ],
             {
               fetcher: ctx.fetcher,
               files: [
