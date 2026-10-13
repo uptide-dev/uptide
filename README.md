@@ -67,6 +67,7 @@ verified with two or more public repositories and no false positive. The contrac
 | `@sentry/browser` | 10.x → 11.x | 100% | 100% | Automancer-Ltd/automancer-site, sbomify/sbomify | verified |
 | `@sentry/nextjs` | 10.x → 11.x | 100% | 100% | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `@sentry/react` | 10.x → 11.x | 100% | 100% | owine/youth-activity-scheduler, successible/cleanslate | verified |
+| `recharts` | 2.x → 3.x | 21% | 31% | shadcn-ui/ui, hyperdxio/hyperdx | candidate |
 | `stripe` | 14 and newer | 100% | 90% | unkeyed/unkey, nextjs/saas-starter | verified |
 | `vitest` | 4.x → 5.x | 100% | 50% | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
 | `zod` | 3.x → 4.x | 100% | 74% | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript | verified |
