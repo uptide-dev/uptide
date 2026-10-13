@@ -212,6 +212,11 @@ export async function run(
   const settings = (cwd: string, path: string | undefined): LoadedConfig | undefined => {
     const loaded = loadUptideConfig(cwd, path);
     if (loaded) io.err(`Settings: ${relative(io.cwd, loaded.path) || loaded.path}\n`);
+    // Read by the registry configuration, in this process and the analysis workers: the
+    // fallback release-age policy, for a repository that sets none of its own.
+    const days = loaded?.config['min-release-age'];
+    if (days === undefined) delete process.env.UPTIDE_MIN_RELEASE_AGE;
+    else process.env.UPTIDE_MIN_RELEASE_AGE = String(days);
     return loaded;
   };
   /** Named on the command line although uptide.yml leaves them out: flags win, and it is said. */

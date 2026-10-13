@@ -20,6 +20,8 @@ export interface UptideConfig {
   /** USD per run. */
   maxCost: number;
   executor: Executor;
+  /** Days; only when the repository sets no release-age policy. Unset: no minimum. */
+  'min-release-age'?: number;
 }
 
 /** `schedule: manual`: the workflow runs only when started by hand (Actions tab, dashboard). */
@@ -119,6 +121,13 @@ export const UPTIDE_CONFIG_SCHEMA = {
         'How assisted fixes are applied: auto (SDK for Anthropic when installed, patch otherwise), patch (one edit per site), sdk (a Claude Agent SDK session).',
       enum: [...EXECUTORS],
       default: 'auto',
+    },
+    'min-release-age': {
+      description:
+        "Days a release must be public before Uptide targets it, for a repository with no policy of its own (npm min-release-age, pnpm minimumReleaseAge, Yarn npmMinimalAgeGate); the repository's policy wins. Unset: no minimum.",
+      type: 'number',
+      minimum: 0,
+      maximum: 365,
     },
   },
 } as const;

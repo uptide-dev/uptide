@@ -64,7 +64,7 @@ maxCost: 0
 
   it('rejects unknown settings, saying which exist', () => {
     expect(problems('version: 1\nschedul: "1 2 * * 1"\n')).toContain(
-      'line 2: schedul is not a setting here (known: version, packages, schedule, maxOpenPrs, llm, maxCost, executor)',
+      'line 2: schedul is not a setting here (known: version, packages, schedule, maxOpenPrs, llm, maxCost, executor, min-release-age)',
     );
     expect(problems('version: 1\npackages:\n  only: [zod]\n')).toContain(
       'packages.only is not a setting',

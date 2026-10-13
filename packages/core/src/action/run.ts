@@ -167,6 +167,14 @@ export async function runAction(
   if (!list) return report('uptide list did not answer; the job log has the reason');
   const behind = (name: string): ListedDependency | undefined =>
     list.packages.find((p) => p.name === name);
+  // Nothing newer than what is installed is old enough for the repository's policy.
+  const tooYoung = (list.releaseAge ?? [])
+    .filter((r) => !behind(r.name) && (!only || r.name === only))
+    .map((r) => skipped({ package: r.name, from: r.current }, 'skipped', `${r.name} ${r.reason}`));
+  if (only && tooYoung.length) {
+    upgrades.push(...tooYoung);
+    return report();
+  }
   if (only && !behind(only)) {
     const known =
       list.unknown?.some((u) => u.name === only) || list.failures.some((f) => f.name === only);
@@ -188,6 +196,7 @@ export async function runAction(
     );
     return report();
   }
+  upgrades.push(...tooYoung);
   // What Uptide acts on without a name: dependencies the code uses, most urgent first.
   const candidates = only
     ? [behind(only) as ListedDependency]

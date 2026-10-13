@@ -46,6 +46,7 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
     '',
     // Broken before the upgrade: the first thing to read, before any row of the comparison.
     ...(unhealthy ? [colors.yellow(`⚠ ${unhealthy}`), ''] : []),
+    ...(report.releaseAge ? [colors.dim(report.releaseAge), ''] : []),
     ...(
       [
         ['Risk', cells.risk],

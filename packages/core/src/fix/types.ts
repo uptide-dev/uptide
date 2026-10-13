@@ -187,7 +187,9 @@ export interface FixReport {
   package: string;
   target: string;
   /** Where the target came from: asked for, the npm `latest` dist-tag, or the pack's tested target offline. */
-  targetSource?: 'requested' | 'latest on npm' | "the pack's tested target";
+  targetSource?: 'requested' | 'latest on npm' | 'release-age policy' | "the pack's tested target";
+  /** Why the target is older than the newest release: the repository's release-age policy. */
+  releaseAge?: string;
   from?: string;
   /** What moved with it, at the versions that agree with the target, and why (`check/companions.ts`). */
   companions?: { name: string; from: string; to: string; reason: string }[];

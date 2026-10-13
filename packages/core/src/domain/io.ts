@@ -1,3 +1,4 @@
+import type { HeldBack } from '../fetch/release-age.js';
 import type { PackageDir } from './adapter.js';
 import type { ApiSurface } from './surface.js';
 
@@ -28,6 +29,10 @@ export interface PackageFetcher {
       { dependencies?: Record<string, string>; peerDependencies?: Record<string, string> }
     >
   >;
+  /** Why the last `resolve(name, 'latest')` answered an older version: the release-age policy. */
+  heldBack?(name: string): HeldBack | undefined;
+  /** Why the release-age policy refuses `name@version`; undefined when it allows it. */
+  releaseAge?(name: string, version: string): Promise<HeldBack | undefined>;
   /**
    * Done with a fetched directory. A fetcher that extracts into a persistent cache keeps it;
    * without this method the caller removes the directory itself.

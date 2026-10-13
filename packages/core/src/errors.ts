@@ -114,7 +114,8 @@ export type ErrorCode =
   | 'NOT_UPTIDE_CHECKOUT'
   | 'PACK_EXISTS'
   | 'INVALID_CONFIG'
-  | 'ONBOARDING_REFUSED';
+  | 'ONBOARDING_REFUSED'
+  | 'RELEASE_AGE';
 /** Stable across rendering and worker serialization. Human wording is not an API. */
 export class UptideError extends Error {
   override readonly name = 'UptideError';

@@ -83,6 +83,7 @@ export class PeerPreflightError extends UptideError {
 export interface PeerPlan {
   target: string;
   targetSource: ResolvedTarget['source'];
+  releaseAge?: string;
   companions: Companion[];
   conflicts: PeerBlocker[];
 }
@@ -136,10 +137,15 @@ export async function peerPreflight(
     }
     return pending;
   };
-  const { version: target, source: targetSource } = await resolveTarget(
+  const {
+    version: target,
+    source: targetSource,
+    releaseAge,
+  } = await resolveTarget(
     pack ?? { name: options.only, defaultTarget: '' },
     options.target,
     services?.resolve ?? fetcher.resolve,
+    services?.resolve ? undefined : fetcher,
   );
   const plan = await companionsOf({
     name: options.only,
@@ -309,7 +315,13 @@ export async function peerPreflight(
       package: peer.name,
       detail: describe(peer),
     });
-  return { target, targetSource, companions, conflicts: actual.peers };
+  return {
+    target,
+    targetSource,
+    ...(releaseAge ? { releaseAge } : {}),
+    companions,
+    conflicts: actual.peers,
+  };
 }
 
 /** Root-only manager settings; preserve existing overrides and unrelated entries. */

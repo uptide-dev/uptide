@@ -1,0 +1,7 @@
+packages:
+  - .
+# 7 days, in minutes.
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - '@acme/*'
+  - gadget@5.0.0

@@ -8,6 +8,12 @@ import {
   registryFor,
 } from '../fetch/npmrc.js';
 import { type FetchFn, packumentUrl } from '../fetch/registry.js';
+import {
+  type HeldBack,
+  newestAllowed,
+  releaseAgeError,
+  windowStart,
+} from '../fetch/release-age.js';
 import type { Advisory } from './priorities.js';
 
 export class DiscoveryRegistryError extends Error {
@@ -52,6 +58,7 @@ interface Manifest {
 interface Packument {
   'dist-tags'?: Record<string, string>;
   versions?: Record<string, Manifest>;
+  modified?: string;
 }
 function httpError(host: string, status: number): DiscoveryRegistryError {
   const summary =
@@ -124,7 +131,7 @@ export function createDiscoveryFetcher(opts: {
   timeoutMs?: number;
   /** Deadline for the optional signal requests (advisories, publish dates); they never retry. */
   signalTimeoutMs?: number;
-}): Pick<PackageFetcher, 'resolve' | 'metadata'> & RegistrySignals {
+}): Pick<PackageFetcher, 'resolve' | 'metadata' | 'heldBack'> & RegistrySignals {
   const config = opts.config ?? loadRegistryConfig({ cwd: opts.cwd });
   const transport = opts.fetch ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 10_000;
@@ -225,8 +232,8 @@ export function createDiscoveryFetcher(opts: {
   };
   const signalTimeoutMs = opts.signalTimeoutMs ?? 5_000;
   /** One request under a deadline, body included; any failure is the caller's "not checked". */
-  const once = async <T>(url: string, init: RequestInit): Promise<T> => {
-    const signal = AbortSignal.timeout(signalTimeoutMs);
+  const once = async <T>(url: string, init: RequestInit, ms = signalTimeoutMs): Promise<T> => {
+    const signal = AbortSignal.timeout(ms);
     const response = await transport(url, { ...init, signal });
     if (!response.ok) {
       void response.body?.cancel().catch(() => {});
@@ -235,21 +242,47 @@ export function createDiscoveryFetcher(opts: {
     return (await response.json()) as T;
   };
   const times = new Map<string, Promise<Record<string, string>>>();
+  const published = (name: string, ms?: number): Promise<Record<string, string>> => {
+    let request = times.get(name);
+    if (!request) {
+      const url = packumentUrl(name, registryFor(name, config).replace(/\/$/, ''));
+      request = once<{ time?: Record<string, string> }>(
+        url,
+        { headers: { accept: 'application/json', ...authHeaders(url, config) } },
+        ms,
+      ).then((doc) => doc.time ?? {});
+      times.set(name, request);
+    }
+    return request;
+  };
+  // The release-age policy: `latest` is the newest version old enough. Publish dates are
+  // fetched only when the package changed inside the policy's window.
+  const policies = config.releaseAge ?? [];
+  const held = new Map<string, HeldBack>();
   return {
-    resolve: async (name, version) => (await manifest(name, version)).version,
+    resolve: async (name, spec) => {
+      const latest = (await manifest(name, spec)).version;
+      if (!policies.length || latest === spec) return latest;
+      const data = await ask(name);
+      if (data.modified && Date.parse(data.modified) < windowStart(policies)) return latest;
+      const time = await published(name, timeoutMs).catch(() => {
+        const host = registryHost(registryFor(name, config));
+        throw new DiscoveryRegistryError(
+          'REGISTRY_HTTP_ERROR',
+          `publish dates unavailable on ${host}, needed for the release-age policy; skipped`,
+          host,
+          'publish dates unavailable',
+        );
+      });
+      const result = newestAllowed(policies, name, latest, Object.keys(data.versions ?? {}), time);
+      if (result.held) held.set(name, result.held);
+      if (!result.version) throw releaseAgeError(name, result.held as HeldBack);
+      return result.version;
+    },
+    heldBack: (name) => held.get(name),
     deprecation: async (name, version) => (await ask(name)).versions?.[version]?.deprecated,
     versions: async (name) => Object.keys((await ask(name)).versions ?? {}),
-    published: (name) => {
-      let request = times.get(name);
-      if (!request) {
-        const url = packumentUrl(name, registryFor(name, config).replace(/\/$/, ''));
-        request = once<{ time?: Record<string, string> }>(url, {
-          headers: { accept: 'application/json', ...authHeaders(url, config) },
-        }).then((doc) => doc.time ?? {});
-        times.set(name, request);
-      }
-      return request;
-    },
+    published: (name) => published(name),
     advisories: async (query) => {
       const body = Object.fromEntries(
         [...query].filter(([name]) => registryHost(registryFor(name, config)) === NPM_REGISTRY),

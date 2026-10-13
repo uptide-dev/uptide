@@ -448,6 +448,13 @@ export function formatList(report: ListReport, opts: FormatListOptions = {}): st
       }
     lines.push('');
   }
+  // Why a target is not the newest release: always shown, the policy is the repository's.
+  if (report.releaseAge?.length) {
+    lines.push(`${c.bold('RELEASE AGE')}  ${c.dim('newest releases too young for your policy')}`);
+    for (const item of report.releaseAge)
+      lines.push(`  ${c.bold(item.name)}  ${c.dim(item.reason)}`);
+    lines.push('');
+  }
   for (const group of skippedSources(report)) {
     lines.push(
       c.dim(
@@ -465,7 +472,8 @@ export function formatList(report: ListReport, opts: FormatListOptions = {}): st
     !report.packages.length &&
     !report.failures.length &&
     !report.unknown?.length &&
-    !report.skipped?.length
+    !report.skipped?.length &&
+    !report.releaseAge?.length
   )
     lines.push('Every direct dependency is up to date.', '');
   lines.push(...listFailureLines(report, opts.details));
