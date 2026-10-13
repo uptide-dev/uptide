@@ -21,7 +21,7 @@ import {
   type Upgrade,
 } from '../run-report/schema.js';
 import { type EngineRun, parseJson } from './engine.js';
-import { pullNumber } from './github.js';
+import { type CommitIdentity, FALLBACK_IDENTITY, pullNumber } from './github.js';
 
 export interface ActionInputs {
   /** The repository's checkout (`GITHUB_WORKSPACE`). */
@@ -45,13 +45,18 @@ export interface ActionInputs {
 }
 
 export interface ActionServices {
-  /** Run the CLI with these arguments; `apiKey` is passed to it only when assisted fixes may run. */
-  engine(args: string[], apiKey?: string): Promise<EngineRun>;
+  /**
+   * Run the CLI with these arguments; `apiKey` is passed to it only when assisted fixes may
+   * run. Its commits are by `identity`, or the fallback identity without one.
+   */
+  engine(args: string[], apiKey?: string, identity?: CommitIdentity): Promise<EngineRun>;
   /** The installation token (exchanged on first use). Throws `ActionAuthError`. */
   token(): Promise<string>;
+  /** The App's bot, resolved with the installation token; undefined when it cannot be. */
+  commitIdentity?(token: string): Promise<CommitIdentity | undefined>;
   openUptideBranches(token: string): Promise<string[]>;
   /** `uptide pr --branch <branch> --yes --json` with the token; the PR URL. */
-  publish(branch: string, token: string): Promise<string>;
+  publish(branch: string, token: string, identity?: CommitIdentity): Promise<string>;
   now(): number;
   log(line: string): void;
 }
@@ -272,14 +277,22 @@ export async function runAction(
 
   // fix: the token first. A run that cannot publish spends nothing on migrations.
   let open: string[];
+  let author: CommitIdentity | undefined;
   try {
-    open = await services.openUptideBranches(await services.token());
+    const token = await services.token();
+    open = await services.openUptideBranches(token);
+    // The commits are the App's: its bot account, so GitHub links them to it.
+    author = await services.commitIdentity?.(token).catch(() => undefined);
   } catch (err) {
     upgrades.push(...candidates.map(fromListed));
     return report(
       `cannot open pull requests: ${err instanceof Error && err.name === 'ActionAuthError' ? err.message : 'GitHub could not be reached'}`,
     );
   }
+  if (!author)
+    services.log(
+      `::warning title=Uptide commit identity::The Uptide app's bot account could not be resolved with the installation token; commits are authored as ${FALLBACK_IDENTITY.name} <${FALLBACK_IDENTITY.email}>, which GitHub links to no account.`,
+    );
   let slots = config.maxOpenPrs - open.length;
   let attempts = Math.max(0, slots);
   let budget = config.maxCost;
@@ -322,7 +335,7 @@ export async function runAction(
         : ['--no-llm']),
     ];
     services.log(`::group::uptide fix ${dep.name}`);
-    const run = await services.engine(args, llm ? inputs.apiKey : undefined);
+    const run = await services.engine(args, llm ? inputs.apiKey : undefined, author);
     services.log('::endgroup::');
     const fixed = parseJson<FixReport>(run);
     if (!fixed || run.code === 2) {
@@ -341,7 +354,7 @@ export async function runAction(
     let error: string | undefined;
     if (fixed.verification.passed && !fixed.exportError) {
       try {
-        const url = await services.publish(fixed.branch, await services.token());
+        const url = await services.publish(fixed.branch, await services.token(), author);
         const number = pullNumber(url);
         if (number) {
           pr = { number, url };

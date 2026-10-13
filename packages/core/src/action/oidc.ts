@@ -84,6 +84,8 @@ export async function requestIdToken(
 export interface InstallationToken {
   token: string;
   expiresAt: Date;
+  /** The App's slug, when the Uptide app names it: whose bot authors the commits. */
+  appSlug?: string;
 }
 
 /** POST the OIDC token to `{app-url}/api/action/token`; the installation token comes back. */
@@ -104,6 +106,7 @@ export async function exchangeToken(
   const body = (await response.json().catch(() => ({}))) as {
     token?: unknown;
     expiresAt?: unknown;
+    appSlug?: unknown;
   };
   // Masked before anything else happens with the answer, even a refusal that carries one.
   if (typeof body.token === 'string' && body.token) mask(body.token);
@@ -118,7 +121,11 @@ export async function exchangeToken(
     throw new ActionAuthError(
       'the Uptide app answered the token exchange without { token, expiresAt }',
     );
-  return { token: body.token, expiresAt };
+  return {
+    token: body.token,
+    expiresAt,
+    ...(typeof body.appSlug === 'string' && body.appSlug ? { appSlug: body.appSlug } : {}),
+  };
 }
 
 /**
@@ -131,10 +138,11 @@ export function installationTokens(options: {
   fetch: Fetch;
   mask: Mask;
   now?: () => number;
-}): { get(): Promise<string> } {
+}): { get(): Promise<string>; appSlug(): string | undefined } {
   const now = options.now ?? Date.now;
   let current: InstallationToken | undefined;
   return {
+    appSlug: () => current?.appSlug,
     async get() {
       if (!current || current.expiresAt.getTime() - now() < REFRESH_MARGIN_MS) {
         const jwt = await requestIdToken(options.env, options.fetch, options.mask);

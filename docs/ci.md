@@ -77,6 +77,13 @@ grants only `contents: read`, and `id-token: write` for this:
    `uptide pr`, which runs `git push` and `gh pr create` and nothing of your repository: no
    install, build or test. `gh` reads it from a private config directory removed afterwards;
    `git` gets it as an HTTP header, never in `.git/config`, a URL or a command line.
+4. The commits are the App's: authored and committed by its bot account,
+   `<app slug>[bot]` with the address `<bot user id>+<app slug>[bot]@users.noreply.github.com`,
+   so GitHub links them to the App. The slug is the `appSlug` the Uptide app adds to its answer,
+   else `GET /app` when GitHub answers it for the installation token; the id is the bot user's
+   (`GET /users/<app slug>[bot]`). When neither works, the commits keep
+   `uptide[bot] <uptide@users.noreply.github.com>`, which links to no account, and the job log
+   has a warning saying so.
 
 `fix` therefore needs the Uptide GitHub App installed on the repository. `list` and `check`
 do not; without the app, only the run report is not sent.
