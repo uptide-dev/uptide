@@ -51,6 +51,12 @@ export interface Verification {
   tests: { passed: number; failed: number } | null;
 }
 
+/**
+ * What stands behind `breaking`: `pack`, a migration pack covers the upgrade, so an empty list
+ * means nothing breaks; `none`, no pack, so an empty list is no answer. Absent: not analyzed.
+ */
+export type Analysis = 'pack' | 'none';
+
 export interface Upgrade {
   package: string;
   from: string;
@@ -58,6 +64,10 @@ export interface Upgrade {
   kind: UpgradeKind;
   status: UpgradeStatus;
   breaking: BreakingSite[];
+  /** Set when the upgrade was analyzed; see `Analysis`. */
+  analysis?: Analysis;
+  /** The package this one moves with (`react` for `react-dom`): its upgrade carries this one. */
+  movesWith?: string;
   /** Set when a migration was attempted. */
   verification: Verification | null;
   pr: { number: number; url: string } | null;
@@ -236,6 +246,8 @@ export const RUN_REPORT_SCHEMA = {
           costUsd: { type: 'number', minimum: 0 },
           durationMs: COUNT,
           error: { type: 'string', pattern: SENTENCE },
+          analysis: { enum: ['pack', 'none'] },
+          movesWith: { type: 'string', pattern: PACKAGE, maxLength: 214 },
         },
       },
     },

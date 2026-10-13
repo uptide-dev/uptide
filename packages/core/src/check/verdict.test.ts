@@ -108,3 +108,18 @@ it('names a project that was not compiled, with its path and why', () => {
     'compiled 5 of 7 files in 2 workspaces; skipped: tsconfig cannot be resolved (2); not compiled: docs/tsconfig.json (extends "@tsconfig/docusaurus/tsconfig.json" cannot be resolved)',
   );
 });
+
+it('says a package without a pack is not analyzed, instead of 0 breaking', () => {
+  const generic = report({ tier: 'generic', compile: { ...compile, newErrors: 0 } });
+  expect(verdictOf(generic)).toMatchObject({
+    breaking: 0,
+    summary: 'not analyzed: no pack yet · compiled against 4.6.5: 0 new type errors',
+  });
+  expect(verdictOf({ ...generic, compile: undefined }, 'x').summary).toBe(
+    'not analyzed: no pack yet · types not verified: x',
+  );
+  // With a pack, zero is an answer; without one, what the compiler confirmed is still counted.
+  expect(verdictOf({ ...generic, tier: 'verified' }).summary).toMatch(/^0 breaking · /);
+  const breaking = { severity: 'breaking' } as PackageReport['findings'][number];
+  expect(verdictOf({ ...generic, findings: [breaking] }).summary).toMatch(/^1 breaking · /);
+});

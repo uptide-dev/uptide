@@ -3,6 +3,7 @@
 // builders from engine output (`build.ts`) stay inside the engine.
 export { assertSafeReport, reportProblems } from './safe.js';
 export {
+  type Analysis,
   type BreakingChange,
   type BreakingSite,
   RUN_REPORT_SCHEMA,

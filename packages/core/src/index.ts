@@ -19,7 +19,7 @@ export { deprecationReplacement, fixabilityOf } from './check/fixability.js';
 export { match } from './check/match.js';
 export { type MergedSignals, mergeSignals, symbolFromMessage } from './check/merge.js';
 export { callSitesLine } from './check/root-cause.js';
-export { TIER_LEGEND } from './check/tier.js';
+export { NO_PACK, noPackVerdict, TIER_LEGEND } from './check/tier.js';
 export {
   formatTruthTable,
   scoreAgainstTruth,

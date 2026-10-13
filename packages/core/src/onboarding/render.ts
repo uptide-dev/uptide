@@ -114,7 +114,8 @@ concurrency:
 
 jobs:
   uptide:
-    runs-on: ubuntu-latest
+    # A pinned image: a new Ubuntu release reaches this job only with a change to this line.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: ${usesLine(PINNED_ACTIONS.checkout)}

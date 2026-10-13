@@ -137,6 +137,9 @@ describe('the workflow', () => {
       // Read-only plus an identity: the Uptide Action pushes with the App's installation token,
       // so its pull requests run the repository's CI (GITHUB_TOKEN's would not).
       expect(workflow.permissions).toEqual({ contents: 'read', 'id-token': 'write' });
+      // A pinned runner image: ubuntu-latest changes release under the repository's install.
+      expect(workflow.jobs.uptide['runs-on']).toBe('ubuntu-24.04');
+      expect(file(o, '.github/workflows/uptide.yml')).not.toContain('ubuntu-latest');
       const steps = workflow.jobs.uptide.steps as {
         uses?: string;
         run?: string;

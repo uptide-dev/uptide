@@ -4,6 +4,7 @@ import {
   callSitesLine,
   type Finding,
   isFailure,
+  noPackVerdict,
   type PackageReport,
   type PlanGroup,
 } from '@uptide/core';
@@ -161,7 +162,7 @@ export function renderHtml(report: CheckReport, opts: HtmlOptions): string {
     const summary = rows
       .map(
         (r, i) =>
-          `<a class="dep" href="#dependency-${i}" data-package="dependency-${i}"><div><strong>${e(r.name)}</strong><span class="mono muted">${e(r.versions)} · ${e(r.bump)}${r.p.tier === 'verified' ? ' · <span class="verified">verified</span>' : ''}</span></div><div class="${r.plan.some((g) => g.severity === 'breaking') ? 'breaking' : r.plan.some((g) => g.severity === 'unverified') || r.p.unanalyzed.length || ['skipped', 'unknown', 'no-types'].includes(r.p.status) ? 'unverified' : r.plan.some((g) => g.severity === 'deprecated') ? 'deprecated' : 'safe'}">${e(r.verdict)}${r.by ? `<div class="muted">${e(r.by)}</div>` : ''}${r.summary ? `<div class="muted">${e(r.summary)}</div>` : ''}</div></a>`,
+          `<a class="dep" href="#dependency-${i}" data-package="dependency-${i}"><div><strong>${e(r.name)}</strong><span class="mono muted">${e(r.versions)} · ${e(r.bump)}${r.p.tier === 'verified' ? ' · <span class="verified">verified</span>' : ''}</span></div><div class="${r.plan.some((g) => g.severity === 'breaking') ? 'breaking' : r.plan.some((g) => g.severity === 'unverified') || r.p.unanalyzed.length || noPackVerdict(r.p) || ['skipped', 'unknown', 'no-types'].includes(r.p.status) ? 'unverified' : r.plan.some((g) => g.severity === 'deprecated') ? 'deprecated' : 'safe'}">${e(r.verdict)}${r.by ? `<div class="muted">${e(r.by)}</div>` : ''}${r.summary ? `<div class="muted">${e(r.summary)}</div>` : ''}</div></a>`,
       )
       .join('');
     const dependencies = rows

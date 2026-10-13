@@ -24,9 +24,9 @@ Next
 exports[`formatCheck, the first screen > summarizes a real workspace: a row per dependency, a line per rule, the next commands 1`] = `
 "uptide check · storefront · pnpm · 25s
 
-zod                     3.25.76 → 4.6.5    major · latest on npm             verified   ✗ 28 breaking in 7 files     24 auto-fixable · 4 need the agent (LLM)
-stripe (packages/api)   14.25.0 → 23.0.0   9 majors behind · latest on npm   verified   ✗ 4 breaking in 3 files      1 auto-fixable · 3 need the agent (LLM)
-vitest                    3.2.4 → 5.0.3    2 majors behind · latest on npm              ✓ no impact (9 call sites)
+zod                     3.25.76 → 4.6.5    major · latest on npm             verified   ✗ 28 breaking in 7 files      24 auto-fixable · 4 need the agent (LLM)
+stripe (packages/api)   14.25.0 → 23.0.0   9 majors behind · latest on npm   verified   ✗ 4 breaking in 3 files       1 auto-fixable · 3 need the agent (LLM)
+vitest                    3.2.4 → 5.0.3    2 majors behind · latest on npm              – not analyzed: no pack yet
 
 verified: migration pack · generic: no pack · in both, breaking only if the compiler, the runtime probe or the pack confirms it
 
@@ -42,7 +42,7 @@ stripe   4 breaking · compiled against 23.0.0
   ✗ apiVersion no longer matches the SDK         client.ts:9         needs the agent (LLM)
     1 API change since 2023-10-16 affects your code
 
-vitest   0 breaking · compiled against 5.0.3
+vitest   not analyzed: no pack yet · compiled against 5.0.3
 
 Next
   npx uptide@next fix zod                              migrate on a new branch, verify, no push

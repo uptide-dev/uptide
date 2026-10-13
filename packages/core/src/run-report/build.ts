@@ -1,8 +1,15 @@
 import semver from 'semver';
-import type { Finding, PackageReport } from '../domain/report.js';
+import type { Finding, PackageReport, Tier } from '../domain/report.js';
 import type { FixReport } from '../fix/types.js';
 import type { ListedDependency } from '../list/list.js';
-import type { BreakingChange, BreakingSite, Upgrade, UpgradeKind, Verification } from './schema.js';
+import type {
+  Analysis,
+  BreakingChange,
+  BreakingSite,
+  Upgrade,
+  UpgradeKind,
+  Verification,
+} from './schema.js';
 import { RUN_REPORT_SCHEMA } from './schema.js';
 
 /**
@@ -46,6 +53,13 @@ export function sentence(text: string): string {
     .trim();
   return (line.length > 300 ? `${line.slice(0, 299)}…` : line) || 'unknown error';
 }
+
+/** What stands behind the breaking list: a pack, or none. Undefined when nothing was analyzed. */
+export const analysisOf = (tier: Tier | undefined): Analysis | undefined =>
+  tier === 'verified' ? 'pack' : tier === 'generic' ? 'none' : undefined;
+
+/** Statuses `check` gives a package it analyzed. */
+const ANALYZED = new Set<PackageReport['status']>(['breaking', 'deprecated', 'safe', 'partial']);
 
 /** Breaking findings as symbol, file, line and change kind; deduplicated, in report order. */
 export function breakingSites(findings: readonly Finding[]): BreakingSite[] {
@@ -158,6 +172,9 @@ export function fromChecked(pkg: PackageReport, durationMs = 0): Upgrade {
     status: failed ? 'failed' : upToDate ? 'up_to_date' : 'available',
     ...blank(durationMs),
     breaking: breakingSites(pkg.findings ?? []),
+    ...(!failed && !upToDate && ANALYZED.has(pkg.status) && analysisOf(pkg.tier)
+      ? { analysis: analysisOf(pkg.tier) }
+      : {}),
     ...(failed
       ? {
           error: `could not be analyzed${pkg.workspace && pkg.workspace !== '.' && FILE.test(pkg.workspace) ? ` in ${pkg.workspace}` : ''}${code}; the job log has the reason`,
@@ -180,6 +197,7 @@ export function fromFix(
     status: failure ? 'failed' : outcome.pr ? 'fixed' : 'failed',
     ...blank(outcome.durationMs),
     breaking: breakingSites(report.sites.map((s) => s.finding)),
+    ...(analysisOf(report.tier) ? { analysis: analysisOf(report.tier) } : {}),
     verification: verificationOf(report),
     pr: outcome.pr,
     costUsd: Math.max(0, report.llm?.costUsd ?? 0),

@@ -297,6 +297,21 @@ describe('formatCheckDetails', () => {
     }
   });
 
+  it('says a package without a pack is not analyzed, not that nothing breaks', () => {
+    const twilio = report.packages.find((p) => p.name === 'twilio') as PackageReport;
+    const out = formatCheck(
+      { ...report, packages: [{ ...twilio, tier: 'generic' }] },
+      { color: false },
+    );
+    expect(out).toContain(
+      '  – not analyzed: no pack yet (12 call sites found; nothing confirmed breaking)',
+    );
+    expect(out).not.toContain('no impact on your code');
+    expect(
+      formatCheck({ ...report, packages: [{ ...twilio, tier: 'verified' }] }, { color: false }),
+    ).toContain('✓ no impact on your code');
+  });
+
   it('--all shows low-confidence findings and never additive ones', () => {
     const out = formatCheck(report, { color: false, all: true });
     expect(out).toContain('src/low.ts:9');
