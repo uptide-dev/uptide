@@ -208,3 +208,19 @@ it('names the coverage the check behind the run gave up to the memory cap', () =
   );
   expect(formatFixSummary(fixReport(true), { color: false })).not.toContain('Coverage');
 });
+
+it('says an unhealthy baseline first, and "no new errors" instead of passed', () => {
+  const report = fixReport(true);
+  report.verification.baseline = [
+    { file: 'a.ts', line: 1, column: 1, code: 2307, message: "Cannot find module '@/ee/x'." },
+  ];
+  const out = formatFixSummary(report, { color: false }).split('\n');
+  expect(out[0]).toContain('· no new errors ·');
+  expect(out[2]).toBe(
+    '⚠ this repository does not type-check before the upgrade (1 error, 1 from missing modules: 1 under @/ee/); verification can only compare, not prove',
+  );
+  // A healthy baseline: the strict words, no warning.
+  const healthy = formatFixSummary(fixReport(true), { color: false });
+  expect(healthy).toContain('· verification passed ·');
+  expect(healthy).not.toContain('does not type-check');
+});

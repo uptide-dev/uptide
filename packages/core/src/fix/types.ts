@@ -1,6 +1,7 @@
 import type { Finding, ImportersNotAnalyzed, Tier } from '../domain/report.js';
 import type { Provider } from '../llm/types.js';
 import type { ApiChangeFacts, PackContext } from '../packs/types.js';
+import type { BaselineHealth } from './baseline.js';
 import type { BehaviorResult } from './behavior.js';
 import type { InstallReport } from './managers/upgrade.js';
 import type { PeerBlockerGroup } from './peer-preflight.js';
@@ -233,6 +234,8 @@ export interface FixReport {
     /** Set when the baseline could not see packages the repository installs: no type verdict holds. */
     typesUnverified?: string;
     workspaceTypes?: { workspace: string; errors: number }[];
+    /** The repository before the upgrade (`fix/baseline.ts`): unhealthy means compare, not prove. */
+    baselineHealth?: BaselineHealth;
   };
   llm: {
     provider?: Provider;

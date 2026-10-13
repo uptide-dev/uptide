@@ -455,6 +455,15 @@ describe('tiers, the time budget and failures on the first screen', () => {
     const clean = formatCheck(report([full]), { color: false });
     expect(clean).toContain('zod   0 breaking · compiled against 5.3.0: 0 new type errors');
     expect(clean).toContain('\n  compiled 40 of 40 files in 2 workspaces');
+    expect(clean).not.toContain('pre-existing');
+    // Errors already there before the upgrade are said before `fix` meets them.
+    const broken = formatCheck(
+      report([{ ...full, compile: { ...full.compile, baselineErrors: 205 } } as PackageReport]),
+      { color: false },
+    );
+    expect(broken).toContain(
+      '\n  compiled 40 of 40 files in 2 workspaces · 205 pre-existing type errors in these files (subtracted)',
+    );
   });
 
   it('folds many no-impact upgrades into one line', () => {
