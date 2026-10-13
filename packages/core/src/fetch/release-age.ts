@@ -4,12 +4,12 @@ import { parse } from 'yaml';
 import { compareVersions, parseVersion } from '../check/version.js';
 import { UptideError } from '../errors.js';
 import { globRegExp } from '../glob.js';
-import { satisfies, validRange } from './range.js';
+import { minVersion, satisfies, subset, validRange } from './range.js';
 
 /**
  * A repository's rule that a release must be this old before it is installed: npm's
  * `min-release-age`, pnpm's `minimumReleaseAge`, Yarn's `npmMinimalAgeGate`, or uptide.yml's
- * `min-release-age` when the repository has none. Uptide never targets a version the
+ * `minReleaseAgeDays` when the repository has none. Uptide never targets a version the
  * repository's own install would refuse.
  */
 export interface ReleaseAgePolicy {
@@ -18,6 +18,8 @@ export interface ReleaseAgePolicy {
   source: string;
   /** Names, globs (`@org/*`) and `name@version || version` the policy does not apply to. */
   exclude: string[];
+  /** The package manager's own default, the repository setting nothing. */
+  builtIn?: true;
 }
 
 const DAY = 24 * 60;
@@ -49,17 +51,93 @@ function yamlFile(path: string): Record<string, unknown> {
 const names = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 
-/** pnpm (`pnpm-workspace.yaml`) and Yarn (`.yarnrc.yml`) at the project root; zero turns a policy off. */
+/**
+ * The package manager version the repository pins: `packageManager` (`pnpm@11.2.0+sha512…`),
+ * `devEngines.packageManager` (a version or a range), or for Yarn the release `yarnPath`
+ * runs. Lockfiles cannot tell: pnpm 9 to 12 write `lockfileVersion: '9.0'`, every Yarn 4
+ * writes `__metadata.version: 8`. Undefined when nothing pins one.
+ */
+function pinnedManager(
+  root: string,
+  yarnPath: unknown,
+): { name: string; range: string } | undefined {
+  let manifest: { packageManager?: unknown; devEngines?: { packageManager?: unknown } } = {};
+  try {
+    manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  } catch {
+    // no manifest: nothing pinned there
+  }
+  const field = /^(pnpm|yarn)@(\d+\.\d+\.\d+[^+]*)/.exec(String(manifest.packageManager ?? ''));
+  if (field) return { name: field[1] as string, range: field[2] as string };
+  const engines = [manifest.devEngines?.packageManager].flat() as {
+    name?: unknown;
+    version?: unknown;
+  }[];
+  for (const engine of engines)
+    if (
+      (engine?.name === 'pnpm' || engine?.name === 'yarn') &&
+      typeof engine.version === 'string' &&
+      validRange(engine.version)
+    )
+      return { name: engine.name, range: engine.version };
+  const release = /yarn-(\d+\.\d+\.\d+[^/]*?)\.c?js$/.exec(String(yarnPath ?? ''));
+  return release ? { name: 'yarn', range: release[1] as string } : undefined;
+}
+
+/**
+ * Release-age gates a package manager applies when the repository sets none, by the versions
+ * that do (each checked against the manager's own source and release notes):
+ * - pnpm 11 and 12: `minimumReleaseAge` 1440 minutes (pnpm/pnpm#11158, v11.0.0;
+ *   `config/reader/src/index.ts`; the v12 settings reference keeps it). Not strict: pnpm can
+ *   still install a younger release when nothing else satisfies the range.
+ * - Yarn 4.15.0 and later 4.x: `npmMinimalAgeGate` `1d` (yarnpkg/berry#7135, in 4.15.0).
+ * A pinned range every version of which has the default counts; anything else, or a version
+ * not listed here, is not guessed at.
+ */
+const DEFAULTS: { name: string; range: string; minutes: number; label: (v: string) => string }[] = [
+  {
+    name: 'pnpm',
+    range: '>=11.0.0 <13.0.0',
+    minutes: DAY,
+    label: (v) => `pnpm ${major(v)} default`,
+  },
+  { name: 'yarn', range: '>=4.15.0 <5.0.0', minutes: DAY, label: () => 'Yarn 4.15+ default' },
+];
+const major = (range: string): string => String(minVersion(range)?.split('.')[0] ?? '');
+
+function builtInDefault(
+  pinned: { name: string; range: string } | undefined,
+  name: string,
+): { minutes: number; source: string } | undefined {
+  if (pinned?.name !== name) return undefined;
+  const known = DEFAULTS.find((d) => d.name === name && subset(pinned.range, d.range));
+  // pnpm's label names its major, so the range must stay within one.
+  if (!known || (name === 'pnpm' && !subset(pinned.range, `^${major(pinned.range)}.0.0`)))
+    return undefined;
+  return { minutes: known.minutes, source: known.label(pinned.range) };
+}
+
+/**
+ * pnpm (`pnpm-workspace.yaml`) and Yarn (`.yarnrc.yml`) at the project root. Zero turns a
+ * policy off; unset, the default of the pinned package manager version applies, if it has one.
+ */
 export function managerPolicies(root: string): ReleaseAgePolicy[] {
   const policies: ReleaseAgePolicy[] = [];
   const pnpm = yamlFile(join(root, 'pnpm-workspace.yaml'));
+  const yarn = yamlFile(join(root, '.yarnrc.yml'));
+  const pinned = pinnedManager(root, yarn.yarnPath);
+  const pnpmDefault =
+    pnpm.minimumReleaseAge === undefined ? builtInDefault(pinned, 'pnpm') : undefined;
   if (typeof pnpm.minimumReleaseAge === 'number' && pnpm.minimumReleaseAge > 0)
     policies.push({
       minutes: pnpm.minimumReleaseAge,
       source: 'minimumReleaseAge in pnpm-workspace.yaml',
       exclude: names(pnpm.minimumReleaseAgeExclude),
     });
-  const yarn = yamlFile(join(root, '.yarnrc.yml'));
+  else if (pnpmDefault)
+    policies.push({ ...pnpmDefault, exclude: names(pnpm.minimumReleaseAgeExclude), builtIn: true });
+  const yarnDefault =
+    yarn.npmMinimalAgeGate === undefined ? builtInDefault(pinned, 'yarn') : undefined;
   const gate = yarnMinutes(yarn.npmMinimalAgeGate);
   if (gate)
     policies.push({
@@ -67,6 +145,8 @@ export function managerPolicies(root: string): ReleaseAgePolicy[] {
       source: 'npmMinimalAgeGate in .yarnrc.yml',
       exclude: names(yarn.npmPreapprovedPackages),
     });
+  else if (yarnDefault)
+    policies.push({ ...yarnDefault, exclude: names(yarn.npmPreapprovedPackages), builtIn: true });
   return policies;
 }
 

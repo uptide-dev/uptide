@@ -23,7 +23,7 @@ llm:
   provider: anthropic
 maxCost: 1
 executor: auto
-# min-release-age: 7   # optional; see Release age
+# minReleaseAgeDays: 7   # optional; see Release age
 ```
 
 Only `version` is required. Every other field has the default shown in the table.
@@ -39,7 +39,7 @@ Only `version` is required. Every other field has the default shown in the table
 | `llm.provider` | `anthropic`, `openai`, `gemini` | `anthropic` | Who receives that code, with the repository's own API key. |
 | `maxCost` | USD, more than 0, at most 100 | `1` | LLM budget; the SDK may overshoot by one turn. |
 | `executor` | `auto`, `patch`, `sdk` | `auto` | With `auto`, SDK for Anthropic when it is installed, patch otherwise. `patch` or `sdk` explicitly selects the executor. |
-| `min-release-age` | days, 0 to 365 | none | Uptide never targets a release younger than this, when the repository sets no release-age policy of its own. See [Release age](#release-age). |
+| `minReleaseAgeDays` | days, 0 to 365 | none | Uptide never targets a release younger than this, when the repository sets no release-age policy of its own. Days, unlike pnpm's minutes. See [Release age](#release-age). |
 
 There is no `draft` setting: Uptide pull requests are always drafts. A file that sets it is
 rejected rather than ignored.
@@ -73,7 +73,7 @@ same repository always gets the same schedule.
 ## Release age
 
 Uptide never chooses a target version younger than the repository's own release-age policy,
-in `list`, `check`, `fix` and the Action. It reads, from the project root:
+in `list`, `check`, `fix`, `plan` and the Action. It reads, from the project root:
 
 | Package manager | Setting | Unit | Exempt |
 | --- | --- | --- | --- |
@@ -81,10 +81,27 @@ in `list`, `check`, `fix` and the Action. It reads, from the project root:
 | pnpm | `minimumReleaseAge` in `pnpm-workspace.yaml` | minutes | `minimumReleaseAgeExclude`: names, globs (`@org/*`), `name@1.2.3 \|\| 1.2.4` |
 | Yarn | `npmMinimalAgeGate` in `.yarnrc.yml` | a duration (`3d`, `1w`); a bare number is minutes | `npmPreapprovedPackages`: names, globs, descriptors |
 
-When several are set, a version must satisfy all of them. `min-release-age` in `uptide.yml`
-applies only when none is set; the repository's policy always wins. Only an explicit setting
-counts: a package manager's built-in default (pnpm 11 has one; so do recent Yarn releases) is
-not read.
+Setting a value of 0 turns that package manager's gate off.
+
+When the repository sets none of them, the default of the package manager version it pins
+applies, labelled as such in the reason (`your policy is 1 day (pnpm 11 default)`):
+
+| Pinned version | Default | Source |
+| --- | --- | --- |
+| pnpm 11 and 12 | `minimumReleaseAge` 1440 minutes, with `minimumReleaseAgeExclude` | pnpm 11.0.0 release notes ([pnpm#11158](https://github.com/pnpm/pnpm/pull/11158)), the settings reference |
+| Yarn 4.15.0 and later 4.x | `npmMinimalAgeGate` `1d`, with `npmPreapprovedPackages` | [yarnpkg/berry#7135](https://github.com/yarnpkg/berry/pull/7135), released in 4.15.0 |
+
+The version comes from `packageManager` (`pnpm@11.2.0`), from `devEngines.packageManager`
+when its range stays inside one row above, or from Yarn's `yarnPath`
+(`.yarn/releases/yarn-4.15.0.cjs`). Lockfiles do not tell: pnpm 9 to 12 all write
+`lockfileVersion: '9.0'`, and every Yarn 4 writes the same `__metadata.version`. When the version is
+unknown, or is one this table does not list, no default is assumed. pnpm's default is not
+strict: pnpm can still install a younger release when nothing older satisfies the range.
+Uptide still targets the release pnpm prefers.
+
+When several are set, a version must satisfy all of them. `minReleaseAgeDays` in
+`uptide.yml` applies when the repository sets none itself; a package manager's default does
+not count as one, so both apply then. A policy the repository sets always wins.
 
 When the newest release is too young, Uptide targets the newest one old enough, never a
 prerelease in place of a stable release, and says so:
@@ -117,8 +134,8 @@ it from outside the repository (`npx uptide list --cwd path/to/repo`).
   - `executor`: `patch` for the patch agent; otherwise the Agent SDK.
   It does not read `schedule`: see below.
 - **`uptide fix`** reads `llm.enabled`, `llm.provider`, `maxCost` and `executor`.
-- **`uptide list`**, **`uptide check`**, **`uptide fix`** and the Action read
-  `min-release-age` when the repository has no release-age policy of its own.
+- **`uptide list`**, **`uptide check`**, **`uptide fix`**, **`uptide plan`** and the Action
+  read `minReleaseAgeDays` when the repository sets no release-age policy of its own.
 - **`uptide check`** and **`uptide fix`** read `packages` and say when a dependency named on
   the command line is outside it; a named dependency is still checked. A group
   (`check --group`) loses the members outside `packages`.

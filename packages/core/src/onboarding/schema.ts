@@ -21,7 +21,7 @@ export interface UptideConfig {
   maxCost: number;
   executor: Executor;
   /** Days; only when the repository sets no release-age policy. Unset: no minimum. */
-  'min-release-age'?: number;
+  minReleaseAgeDays?: number;
 }
 
 /** `schedule: manual`: the workflow runs only when started by hand (Actions tab, dashboard). */
@@ -122,9 +122,9 @@ export const UPTIDE_CONFIG_SCHEMA = {
       enum: [...EXECUTORS],
       default: 'auto',
     },
-    'min-release-age': {
+    minReleaseAgeDays: {
       description:
-        "Days a release must be public before Uptide targets it, for a repository with no policy of its own (npm min-release-age, pnpm minimumReleaseAge, Yarn npmMinimalAgeGate); the repository's policy wins. Unset: no minimum.",
+        'Days a release must be public before Uptide targets it, for a repository that sets no release-age policy of its own (npm min-release-age, pnpm minimumReleaseAge, Yarn npmMinimalAgeGate); a policy the repository sets wins. Unset: no minimum.',
       type: 'number',
       minimum: 0,
       maximum: 365,

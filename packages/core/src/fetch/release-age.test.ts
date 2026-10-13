@@ -131,13 +131,107 @@ describe('the policy of each package manager, with its units', () => {
     expect(yarnMinutes('soon')).toBeUndefined();
   });
 
-  it("uptide.yml's min-release-age applies only to a repository with no policy of its own", () => {
-    const fallback = { UPTIDE_MIN_RELEASE_AGE: '2' };
+  it("uptide.yml's minReleaseAgeDays applies only to a repository that sets no policy itself", () => {
+    const fallback = { UPTIDE_MIN_RELEASE_AGE_DAYS: '2' };
+    const uptide = { minutes: 2 * 1440, source: 'minReleaseAgeDays in uptide.yml', exclude: [] };
     expect(policyOf('none')).toEqual([]);
-    expect(policyOf('none', fallback)).toEqual([
-      { minutes: 2 * 1440, source: 'min-release-age in uptide.yml', exclude: [] },
-    ]);
+    expect(policyOf('none', fallback)).toEqual([uptide]);
     expect(policyOf('npm', fallback)).toEqual(npmPolicy);
+    // A package manager's default is not the repository's policy: both apply.
+    expect(policyOf('pnpm-11-default', fallback)).toEqual([
+      expect.objectContaining({ source: 'pnpm 11 default' }),
+      uptide,
+    ]);
+  });
+});
+
+describe("a package manager's built-in default, when the pinned version has one", () => {
+  const repo = (files: Record<string, string>): string => {
+    const dir = mkdtempSync(join(tmpdir(), 'uptide-pm-'));
+    for (const [file, text] of Object.entries(files)) writeFileSync(join(dir, file), text);
+    return dir;
+  };
+  const policies = (files: Record<string, string>): ReleaseAgePolicy[] =>
+    loadRegistryConfig({
+      cwd: repo(files),
+      env: {
+        HOME: mkdtempSync(join(tmpdir(), 'uptide-home-')),
+        npm_config_globalconfig: '/nonexistent',
+      },
+    }).releaseAge ?? [];
+  const manifest = (fields: object) => JSON.stringify({ name: 'x', private: true, ...fields });
+
+  it('pnpm 11 and 12: 1440 minutes, labelled, with minimumReleaseAgeExclude', () => {
+    expect(policyOf('pnpm-11-default')).toEqual([
+      { minutes: 1440, source: 'pnpm 11 default', exclude: ['@acme/*'], builtIn: true },
+    ]);
+    expect(
+      policies({ 'package.json': manifest({ packageManager: 'pnpm@12.11.2+sha512.abc' }) }),
+    ).toEqual([{ minutes: 1440, source: 'pnpm 12 default', exclude: [], builtIn: true }]);
+    const engines = { devEngines: { packageManager: { name: 'pnpm', version: '^11.1.0' } } };
+    expect(policies({ 'package.json': manifest(engines) })[0]?.source).toBe('pnpm 11 default');
+  });
+
+  it('Yarn 4.15 and later 4.x: 1d, from packageManager or yarnPath, with npmPreapprovedPackages', () => {
+    expect(policyOf('yarn-default')).toEqual([
+      { minutes: 1440, source: 'Yarn 4.15+ default', exclude: [], builtIn: true },
+    ]);
+    expect(
+      policies({
+        'package.json': manifest({ packageManager: 'yarn@4.18.1' }),
+        '.yarnrc.yml': 'npmPreapprovedPackages:\n  - gadget\n',
+      }),
+    ).toEqual([
+      { minutes: 1440, source: 'Yarn 4.15+ default', exclude: ['gadget'], builtIn: true },
+    ]);
+  });
+
+  it('no default for versions without one, an explicit 0, or a version it cannot tell', () => {
+    const none: Record<string, string>[] = [
+      { 'package.json': manifest({ packageManager: 'pnpm@10.34.6' }) },
+      { 'package.json': manifest({ packageManager: 'yarn@4.14.1' }) },
+      { 'package.json': manifest({ packageManager: 'yarn@1.22.22' }) },
+      { 'package.json': manifest({ packageManager: 'npm@11.6.0' }) },
+      // Explicitly off.
+      {
+        'package.json': manifest({ packageManager: 'pnpm@11.2.0' }),
+        'pnpm-workspace.yaml': 'minimumReleaseAge: 0\n',
+      },
+      {
+        'package.json': manifest({ packageManager: 'yarn@4.18.1' }),
+        '.yarnrc.yml': 'npmMinimalAgeGate: 0\n',
+      },
+      // Not pinned, or pinned to a range that spans versions with and without one.
+      { 'package.json': manifest({}), 'pnpm-workspace.yaml': 'packages: [.]\n' },
+      {
+        'package.json': manifest({
+          devEngines: { packageManager: { name: 'pnpm', version: '>=10' } },
+        }),
+      },
+      {
+        'package.json': manifest({
+          devEngines: { packageManager: { name: 'pnpm', version: '>=11' } },
+        }),
+      },
+      { 'package.json': manifest({ packageManager: 'pnpm@13.0.0' }) },
+      { 'package.json': manifest({ packageManager: 'yarn@5.0.0' }) },
+    ];
+    for (const files of none) expect(policies(files), JSON.stringify(files)).toEqual([]);
+  });
+
+  it('the reason names the default', () => {
+    const time = { '4.0.0': daysAgo(100), '5.0.0': new Date(NOW - 5 * 3600_000).toISOString() };
+    const result = newestAllowed(
+      policyOf('pnpm-11-default'),
+      'gadget',
+      '5.0.0',
+      Object.keys(time),
+      time,
+      NOW,
+    );
+    expect(heldBackText(result.held as never, '4.0.0')).toBe(
+      '5.0.0 is 5 hours old; your policy is 1 day (pnpm 11 default); nothing newer than 4.0.0 qualifies',
+    );
   });
 });
 

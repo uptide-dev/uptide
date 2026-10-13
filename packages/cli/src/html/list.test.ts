@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { listDependencies } from '@uptide/core';
 import { afterEach, expect, it, vi } from 'vitest';
 import { run, VERSION } from '../cli.js';
+import { formatList } from '../format-list.js';
 import { fakeEngine, memoryIo } from '../test-utils.js';
 import { css, js } from './assets.js';
 import { renderListHtml } from './list.js';
@@ -132,6 +133,33 @@ it('escapes repository data and hides paths in failures unless details are reque
   expect(html.match(/<script>/g)).toHaveLength(1);
   expect(html).toContain("connect-src 'none'");
   expect(renderListHtml(report, { ...options, details: true })).toContain('/private/repo/path');
+});
+
+it('shows why a target is older than the newest release, in HTML and in the terminal', async () => {
+  const report = await discover();
+  const held = report.packages[0];
+  if (!held) throw new Error('missing fixture');
+  const reason = (version: string) =>
+    `${version} is 2 days old; your policy is 1 day (pnpm 11 default); targeting ${held.latest}`;
+  report.releaseAge = [
+    { name: held.name, current: held.current, reason: reason('9.9.9') },
+    {
+      name: '<b>young</b>',
+      current: '1.0.0',
+      reason:
+        '2.0.0 is 5 hours old; your policy is 1 day (pnpm 11 default); nothing newer than 1.0.0 qualifies',
+    },
+  ];
+  const html = renderListHtml(report, options);
+  expect(html).toContain('Release age');
+  expect(html).toContain(`<strong>${held.name}</strong><span class="label">Held back</span>`);
+  expect(html).toContain(
+    '<strong>&lt;b&gt;young&lt;/b&gt;</strong><span class="label">Skipped</span>',
+  );
+  expect(html).toContain('(pnpm 11 default); nothing newer than 1.0.0 qualifies');
+  const text = formatList(report, { color: false });
+  expect(text).toContain('RELEASE AGE');
+  expect(text).toContain(`  ${held.name}  ${reason('9.9.9')}`);
 });
 
 it.each([

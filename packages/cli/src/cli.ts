@@ -214,9 +214,9 @@ export async function run(
     if (loaded) io.err(`Settings: ${relative(io.cwd, loaded.path) || loaded.path}\n`);
     // Read by the registry configuration, in this process and the analysis workers: the
     // fallback release-age policy, for a repository that sets none of its own.
-    const days = loaded?.config['min-release-age'];
-    if (days === undefined) delete process.env.UPTIDE_MIN_RELEASE_AGE;
-    else process.env.UPTIDE_MIN_RELEASE_AGE = String(days);
+    const days = loaded?.config.minReleaseAgeDays;
+    if (days === undefined) delete process.env.UPTIDE_MIN_RELEASE_AGE_DAYS;
+    else process.env.UPTIDE_MIN_RELEASE_AGE_DAYS = String(days);
     return loaded;
   };
   /** Named on the command line although uptide.yml leaves them out: flags win, and it is said. */
@@ -667,7 +667,8 @@ ${EXIT_CODES(
         'comma-separated dependencies to plan (default: every direct dependency that is behind)',
       )
       .option('--html [path]', 'write the plan as a self-contained HTML page')
-      .option('--verbose', 'one progress line per analysis phase, with timings'),
+      .option('--verbose', 'one progress line per analysis phase, with timings')
+      .option('--config <path>', 'settings file (default: the nearest uptide.yml)'),
   )
     .addHelpText(
       'after',
@@ -691,12 +692,15 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
           results?: string;
           html?: string | true;
           verbose?: boolean;
+          config?: string;
         },
       ) =>
         act(
           flags,
           async ({ ui, progress, cwd }) => {
             const started = io.now();
+            // Read for minReleaseAgeDays: plan's targets follow the same release-age policy.
+            settings(cwd, flags.config);
             const only = list(flags.only);
             const checkResults = flags.results
               ? (JSON.parse(readFileSync(resolve(io.cwd, flags.results), 'utf8')) as CheckReport)

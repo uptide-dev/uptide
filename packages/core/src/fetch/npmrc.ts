@@ -146,19 +146,19 @@ export function loadRegistryConfig(
     ] as const
   ).find(([, values]) => values['min-release-age'] !== undefined);
   const days = Number(npm?.[1]['min-release-age']);
-  const releaseAge = [
+  const releaseAge: ReleaseAgePolicy[] = [
     ...(npm && days > 0
       ? [{ minutes: days * 24 * 60, source: `min-release-age in ${npm[0]}`, exclude: [] }]
       : []),
     ...managerPolicies(root),
   ];
-  // uptide.yml's `min-release-age`, set by the CLI from the settings it read: only when the
-  // repository has no policy of its own.
-  const fallback = Number(env.UPTIDE_MIN_RELEASE_AGE);
-  if (!releaseAge.length && fallback > 0)
+  // uptide.yml's `minReleaseAgeDays`, set by the CLI from the settings it read: only when the
+  // repository sets no policy itself. A package manager's built-in default is not one; both apply.
+  const fallback = Number(env.UPTIDE_MIN_RELEASE_AGE_DAYS);
+  if (!releaseAge.some((p) => !p.builtIn) && fallback > 0)
     releaseAge.push({
       minutes: fallback * 24 * 60,
-      source: 'min-release-age in uptide.yml',
+      source: 'minReleaseAgeDays in uptide.yml',
       exclude: [],
     });
   return {

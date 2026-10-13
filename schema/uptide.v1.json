@@ -77,8 +77,8 @@
       "enum": ["auto", "patch", "sdk"],
       "default": "auto"
     },
-    "min-release-age": {
-      "description": "Days a release must be public before Uptide targets it, for a repository with no policy of its own (npm min-release-age, pnpm minimumReleaseAge, Yarn npmMinimalAgeGate); the repository's policy wins. Unset: no minimum.",
+    "minReleaseAgeDays": {
+      "description": "Days a release must be public before Uptide targets it, for a repository that sets no release-age policy of its own (npm min-release-age, pnpm minimumReleaseAge, Yarn npmMinimalAgeGate); a policy the repository sets wins. Unset: no minimum.",
       "type": "number",
       "minimum": 0,
       "maximum": 365
