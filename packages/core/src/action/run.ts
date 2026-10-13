@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { CheckReport, PackageReport } from '../domain/report.js';
 import type { FixReport } from '../fix/types.js';
 import type { ListedDependency, ListReport } from '../list/list.js';
-import { loadUptideConfig } from '../onboarding/config.js';
+import { loadUptideConfig } from '../onboarding/node.js';
 import { DEFAULT_CONFIG, UPTIDE_CONFIG_FILE, type UptideConfig } from '../onboarding/schema.js';
 import { fromChecked, fromFix, fromListed, sentence, skipped } from '../run-report/build.js';
 import {
