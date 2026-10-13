@@ -28,7 +28,9 @@ that off. There is no account and no Uptide server. The full model: [privacy](pr
 `check` works the same: a generic dependency gets the same analysis, and breaking still means
 the compiler, the runtime probe or the import confirmed it ([concepts](concepts.md#tiers-verified-and-generic)).
 `fix` migrates with the agent alone, needs a provider API key, stops at `--max-cost`
-(default $1) and opens its pull request with a note that no pack covers the package.
+(default $1) and opens its pull request with a note that no pack covers the package. It opens
+one only for a minor or patch whose build and tests pass after the bump; a major upgrade
+without a pack is reported as `no pack yet` and never opened.
 Packs can be written by anyone ([migration packs](packs.md)); the next ones worth writing are
 in [`packs/queue.json`](../packs/queue.json).
 

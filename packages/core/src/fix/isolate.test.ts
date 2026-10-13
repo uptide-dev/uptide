@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import { genericPack } from '../packs/generic.js';
 import { version } from '../version.js';
 import {
   changedSince,
@@ -620,6 +621,42 @@ describe("temporary clones are cleaned up, and only uptide's own", () => {
     expect(cleanRuns({ root: join(root, 'missing'), now })).toEqual({ removed: [], kept: [] });
   });
 });
+
+it('refuses a --pr run of a major upgrade without a pack before migrating anything', async () => {
+  const { root, services } = zodFixture(scratch);
+  const before = snapshot(root);
+  const published: string[] = [];
+  services.publish = async (result) => void published.push(result.branch);
+  const called: FixRequest[] = [];
+  await expect(
+    isolatedFix(
+      {
+        cwd: root,
+        only: 'zod',
+        // zod 3 → 4 as if no pack covered it: the run would be the agent's alone.
+        pack: genericPack('zod'),
+        fixer: {
+          id: 'test',
+          fix: async (request) => {
+            called.push(request);
+            return { diff: '', inputTokens: 0, outputTokens: 0 };
+          },
+        },
+        pr: true,
+        yes: true,
+        tool: TOOL,
+      },
+      services,
+    ),
+  ).rejects.toMatchObject({
+    code: 'PUBLICATION_REFUSED',
+    message: /^no pack yet: zod 3\.\d+\.\d+ → 4\.6\.5/,
+  });
+  expect(called).toEqual([]);
+  expect(published).toEqual([]);
+  expect(changedSince(root, before)).toEqual([]);
+  expect(() => git(root, 'rev-parse', '--verify', 'uptide/zod-4.6.5')).toThrow();
+}, 30000);
 
 it('refuses generic no-key fixes and unsafe config before creating any clone or ref', async () => {
   const { root, services } = zodFixture(scratch);

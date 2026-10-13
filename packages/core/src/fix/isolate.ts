@@ -580,7 +580,10 @@ export async function isolatedFix(
     git(clone, 'switch', '--quiet', '--detach', preflight.head);
     // Publishing is not part of the run in the clone: it happens below, after the verified
     // run has landed in the user's repository, so a failed publish can be retried alone.
-    const result = await fix({ ...rest, pr: false, cwd: join(clone, project), tool }, services);
+    const result = await fix(
+      { ...rest, pr: false, forPublication: options.pr === true, cwd: join(clone, project), tool },
+      services,
+    );
     if (!preflightShown) result.notes.push(...preflight.notes);
     return result;
   });

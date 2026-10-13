@@ -72,7 +72,10 @@ The key is never written anywhere: the report says only `present` or `missing`.
    `executor: patch`), verifies each with your compiler, lint and tests, and opens a draft
    pull request for each one that verifies (`uptide pr`). It stops at `maxOpenPrs` open
    Uptide pull requests, never opens a second one for a package, and stops calling the LLM
-   at `maxCost` for the whole run.
+   at `maxCost` for the whole run. A major upgrade no verified pack covers is never migrated
+   or opened: it is reported `skipped` with `analysis: "none"` and the reason `no pack yet`.
+   A minor or patch without a pack opens only when the repository's own `build` script and
+   tests pass after the bump; without either, it is `skipped` and the reason says which.
 4. **Reports**: writes the run report to the job summary, sets the `report` output, and
    sends it to the Uptide app. If sending fails, the job warns and goes on: the pull request
    is the product, the dashboard is secondary.
@@ -205,7 +208,8 @@ A `symbol` is the canonical path of the dependency's symbol (`ZodType`,
 `Stripe.Customer#email`), or `TS<code>` for a compiler error the upgrade causes that no
 symbol explains. `status` is `up_to_date`, `available` (behind, not migrated this run), `fixed` (verified,
 pull request open), `failed` (did not verify, or could not be published; `error` says why) or
-`skipped` (a pull request is already open, or `maxCost` was reached). `verification` counts
+`skipped` (a pull request is already open, `maxCost` was reached, or no pack covers it:
+`no pack yet`, with `analysis: "none"`, so each one counts as demand for a pack). `verification` counts
 type errors and failing lint tools before and after, and test runs (one per workspace or
 scope); it is null when no migration ran. `typecheck.afterUpgrade` is the count right after
 the version bump, before any fix: next to `before` and `after` it says what the upgrade broke

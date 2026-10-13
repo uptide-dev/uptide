@@ -1,6 +1,7 @@
 import semver from 'semver';
 import type { Finding, PackageReport, Tier } from '../domain/report.js';
 import { baselineHealthOf } from '../fix/baseline.js';
+import { isMajorUpgrade, NO_PACK_YET, noPackBlockers } from '../fix/no-pack.js';
 import type { FixReport } from '../fix/types.js';
 import type { ListedDependency } from '../list/list.js';
 import type {
@@ -141,6 +142,12 @@ export function verificationFailure(report: FixReport): string | undefined {
     ...(v.typesUnverified ? ['types could not be verified'] : []),
     ...(v.newErrors?.length ? [`${v.newErrors.length} new type error(s)`] : []),
     ...(v.lint ?? []).filter((l) => l.status === 'failed').map(() => 'lint fails on edited files'),
+    ...(v.build ?? [])
+      .filter((b) => b.status === 'failed' || b.status === 'timeout')
+      .map(
+        (b) =>
+          `build ${b.status === 'timeout' ? 'timed out' : 'failed'} in ${FILE.test(b.workspace) ? b.workspace : 'a workspace'}`,
+      ),
     ...(v.tests ?? [])
       .filter((t) => t.status === 'failed' || t.status === 'timeout')
       .map(
@@ -213,18 +220,29 @@ export function fromChecked(pkg: PackageReport, durationMs = 0): Upgrade {
   };
 }
 
-/** A `uptide fix` run, with the pull request it led to. */
+/**
+ * A `uptide fix` run, with the pull request it led to. A run without a pack that may not be
+ * published (fix/no-pack.ts) is skipped with why: a major upgrade as `no pack yet` whatever its
+ * verification, a minor or patch when nothing failed but the build or tests could not vouch.
+ */
 export function fromFix(
   report: FixReport,
   outcome: { pr: { number: number; url: string } | null; durationMs: number; error?: string },
 ): Upgrade {
-  const failure = outcome.error ?? verificationFailure(report);
+  const unanalyzed = outcome.pr ? [] : noPackBlockers(report);
+  const major = unanalyzed.length > 0 && isMajorUpgrade(report.from, report.target);
+  const failure = major ? undefined : (outcome.error ?? verificationFailure(report));
+  const notOpened = major
+    ? NO_PACK_YET
+    : !failure && unanalyzed.length
+      ? sentence(unanalyzed.join('; '))
+      : undefined;
   return {
     package: report.package,
     from: version(report.from),
     to: version(report.target),
     kind: kindOf(report.from, report.target),
-    status: failure ? 'failed' : outcome.pr ? 'fixed' : 'failed',
+    status: failure ? 'failed' : notOpened ? 'skipped' : outcome.pr ? 'fixed' : 'failed',
     ...blank(outcome.durationMs),
     breaking: breakingSites(report.sites.map((s) => s.finding)),
     ...(analysisOf(report.tier) ? { analysis: analysisOf(report.tier) } : {}),
@@ -233,9 +251,11 @@ export function fromFix(
     costUsd: Math.max(0, report.llm?.costUsd ?? 0),
     ...(failure
       ? { error: failure }
-      : outcome.pr
-        ? {}
-        : { error: 'verified, but no pull request was opened' }),
+      : notOpened
+        ? { error: notOpened }
+        : outcome.pr
+          ? {}
+          : { error: 'verified, but no pull request was opened' }),
   };
 }
 

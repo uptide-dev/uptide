@@ -17,7 +17,7 @@ which:
 | Tier | Dependencies | What you get |
 | --- | --- | --- |
 | **Verified** | zod 3 → 4, stripe 14 and newer, ai 6 → 7 | A migration pack: rules written for that dependency, a guide for the agent, behavior checks (zod schemas compared on generated inputs; Stripe changelog filtered to what you call), and ground truth from public repositories the pack is scored against ([migration packs](packs.md)). `fix` migrates by rule first, by agent for the rest. |
-| **Generic** | any other dependency | The same analysis without a pack. `fix` migrates with the agent alone, under the same verification, and says so in the pull request. |
+| **Generic** | any other dependency | The same analysis without a pack. `fix` migrates with the agent alone, under the same verification plus the repository's build, and says so in the pull request. A major upgrade without a pack is never opened as a pull request. |
 
 A pack is verified when its ground truth from at least two public repositories has no false
 positive among breaking findings. A pack that has not met that bar yet is a candidate, and

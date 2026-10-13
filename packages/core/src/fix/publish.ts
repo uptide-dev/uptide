@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { UptideError } from '../errors.js';
 import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
+import { noPackBlockers } from './no-pack.js';
 import { command, git } from './process.js';
 import type { FixReport } from './types.js';
 import { assertVerifiedTree } from './verified-tree.js';
@@ -11,7 +12,9 @@ const count = (n: number, one: string): string => `${n} ${one}${n === 1 ? '' : '
  * Why a run may not reach GitHub, for opening a PR and for updating one alike; empty when it
  * may. Nothing overrides this list: not `--yes`, not `--no-llm`. A failed verification names
  * what failed, and a run produced by an Uptide checkout with uncommitted changes is not
- * reproducible from its recorded commit, so it is never published either.
+ * reproducible from its recorded commit, so it is never published either. Neither is an upgrade
+ * no pack analyzed, unless it is a minor or patch the repository's own build and tests verified
+ * (no-pack.ts).
  */
 export function publicationBlockers(
   report: FixReport,
@@ -38,6 +41,9 @@ export function publicationBlockers(
       ...(v.lint ?? [])
         .filter((l) => l.status === 'failed')
         .map((l) => `lint (${l.tool}) fails on the edited files`),
+      ...(v.build ?? [])
+        .filter((b) => b.status === 'failed' || b.status === 'timeout')
+        .map((b) => `build ${b.status === 'timeout' ? 'timed out' : 'failed'} in ${b.workspace}`),
       ...failing
         .filter((t) => !t.preexisting)
         .map((t) => `tests ${t.status === 'timeout' ? 'timed out' : 'failed'} in ${t.workspace}`),
@@ -49,6 +55,7 @@ export function publicationBlockers(
       `verification failed${reasons.length ? `: ${reasons.join(', ')}` : ' (files were left uncommitted)'}`,
     );
   }
+  blockers.push(...noPackBlockers(report));
   if (report.sourceChanged?.length)
     blockers.push(`your checkout changed during the run (${report.sourceChanged.join('; ')})`);
   if (report.uptideDirty || tool.uptideDirty)
