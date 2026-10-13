@@ -1,5 +1,27 @@
 # uptide
 
+## 0.11.0
+
+### Minor Changes
+
+- [#109](https://github.com/uptide-dev/uptide/pull/109) [`7cf3bb8`](https://github.com/uptide-dev/uptide/commit/7cf3bb8410760e7cc31a6d67ee430f9e194f4ee8) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Uptide no longer opens a pull request for an upgrade it could not analyze. A major upgrade
+  that no verified pack covers is never published: `uptide fix --pr` refuses it before anything
+  changes, `uptide pr` refuses a stored run of one, and the Action reports it as `skipped` with
+  `analysis: "none"` and the reason `no pack yet` instead of migrating it. A minor or patch
+  without a pack is published only when the repository's own `build` script and tests pass
+  after the bump; `fix` now runs the build for runs without a pack and records it in
+  `verification.build`. Every PR description has a **Verified by** row naming what vouched for
+  it (the pack, the type-check, the build, the tests) and what did not run.
+
+### Patch Changes
+
+- [#110](https://github.com/uptide-dev/uptide/pull/110) [`bb4c4d3`](https://github.com/uptide-dev/uptide/commit/bb4c4d3ad2159992639c30986bb3ad9ff2f4fdaf) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Nothing Uptide waits on can hang a run any more. Every registry request has a deadline that
+  covers its body, and a stalled one fails with `REGISTRY_TIMEOUT` (answered from the cache
+  when an expired entry exists). Local git commands have one too, and so does the shallow fetch
+  of a ground-truth repository. `uptide pack test` runs each pack in a process of its own: one
+  that runs longer than `--pack-timeout` (minutes, default 20) is stopped with everything it
+  started and fails with the pack's name, and the other packs still run.
+
 ## 0.10.0
 
 ### Minor Changes
