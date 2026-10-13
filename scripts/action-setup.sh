@@ -22,3 +22,5 @@ export UPTIDE_BUILD_NO_DTS=1
 "$tools/node_modules/.bin/pnpm" --filter @uptide/core exec tsup >/dev/null
 "$tools/node_modules/.bin/pnpm" --filter uptide exec tsup >/dev/null
 node packages/cli/dist/index.js --version
+# The default executor, `--agent sdk`, needs the Agent SDK and its binary for this runner.
+node scripts/action-sdk.mjs
