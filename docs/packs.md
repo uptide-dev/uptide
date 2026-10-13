@@ -313,3 +313,21 @@ arguments).
 
 The "Verified packs" table in the README is generated from each pack's `verification.json`
 and ground truth by `pnpm docs:packs`; CI fails when it is stale.
+
+### Config files and transactional edits
+
+`inventory` declares workspace-relative glob patterns independent of imports, for
+example `next.config.{js,mjs,ts,cjs}`, `{middleware,src/middleware}.{ts,js}`,
+`package.json`, and `{app,src/app}/**/default.{ts,tsx,js,jsx}`. The engine supplies
+matching files to runtime detection, including when the package has no imported
+usages. It excludes symlinks, dependency stores, git metadata and generated Next
+output. Rules must restrict detection to the relevant filenames and syntax.
+
+A rewrite may return `edits` alongside the existing `text`. Each edit is a `write`
+or `create` with `file` and `text`, a `delete` with `file`, or a `rename` with `file`
+and `to`. The primary text edit and additional edits form one transaction. The
+engine validates every path and destination before writing, then checks types and
+related tests. Failure restores all original files and removes created files.
+Renames retain the old path on the finding; `editedFiles` records affected paths.
+Formatting and linting use surviving paths. Publication still requires final
+verification of the entire migration.

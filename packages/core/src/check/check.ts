@@ -34,6 +34,7 @@ import { planPackage } from '../fix/plan.js';
 import { scanImports } from '../list/scan.js';
 import { packFixability } from '../packs/fixability.js';
 import { activePacks } from '../packs/index.js';
+import { packInventory } from '../packs/inventory.js';
 import type { MigrationPack } from '../packs/types.js';
 import { diffRuntime, probeRuntime } from '../runtime/runtime.js';
 import { resetSharedState } from '../shared-state.js';
@@ -932,13 +933,22 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
           a.localeCompare(b),
       )
       .filter(([name]) => !opts.only || opts.only.includes(name));
+    const inventoryNames = new Set(
+      entries
+        .filter(([name]) => {
+          const pack = packsOf(opts).find((p) => p.name === name);
+          return packInventory(opts.cwd, workspace, pack?.inventory).length > 0;
+        })
+        .map(([name]) => name),
+    );
     const behind = new Set(opts.behind ?? []);
     // Release groups: same scope, same major, depending on one another, upgraded together.
     const analyzable = entries.filter(
       ([name, version]) =>
         !/^(link|workspace|file):/.test(version) &&
         (opts.allDeps ||
-          (!name.startsWith('@types/') && (imported === undefined || imported.has(name)))),
+          (!name.startsWith('@types/') &&
+            (imported === undefined || imported.has(name) || inventoryNames.has(name)))),
     );
     let groups = releaseGroups(
       analyzable.map(([name, version]) => ({
@@ -991,6 +1001,7 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
         // instead of fetching them. A companion is analyzed in its lead's group instead.
         if (
           !opts.allDeps &&
+          !inventoryNames.has(name) &&
           (groupOf.get(name)?.length ?? 1) < 2 &&
           (name.startsWith('@types/') || (imported !== undefined && !imported.has(name)))
         ) {
@@ -1535,7 +1546,11 @@ async function prepare(
     notes.push(
       `${scan.unanalyzed.length} site${scan.unanalyzed.length === 1 ? '' : 's'} not analyzed (require/dynamic import)`,
     );
-  if (scan.usages.length === 0) {
+  const inventoryPack = packsOf(ctx.opts).find(
+    (p) => p.name === name && p.supports(installedVersion, target),
+  );
+  const inventory = packInventory(ctx.opts.cwd, workspace, inventoryPack?.inventory);
+  if (scan.usages.length === 0 && inventory.length === 0) {
     if (scan.unanalyzed.length > 0) {
       // Every site is one nobody analyzed: not "unused", unknown.
       const report = base('unknown', target, latest);
@@ -2119,6 +2134,7 @@ async function checkGroup(
             to: only.target,
             ...packDirs(only),
             usages: only.scan.usages,
+            files: packInventory(ctx.opts.cwd, workspace, pack.inventory),
             read: (file) => {
               try {
                 return readFileSync(resolve(ctx.opts.cwd, file), 'utf8');

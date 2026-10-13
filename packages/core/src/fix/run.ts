@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import { type CheckOptions, check } from '../check/check.js';
@@ -21,6 +21,7 @@ import { assist } from './assisted.js';
 import { baselineHealth } from './baseline.js';
 import { behaviorCheck } from './behavior.js';
 import { buildWorkspaces } from './build.js';
+import { fileTransaction } from './file-transaction.js';
 import { type Generated, generateClients } from './generate.js';
 import { assertManagerAvailable } from './managers/availability.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
@@ -459,16 +460,57 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   options.onProgress?.({ phase: 'rules', package: pack.name, state: 'start' });
   const originals = new Map<string, string>();
   for (const finding of selected) {
+    if (!existsSync(join(root, finding.usage.file))) {
+      sites.push({
+        finding,
+        outcome: 'manual',
+        reason: 'The anchored file was removed or renamed by an earlier edit.',
+      });
+      continue;
+    }
     const file = safeFile(root, finding.usage.file);
     const original = readFileSync(file, 'utf8');
     if (!originals.has(finding.usage.file)) originals.set(finding.usage.file, original);
-    const result = pack.transform(original, finding, {
+    let result = pack.transform(original, finding, {
       ...packContext,
       from: finding.change.from,
       to: target,
       includeDeprecated: options.includeDeprecated ?? false,
     });
-    if (result.applied) {
+    let editedFiles: string[] | undefined;
+    if (result.applied && result.edits?.length) {
+      const before = await checkTarget();
+      const transaction = await fileTransaction(
+        root,
+        [{ kind: 'write', file: finding.usage.file, text: result.text }, ...result.edits],
+        async () => {
+          targetChecker?.clear();
+          if (newDiagnostics(before, await checkTarget()).length) return false;
+          const tests = await services.tests(
+            root,
+            workspaces,
+            options.testTimeoutMs,
+            [
+              ...new Set([
+                finding.usage.file,
+                ...(result.edits ?? []).flatMap((edit) =>
+                  edit.kind === 'rename' ? [edit.file, edit.to] : [edit.file],
+                ),
+              ]),
+            ],
+            { related: true, withServices: options.withServices === true },
+          );
+          return markPreexisting(tests, baselineTests).every(
+            (test) => test.status === 'passed' || test.status === 'missing' || test.preexisting,
+          );
+        },
+      );
+      targetChecker?.clear();
+      if (transaction.applied) {
+        editedFiles = transaction.files;
+        for (const name of transaction.files) changed.add(join(root, name));
+      } else result = { ...result, applied: false, reason: transaction.reason };
+    } else if (result.applied) {
       writeFileSync(file, result.text);
       changed.add(file);
     }
@@ -477,6 +519,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       outcome: result.applied ? 'mechanical' : 'manual',
       reason: result.reason,
       ...(result.applied ? { diff: editDiff(original, result.text) } : {}),
+      ...(editedFiles ? { editedFiles } : {}),
     };
     site.rule = result.rule ?? changeRule({ package: pack.name }, site);
     sites.push(site);

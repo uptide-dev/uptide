@@ -78,7 +78,15 @@ export interface FollowUp {
   /** The rule a test follow-up belongs to (`subscription-period`); default-messages when absent. */
   rule?: string;
 }
+export type PackFileEdit =
+  | { kind: 'write'; file: string; text: string }
+  | { kind: 'create'; file: string; text: string }
+  | { kind: 'delete'; file: string }
+  | { kind: 'rename'; file: string; to: string };
+
 export interface TransformResult {
+  /** Additional transactional edits, applied after text at the original finding path. */
+  edits?: readonly PackFileEdit[];
   text: string;
   applied: boolean;
   reason: string;
@@ -114,6 +122,8 @@ export interface MigrationPack {
    * need no entry.
    */
   readonly companions?: readonly PackCompanion[];
+  /** Workspace-relative config/convention globs, independent of imported usages. */
+  readonly inventory?: readonly string[];
   readonly defaultTarget: string;
   readonly rules: readonly MigrationRule[];
   supports(from: string, to: string): boolean;
@@ -234,6 +244,7 @@ export interface MigrationPack {
     installedDir: string;
     targetDir: string;
     usages: Usage[];
+    files?: readonly string[];
     read: (file: string) => string | undefined;
   }): Finding[];
 }

@@ -1,4 +1,4 @@
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 import { type ProgressListener, progress } from '../domain/progress.js';
 import type { Finding } from '../domain/report.js';
@@ -160,7 +160,8 @@ export async function settle(input: SettleInput): Promise<{
     ...new Set(
       input.sites
         .filter((s) => s.outcome !== 'manual')
-        .flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])]),
+        .flatMap((s) => [s.finding.usage.file, ...(s.editedFiles ?? [])])
+        .filter((file) => existsSync(resolve(root, file))),
     ),
   ];
   const formatted = new Set<string>();

@@ -130,3 +130,50 @@ it('analyzes companions nothing imports at the versions the lead moves them to, 
   expect(fetched.filter((f) => f === '@types/ui@2.0.0')).toHaveLength(1);
   expect(ui?.status).toBe('breaking');
 });
+
+it('checks an inventory-only configuration when the package has no imported usages', async () => {
+  const { definePack } = await import('../packs/contract.js');
+  const cwd = consumer();
+  writeFileSync(join(cwd, 'src/index.ts'), 'export {};');
+  writeFileSync(join(cwd, 'next.config.mjs'), 'export default { eslint: {} };');
+  const pack = definePack({
+    meta: { package: 'ui', from: '^1', to: '^2', sources: [], maintainer: 'test' },
+    inventory: ['next.config.{js,mjs,ts,cjs}'],
+    rules: [],
+    instructions: '',
+    behavior: [
+      {
+        id: 'removed-eslint',
+        summary: 'removed config',
+        reported: ['finding'],
+        severity: 'breaking',
+        detect: (text, file) =>
+          file === 'next.config.mjs' && text.includes('eslint')
+            ? [{ line: 1, column: 18, snippet: 'eslint' }]
+            : [],
+      },
+    ],
+  });
+  const fetcher: PackageFetcher = {
+    resolve: async () => '2.0.0',
+    versions: async (name) => Object.keys(registry[name] ?? {}),
+    manifests: async (name) => registry[name] ?? {},
+    fetch: async (name, version) => {
+      const dir = mkdtempSync(join(tmpdir(), 'uptide-inventory-target-'));
+      writePackage(dir, name, version);
+      return { name, version, dir };
+    },
+  };
+  const result = await check({
+    cwd,
+    only: ['ui'],
+    packs: [pack],
+    adapter,
+    fetcher,
+    cache: memoryCache(),
+    runtime: false,
+  });
+  expect(
+    result.packages.flatMap((p) => p.findings).map((f) => [f.usage.file, f.rule]),
+  ).toContainEqual(['next.config.mjs', 'removed-eslint']);
+});

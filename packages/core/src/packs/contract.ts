@@ -306,6 +306,7 @@ export interface PackSpec {
   defaultTarget?: string;
   /** Packages that always move with the package, each with its official source (`MigrationPack.companions`). */
   companions?: readonly PackCompanion[];
+  inventory?: readonly string[];
 }
 
 /**
@@ -322,6 +323,7 @@ export function definePack(spec: PackSpec): Pack {
     behavior,
     instructions: spec.instructions,
     ...(spec.companions ? { companions: spec.companions } : {}),
+    ...(spec.inventory ? { inventory: spec.inventory } : {}),
     defaultTarget: spec.defaultTarget ?? '',
     supports: (from, to) => satisfies(from, spec.meta.from) && satisfies(to, spec.meta.to),
     transform(text, finding, context) {
@@ -348,8 +350,8 @@ export function definePack(spec: PackSpec): Pack {
       ...behavior.map((b) => `${b.summary}`),
       ...spec.meta.sources.map((s) => `${s.title}: ${s.url}`),
     ],
-    runtimeFindings({ workspace, from, to, usages, read }) {
-      const files = [...new Set(usages.map((u) => u.file))].sort();
+    runtimeFindings({ workspace, from, to, usages, files: inventory = [], read }) {
+      const files = [...new Set([...usages.map((u) => u.file), ...inventory])].sort();
       return files.flatMap((file) => {
         const text = read(join(workspace, file));
         return text === undefined ? [] : detected(pack, { file, text, from, to });
