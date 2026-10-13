@@ -28,6 +28,8 @@ import { sentryNextjsPack } from './sentry-nextjs/index.js';
 import sentryNextjsVerification from './sentry-nextjs/verification.json' with { type: 'json' };
 import { sentryReactPack } from './sentry-react/index.js';
 import sentryReactVerification from './sentry-react/verification.json' with { type: 'json' };
+import { rechartsPack } from './recharts/index.js';
+import rechartsVerification from './recharts/verification.json' with { type: 'json' };
 import { stripePack } from './stripe/index.js';
 import stripeVerification from './stripe/verification.json' with { type: 'json' };
 import { typescriptPack } from './typescript/index.js';
@@ -71,6 +73,7 @@ export const REGISTRY: readonly RegisteredPack[] = [
     pack: sentryReactPack,
     verification: sentryReactVerification as PackVerification,
   },
+  { dir: 'recharts', pack: rechartsPack, verification: rechartsVerification as PackVerification },
   { dir: 'stripe', pack: stripePack, verification: stripeVerification as PackVerification },
   {
     dir: 'typescript',
