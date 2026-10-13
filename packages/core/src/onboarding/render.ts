@@ -227,12 +227,12 @@ In this repository's own GitHub Actions, on GitHub's runners, like your other wo
 
 With that proof, the Uptide GitHub App gives the run a token that expires within the hour, and Uptide pushes its migration branches and opens its draft pull requests with it, in this repository only. Pull requests opened that way run your CI; ones opened with the workflow's own token would not.
 
-## What leaves CI
+## What leaves the runner
 
-- **The results of each run, as JSON, sent to Uptide**: which dependencies were checked, what an upgrade breaks and where, and which pull requests were opened. Your source code is not sent.
-- **${llm ? `Code sent to ${providerName(config.llm.provider)}, with this repository's own API key` : 'Nothing else: the LLM is turned off in uptide.yml'}**${llm ? `, only for call sites no rule can fix: the code around each one. Spending stops at $${config.maxCost} per run (\`maxCost\` in uptide.yml).` : '.'}
-
-Nothing else leaves the runner.
+- **The run report, to Uptide**, as \`uptide.run/v1\` JSON: which dependencies were checked, what an upgrade breaks and where (file paths, line numbers and symbol names), how verification went, and which pull requests were opened. It never contains source code, diffs or environment values. With it goes the job's OIDC token, which proves the run is this repository's workflow. [How Uptide handles your data](${TRUST_URL}).
+- **The npm registry**: the Uptide engine's own dependencies during setup, metadata and tarballs of the packages Uptide compares, and the public names and installed versions of your dependencies to npm's advisory endpoint.
+- **GitHub**: the checkout, and the migration branches and draft pull requests Uptide pushes with the Uptide GitHub App's token.
+- ${llmLine(config)}
 
 ## Set the API key
 
@@ -261,5 +261,18 @@ ${detected.join('\n')}
 `;
 }
 
-const providerName = (p: UptideConfig['llm']['provider']): string =>
-  ({ anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Google' })[p];
+/** Where the "Add Uptide" pull request sends people who want to know what Uptide keeps. */
+export const TRUST_URL = 'https://uptide-app.vercel.app/trust';
+
+/**
+ * What goes to an LLM from the runner, as the Action actually does it: Anthropic only (the
+ * generator refuses another provider), and the Agent SDK unless \`executor: patch\`.
+ */
+function llmLine(config: UptideConfig): string {
+  if (!config.llm.enabled)
+    return '**No code sent to an LLM**: assisted fixes are off in uptide.yml.';
+  const budget = `Spending stops at $${config.maxCost} per run (\`maxCost\` in uptide.yml).`;
+  return config.executor === 'patch'
+    ? `**Code sent to Anthropic, with this repository's own API key**, for call sites no rule can fix: the code around each one. ${budget}`
+    : `**Code sent to Anthropic, with this repository's own API key**, for call sites no rule can fix. The assisted fixer (the Claude Agent SDK) can read any file in the checkout to work out a fix, and what it reads goes to Anthropic with its requests. ${budget}`;
+}

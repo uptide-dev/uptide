@@ -70,14 +70,22 @@ same repository always gets the same schedule.
 
 ## Who reads it
 
-- **The Uptide workflow** passes `uptide.yml` to the Uptide Action, which applies every field.
+- **The Uptide Action** (in the Uptide workflow) applies:
+  - `packages`, through `uptide list`: only the dependencies it allows are checked or fixed.
+  - `llm.enabled` and `llm.provider`: assisted fixes run when the LLM is on and the provider
+    is `anthropic`, the one key the workflow passes.
+  - `maxCost`: the limit of each `fix` run.
+  - `maxOpenPrs`: no new pull request while that many Uptide pull requests are open.
+  - `executor`: `patch` for the patch agent; otherwise the Agent SDK.
+  It does not read `schedule`: see below.
 - **`uptide fix`** reads `llm.enabled`, `llm.provider`, `maxCost` and `executor`.
 - **`uptide check`** and **`uptide fix`** read `packages` and say when a dependency named on
   the command line is outside it; a named dependency is still checked. A group
   (`check --group`) loses the members outside `packages`.
 - **`uptide list`** leaves out the dependencies outside `packages`.
 
-`schedule` and `maxOpenPrs` apply to the workflow only.
+`schedule` is read only when the workflow is written: `uptide init` and the GitHub App copy it
+into the workflow's cron ([Schedule](#schedule) says how to update it).
 
 The CLI uses the nearest `uptide.yml` from the working directory up to the Git root, or the
 file `--config <path>` names. When it reads one it says so on stderr (`Settings: uptide.yml`).
