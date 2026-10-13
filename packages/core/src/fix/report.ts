@@ -7,6 +7,7 @@ import { baselineHeadline, baselineHealthOf } from './baseline.js';
 import type { BehaviorResult } from './behavior.js';
 import { fitPieces, must, type Piece } from './budget.js';
 import { describeTransitive } from './managers/lock-guard.js';
+import { noPackBlockers } from './no-pack.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import type { FixDiagnostic, FixReport, FixSite, ReviewSection } from './types.js';
 import { missingPackages } from './verify.js';
@@ -322,6 +323,12 @@ export function migrationRisk(report: FixReport): {
       : []),
   ];
   if (high.length) return { level: 'High', reason: high.join('; ') };
+  // No pack: nothing analyzed the upgrade, so its build and tests passing is not Low either.
+  if (report.tier === 'generic' && report.sites.length === 0)
+    return {
+      level: 'Medium',
+      reason: `no migration pack for ${report.package}: the bump is verified by the repository's own checks only`,
+    };
   // Nothing edited and the repository's own tests pass: the bump alone, verified.
   if (
     report.sites.length === 0 &&
@@ -503,8 +510,46 @@ export function apiChangeSummary(c: NonNullable<FixReport['apiChanges']>): strin
       : `${c.breaking} breaking for surfaces you do not use`;
   return `${changes}, none affect${c.total === 1 ? 's' : ''} your code, ${nature}`;
 }
-/** The five facts of a run, in the words the PR table uses: risk, changes, types, behavior, tests. */
+/**
+ * What vouches for the run and how: the pack, the type-check, the build and the tests, each
+ * named with whether it ran and passed. A reviewer never reads "verified" for a check that did
+ * not run: a bump nothing analyzed says so here.
+ */
+export function verifiedBy(report: FixReport): string {
+  if (report.verificationPending) return '⚠️ nothing yet: verification pending';
+  const v = report.verification;
+  const pack =
+    report.mode === 'pin' || !report.tier
+      ? []
+      : report.tier === 'verified'
+        ? [`✅ the ${report.package} migration pack`]
+        : [`⚠️ no migration pack: nothing analyzed what ${report.package} ${report.target} changes`];
+  const types = v.typesUnverified
+    ? '⚠️ type-check not verified (type resolution failed)'
+    : v.newErrors.length
+      ? '❌ type-check'
+      : '✅ type-check';
+  const failing = (s: string) => s === 'failed' || s === 'timeout';
+  const build = !v.build
+    ? '⚠️ build not run'
+    : v.build.every((b) => b.status === 'missing')
+      ? '⚠️ build not run: no build script'
+      : v.build.some((b) => failing(b.status))
+        ? '❌ build'
+        : '✅ build';
+  const ran = v.tests.filter((t) => t.status !== 'missing');
+  const tests = !ran.length
+    ? '⚠️ tests not run: none ran'
+    : ran.some((t) => failing(t.status) && !t.preexisting)
+      ? '❌ tests'
+      : ran.some((t) => t.preexisting)
+        ? '⚠️ tests already failing before the change'
+        : `✅ tests (${count(ran.length, 'run')})`;
+  return [...pack, types, build, tests].join(' · ');
+}
+/** The facts of a run, in the words the PR table uses: risk, changes, types, behavior, tests, and what verified it. */
 export function summaryCells(report: FixReport): {
+  verified: string;
   risk: string;
   changes: string;
   types: string;
@@ -534,6 +579,7 @@ export function summaryCells(report: FixReport): {
         ? `✅ unchanged: \`${report.apiVersion}\` is what the installed SDK already defaults to`
         : '⚠️ not checked';
   return {
+    verified: verifiedBy(report),
     risk: `${risk.level}: ${cell(risk.reason)}`,
     changes: changeSummary,
     types: report.verificationPending
@@ -550,6 +596,7 @@ function summaryRows(report: FixReport): string[] {
   return [
     '| | |',
     '|---|---|',
+    `| **Verified by** | ${c.verified} |`,
     `| **Risk** | ${c.risk} |`,
     `| **Changes** | ${c.changes} |`,
     `| **Types** | ${c.types} |`,
@@ -620,6 +667,7 @@ export function renderMigration(
       inputs = bs.filter((b) => !unchecked(b) && !differs(b)).reduce((n, b) => n + b.inputs, 0);
     const ready =
       report.verification.passed &&
+      !noPackBlockers(report).length &&
       migrationRisk(report).level !== 'High' &&
       !report.sites.some((s) => s.outcome === 'manual') &&
       !bs.some(differs) &&
@@ -898,7 +946,7 @@ export function renderMigration(
       `Branch: \`${report.branch}\``,
       ...(report.tier
         ? [
-            `Tier: ${report.tier} (${report.tier === 'verified' ? 'a migration pack covers this upgrade' : 'no migration pack: agent edits verified by the compiler'})`,
+            `Tier: ${report.tier} (${report.tier === 'verified' ? 'a migration pack covers this upgrade' : 'no migration pack: nothing analyzed the upgrade; only the checks under Verified by vouch for it'})`,
           ]
         : []),
       ...(report.verifiedAt
@@ -924,6 +972,16 @@ function verificationDetails(report: FixReport): (string | Piece)[] {
   const checks = bs.flatMap((b) => b.messageChecks ?? []).filter((c) => c.status !== 'default');
   const lines: (string | Piece)[] = [
     `Type errors: baseline ${v.baseline.length}; target ${v.target.length}; after ${v.after.length}; ${v.newErrors.length} new. Verification: ${v.passed ? 'PASS' : 'FAIL'}.${v.typesUnverified ? ` Types not verified (type resolution failed): ${v.typesUnverified}.` : ''}`,
+    ...(v.build
+      ? [
+          '',
+          ...v.build.map((b) =>
+            b.command
+              ? `Build after the bump in \`${b.workspace}\`: \`${b.command}\` — ${b.status === 'timeout' ? 'timed out' : b.status}`
+              : `Build after the bump in \`${b.workspace}\`: no build script`,
+          ),
+        ]
+      : []),
     ...(report.generated?.length
       ? [
           '',

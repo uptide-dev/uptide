@@ -46,7 +46,7 @@ for (const name of ['storefront-zod', 'stripe'])
       const report = fixture(name),
         body = prBody(report),
         top = visible(body);
-      expect(top.match(/^\| \*\*/gm)).toHaveLength(5);
+      expect(top.match(/^\| \*\*/gm)).toHaveLength(6);
       // A decision names the file it is about; everything else above the fold stays path-free.
       expect(top.replace(/### Decisions for you\n[\s\S]*?(?=\n### |$)/, '')).not.toMatch(
         /packages\/|src\/|seed|methodology|tokens|claude|Diagnostic|earlier accepted edit/,
@@ -834,12 +834,18 @@ describe('a bump that needed no code changes', () => {
     const clean = report();
     clean.verification = { ...clean.verification, baseline: [], target: [], after: [] };
     delete clean.behavior;
+    // No pack analyzed vitest 4: a clean type-check and green tests are not Low, and the body
+    // says which checks ran and which did not.
     expect(prBody(clean)).toContain(
-      'No code changes were needed; only versions and the lockfile changed. Types compile and the tests pass.',
+      '**Review required before merging.** No code changes were needed; only versions and the lockfile changed. Types compile; runtime behavior needs review.',
+    );
+    expect(prBody(clean)).toContain(
+      '| **Verified by** | ⚠️ no migration pack: nothing analyzed what vitest 4.6.5 changes · ✅ type-check · ⚠️ build not run · ✅ tests (2 runs) |',
     );
     expect(migrationRisk(report())).toEqual({
-      level: 'Low',
-      reason: 'no code changes; types and tests verified',
+      level: 'Medium',
+      reason:
+        "no migration pack for vitest: the bump is verified by the repository's own checks only",
     });
   });
 

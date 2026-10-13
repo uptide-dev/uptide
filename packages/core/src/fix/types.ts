@@ -102,6 +102,18 @@ export interface TestResult {
     ranInstead: string;
   };
 }
+/**
+ * The repository's own `build` script, run after the bump when no pack covers the upgrade: the
+ * type-check does not see build configuration, and a build does.
+ */
+export interface BuildResult {
+  workspace: string;
+  status: 'passed' | 'failed' | 'missing' | 'timeout';
+  /** What ran, from the workspace's directory. Absent when there was no build script. */
+  command?: string;
+  /** The end of what it printed, or why nothing ran. */
+  output: string;
+}
 /** The repository's own lint (biome, prettier, eslint) run on the files the migration edited. */
 export interface LintResult {
   tool: string;
@@ -228,6 +240,8 @@ export interface FixReport {
     newErrors: FixDiagnostic[];
     baselineTests: TestResult[];
     tests: TestResult[];
+    /** The repository's build after the bump; run only when no pack covers the upgrade. */
+    build?: BuildResult[];
     /** Lint of the edited files with the repository's own tools; a new failure fails verification. */
     lint?: LintResult[];
     /** Formatters run on the edited files (`biome`, `prettier`), when any changed them. */

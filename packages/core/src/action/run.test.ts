@@ -27,6 +27,7 @@ const dep = (
     current,
     latest,
     change: 'major',
+    tier: 'verified',
     classification: 'used',
     ...extra,
   }) as ListedDependency;
@@ -289,6 +290,108 @@ describe('the Uptide Action run', () => {
       error: 'verification failed: tests failed in packages/api',
     });
     expect(report.error).toBeUndefined();
+  });
+
+  /** A fix run no pack covered: everything that ran passed, the type-check included. */
+  const noPackRun = (from: string, to: string, extra: Partial<FixReport['verification']> = {}) => {
+    const run = storefrontFix();
+    return {
+      ...run,
+      package: 'next',
+      from,
+      target: to,
+      tier: 'generic',
+      branch: `uptide/next-${to}`,
+      sites: [],
+      verification: {
+        ...run.verification,
+        baseline: [],
+        target: [],
+        after: [],
+        newErrors: [],
+        passed: true,
+        ...extra,
+      },
+    } as FixReport;
+  };
+
+  it('fix: a major upgrade without a pack is never opened, even with a clean type-check (saas-starter-kit PR #3)', async () => {
+    const { s, calls, published } = services({
+      list: listReport([dep('next', '15.5.14', '16.4.0', { tier: 'generic' })]),
+      fix: () => fixRun(noPackRun('15.5.14', '16.4.0')),
+    });
+    const report = await runAction(inputs(workspace('version: 1\n')), s);
+    expect(reportProblems(report)).toEqual([]);
+    // Nothing is spent on it, and nothing is published.
+    expect(calls.map((c) => c.args[0])).toEqual(['list']);
+    expect(published).toEqual([]);
+    expect(report.upgrades).toEqual([
+      expect.objectContaining({
+        package: 'next',
+        from: '15.5.14',
+        to: '16.4.0',
+        kind: 'major',
+        status: 'skipped',
+        analysis: 'none',
+        pr: null,
+        error: 'no pack yet',
+      }),
+    ]);
+    expect(renderSummary(report)).toContain(
+      '| `next` | 15.5.14 → 16.4.0 (major) | skipped | not analyzed: no pack yet |',
+    );
+    expect(report.error).toBeUndefined();
+  });
+
+  it('fix: a major run that turns out to have no pack is not published either', async () => {
+    // Discovery thought a pack covered it; the engine ran without one.
+    const { s, published } = services({
+      list: listReport([dep('next', '15.5.14', '16.4.0')]),
+      fix: () => fixRun(noPackRun('15.5.14', '16.4.0')),
+    });
+    const report = await runAction(inputs(workspace('version: 1\n')), s);
+    expect(reportProblems(report)).toEqual([]);
+    expect(published).toEqual([]);
+    expect(report.upgrades[0]).toMatchObject({
+      status: 'skipped',
+      analysis: 'none',
+      pr: null,
+      error: 'no pack yet',
+    });
+  });
+
+  it('fix: a minor upgrade without a pack opens only when its build and tests pass', async () => {
+    const built = [
+      { workspace: '.', status: 'passed' as const, command: 'next build', output: '' },
+    ];
+    const { s, published } = services({
+      list: listReport([
+        dep('next', '15.4.0', '15.5.14', { tier: 'generic', change: 'minor' }),
+        dep('swr', '2.2.0', '2.3.0', { tier: 'generic', change: 'minor' }),
+      ]),
+      fix: (name) =>
+        fixRun(
+          name === 'next'
+            ? noPackRun('15.4.0', '15.5.14', { build: built })
+            : {
+                ...noPackRun('2.2.0', '2.3.0', {
+                  build: [{ workspace: '.', status: 'missing', output: 'no build script' }],
+                }),
+                package: 'swr',
+                branch: 'uptide/swr-2.3.0',
+              },
+        ),
+    });
+    const report = await runAction(inputs(workspace('version: 1\n')), s);
+    expect(reportProblems(report)).toEqual([]);
+    expect(published.map((p) => p.branch)).toEqual(['uptide/next-15.5.14']);
+    expect(report.upgrades.map((u) => [u.package, u.status, u.analysis])).toEqual([
+      ['next', 'fixed', 'none'],
+      ['swr', 'skipped', 'none'],
+    ]);
+    expect(report.upgrades[1]?.error).toBe(
+      'no pack yet: the repository has no build script to verify the bump with, and the type-check alone does not',
+    );
   });
 
   it('fix: without a token, nothing is migrated and the run says why', async () => {

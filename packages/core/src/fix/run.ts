@@ -20,10 +20,12 @@ import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
 import { assist } from './assisted.js';
 import { baselineHealth } from './baseline.js';
 import { behaviorCheck } from './behavior.js';
+import { buildWorkspaces } from './build.js';
 import { type Generated, generateClients } from './generate.js';
 import { assertManagerAvailable } from './managers/availability.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
 import type { InstallReport, Upgrade } from './managers/upgrade.js';
+import { isMajorUpgrade, NO_PACK_YET } from './no-pack.js';
 import {
   groupPeerBlockers,
   type PeerPlan,
@@ -39,7 +41,15 @@ import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
 import { lintFiles } from './style.js';
 import { type ResolvedTarget, resolveTarget } from './target.js';
-import type { FixDiagnostic, Fixer, FixReport, FixSite, LintResult, TestResult } from './types.js';
+import type {
+  BuildResult,
+  FixDiagnostic,
+  Fixer,
+  FixReport,
+  FixSite,
+  LintResult,
+  TestResult,
+} from './types.js';
 import {
   describeServices,
   diagnostics,
@@ -75,6 +85,11 @@ export interface FixOptions {
   target?: string;
   includeDeprecated?: boolean;
   pr?: boolean;
+  /**
+   * The run is meant to be published once it is delivered (`--pr` run in a clone, which then
+   * publishes itself): a run that could never be published is refused before it starts.
+   */
+  forPublication?: boolean;
   yes?: boolean;
   fixer?: Fixer | null;
   testTimeoutMs?: number;
@@ -120,6 +135,8 @@ export interface FixServices {
   format?(root: string, files: string[]): Promise<string[]>;
   /** The repository's lint on these files; `baseline` marks failures that were already there. */
   lint?(root: string, files: string[], baseline?: LintResult[]): Promise<LintResult[]>;
+  /** The repository's `build` script after the bump, when no pack covers the upgrade. */
+  build?(root: string, workspaces: string[], timeoutMs?: number): Promise<BuildResult[]>;
   /** Generated code the repository needs before it can be measured (a Prisma client). */
   generate?(root: string, workspaces: string[]): Promise<Generated[]>;
   /** A dist-tag to an exact version (`latest`); the registry by default. */
@@ -281,6 +298,18 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     needsAgent(pack);
   }
   const generic = pack.rules.length === 0;
+  const lowest = [...packages].sort((a, b) => compareVersions(a.installed, b.installed))[0];
+  // Nothing analyzed a major upgrade without a pack: it is never published, so a --pr run
+  // spends nothing on it (no-pack.ts).
+  if (
+    generic &&
+    (options.pr || options.forPublication) &&
+    isMajorUpgrade(lowest?.installed, target)
+  )
+    throw new UptideError(
+      'PUBLICATION_REFUSED',
+      `${NO_PACK_YET}: ${pack.name} ${lowest?.installed ?? 'unknown'} → ${target} is a major upgrade, and Uptide opens a pull request for one only with a verified migration pack. Nothing was changed.`,
+    );
   for (const p of packages) {
     if (!pack.supports(p.installed, target))
       throw new Error(`${pack.name} pack does not support ${p.installed} → ${target}`);
@@ -310,8 +339,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   assertNoPinningOverrides(root, [{ name: pack.name, to: target }, ...companions]);
   validateVersionRanges(root, [{ name: pack.name, to: target }, ...companions]);
   const initialContext = {
-    from:
-      [...packages].sort((a, b) => compareVersions(a.installed, b.installed))[0]?.installed ?? '',
+    from: lowest?.installed ?? '',
     to: target,
     includeDeprecated: options.includeDeprecated ?? false,
   };
@@ -614,6 +642,20 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ...(options.onProgress ? { onProgress: options.onProgress } : {}),
     ...(options.testTimeoutMs ? { testTimeoutMs: options.testTimeoutMs } : {}),
   });
+  // Without a pack the type-check does not see what the upgrade changed in the build (its
+  // configuration, removed commands): the repository's own build has to pass too.
+  const beforeBuild = generic ? git(root, 'status', '--porcelain', '--untracked-files=all') : '';
+  const build = generic
+    ? await verify(`build (${names(workspaces)})`, () =>
+        (services.build ?? buildWorkspaces)(root, workspaces),
+      )
+    : [];
+  // What the build wrote and git does not ignore is not part of the migration. Files left
+  // before it stay, for the check below to report.
+  if (generic && !beforeBuild && git(root, 'status', '--porcelain', '--untracked-files=all')) {
+    git(root, 'checkout', '--', '.');
+    git(root, 'clean', '-fdq');
+  }
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
@@ -649,6 +691,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       newErrors,
       baselineTests,
       tests,
+      ...(generic ? { build } : {}),
       ...(lint.length ? { lint } : {}),
       ...(formatted.length ? { formatted } : {}),
       ...(unverified ? { typesUnverified: unverified } : {}),
@@ -658,6 +701,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         newErrors.length === 0 &&
         !pending &&
         tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
+        build.every((b) => b.status === 'passed' || b.status === 'missing') &&
         lint.every((l) => l.status !== 'failed'),
     },
     llm: sdkMissing ? { ...llm, sdkMissing: true } : llm,

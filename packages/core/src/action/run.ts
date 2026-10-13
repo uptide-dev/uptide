@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CheckReport, PackageReport } from '../domain/report.js';
+import { isMajorUpgrade, NO_PACK_YET, noPackBlockers } from '../fix/no-pack.js';
 import type { FixReport } from '../fix/types.js';
 import type { ListedDependency, ListReport } from '../list/list.js';
 import { loadUptideConfig } from '../onboarding/node.js';
@@ -283,6 +284,12 @@ export async function runAction(
       upgrades.push(skipped(row, 'skipped', 'an Uptide pull request for it is already open'));
       continue;
     }
+    // A major upgrade no verified pack covers is never opened (fix/no-pack.ts). It is reported
+    // whatever the slots and budget say: each one is demand for a pack.
+    if (dep.tier !== 'verified' && isMajorUpgrade(dep.current, dep.latest)) {
+      upgrades.push({ ...skipped(row, 'skipped', NO_PACK_YET), analysis: 'none' });
+      continue;
+    }
     if (slots <= 0 || attempts <= 0) {
       upgrades.push(
         skipped(
@@ -333,7 +340,8 @@ export async function runAction(
     budget -= (fixed.llm?.costUsd ?? 0) + (fixed.llm?.unreportedCostUsd ?? 0);
     let pr: { number: number; url: string } | null = null;
     let error: string | undefined;
-    if (fixed.verification.passed && !fixed.exportError) {
+    // `uptide pr` refuses these too; asking it would only turn the reason into a failure.
+    if (fixed.verification.passed && !fixed.exportError && !noPackBlockers(fixed).length) {
       try {
         const url = await services.publish(fixed.branch, await services.token());
         const number = pullNumber(url);

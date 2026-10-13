@@ -8,8 +8,9 @@ import type { CheckReport, Finding } from '../domain/report.js';
 import { genericPack } from '../packs/generic.js';
 import { onReset } from '../shared-state.js';
 import { git } from './process.js';
+import { publicationBlockers } from './publish.js';
 import { prBody } from './report.js';
-import { type FixServices, fix } from './run.js';
+import { type FixServices, fix, publishVerified } from './run.js';
 import type { FixRequest } from './types.js';
 import { diagnostics, testWorkspaces } from './verify.js';
 
@@ -190,7 +191,7 @@ describe('fix for a dependency without a pack', () => {
     );
     expect(body).not.toMatch(/billing|webhook|Stripe/);
     expect(body).toContain(
-      'Tier: generic (no migration pack: agent edits verified by the compiler)',
+      'Tier: generic (no migration pack: nothing analyzed the upgrade; only the checks under Verified by vouch for it)',
     );
   }, 20000);
 
@@ -297,6 +298,157 @@ describe('fix for a dependency without a pack', () => {
     const result = await fix({ cwd: root, only: 'paint', fixer: fixer(0.01, seen) }, services);
     expect(seen).toEqual([]);
     expect(result.sites).toEqual([]);
+  }, 20000);
+});
+
+describe('fix never publishes an upgrade nothing analyzed', () => {
+  /**
+   * uptide-test/saas-starter-kit PR #3: next 15.5.14 → 16.4.0, no pack, and the type-check
+   * clean, so it opened as if verified while Next 16 breaks the build configuration. Here:
+   * paint 1 → 2, no pack, no site the compiler rejects.
+   */
+  const CLEAN_TOOL = { uptideVersion: '0.0.0', uptideCommit: 'a'.repeat(40), uptideDirty: false };
+  function cleanMajor() {
+    const fixture = paintFixture(0);
+    const lead = fixture.report.packages[0] as CheckReport['packages'][number];
+    lead.status = 'safe';
+    const published: string[] = [];
+    fixture.services.publish = async (result) => void published.push(result.branch);
+    return { ...fixture, published };
+  }
+
+  it('refuses a major upgrade without a pack under --pr before anything changes', async () => {
+    const { root, services, fixer, published } = cleanMajor();
+    const head = git(root, 'rev-parse', 'HEAD');
+    await expect(
+      fix(
+        { cwd: root, only: 'paint', tool: CLEAN_TOOL, fixer: fixer(0.01), pr: true, yes: true },
+        services,
+      ),
+    ).rejects.toMatchObject({
+      code: 'PUBLICATION_REFUSED',
+      message: expect.stringMatching(/^no pack yet: paint 1\.0\.0 → 2\.0\.0 is a major upgrade/),
+    });
+    expect(published).toEqual([]);
+    expect(git(root, 'rev-parse', 'HEAD')).toBe(head);
+    expect(git(root, 'branch', '--show-current')).not.toContain('uptide/');
+  });
+
+  it('keeps a clean type-check of a major upgrade without a pack from ever being published', async () => {
+    const { root, services, fixer } = cleanMajor();
+    const result = await fix(
+      { cwd: root, only: 'paint', tool: CLEAN_TOOL, fixer: fixer(0.01) },
+      services,
+    );
+    // Everything that ran passed: the type-check is clean.
+    expect(result.tier).toBe('generic');
+    expect(result.verification.newErrors).toEqual([]);
+    expect(result.verification.passed).toBe(true);
+    // And still no PR: `uptide pr` and the Action ask the same gate.
+    expect(publicationBlockers(result, { uptideDirty: false })).toEqual([
+      'no pack yet: paint 1.0.0 → 2.0.0 is a major upgrade, and Uptide opens one only with a verified migration pack',
+    ]);
+    await publishVerified(result, { tool: { uptideDirty: false }, yes: true });
+    expect(result.prUrl).toBeUndefined();
+    expect(result.publication?.refused[0]).toMatch(/^no pack yet/);
+    const body = prBody(result);
+    expect(body).toContain('**Review required before merging.**');
+    expect(body).toContain(
+      '| **Verified by** | ⚠️ no migration pack: nothing analyzed what paint 2.0.0 changes · ✅ type-check · ⚠️ build not run: no build script · ⚠️ tests not run: none ran |',
+    );
+  }, 20000);
+
+  /** paint 1.0.0 → 1.1.0 without a pack: a minor, with the build and tests given here. */
+  function cleanMinor(build: FixServices['build'], tests?: FixServices['tests']) {
+    const fixture = paintFixture(0);
+    const lead = fixture.report.packages[0] as CheckReport['packages'][number];
+    Object.assign(lead, { status: 'safe', latest: '1.1.0', target: '1.1.0', majorsBehind: 0 });
+    fixture.services.resolve = async () => '1.1.0';
+    fixture.services.install = async (dir) => {
+      const file = join(dir, 'node_modules/paint/package.json');
+      writeFileSync(
+        file,
+        JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), version: '1.1.0' }),
+      );
+      writeFileSync(
+        join(dir, 'pnpm-lock.yaml'),
+        readFileSync(join(dir, 'pnpm-lock.yaml'), 'utf8').replaceAll('1.0.0', '1.1.0'),
+      );
+    };
+    if (build) fixture.services.build = build;
+    if (tests) fixture.services.tests = tests;
+    return fixture;
+  }
+  const passingTests: FixServices['tests'] = async () => [
+    { workspace: '.', status: 'passed', output: '', command: 'vitest run' },
+  ];
+
+  it('publishes a minor upgrade without a pack only when its build and tests pass', async () => {
+    const built: string[][] = [];
+    const { root, services, fixer } = cleanMinor(async (_root, workspaces) => {
+      built.push(workspaces);
+      return [{ workspace: '.', status: 'passed', command: 'next build', output: '' }];
+    }, passingTests);
+    const result = await fix(
+      { cwd: root, only: 'paint', tool: CLEAN_TOOL, fixer: fixer(0.01) },
+      services,
+    );
+    expect(built).toEqual([['.']]);
+    expect(result.verification.build).toEqual([
+      { workspace: '.', status: 'passed', command: 'next build', output: '' },
+    ]);
+    expect(publicationBlockers(result, { uptideDirty: false })).toEqual([]);
+    expect(prBody(result)).toContain(
+      '| **Verified by** | ⚠️ no migration pack: nothing analyzed what paint 1.1.0 changes · ✅ type-check · ✅ build · ✅ tests (1 run) |',
+    );
+    expect(prBody(result)).toContain('Build after the bump in `.`: `next build` — passed');
+  }, 20000);
+
+  it('does not publish a minor upgrade without a pack when the repository has no build script or no tests', async () => {
+    const noBuild = cleanMinor(undefined, passingTests);
+    const first = await fix(
+      { cwd: noBuild.root, only: 'paint', tool: CLEAN_TOOL, fixer: noBuild.fixer(0.01) },
+      noBuild.services,
+    );
+    expect(first.verification.build).toEqual([
+      { workspace: '.', status: 'missing', output: 'no build script' },
+    ]);
+    expect(publicationBlockers(first, { uptideDirty: false })).toEqual([
+      'no pack yet: the repository has no build script to verify the bump with, and the type-check alone does not',
+    ]);
+    const noTests = cleanMinor(async () => [
+      { workspace: '.', status: 'passed', command: 'tsc -b', output: '' },
+    ]);
+    const second = await fix(
+      { cwd: noTests.root, only: 'paint', tool: CLEAN_TOOL, fixer: noTests.fixer(0.01) },
+      noTests.services,
+    );
+    expect(publicationBlockers(second, { uptideDirty: false })).toEqual([
+      'no pack yet: the repository has no tests to verify the bump with, and the type-check alone does not',
+    ]);
+  }, 30000);
+
+  it('fails a minor upgrade without a pack whose build fails after the bump', async () => {
+    const { root, services, fixer } = cleanMinor(
+      async () => [
+        {
+          workspace: '.',
+          status: 'failed',
+          command: 'next build',
+          output: 'Error: next lint was removed',
+        },
+      ],
+      passingTests,
+    );
+    const result = await fix(
+      { cwd: root, only: 'paint', tool: CLEAN_TOOL, fixer: fixer(0.01) },
+      services,
+    );
+    expect(result.verification.passed).toBe(false);
+    expect(publicationBlockers(result, { uptideDirty: false })).toEqual([
+      'verification failed: build failed in .',
+    ]);
+    expect(prBody(result)).toContain('❌ build');
   }, 20000);
 });
 

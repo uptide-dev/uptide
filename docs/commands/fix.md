@@ -255,8 +255,15 @@ and the gate rejects new errors. Final verification works as it does for a verif
   worst-case cost before every call, including
   retries. Sites not completed stay manual, the summary and the pull request say how many,
   and final verification decides whether the result can be published.
-- The pull request opens with a note that no migration pack covers the package, and its
-  risk is never Low.
+- Nothing analyzed what the upgrade changes, so a clean type-check proves little: Next 15 → 16
+  type-checks and still breaks its build configuration. A **major** upgrade without a pack is
+  never published: `--pr` refuses it before anything changes (`no pack yet`), and
+  `uptide pr` refuses a stored run of one. A **minor or patch** is published only when the
+  repository's own `build` script (run after the bump, per workspace, else the root's) and
+  its tests pass; with no build script or no tests, `uptide pr` refuses and says which.
+- The pull request opens with a note that no migration pack covers the package, its risk is
+  never Low, and its **Verified by** row names the checks that ran (pack, type-check, build,
+  tests) and the ones that did not.
 
 ## `uptide verify`
 

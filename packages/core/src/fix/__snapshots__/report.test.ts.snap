@@ -9,6 +9,7 @@ exports[`storefront-zod > snapshots the full PR description and compact terminal
 
 | | |
 |---|---|
+| **Verified by** | ✅ the zod migration pack · ✅ type-check · ⚠️ build not run · ✅ tests (2 runs) |
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing, 0 introduced by the upgrade) |
@@ -263,6 +264,7 @@ exports[`storefront-zod > snapshots the full PR description and compact terminal
 
 | | |
 |---|---|
+| **Verified by** | ✅ the zod migration pack · ✅ type-check · ⚠️ build not run · ✅ tests (2 runs) |
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing, 0 introduced by the upgrade) |
@@ -285,6 +287,7 @@ exports[`stripe > snapshots the full PR description and compact terminal/comment
 
 | | |
 |---|---|
+| **Verified by** | ✅ type-check · ⚠️ build not run · ⚠️ tests not run: none ran |
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ 4 errors after the bump → 0 |
@@ -708,8 +711,7 @@ Type errors: baseline 0; target 4; after 0; 0 new. Verification: PASS.
 - 2025-07-30.basil: [Adds a new value to payment review closed reasons](https://docs.stripe.com/changelog/basil/2025-07-30/add-new-enum-to-payment-review-close-reason.md) — non-breaking; Radar
 - 2025-07-30.basil: [Adds a duration parameter for schedule phases](https://docs.stripe.com/changelog/basil/2025-07-30/add-schedule-phase-duration.md) — non-breaking; Billing
 - 2025-07-30.basil: [Adds support for the America/Coyhaique time zone](https://docs.stripe.com/changelog/basil/2025-07-30/america_coyhaique_timezone.md) — non-breaking; All products
-- 2025-07-30.basil: [Adds support for billing thresholds on flexible billing mode Subscriptions](https://docs.stripe.com/changelog/basil/2025-07-30/billing-thresholds.md) — non-breaking; Billing
-- … 256 more not shown here: [Stripe's changelog](https://docs.stripe.com/changelog).
+- … 257 more not shown here: [Stripe's changelog](https://docs.stripe.com/changelog).
 
 </details>
 
@@ -736,6 +738,7 @@ exports[`stripe > snapshots the full PR description and compact terminal/comment
 
 | | |
 |---|---|
+| **Verified by** | ✅ type-check · ⚠️ build not run · ⚠️ tests not run: none ran |
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ 4 errors after the bump → 0 |
