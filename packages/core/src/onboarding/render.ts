@@ -170,7 +170,16 @@ maxCost: ${config.maxCost}
 # How assisted fixes are applied: auto (SDK for Anthropic when installed, patch otherwise), patch (one edit per call site),
 # or sdk (a Claude Agent SDK session).
 executor: ${config.executor}
-`;
+${
+  config.minReleaseAgeDays === undefined
+    ? ''
+    : `
+# Uptide never targets a release younger than this many days, when the repository sets no
+# release-age policy of its own (npm min-release-age, pnpm minimumReleaseAge, Yarn
+# npmMinimalAgeGate); a policy the repository sets wins.
+minReleaseAgeDays: ${config.minReleaseAgeDays}
+`
+}`;
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

@@ -101,6 +101,16 @@ describe('golden files', () => {
     await expect(file(o, 'uptide.yml')).toMatchFileSnapshot('__golden__/manual/uptide.yml');
     await expect(o.prBody).toMatchFileSnapshot('__golden__/manual/pr-body.md');
   });
+  // minReleaseAgeDays set: the same repository as `npm`; only uptide.yml changes.
+  it('release-age', async () => {
+    const o = generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
+      config: { version: 1, minReleaseAgeDays: 7 },
+    });
+    await expect(file(o, 'uptide.yml')).toMatchFileSnapshot('__golden__/release-age/uptide.yml');
+    expect(file(o, '.github/workflows/uptide.yml')).toBe(
+      file(generate(CASES.npm as RepoSnapshot), '.github/workflows/uptide.yml'),
+    );
+  });
 });
 
 describe('schedule: manual', () => {
@@ -220,6 +230,19 @@ describe('uptide.yml as generated', () => {
         if (/^\s*[a-zA-Z]+:/.test(line) && !/^(packages|llm):/.test(line))
           expect(lines[i - 1], line).toMatch(/^\s*#/);
       });
+    }
+  });
+
+  it('writes minReleaseAgeDays only when set, 0 included, and loads it back', () => {
+    expect(file(generate(CASES.npm as RepoSnapshot), 'uptide.yml')).not.toMatch(/minReleaseAge/);
+    for (const days of [0, 7, 365]) {
+      const o = generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
+        config: { version: 1, minReleaseAgeDays: days },
+      });
+      const text = file(o, 'uptide.yml');
+      expect(text).toContain(`\nminReleaseAgeDays: ${days}\n`);
+      expect(parseUptideConfig(text).config).toEqual(o.config);
+      expect(o.config.minReleaseAgeDays).toBe(days);
     }
   });
 
