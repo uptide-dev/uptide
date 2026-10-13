@@ -165,11 +165,11 @@ llm:
   # Who receives that code, with this repository's own key (secret ANTHROPIC_API_KEY).
   provider: ${config.llm.provider}
 
-# Most one run may spend on LLM calls, in USD.
+# LLM budget in USD; the SDK may overshoot by one turn.
 maxCost: ${config.maxCost}
 
-# How assisted fixes are applied: auto (Uptide chooses), patch (one edit per call site),
-# or sdk (experimental: a Claude Agent SDK session).
+# How assisted fixes are applied: auto (SDK for Anthropic, patch otherwise), patch (one edit per call site),
+# or sdk (a Claude Agent SDK session).
 executor: ${config.executor}
 `;
 }

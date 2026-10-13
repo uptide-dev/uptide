@@ -150,8 +150,21 @@ describe('uptide.yml in list, check and fix', () => {
       engine,
     );
     expect(engine.calls.at(-1)).toMatchObject({ maxCostUsd: 2, llm: true });
-    expect(engine.calls.at(-1)).not.toHaveProperty('agent');
+    expect(engine.calls.at(-1)).toHaveProperty('agent', 'patch');
   });
+
+  it.each(['auto', 'patch', 'sdk'])(
+    'fix preserves executor %s from uptide.yml',
+    async (executor) => {
+      const { pnpmGitRepo } = await import('./test-utils.js');
+      const cwd = pnpmGitRepo();
+      committed(cwd, `version: 1\nexecutor: ${executor}\n`);
+      const engine = fakeEngine();
+      await run(['fix', 'zod'], memoryIo({ cwd, env: { ANTHROPIC_API_KEY: 'k' } }), engine);
+      if (executor === 'auto') expect(engine.calls.at(-1)).not.toHaveProperty('agent');
+      else expect(engine.calls.at(-1)).toHaveProperty('agent', executor);
+    },
+  );
 
   it('fix uses the provider uptide.yml names, below flags and environment', async () => {
     const { pnpmGitRepo } = await import('./test-utils.js');

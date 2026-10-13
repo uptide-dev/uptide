@@ -73,7 +73,7 @@
       "default": 1
     },
     "executor": {
-      "description": "How assisted fixes are applied: auto (Uptide chooses), patch (one edit per site), sdk (experimental: a Claude Agent SDK session).",
+      "description": "How assisted fixes are applied: auto (SDK for Anthropic, patch otherwise), patch (one edit per site), sdk (a Claude Agent SDK session).",
       "enum": ["auto", "patch", "sdk"],
       "default": "auto"
     }
