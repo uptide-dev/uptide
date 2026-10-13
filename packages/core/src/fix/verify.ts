@@ -534,6 +534,8 @@ export function gitLineMoves(root: string, base: string): LineMoves {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
         maxBuffer: 1 << 28,
+        timeout: 60_000,
+        killSignal: 'SIGKILL',
       });
       changes.push([file, before, readFileSync(join(root, file), 'utf8')]);
     } catch {

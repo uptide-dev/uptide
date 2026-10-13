@@ -74,6 +74,7 @@ export class AdapterCapabilityError extends Error {
 
 export type ErrorCode =
   | 'REGISTRY_UNREACHABLE'
+  | 'REGISTRY_TIMEOUT'
   | 'REGISTRY_HTTP_ERROR'
   | 'REGISTRY_AUTH'
   | 'PACKAGE_NOT_FOUND'

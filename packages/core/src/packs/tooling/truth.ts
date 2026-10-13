@@ -147,7 +147,12 @@ export interface EnsureOptions {
   log?: (line: string) => void;
   /** Install timeout per repository, ms. */
   timeoutMs?: number;
+  /** Timeout of the shallow fetch of one repository, ms. */
+  fetchTimeoutMs?: number;
 }
+
+/** A shallow fetch of one commit: minutes for the largest ground-truth repository. */
+const FETCH_TIMEOUT_MS = 600_000;
 
 /**
  * The directory of a pinned public repository, fetched and installed on first use. The
@@ -175,7 +180,30 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
     try {
       git(partial, 'init', '-q');
       git(partial, 'remote', 'add', 'origin', `https://github.com/${entry.repo}.git`);
-      git(partial, 'fetch', '-q', '--depth', '1', '--no-tags', 'origin', entry.commit);
+      // The one network step: asynchronous, with a deadline that kills git and its helpers.
+      const fetched = await command(
+        partial,
+        'git',
+        [
+          '-c',
+          'core.hooksPath=/dev/null',
+          'fetch',
+          '-q',
+          '--depth',
+          '1',
+          '--no-tags',
+          'origin',
+          entry.commit,
+        ],
+        options.fetchTimeoutMs ?? FETCH_TIMEOUT_MS,
+        { GIT_TERMINAL_PROMPT: '0' },
+      );
+      if (fetched.code !== 0)
+        throw new Error(
+          fetched.timeout
+            ? `git fetch timed out after ${Math.round((options.fetchTimeoutMs ?? FETCH_TIMEOUT_MS) / 1000)}s`
+            : fetched.output.trim().split('\n').at(-1) || `git fetch exited ${fetched.code}`,
+        );
       git(partial, 'checkout', '-q', '--detach', 'FETCH_HEAD');
       const head = git(partial, 'rev-parse', 'HEAD');
       if (head !== entry.commit) throw new Error(`fetched ${head}, expected ${entry.commit}`);

@@ -40,11 +40,15 @@ export function quietEnv(): NodeJS.ProcessEnv {
     GIT_CONFIG_VALUE_0: noHooksDir(),
   };
 }
+/** Local git work only: a deadline no real operation reaches, so a stuck one is an error. */
+export const GIT_TIMEOUT_MS = 300_000;
 export function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: GIT_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
   }).trim();
 }
 export interface CommandResult {

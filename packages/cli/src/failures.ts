@@ -88,7 +88,7 @@ export function notADependency(repo: Repo, missing: readonly string[]): CliError
 
 const workspaceCount = (repo: Repo): number => repo.workspaces.filter((w) => w !== '.').length;
 
-const REGISTRY_FAILURES = ['REGISTRY_UNREACHABLE', 'REGISTRY_HTTP_ERROR'];
+const REGISTRY_FAILURES = ['REGISTRY_UNREACHABLE', 'REGISTRY_TIMEOUT', 'REGISTRY_HTTP_ERROR'];
 
 /** The registry did not answer, or answered with an error after the retries. */
 export function isNetworkError(error: unknown): boolean {

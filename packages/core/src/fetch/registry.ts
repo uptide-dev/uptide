@@ -51,6 +51,8 @@ export function manifestUrl(name: string, version: string, registry: string): st
 export interface RetryOptions {
   /** Attempts after the first one. Default 3. */
   retries?: number;
+  /** Per attempt, body included: a registry that stops answering is an error, not a hang. */
+  timeoutMs?: number;
   /** Injected for tests. */
   sleep?: (ms: number) => Promise<void>;
 }
@@ -60,6 +62,8 @@ const TRANSIENT = new Set([429, 500, 502, 503, 504]);
 const BACKOFF_MS = [500, 1500, 4000];
 /** A registry may ask for minutes; a command waits seconds, then says what happened. */
 const MAX_WAIT_MS = 8000;
+/** One request and its body: a large tarball over a slow link fits, a stalled socket does not. */
+export const REQUEST_TIMEOUT_MS = 120_000;
 
 function retryAfterMs(res: Response): number | undefined {
   const seconds = Number(res.headers.get('retry-after'));
@@ -73,13 +77,17 @@ function retryAfterMs(res: Response): number | undefined {
  */
 export function withRetry(fetchFn: FetchFn, options: RetryOptions = {}): FetchFn {
   const retries = options.retries ?? BACKOFF_MS.length;
+  const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   return async (input, init) => {
     for (let attempt = 0; ; attempt++) {
       const last = attempt >= retries;
       const backoff = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)] as number;
+      // A fresh deadline per attempt; it keeps running while the caller reads the body.
+      const deadline = AbortSignal.timeout(timeoutMs);
+      const signal = init?.signal ? AbortSignal.any([init.signal, deadline]) : deadline;
       try {
-        const res = await fetchFn(input, init);
+        const res = await fetchFn(input, { ...init, signal });
         if (!TRANSIENT.has(res.status) || last) return res;
         await sleep(Math.min(retryAfterMs(res) ?? backoff, MAX_WAIT_MS));
       } catch (err) {
@@ -97,11 +105,29 @@ function httpFailure(res: Response): string {
   return `HTTP ${res.status}${what}${wait ? `; the registry asks to wait ${Math.ceil(wait / 1000)}s` : ''}`;
 }
 
+const timedOut = (err: unknown): boolean =>
+  err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+
 async function request(fetchFn: FetchFn, url: string, init: RequestInit): Promise<Response> {
   try {
     return await fetchFn(url, init);
   } catch (cause) {
+    if (timedOut(cause))
+      throw new UptideError('REGISTRY_TIMEOUT', `the registry did not answer in time: ${url}`, {
+        cause,
+      });
     throw new UptideError('REGISTRY_UNREACHABLE', `cannot reach registry: ${url}`, { cause });
+  }
+}
+
+/** The body of an answer, within the same deadline as the request that got it. */
+async function body<T>(url: string, read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch (cause) {
+    if (timedOut(cause))
+      throw new UptideError('REGISTRY_TIMEOUT', `the registry stopped sending: ${url}`, { cause });
+    throw cause;
   }
 }
 async function getJson<T>(
@@ -126,7 +152,7 @@ async function getJson<T>(
     );
   }
   if (!res.ok) throw new UptideError('REGISTRY_HTTP_ERROR', `${url}: ${httpFailure(res)}`);
-  return (await res.json()) as T;
+  return (await body(url, () => res.json())) as T;
 }
 
 function toResolved(name: string, manifest: Manifest | undefined): ResolvedVersion | undefined {
@@ -193,7 +219,7 @@ export async function downloadTarball(
   });
   if (!res.ok)
     throw new UptideError('REGISTRY_HTTP_ERROR', `${resolved.tarball}: ${httpFailure(res)}`);
-  return Buffer.from(await res.arrayBuffer());
+  return Buffer.from(await body(resolved.tarball, () => res.arrayBuffer()));
 }
 
 /** Every published version of `name`, oldest first, from the abbreviated packument. */

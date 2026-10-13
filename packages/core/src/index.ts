@@ -193,6 +193,7 @@ export {
   type RepoScore,
   type Tally,
   testPack,
+  unfinishedPack,
 } from './packs/tooling/pack-test.js';
 export {
   type ScaffoldOptions,

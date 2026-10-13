@@ -42,6 +42,8 @@ export interface NpmFetcherOptions {
   fetch?: FetchFn;
   /** How retries wait; injected for tests. */
   sleep?: (ms: number) => Promise<void>;
+  /** Per request attempt, body included (default `REQUEST_TIMEOUT_MS`). */
+  timeoutMs?: number;
 }
 
 export function tarballCachePath(root: string, name: string, version: string): string {
@@ -88,7 +90,10 @@ function verify(tgz: Buffer, resolved: ResolvedVersion): void {
 export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
   const cacheDir = opts.cacheDir ?? defaultCacheDir();
   const extractRoot = opts.extractRoot ?? join(cacheDir, 'extracted');
-  const fetchFn = withRetry(opts.fetch ?? fetch, opts.sleep ? { sleep: opts.sleep } : {});
+  const fetchFn = withRetry(opts.fetch ?? fetch, {
+    ...(opts.sleep ? { sleep: opts.sleep } : {}),
+    ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
+  });
   const config = opts.config ?? loadRegistryConfig();
   const ttl = opts.metadataTtlMs ?? 60 * 60 * 1000;
 
@@ -114,7 +119,12 @@ export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
       value = await ask();
     } catch (err) {
       const code = errorCode(err);
-      if (expired && (code === 'REGISTRY_UNREACHABLE' || code === 'REGISTRY_HTTP_ERROR'))
+      if (
+        expired &&
+        (code === 'REGISTRY_UNREACHABLE' ||
+          code === 'REGISTRY_TIMEOUT' ||
+          code === 'REGISTRY_HTTP_ERROR')
+      )
         return expired.value;
       throw err;
     }

@@ -17,6 +17,7 @@ import {
   testPack,
   UPTIDE_ACTION,
   UptideError,
+  unfinishedPack,
   WORKFLOW_PATH,
 } from '@uptide/core';
 import { Command, CommanderError, Option } from 'commander';
@@ -48,6 +49,7 @@ import { INIT_NEXT, type InitFile, planInit, writeInit } from './init.js';
 import { INVOCATION } from './invocation.js';
 import { type Io, type Ui, type UiFlags, uiOf } from './io.js';
 import { formatPackTest, packRoot, packsToTest } from './pack.js';
+import { IN_PROCESS_ENV, PACK_TIMEOUT_MS, runIsolated, unfinishedReason } from './pack-isolate.js';
 import { PRIVACY } from './privacy.js';
 import { createProgress, elapsed, type Progress } from './progress.js';
 import { collectStatus, declaredDependencies, formatStatus, locateDependencies } from './status.js';
@@ -1401,12 +1403,19 @@ ${EXIT_CODES('scaffolded', 'not used')}`,
       '--update-fixtures',
       "write each fixture's after.ts from what the rules produce; review the diff before committing",
     )
+    .option(
+      '--pack-timeout <minutes>',
+      `stop a pack whose test runs longer and fail it by name (default ${PACK_TIMEOUT_MS / 60_000})`,
+    )
     .option('--cwd <dir>', 'a directory inside the uptide checkout')
     .option('--json', 'machine-readable output for CI')
     .option('--no-color', 'no color (NO_COLOR is respected too)')
     .addHelpText(
       'after',
       `
+Each pack is tested in its own process: one that runs past --pack-timeout is stopped and
+reported as failed, and the others still run.
+
 Ground-truth repositories are fetched once (shallow, the pinned commit only) and installed with
 lifecycle scripts off into ~/.cache/uptide/ground-truth (UPTIDE_GROUND_TRUTH_CACHE overrides it).
 
@@ -1424,20 +1433,65 @@ ${EXIT_CODES('every pack passed', 'a false positive among breaking findings, a f
           fixturesOnly?: boolean;
           write?: boolean;
           updateFixtures?: boolean;
+          packTimeout?: string;
         },
       ) =>
         act(flags, async ({ ui, cwd }) => {
           const root = packRoot(cwd);
+          const minutes = flags.packTimeout === undefined ? undefined : Number(flags.packTimeout);
+          if (minutes !== undefined && !(Number.isFinite(minutes) && minutes > 0))
+            throw new CliError(
+              `--pack-timeout must be a number of minutes, not ${flags.packTimeout}`,
+            );
+          const timeoutMs = minutes === undefined ? PACK_TIMEOUT_MS : Math.round(minutes * 60_000);
+          const options = {
+            root,
+            ...(flags.offline ? { offline: true } : {}),
+            ...(flags.fixturesOnly ? { fixturesOnly: true } : {}),
+            ...(flags.write ? { write: true } : {}),
+            ...(flags.updateFixtures ? { updateFixtures: true } : {}),
+            log: (line: string) => io.err(`${line}\n`),
+          };
           const reports = [];
           for (const entry of packsToTest(root, registeredPacks(), name)) {
-            const report = await testPack(entry, {
-              root,
-              ...(flags.offline ? { offline: true } : {}),
-              ...(flags.fixturesOnly ? { fixturesOnly: true } : {}),
-              ...(flags.write ? { write: true } : {}),
-              ...(flags.updateFixtures ? { updateFixtures: true } : {}),
-              log: (line) => io.err(`${line}\n`),
-            });
+            let report: Awaited<ReturnType<typeof testPack>>;
+            if (process.env[IN_PROCESS_ENV] === '1') report = await testPack(entry, options);
+            else {
+              // This process only waits: the pack runs in a child it can always stop.
+              const run = await runIsolated({
+                argv: [
+                  process.execPath,
+                  ...process.execArgv,
+                  process.argv[1] as string,
+                  'pack',
+                  'test',
+                  entry.dir,
+                  '--json',
+                  '--cwd',
+                  root,
+                  ...(flags.offline ? ['--offline'] : []),
+                  ...(flags.fixturesOnly ? ['--fixtures-only'] : []),
+                  ...(flags.write ? ['--write'] : []),
+                  ...(flags.updateFixtures ? ['--update-fixtures'] : []),
+                ],
+                timeoutMs,
+                env: { [IN_PROCESS_ENV]: '1' },
+                onLine: (line) => io.err(`${line}\n`),
+              });
+              const parsed = (() => {
+                try {
+                  return (JSON.parse(run.stdout) as { packs?: typeof reports }).packs?.[0];
+                } catch {
+                  return undefined;
+                }
+              })();
+              report =
+                parsed && !run.timedOut
+                  ? parsed
+                  : unfinishedPack(entry, unfinishedReason(run, timeoutMs));
+              if (!parsed || run.timedOut)
+                io.err(`pack test ${entry.pack.name}: ${report.problems.at(-1)}\n`);
+            }
             reports.push(report);
             if (!flags.json) io.out(formatPackTest(report, ui.color));
           }

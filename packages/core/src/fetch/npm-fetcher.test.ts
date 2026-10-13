@@ -192,6 +192,46 @@ describe('a registry that is rate limiting or briefly down', () => {
     expect((await flaky('https://reg.test/demo')).status).toBe(200);
   });
 
+  it('gives up on a registry that never answers, or stops sending, instead of hanging', async () => {
+    // Accepts the connection and never answers: only the deadline ends it.
+    const silent = (async (_input: string | URL | Request, init?: RequestInit) =>
+      new Promise<Response>((_, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+      })) as typeof fetch;
+    const quiet = createNpmFetcher({
+      cacheDir: mkdtempSync(join(tmpdir(), 'uptide-cache-')),
+      config,
+      fetch: silent,
+      sleep: async () => {},
+      timeoutMs: 50,
+    });
+    await expect(quiet.resolve('demo', 'latest')).rejects.toMatchObject({
+      code: 'REGISTRY_TIMEOUT',
+      message: 'the registry did not answer in time: https://reg.test/demo/latest',
+    });
+    // Answers the headers, then the body stalls halfway: the same deadline covers it.
+    const stalled = (async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"version":'));
+          init?.signal?.addEventListener('abort', () => controller.error(init.signal?.reason));
+        },
+      });
+      return new Response(body, { status: 200 });
+    }) as typeof fetch;
+    const stuck = createNpmFetcher({
+      cacheDir: mkdtempSync(join(tmpdir(), 'uptide-cache-')),
+      config,
+      fetch: stalled,
+      sleep: async () => {},
+      timeoutMs: 50,
+    });
+    await expect(stuck.resolve('demo', 'latest')).rejects.toMatchObject({
+      code: 'REGISTRY_TIMEOUT',
+      message: 'the registry stopped sending: https://reg.test/demo/latest',
+    });
+  });
+
   it('says rate limited and how long the registry asks to wait when nothing is cached', async () => {
     const cacheDir = mkdtempSync(join(tmpdir(), 'uptide-cache-'));
     const fetcher = createNpmFetcher({
