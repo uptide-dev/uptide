@@ -1,9 +1,7 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
 import { isMap, isScalar, isSeq, LineCounter, type Node, parseDocument } from 'yaml';
 import { UptideError } from '../errors.js';
-import { keyLike } from '../llm/config.js';
-import { globRegExp } from '../workspaces.js';
+import { globRegExp } from '../glob.js';
+import { keyLike } from '../llm/types.js';
 import { cronProblem } from './cron.js';
 import {
   DEFAULT_CONFIG,
@@ -36,7 +34,8 @@ export interface LoadedConfig {
 /** Credentials by shape: provider keys, GitHub and Slack tokens, bearer headers. */
 const TOKEN =
   /(?:sk-[\w-]{8,}|AIza[\w-]{12,}|phc_[\w-]{8,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|xox[abpr]-[\w-]{8,}|bearer\s)/i;
-const MAX_BYTES = 64 * 1024;
+/** The largest `uptide.yml` read: a configuration file, not a data file. */
+export const MAX_CONFIG_BYTES = 64 * 1024;
 
 /** `packages.allow[0]`: how a setting is named in an error. */
 const pathText = (path: Path): string =>
@@ -78,8 +77,9 @@ export function parseUptideConfig(
       'INVALID_CONFIG',
       `${file} is not valid:\n${lines.map((l) => `  ${l}`).join('\n')}\nReference: docs/config.md`,
     );
-  if (Buffer.byteLength(text) > MAX_BYTES)
-    throw invalid([`the file is larger than ${MAX_BYTES / 1024} KB`]);
+  // TextEncoder, not Buffer: this also runs in a browser bundle.
+  if (new TextEncoder().encode(text).length > MAX_CONFIG_BYTES)
+    throw invalid([`the file is larger than ${MAX_CONFIG_BYTES / 1024} KB`]);
   const lineCounter = new LineCounter();
   const doc = parseDocument(text, { lineCounter, uniqueKeys: true, prettyErrors: false });
   const lineOf = (offset: number | undefined): string =>
@@ -148,32 +148,6 @@ export function parseUptideConfig(
   if (problems.length) throw invalid(problems);
   const given = value as UptideConfigInput;
   return { config: withDefaults(given), given };
-}
-
-/**
- * The configuration for a run in `cwd`: `explicit` when given (relative to `cwd`; it must
- * exist), else the nearest `uptide.yml` from `cwd` up to the Git root. Undefined when none.
- */
-export function loadUptideConfig(cwd: string, explicit?: string): LoadedConfig | undefined {
-  const read = (path: string): LoadedConfig => {
-    if (statSync(path).size > MAX_BYTES)
-      throw new UptideError('INVALID_CONFIG', `${path} is larger than ${MAX_BYTES / 1024} KB`);
-    return { path, ...parseUptideConfig(readFileSync(path, 'utf8'), path) };
-  };
-  if (explicit) {
-    const path = resolve(cwd, explicit);
-    if (!existsSync(path))
-      throw new UptideError('INVALID_CONFIG', `--config ${explicit}: no such file (${path})`);
-    return read(path);
-  }
-  let dir = resolve(cwd);
-  for (;;) {
-    const path = join(dir, UPTIDE_CONFIG_FILE);
-    if (existsSync(path)) return read(path);
-    const parent = dirname(dir);
-    if (parent === dir || existsSync(join(dir, '.git'))) return undefined;
-    dir = parent;
-  }
 }
 
 /** Whether the configuration lets Uptide consider `name`: not denied, and allowed when allow is set. */

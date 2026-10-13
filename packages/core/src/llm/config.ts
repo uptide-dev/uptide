@@ -1,7 +1,9 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { DEFAULT_MODELS } from './pricing.js';
-import { PROVIDERS, type Provider } from './types.js';
+import { keyLike, PROVIDERS, type Provider } from './types.js';
+
+export { keyLike };
 
 export const KEY_ENV: Record<Provider, string> = {
   anthropic: 'ANTHROPIC_API_KEY',
@@ -15,11 +17,6 @@ export interface Selection {
   available: boolean;
   baseUrl?: string;
 }
-/** Whether a setting looks like a credential: never accepted in a config file. */
-export const keyLike = (s: string): boolean =>
-  /(?:sk-[\w-]{8,}|AIza[\w-]{12,}|phc_[\w-]+|bearer\s|api[_-]?key|secret|password|access[_-]?token)/i.test(
-    s,
-  );
 export function validModel(value: unknown): value is string {
   return (
     typeof value === 'string' &&

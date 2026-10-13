@@ -2,6 +2,9 @@ import { type Dirent, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { UptideError } from './errors.js';
+import { globRegExp } from './glob.js';
+
+export { globRegExp };
 
 /** The `packages` a workspace file declares, and which file declared them. */
 function declaredPatterns(root: string): { file: string; patterns: string[] } | undefined {
@@ -39,28 +42,6 @@ function declaredPatterns(root: string): { file: string; patterns: string[] } | 
       Array.isArray(workspaces) ? workspaces : (workspaces as { packages?: unknown })?.packages,
     ),
   };
-}
-
-/**
- * A glob as a RegExp over `/`-separated paths relative to the root: `*` and `?` stay inside
- * one segment, `**` spans any number of them. Brace sets (`{a,b}`) and character classes are
- * not supported; no workspace seen so far uses them.
- */
-export function globRegExp(glob: string): RegExp {
-  let re = '';
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i] as string;
-    if (c === '*' && glob[i + 1] === '*') {
-      i++;
-      if (glob[i + 1] === '/') {
-        i++;
-        re += '(?:.*/)?';
-      } else re += '.*';
-    } else if (c === '*') re += '[^/]*';
-    else if (c === '?') re += '[^/]';
-    else re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-  }
-  return new RegExp(`^${re}$`);
 }
 
 /**

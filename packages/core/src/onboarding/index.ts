@@ -1,6 +1,7 @@
 // The "Add Uptide" pull request and `uptide.yml`: what the GitHub App and `uptide init`
-// both generate. Pure apart from `loadUptideConfig`, which reads a file; importable on its
-// own as `@uptide/core/onboarding` without the analysis engine.
+// both generate. Pure: no file system, no Node globals, so it bundles for a browser too.
+// Importable on its own as `@uptide/core/onboarding` without the analysis engine; what
+// reads from disk (`loadUptideConfig`, `snapshotFromDisk`) is `./node.ts`.
 export {
   COREPACK_VERSION,
   PINNED_ACTIONS,
@@ -9,7 +10,7 @@ export {
 } from './actions.js';
 export {
   type LoadedConfig,
-  loadUptideConfig,
+  MAX_CONFIG_BYTES,
   packageSelected,
   parseUptideConfig,
   type UptideConfigInput,
@@ -45,4 +46,3 @@ export {
   UPTIDE_CONFIG_SCHEMA_URL,
   type UptideConfig,
 } from './schema.js';
-export { snapshotFromDisk } from './snapshot.js';
