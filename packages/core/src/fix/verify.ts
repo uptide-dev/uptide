@@ -7,6 +7,7 @@ import { Project, ts } from 'ts-morph';
 import { resolveCompiler } from '../adapters/typescript/compiler.js';
 import { readInstalled } from '../adapters/typescript/repo.js';
 import { workspaceSourceMap } from '../adapters/typescript/workspace-source.js';
+import { workspacePackagesOf } from '../workspaces.js';
 import { command, git } from './process.js';
 import { isServiceTest, serviceNeeds, unitConfig } from './services.js';
 import type { FixDiagnostic, RelatedDeclaration, TestResult } from './types.js';
@@ -691,6 +692,31 @@ function relatedScript(
  * related-tests mode, or to the workspace directory when no file is known; the root `test`
  * script. Workspaces sharing a configuration share one run. Whatever is left has no tests.
  */
+/**
+ * A root `test` script that does nothing but run every workspace's own `test` script, in
+ * exactly one of the forms package managers spell that. One with filters or extra flags may
+ * run something else, and is left as it is.
+ */
+const RECURSIVE_TEST = [
+  /^pnpm (?:-r|--recursive) (?:run )?test$/,
+  /^npm (?:run )?test (?:--workspaces|-ws)$/,
+  /^npm (?:--workspaces|-ws) (?:run )?test$/,
+  /^yarn workspaces foreach (?:-A|--all) run test$/,
+  /^turbo (?:run )?test$/,
+];
+/** The repository's workspaces; none when its workspace file cannot be read. */
+const declaredWorkspaces = (root: string): string[] => {
+  try {
+    return workspacePackagesOf(root);
+  } catch {
+    return [];
+  }
+};
+const recursiveRoot = (root: string): boolean => {
+  const script = manifest(root)?.scripts?.test?.trim().replace(/\s+/g, ' ');
+  return !!script && RECURSIVE_TEST.some((form) => form.test(script));
+};
+
 export function planTests(
   root: string,
   workspaces: string[],
@@ -703,7 +729,22 @@ export function planTests(
     { runner: 'vitest' | 'jest'; dir: string; config: string; covers: string[] }
   >();
   const rootScript: string[] = [];
-  const selected = options.related ? relatedWorkspaces(root, workspaces, files) : workspaces;
+  // The root's `pnpm -r run test` runs every workspace's script; with the workspaces' own runs
+  // it ran each of them twice. Planned as those scripts instead, each runs once, and the set
+  // that runs is the same: the root's own workspaces, and every other one it reached.
+  const recursive = recursiveRoot(root);
+  const expanded =
+    recursive && workspaces.includes('.')
+      ? [
+          ...new Set([
+            ...workspaces.filter((w) => w !== '.'),
+            ...declaredWorkspaces(root).filter(
+              (w) => w !== '.' && manifest(join(root, w))?.scripts?.test,
+            ),
+          ]),
+        ]
+      : workspaces;
+  const selected = options.related ? relatedWorkspaces(root, workspaces, files) : expanded;
   for (const workspace of selected) {
     const script = manifest(join(root, workspace))?.scripts?.test;
     const scoped =
@@ -732,7 +773,9 @@ export function planTests(
       shared.set(key, group);
       continue;
     }
-    if (workspace !== '.' && manifest(root)?.scripts?.test) rootScript.push(workspace);
+    // A recursive root script skips a workspace without a `test` script, as pnpm -r does.
+    if (workspace !== '.' && manifest(root)?.scripts?.test && !recursive)
+      rootScript.push(workspace);
     else
       plans.push({
         workspace,

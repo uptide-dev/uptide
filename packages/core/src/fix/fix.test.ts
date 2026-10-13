@@ -751,12 +751,63 @@ describe('test detection', () => {
       ['packages/schema', 'vitest related --run --passWithNoTests src/a.ts'],
       ['packages/engine', 'vitest related --run --passWithNoTests ../schema/src/a.ts'],
     ]);
-    // Verification still runs every workspace's own script.
+    // Verification still runs every workspace's own script, each once: the root's
+    // `pnpm -r run test` is those scripts, not one more run of them.
     expect(planTests(root, workspaces, files).map((p) => p.command)).toEqual([
-      'pnpm -r run test',
       'vitest run',
       'vitest run',
       'vitest run --coverage',
+    ]);
+  });
+
+  it("runs each workspace's test script once when the root's runs them all, and runs the same set", async () => {
+    const root = mkdtempSync(join(scratch, 'recursive-'));
+    const write = (file: string, text: string, mode?: number) => {
+      mkdirSync(join(root, file, '..'), { recursive: true });
+      writeFileSync(join(root, file), text, mode ? { mode } : {});
+    };
+    write('package.json', JSON.stringify({ name: 'mono', scripts: { test: 'pnpm -r run test' } }));
+    write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
+    // Each script records that it ran; `c` is a workspace the run did not select.
+    for (const name of ['a', 'b', 'c'])
+      write(
+        `packages/${name}/package.json`,
+        JSON.stringify({ name, scripts: { test: `echo ${name} >> ../../ran.log` } }),
+      );
+    write('packages/d/package.json', JSON.stringify({ name: 'd' }));
+    // A stand-in for pnpm -r: every workspace's test script, in its directory, skipping those without one.
+    write(
+      'node_modules/.bin/pnpm',
+      `#!/bin/sh\nfor d in packages/*; do s=$(node -p "require('./$d/package.json').scripts?.test ?? ''"); [ -n "$s" ] && (cd $d && sh -c "$s"); done\n`,
+      0o755,
+    );
+    const ran = async (workspaces: string[]) => {
+      rmSync(join(root, 'ran.log'), { force: true });
+      await testWorkspaces(root, workspaces, 10_000);
+      return readFileSync(join(root, 'ran.log'), 'utf8').trim().split('\n').sort();
+    };
+    // What the root script alone runs: every workspace that has a test script.
+    const all = await ran(['.']);
+    expect(all).toEqual(['a', 'b', 'c']);
+    // The root together with selected workspaces: before, a and b ran twice. Now each runs once.
+    const workspaces = ['.', 'packages/a', 'packages/b', 'packages/d'];
+    expect(await ran(workspaces)).toEqual(all);
+    expect(planTests(root, workspaces).map((p) => [p.workspace, p.command])).toEqual([
+      ['packages/a', 'echo a >> ../../ran.log'],
+      ['packages/b', 'echo b >> ../../ran.log'],
+      ['packages/d', ''],
+      ['packages/c', 'echo c >> ../../ran.log'],
+    ]);
+    // Any other root script still runs as itself.
+    write(
+      'package.json',
+      JSON.stringify({ name: 'mono', scripts: { test: 'pnpm -r --filter a run test' } }),
+    );
+    expect(planTests(root, workspaces).map((p) => p.workspace)).toEqual([
+      '.',
+      'packages/a',
+      'packages/b',
+      '.',
     ]);
   });
 
