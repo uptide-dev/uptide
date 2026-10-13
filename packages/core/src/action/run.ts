@@ -31,7 +31,7 @@ export interface ActionInputs {
   mode: string;
   /** `package`: one dependency; empty for every one uptide.yml allows. */
   package?: string;
-  /** `anthropic-api-key`; empty when the repository has no secret. */
+  /** `anthropic-api-key`; empty when the repository has no secret, and then nothing runs. */
   apiKey?: string;
   engineVersion: string;
   /** `GITHUB_REPOSITORY`, `GITHUB_REPOSITORY_ID`, `GITHUB_SHA`, `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`. */
@@ -45,7 +45,7 @@ export interface ActionInputs {
 }
 
 export interface ActionServices {
-  /** Run the CLI with these arguments; `apiKey` is passed to it only when assisted fixes may run. */
+  /** Run the CLI with these arguments; `apiKey` is passed to `uptide fix` alone. */
   engine(args: string[], apiKey?: string): Promise<EngineRun>;
   /** The installation token (exchanged on first use). Throws `ActionAuthError`. */
   token(): Promise<string>;
@@ -55,6 +55,13 @@ export interface ActionServices {
   now(): number;
   log(line: string): void;
 }
+
+/** The report's error when the run has no Anthropic key: its code, then what to do. */
+export const LLM_KEY_MISSING =
+  'LLM_KEY_MISSING: the Anthropic API key is missing. Add a repository secret named ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions) and pass it to the Uptide step as anthropic-api-key';
+/** The report's error when uptide.yml turns the LLM off, which the Action no longer runs without. */
+export const LLM_DISABLED =
+  'uptide.yml sets llm.enabled to false, which the Uptide Action no longer supports: it always uses the Anthropic key. Remove llm.enabled from uptide.yml';
 
 /** How many packages `check` analyzes in a run without `package`: the rest stay listed. */
 export const CHECK_LIMIT = 10;
@@ -162,6 +169,7 @@ export async function runAction(
   const startedAt = services.now();
   const mode = (MODES.includes(inputs.mode as RunMode) ? inputs.mode : 'check') as RunMode;
   const upgrades: Upgrade[] = [];
+  const apiKey = inputs.apiKey?.trim() || undefined;
   const report = (error?: string): RunReport => ({
     schema: RUN_REPORT_SCHEMA_ID,
     engineVersion: /^[0-9A-Za-z.+-]{1,64}$/.test(inputs.engineVersion)
@@ -172,8 +180,12 @@ export async function runAction(
     startedAt: iso(startedAt),
     finishedAt: iso(services.now()),
     upgrades,
+    llmKey: apiKey ? 'present' : 'missing',
     ...(error ? { error: sentence(error) } : {}),
   });
+  // The key before anything else, in every mode: without the LLM, Uptide's answers are worse,
+  // and no run beats a poor one. Nothing is read, listed, checked or fixed.
+  if (!apiKey) return report(LLM_KEY_MISSING);
   if (!MODES.includes(inputs.mode as RunMode))
     return report(`mode must be list, check or fix, not "${inputs.mode.slice(0, 20)}"`);
 
@@ -194,12 +206,16 @@ export async function runAction(
       `::notice::No ${UPTIDE_CONFIG_FILE} in the repository: running with the defaults.`,
     );
   }
+  // Older files may still say `llm.enabled`; true changes nothing, false is no longer offered.
+  if (!config.llm.enabled) return report(LLM_DISABLED);
+  if (config.llm.provider !== 'anthropic')
+    return report(
+      `uptide.yml sets llm.provider to ${config.llm.provider}; the Uptide Action passes only an Anthropic key. Use provider anthropic`,
+    );
   const common = ['--json', '--ci', '--cwd', inputs.workspace];
   const configArgs = existsSync(join(inputs.workspace, inputs.config || UPTIDE_CONFIG_FILE))
     ? ['--config', inputs.config || UPTIDE_CONFIG_FILE]
     : [];
-  // Assisted fixes need the key, the setting, and the one provider the workflow passes a key for.
-  const llm = !!inputs.apiKey && config.llm.enabled && config.llm.provider === 'anthropic';
   const only = inputs.package?.trim() || undefined;
 
   // Discovery: what is behind, already narrowed by uptide.yml `packages`.
@@ -295,7 +311,7 @@ export async function runAction(
       );
       continue;
     }
-    if (llm && budget < 0.01) {
+    if (budget < 0.01) {
       upgrades.push(skipped(row, 'skipped', `maxCost of $${config.maxCost} reached this run`));
       continue;
     }
@@ -306,17 +322,13 @@ export async function runAction(
       dep.name,
       ...common,
       ...configArgs,
-      ...(llm
-        ? [
-            '--llm',
-            '--max-cost',
-            budget.toFixed(2),
-            ...(config.executor === 'patch' ? [] : ['--agent', 'sdk']),
-          ]
-        : ['--no-llm']),
+      '--llm',
+      '--max-cost',
+      budget.toFixed(2),
+      ...(config.executor === 'patch' ? [] : ['--agent', 'sdk']),
     ];
     services.log(`::group::uptide fix ${dep.name}`);
-    const run = await services.engine(args, llm ? inputs.apiKey : undefined);
+    const run = await services.engine(args, apiKey);
     services.log('::endgroup::');
     const fixed = parseJson<FixReport>(run);
     if (!fixed || run.code === 2) {

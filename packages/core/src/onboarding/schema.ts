@@ -53,7 +53,7 @@ export const UPTIDE_CONFIG_SCHEMA = {
   $id: UPTIDE_CONFIG_SCHEMA_URL,
   title: 'uptide.yml',
   description:
-    'Settings for Uptide: which dependencies it upgrades, when, and whether it may call an LLM.',
+    'Settings for Uptide: which dependencies it upgrades, when, and how it uses the LLM.',
   type: 'object',
   additionalProperties: false,
   required: ['version'],
@@ -98,7 +98,8 @@ export const UPTIDE_CONFIG_SCHEMA = {
       additionalProperties: false,
       properties: {
         enabled: {
-          description: 'false: no code is sent to an LLM provider; rule-based fixes only.',
+          description:
+            'No longer offered; accepted so older files still load. The Uptide Action requires the Anthropic key and rejects false. The local CLI still reads it.',
           type: 'boolean',
           default: true,
         },

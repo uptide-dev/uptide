@@ -253,6 +253,9 @@
         }
       }
     },
+    "llmKey": {
+      "enum": ["present", "missing"]
+    },
     "error": {
       "type": "string",
       "pattern": "^[^\\u0000-\\u001f`]{1,300}$"

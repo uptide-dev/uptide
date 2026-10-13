@@ -68,7 +68,8 @@ export type RefusalReason =
   | 'unknown-manager-version'
   | 'yarn-pnp'
   | 'unsupported-node'
-  | 'unsupported-provider';
+  | 'unsupported-provider'
+  | 'llm-disabled';
 
 /** Why Uptide will not generate files for a repository, in words for the person who asked. */
 export class OnboardingRefusal extends UptideError {

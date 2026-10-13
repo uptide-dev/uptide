@@ -44,6 +44,23 @@ export function renderSummary(report: RunReport): string {
     '',
   ];
   if (report.error) lines.push(`**The run stopped:** ${cell(report.error)}`, '');
+  // Nothing ran: what to add, and where, is the whole summary.
+  if (report.llmKey === 'missing') {
+    lines.push(
+      '### Add the Anthropic API key',
+      '',
+      'Uptide does not run without an Anthropic API key. To add it:',
+      '',
+      '1. In this repository, open **Settings → Secrets and variables → Actions**.',
+      '2. Select **New repository secret**, name it `ANTHROPIC_API_KEY`, and paste your Anthropic API key as its value.',
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: a GitHub Actions expression, as the workflow writes it.
+      '3. Make sure the Uptide step passes it: `anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}`.',
+      '',
+      'Then run the workflow again.',
+      '',
+    );
+    return lines.join('\n');
+  }
   if (report.upgrades.length === 0) lines.push('No dependency upgrades to report.');
   else {
     lines.push(

@@ -9,7 +9,13 @@ import { reportProblems } from '../run-report/safe.js';
 import { renderSummary } from '../run-report/summary.js';
 import type { EngineRun } from './engine.js';
 import { ActionAuthError } from './oidc.js';
-import { type ActionInputs, type ActionServices, runAction } from './run.js';
+import {
+  type ActionInputs,
+  type ActionServices,
+  LLM_DISABLED,
+  LLM_KEY_MISSING,
+  runAction,
+} from './run.js';
 
 const fixture = <T>(path: string): T =>
   JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -255,22 +261,88 @@ describe('the Uptide Action run', () => {
     expect(calls.filter((c) => c.args[0] === 'fix')).toHaveLength(1);
   });
 
-  it('fix: rule-based only without a key, or with the LLM off; the patch executor without --agent', async () => {
-    for (const [settings, apiKey, expected] of [
-      ['version: 1\n', undefined, '--no-llm'],
-      ['version: 1\nllm:\n  enabled: false\n', 'test-key', '--no-llm'],
-      ['version: 1\nexecutor: patch\n', 'test-key', '--llm'],
+  it('fix: always assisted, with the key passed to fix alone; the patch executor without --agent', async () => {
+    for (const [settings, agent] of [
+      ['version: 1\n', true],
+      ['version: 1\nllm:\n  enabled: true\n', true],
+      ['version: 1\nexecutor: patch\n', false],
     ] as const) {
       const { s, calls } = services({
         list: listReport([dep('zod', '3.25.76', '4.6.5')]),
         fix: () => fixRun(storefrontFix()),
       });
-      await runAction(inputs(workspace(settings), apiKey ? { apiKey } : { apiKey: undefined }), s);
+      const report = await runAction(inputs(workspace(settings)), s);
+      expect(report.llmKey).toBe('present');
       const fix = calls.find((c) => c.args[0] === 'fix');
-      expect(fix?.args).toContain(expected);
-      expect(fix?.args.includes('--agent')).toBe(false);
-      expect(fix?.apiKey).toBe(expected === '--llm' ? 'test-key' : undefined);
+      expect(fix?.args).toContain('--llm');
+      expect(fix?.args).not.toContain('--no-llm');
+      expect(fix?.args.includes('--agent')).toBe(agent);
+      expect(fix?.apiKey).toBe('test-key');
+      expect(calls.filter((c) => c.args[0] !== 'fix').every((c) => !c.apiKey)).toBe(true);
     }
+  });
+
+  it('without a key, in every mode, stops before anything runs and says what to add', async () => {
+    for (const mode of ['list', 'check', 'fix', 'nonsense'])
+      for (const apiKey of [undefined, '', '  \n']) {
+        const { s, calls, published } = services({
+          list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+          fix: () => fixRun(storefrontFix()),
+        });
+        let tokens = 0;
+        s.token = async () => {
+          tokens++;
+          return 'installation-token';
+        };
+        // Not even the settings are read: an invalid file is not what this run reports.
+        const ws = workspace('version: 1\nmaxOpenPrs: lots\n');
+        const report = await runAction(inputs(ws, { mode, apiKey }), s);
+        expect(calls).toEqual([]);
+        expect(published).toEqual([]);
+        expect(tokens).toBe(0);
+        expect(report.upgrades).toEqual([]);
+        expect(report.llmKey).toBe('missing');
+        expect(report.error).toBe(LLM_KEY_MISSING);
+        expect(report.error).toMatch(/^LLM_KEY_MISSING: /);
+        expect(reportProblems(report)).toEqual([]);
+        const summary = renderSummary(report);
+        expect(summary).toContain('Settings → Secrets and variables → Actions');
+        expect(summary).toContain('`ANTHROPIC_API_KEY`');
+        expect(summary).not.toContain('| Package |');
+      }
+  });
+
+  it('reports that a key was present, never the key or any part of it', async () => {
+    const key = `sk-ant-api03-${'k'.repeat(40)}`;
+    const { s } = services({ list: listReport([dep('zod', '3.25.76', '4.6.5')]) });
+    const report = await runAction(
+      inputs(workspace('version: 1\n'), { mode: 'list', apiKey: key }),
+      s,
+    );
+    expect(report.llmKey).toBe('present');
+    const text = JSON.stringify(report);
+    for (const part of [key, key.slice(0, 12), key.slice(-8)]) expect(text).not.toContain(part);
+    expect(reportProblems(report)).toEqual([]);
+  });
+
+  it('an uptide.yml that turns the LLM off is rejected, saying why, before anything runs', async () => {
+    const { s, calls } = services({ list: listReport([dep('zod', '3.25.76', '4.6.5')]) });
+    const report = await runAction(
+      inputs(workspace('version: 1\nllm:\n  enabled: false\n'), { mode: 'check' }),
+      s,
+    );
+    expect(calls).toEqual([]);
+    expect(report.error).toBe(LLM_DISABLED);
+    expect(report.error).toContain('Remove llm.enabled from uptide.yml');
+    expect(report.llmKey).toBe('present');
+    expect(reportProblems(report)).toEqual([]);
+  });
+
+  it('an uptide.yml naming another provider is rejected: the Action passes only an Anthropic key', async () => {
+    const { s, calls } = services({ list: listReport([]) });
+    const report = await runAction(inputs(workspace('version: 1\nllm:\n  provider: openai\n')), s);
+    expect(calls).toEqual([]);
+    expect(report.error).toContain('passes only an Anthropic key');
   });
 
   it('fix: a migration that does not verify is reported failed and never published', async () => {

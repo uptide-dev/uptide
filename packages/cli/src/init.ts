@@ -116,8 +116,8 @@ export function writeInit(result: InitResult, force: boolean): void {
 
 export const INIT_NEXT = `Next:
   1. Review the files, then commit them on a branch and open a pull request.
-  2. Add the repository secret ANTHROPIC_API_KEY for assisted fixes:
+  2. Add the repository secret ANTHROPIC_API_KEY:
        gh secret set ANTHROPIC_API_KEY
-     Without it Uptide applies rule-based fixes only. llm.enabled: false in ${UPTIDE_CONFIG_FILE} turns the LLM off.
+     The workflow does not run Uptide without it.
   The workflow runs once ${WORKFLOW_PATH} is on the default branch: on its schedule, and when started from the Actions tab.
 `;

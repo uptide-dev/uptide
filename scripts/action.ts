@@ -2,8 +2,9 @@
  * The Uptide Action (action.yml): one run of list, check or fix in the customer's own job,
  * with the CLI of this commit. Inputs arrive as UPTIDE_* variables from action.yml.
  *
- * Secrets: the Anthropic key is read once and removed from this process's environment; it is
- * passed to `uptide fix` only when assisted fixes may run. The installation token is masked
+ * Secrets: the Anthropic key is required; without it the run stops before doing anything
+ * (`LLM_KEY_MISSING`). It is read once and removed from this process's environment, and
+ * passed to `uptide fix` alone. The installation token is masked
  * on arrival and reaches only the `uptide pr` process. Nothing here prints either.
  */
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';

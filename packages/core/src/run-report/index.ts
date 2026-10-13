@@ -6,6 +6,7 @@ export {
   type Analysis,
   type BreakingChange,
   type BreakingSite,
+  type LlmKey,
   RUN_REPORT_SCHEMA,
   RUN_REPORT_SCHEMA_ID,
   RUN_REPORT_SCHEMA_URL,
