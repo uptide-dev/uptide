@@ -119,9 +119,9 @@ function byPackage(packages: PackageReport[]): Upgrade[] {
 }
 
 /**
- * A companion (`react-dom`, `@types/react`) that `check` also reports on its own, at the
- * version installed: it is not up to date, it moves with its lead's upgrade. Its row takes the
- * versions the lead's plan gives it and names the lead.
+ * A companion (`react-dom`, `@types/react`) moves with its lead's upgrade: its row takes the
+ * versions the lead's plan gives it and names the lead, whether `check` analyzed it in the
+ * lead's group (no report of its own) or reported it apart, at the version installed.
  */
 function movingWithLeads(packages: PackageReport[], rows: Map<string, Upgrade>): void {
   const moves = (u: Upgrade): boolean => u.from !== u.to && u.status !== 'up_to_date';
@@ -133,11 +133,17 @@ function movingWithLeads(packages: PackageReport[], rows: Map<string, Upgrade>):
       ...(pkg.members ?? []).map((m) => ({ name: m.name, from: m.installed, to: m.target })),
     ];
     for (const c of together) {
-      const row = rows.get(c.name);
-      if (!row || c.name === lead.package || moves(row)) continue;
-      if (row.status !== 'up_to_date' && row.status !== 'available') continue;
+      if (c.name === lead.package) continue;
       if (c.from === c.to || reportVersion(c.from) !== c.from || reportVersion(c.to) !== c.to)
         continue;
+      // Analyzed in its lead's group, a companion has no report of its own: its row starts here.
+      let row = rows.get(c.name);
+      if (!row) {
+        row = skipped({ package: c.name, from: c.from }, 'up_to_date');
+        rows.set(c.name, row);
+      }
+      if (moves(row)) continue;
+      if (row.status !== 'up_to_date' && row.status !== 'available') continue;
       row.from = c.from;
       row.to = c.to;
       row.kind = kindOf(c.from, c.to);

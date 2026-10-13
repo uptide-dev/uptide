@@ -214,6 +214,52 @@ describe('the Uptide Action run', () => {
     expect(summary).not.toContain('### Breaking sites');
   });
 
+  it('check: companions analyzed in their lead group get a row of their own', async () => {
+    // What `check react` answers now: one report for the group, the companions as members.
+    const { s } = services({
+      list: listReport([dep('react', '18.3.1', '19.2.0')]),
+      check: {
+        repo: '.',
+        workspaces: ['.'],
+        packages: [
+          {
+            workspace: '.',
+            name: 'react',
+            installed: '18.3.1',
+            latest: '19.2.0',
+            target: '19.2.0',
+            members: [
+              { name: 'react', installed: '18.3.1', target: '19.2.0' },
+              { name: '@types/react', installed: '18.3.12', target: '19.2.2' },
+              { name: 'react-dom', installed: '18.3.1', target: '19.2.0' },
+            ],
+            companions: [
+              { name: '@types/react', from: '18.3.12', to: '19.2.2', reason: 'types react' },
+              { name: 'react-dom', from: '18.3.1', to: '19.2.0', reason: 'released with react' },
+            ],
+            majorsBehind: 1,
+            findings: [],
+            callSitesChecked: 3,
+            unanalyzed: [],
+            status: 'safe',
+            tier: 'generic',
+            notes: [],
+            timing: { fetchMs: 0, diffMs: 0, usagesMs: 0, compileMs: 0 },
+          },
+        ],
+        summary: {},
+        timing: { totalMs: 1 },
+      },
+    });
+    const report = await runAction(inputs(workspace('version: 1\n'), { mode: 'check' }), s);
+    expect(reportProblems(report)).toEqual([]);
+    expect(report.upgrades.map((u) => [u.package, u.from, u.to, u.status, u.movesWith])).toEqual([
+      ['react', '18.3.1', '19.2.0', 'available', undefined],
+      ['@types/react', '18.3.12', '19.2.2', 'available', 'react'],
+      ['react-dom', '18.3.1', '19.2.0', 'available', 'react'],
+    ]);
+  });
+
   it('fix: migrates, opens the PR with the installation token, and reports it', async () => {
     const { s, calls, published } = services({
       list: listReport([dep('zod', '3.25.76', '4.6.5')]),
