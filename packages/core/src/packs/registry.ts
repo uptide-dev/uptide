@@ -6,6 +6,8 @@ import aiVerification from './ai/verification.json' with { type: 'json' };
 import type { PackVerification, RegisteredPack } from './contract.js';
 import { reactPack } from './react/index.js';
 import reactVerification from './react/verification.json' with { type: 'json' };
+import { rechartsPack } from './recharts/index.js';
+import rechartsVerification from './recharts/verification.json' with { type: 'json' };
 import { stripePack } from './stripe/index.js';
 import stripeVerification from './stripe/verification.json' with { type: 'json' };
 import { vitestPack } from './vitest/index.js';
@@ -16,6 +18,7 @@ import zodVerification from './zod/verification.json' with { type: 'json' };
 export const REGISTRY: readonly RegisteredPack[] = [
   { dir: 'ai', pack: aiPack, verification: aiVerification as PackVerification },
   { dir: 'react', pack: reactPack, verification: reactVerification as PackVerification },
+  { dir: 'recharts', pack: rechartsPack, verification: rechartsVerification as PackVerification },
   { dir: 'stripe', pack: stripePack, verification: stripeVerification as PackVerification },
   { dir: 'vitest', pack: vitestPack, verification: vitestVerification as PackVerification },
   { dir: 'zod', pack: zodPack, verification: zodVerification as PackVerification },
