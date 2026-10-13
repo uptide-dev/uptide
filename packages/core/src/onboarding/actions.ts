@@ -30,12 +30,13 @@ export const PINNED_ACTIONS = {
  * commit, so each release pins the one before it, and the release process bumps this pin.
  *
  * v0.9.0 is the first release that ships the Uptide Action; the inputs the workflow passes
- * are only `config`, `mode`, `package` and `anthropic-api-key`.
+ * are only `config`, `mode`, `package` and `anthropic-api-key`. Since v0.11.0 the Action
+ * requires `anthropic-api-key`, which the workflow always passes.
  */
 export const UPTIDE_ACTION: PinnedAction & { released: boolean } = {
   repo: 'uptide-dev/uptide',
-  sha: '2045c7dc0fcb7cd86522595de06308f154b1d8bf',
-  tag: 'v0.9.0',
+  sha: 'e27dd6bbf8d97d9ce0c106d50fea58dd32de66c9',
+  tag: 'v0.11.0',
   released: true,
 };
 
