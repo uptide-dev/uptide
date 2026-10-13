@@ -94,7 +94,10 @@ and tests run with every variable whose name says token, secret, key or password
 ## The run report
 
 `uptide.run/v1`, owned by the engine and published as `uptide/report` (types, a validator, the
-summary renderer) and `uptide/report/schema.json` (JSON Schema). One row per dependency. A
+summary renderer) and `uptide/report/schema.json` (JSON Schema). Like `uptide/onboarding`,
+`uptide/report` is pure: no file system and no Node globals, so it imports under plain Node
+ESM and bundles for a browser (`pnpm smoke:onboarding` checks both from the packed tarball).
+One row per dependency. A
 real `fix` run on the [storefront fixture](../fixtures/repos/storefront) without an API key
 (rule-based only; `breaking` cut to 3 of 28 here):
 

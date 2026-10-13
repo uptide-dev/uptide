@@ -47,6 +47,17 @@ const loaded = loadUptideConfig(dir); // the nearest uptide.yml, or undefined
 const facts = repoFacts(snapshotFromDisk(dir, { slug: 'owner/name', defaultBranch: 'main' }));
 ```
 
+`WORKFLOW_PATH` (`.github/workflows/uptide.yml`) is where the generated workflow lives, and it
+is exported from `uptide/onboarding`. A run of the Uptide Action proves its origin with the
+job's OIDC token, whose `workflow_ref` claim is `owner/name/.github/workflows/uptide.yml@ref`.
+Check it against the constant rather than a copy of the path:
+
+```ts
+import { WORKFLOW_PATH } from 'uptide/onboarding';
+
+const fromUptideWorkflow = claims.workflow_ref.startsWith(`${repository}/${WORKFLOW_PATH}@`);
+```
+
 ## What it reads
 
 Only files at the repository root (the Git top level):
