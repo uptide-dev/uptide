@@ -40,8 +40,8 @@ tests, and High for unverified sites, behavior changes or remaining manual work.
 package's risk is never Low. Unchecked schema samples are called out separately; they do not
 imply unresolved compiler sites.
 
-Diffs, file lists, verification and run details are collapsed; the Action comment and the
-terminal share the compact migration renderer. Builds embed the Uptide commit and whether its
+Diffs, file lists, verification and run details are collapsed; the terminal shows the same
+migration in the compact renderer. Builds embed the Uptide commit and whether its
 source checkout had working-tree changes.
 
 ## `uptide pr-body`

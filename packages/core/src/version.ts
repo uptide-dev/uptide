@@ -76,7 +76,12 @@ export function uptideVersionInfo(env: NodeJS.ProcessEnv = process.env): {
         !clean && dirtyLines(git('status', '--porcelain', '--untracked-files=all')).length > 0,
     };
   } catch {
-    return { uptideVersion: published, uptideCommit: 'unknown', uptideDirty: false };
+    // No checkout to ask (the Uptide Action is downloaded as an archive): the Action passes
+    // the commit it is pinned to.
+    const commit = /^[0-9a-f]{40}$/.test(env.UPTIDE_BUILD_COMMIT ?? '')
+      ? (env.UPTIDE_BUILD_COMMIT as string)
+      : 'unknown';
+    return { uptideVersion: published, uptideCommit: commit, uptideDirty: false };
   }
 }
 

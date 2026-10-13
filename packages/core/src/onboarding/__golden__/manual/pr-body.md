@@ -17,11 +17,12 @@ The workflow has no schedule (`schedule: manual`): it runs only when someone sta
 
 ## Where it runs
 
-In this repository's own GitHub Actions, on GitHub's runners, like your other workflows. The workflow can push branches and open pull requests in this repository and nothing else:
+In this repository's own GitHub Actions, on GitHub's runners, like your other workflows. The workflow itself only reads the repository:
 
-- `contents: write` to push migration branches
-- `pull-requests: write` to open draft pull requests
-- `id-token: write` to prove to Uptide that the results come from this workflow
+- `contents: read` to check it out
+- `id-token: write` to prove to Uptide that a run is this repository's workflow
+
+With that proof, the Uptide GitHub App gives the run a token that expires within the hour, and Uptide pushes its migration branches and opens its draft pull requests with it, in this repository only. Pull requests opened that way run your CI; ones opened with the workflow's own token would not.
 
 ## What leaves CI
 

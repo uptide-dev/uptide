@@ -134,11 +134,9 @@ describe('the workflow', () => {
       expect(workflow.on.schedule).toEqual([{ cron: o.config.schedule }]);
       expect(Object.keys(workflow.on.workflow_dispatch.inputs)).toEqual(['mode', 'package']);
       expect(workflow.on.workflow_dispatch.inputs.mode.options).toEqual(['list', 'check', 'fix']);
-      expect(workflow.permissions).toEqual({
-        contents: 'write',
-        'pull-requests': 'write',
-        'id-token': 'write',
-      });
+      // Read-only plus an identity: the Uptide Action pushes with the App's installation token,
+      // so its pull requests run the repository's CI (GITHUB_TOKEN's would not).
+      expect(workflow.permissions).toEqual({ contents: 'read', 'id-token': 'write' });
       const steps = workflow.jobs.uptide.steps as {
         uses?: string;
         run?: string;

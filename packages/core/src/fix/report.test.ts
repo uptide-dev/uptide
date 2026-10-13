@@ -1,7 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { commentSummary } from '../action/run.js';
-import type { CheckReport } from '../domain/report.js';
 import { GENERIC_NOTE } from '../packs/generic.js';
 import { stripePack } from '../packs/stripe/index.js';
 import {
@@ -60,24 +58,6 @@ for (const name of ['storefront-zod', 'stripe'])
       expect(formatFix(report)).not.toMatch(
         /<details>|### Worth a look|### Decisions|sampled inputs|No tests ran/,
       );
-    });
-    it('shares the compact renderer with the GitHub sticky comment', () => {
-      const report = fixture(name);
-      const check = { packages: [] } as unknown as CheckReport;
-      const comment = commentSummary(
-        [
-          {
-            name: report.package as 'zod' | 'stripe',
-            from: first(report.sites).finding.change.from,
-            to: report.target,
-            workspaces: ['.'],
-          },
-        ],
-        [check],
-        [report],
-        'Done.',
-      );
-      expect(comment).toContain(renderMigration(report, 'compact'));
     });
   });
 it('matches the storefront counts and folds the two resolved diagnostics into one fix', () => {

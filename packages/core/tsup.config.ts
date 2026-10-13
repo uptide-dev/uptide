@@ -16,9 +16,12 @@ export default defineConfig({
     // What the GitHub App imports: the generator and uptide.yml, without the engine.
     onboarding: 'src/onboarding/index.ts',
     'onboarding-node': 'src/onboarding/node.ts',
+    // What `uptide/report` is built from: the Action's run report, without the engine.
+    'run-report': 'src/run-report/index.ts',
   },
   format: ['esm'],
-  dts: true,
+  // The Uptide Action builds the engine at its pinned commit and needs no declarations.
+  dts: process.env.UPTIDE_BUILD_NO_DTS !== '1',
   sourcemap: true,
   clean: true,
   target: 'node20',

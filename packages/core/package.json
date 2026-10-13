@@ -29,6 +29,11 @@
       "source": "./src/onboarding/node.ts",
       "types": "./dist/onboarding-node.d.ts",
       "import": "./dist/onboarding-node.js"
+    },
+    "./run-report": {
+      "source": "./src/run-report/index.ts",
+      "types": "./dist/run-report.d.ts",
+      "import": "./dist/run-report.js"
     }
   },
   "files": [

@@ -1218,20 +1218,20 @@ refused. It preserves single-item values; the PR's “Decisions for you” expla
 multi-item semantics and pagination limits. Accepted patches may not add throw/null nodes. Compilation
 alone cannot prove business equivalence: this decision remains visible for human review.
 
-### Bot PR action transaction
+### The Uptide Action
 
-The composite Action executes trusted Uptide code separately from PR-head source.
-It accepts only same-repository Renovate/Dependabot PR events and compares exact
-lockfile importer versions, including pnpm catalogs. Read/check work uses PR-head
-source with base dependency declarations, not stale base source. Each migration runs
-in its own temporary worktree; only source diffs are applied to an exact PR-head
-worktree. The head's original lockfile is verified again with type checking and tests.
-Manual findings or failed verification abort the whole push. All successful package
-patches become one commit whose parent must be the event's head SHA. The API head is
-rechecked immediately before a normal, non-force push, so concurrent updates cannot
-be overwritten. The sticky comment is updated through GitHub REST. Hosted credentials
-remain in the orchestrator, not consumer install/test processes or git configuration.
-The action uses the same migration adapters; its complete bot-PR simulation currently exercises pnpm. Unsupported managers fail explicitly.
+`action.yml` is a composite action. It installs the engine of its own commit from that
+commit's frozen lockfile (install scripts off, its pnpm in the runner's temp directory, off
+PATH) and runs the CLI from source, so a pinned tag always runs exactly the code it names; a
+`node20` action would need a bundle committed at every tag. `scripts/action.ts` drives one run
+(`core/src/action/run.ts`): `uptide list`, then `check` or `fix` per the mode, each a
+subprocess whose environment has every credential removed and, for `fix` only, the
+Anthropic key added. Verified migrations are published by `uptide pr` in a separate process,
+the only one that sees the installation token, which the Uptide app issues for the job's
+OIDC token (`core/src/action/oidc.ts`). The run report (`core/src/run-report`) is built from
+named fields of the engine's JSON only, checked against its closed schema and for
+credential shapes, written to the job summary, and posted to the app; a failed post is a
+warning. See [CI](ci.md).
 
 ### Package-manager migration transaction
 

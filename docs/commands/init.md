@@ -67,9 +67,12 @@ Only files at the repository root (the Git top level):
 - Triggers: the schedule from `uptide.yml`, and `workflow_dispatch` with two inputs, `mode`
   (`list`, `check` or `fix`) and `package` (one dependency, or empty for every dependency
   `uptide.yml` allows). A scheduled run uses mode `fix`.
-- Permissions, and nothing else: `contents: write` (push migration branches),
-  `pull-requests: write` (open draft pull requests), `id-token: write` (prove to Uptide that
-  the results JSON comes from this workflow).
+- Permissions, and nothing else: `contents: read` (check out the repository) and
+  `id-token: write` (prove to Uptide that a run is this repository's workflow). The Action
+  pushes branches and opens pull requests with a short-lived installation token of the Uptide
+  GitHub App, which pull requests opened with `GITHUB_TOKEN` cannot do: those never run CI.
+  `fix` therefore needs the Uptide GitHub App installed on the repository; `list` and `check`
+  do not.
 - Every action is pinned to a full commit SHA, with the release it came from in a comment.
 - The checkout keeps no token in `.git/config` (`persist-credentials: false`).
 - `actions/setup-node` with the detected Node version and the package manager's cache. When
@@ -90,8 +93,8 @@ Only files at the repository root (the Git top level):
   `secrets.ANTHROPIC_API_KEY`. The key is given to that step alone; with `llm.enabled: false`
   it is not passed at all. The Action is `action.yml` at the root of
   [uptide-dev/uptide](https://github.com/uptide-dev/uptide), released with the CLI's version
-  tags and pinned by the commit of a release tag. Until the release that ships it, `init` says
-  the workflow cannot run yet.
+  tags and pinned by the commit of a release tag ([CI](../ci.md)). Until a release pins it,
+  `init` says the workflow cannot run yet.
 
 ## When it refuses
 

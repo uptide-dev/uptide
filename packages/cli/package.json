@@ -16,6 +16,11 @@
       "types": "./dist/onboarding/node.d.ts",
       "import": "./dist/onboarding/node.js"
     },
+    "./report": {
+      "types": "./dist/report/index.d.ts",
+      "import": "./dist/report/index.js"
+    },
+    "./report/schema.json": "./dist/report/schema.json",
     "./package.json": "./package.json"
   },
   "files": [
@@ -50,7 +55,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsup && tsup --config tsup.onboarding.config.ts && node scripts/third-party-notices.mjs",
+    "build": "tsup && tsup --config tsup.libs.config.ts && node scripts/third-party-notices.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "prepack": "node scripts/prepack.mjs",

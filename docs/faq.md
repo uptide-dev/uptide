@@ -11,8 +11,9 @@ For anyone with the usual four questions before a first run.
 
 They open the pull request that bumps the version. Uptide answers what that bump breaks in
 your code (`check`), migrates the code on a branch (`fix`), and verifies the result with your
-compiler and tests. The two work together: the [GitHub Action](ci.md) checks their pull
-requests and, when a pack covers the upgrade, pushes the migration onto the same branch.
+compiler and tests. The two work together: Uptide opens a pull request only when it has a
+verified migration to go with the upgrade, and [the Uptide Action](ci.md) does that on a
+schedule in your own GitHub Actions.
 
 ## Does it send my code anywhere?
 

@@ -1,65 +1,188 @@
 ---
-title: CI
-description: Check and migrate Renovate and Dependabot pull requests with the Uptide GitHub Action, and what the Action may and may not do.
+title: The Uptide Action
+description: Run Uptide on a schedule in your repository's own GitHub Actions; draft pull requests with verified migrations, and a run report.
 ---
 
-# CI: the GitHub Action
+# CI: the Uptide Action
 
-For maintainers who get dependency bumps as pull requests from Renovate or Dependabot and
-want each one checked, and migrated when a pack covers it, before a human reads it.
+For anyone who wants Uptide to run in their repository's own GitHub Actions: on a schedule,
+and on demand from the Actions tab. `uptide init` (or the Uptide GitHub App's "Add Uptide"
+pull request) writes the workflow; this page is what that workflow runs.
 
-## Setup
+The Action is `action.yml` at the root of this repository, released with the CLI's version
+tags. Pin it by the full commit SHA of a release tag, as the generated workflow does.
 
-Use [the example workflow](../examples/uptide-workflow.yml), pinning a reviewed commit of
-`uptide-dev/uptide`. It checks same-repository bot PRs on `pull_request`
-`opened`/`synchronize`, detects zod/stripe upgrades from manifests, catalogs and lockfile
-importers, and maintains one sticky findings comment. `only` selects dependencies; `paths`
-selects repository-relative source directories/globs.
+```yaml
+permissions:
+  contents: read
+  id-token: write
 
-`fix: 'true'` plus `anthropic-api-key` enables migration. Comparison uses **PR-head source
-with the base dependency graph** in a temporary worktree. Final verification uses the actual
-PR-head manifests/lockfile; only source patches are transferred. A passing migration pushes
-**one commit on the existing PR branch**. Manual sites, failed tests/types, or a changed PR
-head prevent publication. No force-push or merge. Current migration support is TypeScript,
-zod and stripe, using npm, pnpm or Yarn with node_modules. Missing workspace test scripts are
-reported, not claimed as passing tests. Code context may be sent to Anthropic only in
-assisted mode. Install/test children receive no API/token secrets.
-
-## Permissions
-
-Use `contents: write` and `pull-requests: write`, `persist-credentials: false`, and the
-same-PR concurrency group shown in the example. Dependabot PRs normally receive a read-only
-`GITHUB_TOKEN` and do not receive ordinary Actions secrets: configure the key and an
-appropriately scoped write token as **Dependabot secrets**, or run in a
-maintainer-controlled workflow. Do not change to `pull_request_target` to bypass this
-boundary. Fork PRs are skipped. See
-[GitHub's Dependabot restrictions](https://docs.github.com/en/code-security/reference/supply-chain-security/troubleshoot-dependabot/dependabot-on-actions).
-
-## Discovery before analysis
-
-For a repository-wide inventory run `npx uptide list --json`; this needs no installed
-dependencies. Locally use `npx uptide list` → `npx uptide check <pkg>` →
-`npx uptide fix <pkg>`. The Action already selects the dependency names and targets from the
-upgrade PR before calling the core check; it never performs an implicit whole-repository
-check. Its automatic migration path remains limited to verified packs.
-
-## Exit codes and telemetry in CI
-
-`check` exits 1 when it finds breaking changes and 2 when it could not answer
-([concepts](concepts.md#exit-codes)); `--ci` gives plain output for logs. Telemetry is off
-in CI unless `UPTIDE_TELEMETRY=1` is set for the run ([telemetry](commands/telemetry.md)).
-
-## Trying the Action locally
-
-In an Uptide checkout:
-
-```sh
-pnpm eval:action  # local GitHub API simulation + real check/fix/tsc/tests/git remote
+steps:
+  - uses: actions/checkout@<sha> # with persist-credentials: false
+  - uses: actions/setup-node@<sha> # the repository's Node, with its package manager's cache
+  - run: npm ci --ignore-scripts # the repository's frozen install
+  - uses: uptide-dev/uptide@<sha> # vX.Y.Z
+    with:
+      config: uptide.yml
+      mode: ${{ inputs.mode || 'fix' }}
+      package: ${{ inputs.package }}
+      anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-This creates an isolated demo repository and bare local remote under `eval-out/`, with a zod
-3 baseline, a Renovate-style bump branch, and the verified migration result. It also proves
-that a final-verification failure cannot push. The generated README contains commands to
-publish your throwaway repository. **No hosted GitHub run or PR is created by this
-evaluation.** The real workflow requires a bot-authored PR; a human-authored imitation is
-intentionally rejected.
+## Inputs
+
+| Input | Default | What it is |
+| --- | --- | --- |
+| `config` | `uptide.yml` | The settings file, relative to the repository root ([uptide.yml](config.md)). Without the file, the defaults apply. |
+| `mode` | `check` | `list`: what is behind. `check`: what each upgrade breaks, at which call sites. `fix`: verified migrations, opened as draft pull requests. |
+| `package` | (empty) | One dependency. Empty: every dependency `uptide.yml` allows, most urgent first. |
+| `anthropic-api-key` | (empty) | For assisted fixes; pass `secrets.ANTHROPIC_API_KEY`. Empty: rule-based fixes only. |
+| `app-url` | `https://uptide-app.vercel.app` | The Uptide app: it issues the push token and receives the run report. |
+
+Output: `report`, the path of this run's report (JSON, `uptide.run/v1`).
+
+## What a run does
+
+1. **Sets up the engine of the pinned commit.** It installs this repository's own
+   dependencies from its frozen lockfile, with install scripts off, and runs the CLI from
+   that commit's source: never a version fetched from npm. Its pnpm goes into the runner's
+   temp directory, not on PATH, so your package manager and Node stay as your workflow set
+   them up. Node 20 or newer is required.
+2. **Discovers** what is behind (`uptide list`), narrowed by `packages` in `uptide.yml`.
+3. **`check`**: analyzes the dependencies your code uses (at most 10 a run; the rest stay
+   listed), or the one named.
+   **`fix`**: migrates them one at a time (`uptide fix`, with `--agent sdk` unless
+   `executor: patch`), verifies each with your compiler, lint and tests, and opens a draft
+   pull request for each one that verifies (`uptide pr`). It stops at `maxOpenPrs` open
+   Uptide pull requests, never opens a second one for a package, and stops calling the LLM
+   at `maxCost` for the whole run.
+4. **Reports**: writes the run report to the job summary, sets the `report` output, and
+   sends it to the Uptide app. If sending fails, the job warns and goes on: the pull request
+   is the product, the dashboard is secondary.
+
+The job fails only when the run as a whole could not do its job: an invalid `uptide.yml`, no
+push token in `fix` mode, or the engine not answering. A migration that does not verify is
+a result, reported as `failed`, not a failed job.
+
+## How it pushes
+
+Pull requests opened with the workflow's `GITHUB_TOKEN` never run your CI. So the workflow
+grants only `contents: read`, and `id-token: write` for this:
+
+1. The Action asks GitHub for an OIDC token for this job, with audience `uptide`.
+2. It sends that token to `{app-url}/api/action/token`. The Uptide app checks that GitHub
+   signed it for this repository's workflow and answers with an installation token of the
+   Uptide GitHub App, valid for at most an hour.
+3. The token is masked in the log the moment it arrives. It is given to one process only,
+   `uptide pr`, which runs `git push` and `gh pr create` and nothing of your repository: no
+   install, build or test. `gh` reads it from a private config directory removed afterwards;
+   `git` gets it as an HTTP header, never in `.git/config`, a URL or a command line.
+
+`fix` therefore needs the Uptide GitHub App installed on the repository. `list` and `check`
+do not; without the app, only the run report is not sent.
+
+## What leaves the runner
+
+- **The run report**, to the Uptide app (`{app-url}/api/action/results`, with a fresh OIDC
+  token as bearer).
+- **Code around the call sites no rule fixes**, to Anthropic, with your own API key, in `fix`
+  mode only, when `llm.enabled` is true and the secret is set.
+
+Nothing else. The Anthropic key is given to the migration process alone; installs, builds
+and tests run with every variable whose name says token, secret, key or password removed.
+
+## The run report
+
+`uptide.run/v1`, owned by the engine and published as `uptide/report` (types, a validator, the
+summary renderer) and `uptide/report/schema.json` (JSON Schema). One row per dependency. A
+real `fix` run on the [storefront fixture](../fixtures/repos/storefront) without an API key
+(rule-based only; `breaking` cut to 3 of 28 here):
+
+```json
+{
+  "schema": "uptide.run/v1",
+  "engineVersion": "0.8.0",
+  "repo": {
+    "id": 123456789,
+    "owner": "acme",
+    "name": "storefront"
+  },
+  "sha": "817261a23a8f53760bdf8e81687c52f05f74ce5f",
+  "runId": 11223344557,
+  "runAttempt": 1,
+  "mode": "fix",
+  "startedAt": "2026-10-13T01:12:40.529Z",
+  "finishedAt": "2026-10-13T01:13:37.234Z",
+  "upgrades": [
+    {
+      "package": "zod",
+      "from": "3.25.76",
+      "to": "4.6.7",
+      "kind": "major",
+      "status": "failed",
+      "breaking": [
+        {
+          "symbol": "TS2345",
+          "file": "packages/api/src/queue/consumer.ts",
+          "line": 19,
+          "change": "type"
+        },
+        {
+          "symbol": "ZodType",
+          "file": "packages/api/src/queue/consumer.ts",
+          "line": 12,
+          "change": "signature"
+        },
+        {
+          "symbol": "TS2724",
+          "file": "packages/api/src/queue/consumer.ts",
+          "line": 2,
+          "change": "type"
+        }
+      ],
+      "verification": {
+        "typecheck": {
+          "before": 1,
+          "after": 5
+        },
+        "lint": {
+          "before": 0,
+          "after": 0
+        },
+        "tests": {
+          "passed": 0,
+          "failed": 2
+        }
+      },
+      "pr": null,
+      "costUsd": 0,
+      "durationMs": 55114,
+      "error": "verification failed: 4 new type error(s), tests failed in packages/api, tests failed in packages/shared, 4 site(s) left for manual work"
+    }
+  ]
+}
+```
+
+A `symbol` is the canonical path of the dependency's symbol (`ZodType`,
+`Stripe.Customer#email`), or `TS<code>` for a compiler error the upgrade causes that no
+symbol explains. `status` is `up_to_date`, `available` (behind, not migrated this run), `fixed` (verified,
+pull request open), `failed` (did not verify, or could not be published; `error` says why) or
+`skipped` (a pull request is already open, or `maxCost` was reached). `verification` counts
+type errors and failing lint tools before and after, and test runs (one per workspace or
+scope); it is null when no migration ran.
+
+The report never holds source code, diffs, snippets, compiler messages, commands, output or
+environment values: package names, versions, repository-relative paths, line numbers,
+symbol names, counts, and sentences Uptide writes itself. Every string field has a pattern
+that admits one bounded line without code punctuation, every object is closed, and the
+Action checks the report against the schema, and for anything shaped like a credential,
+before it is written or sent.
+
+## Trying it
+
+`act` and similar runners issue no OIDC token, so `fix` cannot publish there. To see what a
+run reports, use `mode: check` in a workflow, or run the engine the same way locally:
+
+```sh
+pnpm uptide check zod --cwd path/to/repo --json
+```

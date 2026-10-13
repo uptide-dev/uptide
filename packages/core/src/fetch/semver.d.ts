@@ -6,6 +6,8 @@ declare module 'semver' {
     validRange(range: string): string | null;
     valid(version: string): string | null;
     major(version: string): number;
+    minor(version: string): number;
+    coerce(version: string): { version: string } | null;
     intersects(a: string, b: string): boolean;
   };
   export default semver;

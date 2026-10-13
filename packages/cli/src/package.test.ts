@@ -32,8 +32,9 @@ describe('published package', () => {
       '@anthropic-ai/claude-agent-sdk': { optional: true },
     });
     expect(manifest.engines.node).toBe('>=20');
-    // The library entries besides the command, what the GitHub App imports: the pure
-    // generator, and what reads it from disk (onboarding-export.test.ts).
+    // Library entries besides the command, for the GitHub App and the Uptide app
+    // (libs-export.test.ts): the pure onboarding generator, what reads it from disk, and the
+    // run report with its schema.
     expect(manifest.exports).toEqual({
       './onboarding': {
         types: './dist/onboarding/index.d.ts',
@@ -43,6 +44,11 @@ describe('published package', () => {
         types: './dist/onboarding/node.d.ts',
         import: './dist/onboarding/node.js',
       },
+      './report': {
+        types: './dist/report/index.d.ts',
+        import: './dist/report/index.js',
+      },
+      './report/schema.json': './dist/report/schema.json',
       './package.json': './package.json',
     });
     // The bundle, the legal assets that must travel with it, and nothing of the build.
@@ -63,10 +69,11 @@ describe('published package', () => {
     expect(code).toContain('list-worker.js');
     // Beside the bundle, only the bundler's record of what went into it, which
     // scripts/third-party-notices.mjs reads and `files` keeps out of the tarball, and the
-    // separate `uptide/onboarding` entry.
+    // separate `uptide/onboarding` and `uptide/report` entries.
     expect(files.filter((f) => !f.endsWith('.js')).sort()).toEqual([
       'metafile-esm.json',
       'onboarding',
+      'report',
     ]);
     const sources = code.map((f) => readFileSync(`${root}dist/${f}`, 'utf8')).join('\n');
     expect(sources).not.toMatch(/from\s*["']@uptide\/core["']/);
