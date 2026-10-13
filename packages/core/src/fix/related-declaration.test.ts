@@ -20,13 +20,17 @@ import { diagnostics } from './verify.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-related-'));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
-function fixture(extra = '') {
+/** `files`, when given, replace the props and call-site fixtures. */
+function fixture(extra = '', files?: Record<string, string>) {
   const root = mkdtempSync(join(scratch, 'repo-'));
-  for (const file of ['props', 'call-site'])
-    copyFileSync(
-      new URL(`./__fixtures__/related-declaration/${file}.ts.txt`, import.meta.url),
-      join(root, `${file}.ts`),
-    );
+  if (files)
+    for (const [file, text] of Object.entries(files)) writeFileSync(join(root, file), text);
+  else
+    for (const file of ['props', 'call-site'])
+      copyFileSync(
+        new URL(`./__fixtures__/related-declaration/${file}.ts.txt`, import.meta.url),
+        join(root, `${file}.ts`),
+      );
   if (extra)
     writeFileSync(
       join(root, 'call-site.ts'),
@@ -48,6 +52,7 @@ function fixture(extra = '') {
   const verify = () => diagnostics(root, ['.']);
   const sites: FixSite[] = verify().map((d) => ({
     outcome: 'manual',
+    rule: 'TS2322',
     reason: 'nullable ref',
     finding: {
       change: {
@@ -205,4 +210,71 @@ it('groups call sites in different files that share the same receiving declarati
   expect(requests).toHaveLength(1);
   expect(f.verify()).toEqual([]);
   expect(second.resolvedBy).toBeDefined();
+});
+
+it('fixes two sites of one file whose prop types live in two files as two tasks', async () => {
+  // alanagoyal notes-app.tsx: the same RefObject<T | null> change twice in one file, fixed in
+  // the mobile presenter's props and in the desktop presenter's.
+  const f = fixture('', {
+    'ref.ts': 'export interface Ref<T> {\n  current: T;\n}\n',
+    'mobile.ts': [
+      "import type { Ref } from './ref';",
+      'export interface MobileProps {',
+      '  containerRef: Ref<string>;',
+      '}',
+      'export const mobile = (props: MobileProps) => props;',
+      '',
+    ].join('\n'),
+    'desktop.ts': [
+      "import type { Ref } from './ref';",
+      'export interface DesktopProps {',
+      '  containerRef: Ref<string>;',
+      '}',
+      'export const desktop = (props: DesktopProps) => props;',
+      '',
+    ].join('\n'),
+    'notes-app.ts': [
+      "import { desktop } from './desktop';",
+      "import { mobile } from './mobile';",
+      "import type { Ref } from './ref';",
+      'const containerRef: Ref<string | null> = { current: null };',
+      'export const small = mobile({ containerRef });',
+      'export const large = desktop({ containerRef });',
+      '',
+    ].join('\n'),
+  });
+  expect(f.sites.map((s) => [s.finding.usage.file, s.finding.usage.line])).toEqual([
+    ['notes-app.ts', 5],
+    ['notes-app.ts', 6],
+  ]);
+  expect(f.verify().map((d) => d.relatedDeclarations?.map((r) => r.file))).toEqual([
+    ['mobile.ts'],
+    ['desktop.ts'],
+  ]);
+  // A fixer that widens every prop type it is allowed to edit, as a correct agent would.
+  const requests: FixRequest[] = [];
+  const widening = {
+    id: 'mock',
+    estimate: () => 0,
+    fix: async (r: FixRequest) => {
+      requests.push(r);
+      const diff = (r.relatedDeclarations ?? [])
+        .map(
+          (d) =>
+            `--- a/${d.file}\n+++ b/${d.file}\n@@ -3 +3 @@\n-  containerRef: Ref<string>;\n+  containerRef: Ref<string | null>;\n`,
+        )
+        .join('');
+      return { diff, inputTokens: 1, outputTokens: 1, costUsd: 0 };
+    },
+  };
+  await assist(f.root, f.sites, reactPack, widening, f.verify);
+  // Two fix locations, two tasks: one grouped task could only edit mobile.ts.
+  expect(requests.map((r) => r.relatedDeclarations?.map((d) => d.file))).toEqual([
+    ['mobile.ts'],
+    ['desktop.ts'],
+  ]);
+  expect(requests.every((r) => !r.sharedDiagnostics)).toBe(true);
+  expect(f.sites.map((s) => s.outcome)).toEqual(['agent', 'agent']);
+  expect(f.verify()).toEqual([]);
+  expect(git(f.root, 'status', '--porcelain')).toBe('');
 });
