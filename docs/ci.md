@@ -123,6 +123,7 @@ real `fix` run on the [storefront fixture](../fixtures/repos/storefront) without
       "to": "4.6.7",
       "kind": "major",
       "status": "failed",
+      "analysis": "pack",
       "breaking": [
         {
           "symbol": "TS2345",
@@ -173,6 +174,14 @@ pull request open), `failed` (did not verify, or could not be published; `error`
 `skipped` (a pull request is already open, or `maxCost` was reached). `verification` counts
 type errors and failing lint tools before and after, and test runs (one per workspace or
 scope); it is null when no migration ran.
+
+`analysis` says what an empty `breaking` means. `pack`: a migration pack analyzed the upgrade,
+so none breaks. `none`: no pack covers it yet, so none was confirmed, which is no answer (the
+job summary says "not analyzed: no pack yet" instead of 0). Absent: the upgrade was not
+analyzed this run. A companion that moves with another package's upgrade (`react-dom` and
+`@types/react` with `react`) carries the versions that upgrade gives it and `movesWith`, the
+package it moves with; it is analyzed as part of that package. Both fields are optional:
+readers of reports written before them see neither.
 
 The report never holds source code, diffs, snippets, compiler messages, commands, output or
 environment values: package names, versions, repository-relative paths, line numbers,

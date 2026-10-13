@@ -266,3 +266,24 @@ it('lists every importing file the memory cap left out', () => {
   expect(html).toContain('apps/web: apps/web/src/heavy.test.ts not analyzed (memory cap).');
   expect(html).toContain('apps/web: apps/web/src/sdk.ts not analyzed (memory cap).');
 });
+
+it('says a package without a pack is not analyzed, never safe with 0 breaking', () => {
+  const report = fixture('zod');
+  const zod = report.packages[0] as CheckReport['packages'][number];
+  const next = {
+    ...zod,
+    name: 'next',
+    installed: '15.5.4',
+    target: '16.0.1',
+    latest: '16.0.1',
+    tier: 'generic' as const,
+    status: 'safe' as const,
+    findings: [],
+    plan: [],
+    verdict: undefined,
+  };
+  const html = renderHtml({ ...report, packages: [next] }, { ...opts, details: false });
+  expect(html).toContain('<div class="unverified">– not analyzed: no pack yet');
+  expect(html).toContain('1 package not analyzed: no pack yet.');
+  expect(html).not.toMatch(/0 breaking|no impact/);
+});

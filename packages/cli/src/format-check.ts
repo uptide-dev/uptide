@@ -4,6 +4,8 @@ import {
   type CheckReport,
   coverageLine,
   isFailure,
+  NO_PACK,
+  noPackVerdict,
   type PackageReport,
   type PlanGroup,
   planPackage,
@@ -167,6 +169,14 @@ function rowOf(p: PackageReport, multi: boolean, colors: Colors): Row | undefine
       p.notes[0] ??
       'no type declarations';
     verdict = colors.dim(`– not analyzed: ${reason.split(';')[0]}`);
+  } else if (noPackVerdict(p)) {
+    // No pack: zero confirmed is no answer, so no count and no check mark.
+    const seen = [
+      ...(unverified.length > 0 ? [`${sitesOf(unverified)} possible impact`] : []),
+      ...(deprecated.length > 0 ? [`${sitesOf(deprecated)} deprecated`] : []),
+    ];
+    verdict = colors.dim(`– ${[NO_PACK, ...seen].join(', ')}`);
+    by = byLine([...unverified, ...deprecated]);
   } else if (breaking.length > 0) {
     const sites = sitesOf(breaking);
     const files = filesOf(breaking);
@@ -500,17 +510,28 @@ export function formatCheck(report: CheckReport, opts: FormatCheckOptions = {}):
         opts.color ?? true,
       ),
     );
-    if (folded.length > 0) {
-      const named = folded.slice(0, 6).map((r) => r.p.name);
+    // Folded without a pack: named apart, never under "no impact".
+    const noPack = folded.filter((r) => noPackVerdict(r.p));
+    if (noPack.length > 0) {
+      const named = noPack.slice(0, 6).map((r) => r.p.name);
+      lines.push(
+        colors.dim(
+          `– ${noPack.length} more ${NO_PACK}: ${named.join(', ')}${noPack.length > named.length ? `, and ${noPack.length - named.length} more` : ''}`,
+        ),
+      );
+    }
+    const clean = folded.filter((r) => !noPackVerdict(r.p));
+    if (clean.length > 0) {
+      const named = clean.slice(0, 6).map((r) => r.p.name);
       // Folded, they still say what verified them: all compiled clean, or how many were not.
-      const unverified = folded.filter((r) => r.p.verdict?.notVerified ?? !r.p.compile).length;
-      const counted = folded.every((r) => r.p.compile?.newErrors === 0);
+      const unverified = clean.filter((r) => r.p.verdict?.notVerified ?? !r.p.compile).length;
+      const counted = clean.every((r) => r.p.compile?.newErrors === 0);
       const how =
         unverified > 0
           ? `${unverified} not verified by the compiler (--details)`
           : `compiled against their targets${counted ? ': 0 new type errors' : ''}`;
       lines.push(
-        `${colors.green('✓')} ${folded.length} more with no impact on your code: ${named.join(', ')}${folded.length > named.length ? `, and ${folded.length - named.length} more` : ''} ${colors.dim(`· 0 breaking · ${how}`)}`,
+        `${colors.green('✓')} ${clean.length} more with no impact on your code: ${named.join(', ')}${clean.length > named.length ? `, and ${clean.length - named.length} more` : ''} ${colors.dim(`· 0 breaking · ${how}`)}`,
       );
     }
     // Why a target is older than the newest release, or why a package was skipped: the

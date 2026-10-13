@@ -188,7 +188,56 @@ describe('uptide.run/v1', () => {
     expect(summary).toContain('## Uptide: fix');
     expect(summary).toContain('| `zod` | 3.25.76 → 4.6.5 (major) | fixed |');
     expect(summary).toContain('[#42](https://github.com/acme/storefront/pull/42)');
-    expect(summary).toContain('<summary>Breaking sites</summary>');
+    // Sites per package, by path and line only: no symbol, no change kind.
+    expect(summary).toContain('### Breaking sites');
+    expect(summary).toContain('- `packages/api/src/queue/consumer.ts:19`');
+    const section = summary.slice(summary.indexOf('### Breaking sites'));
+    expect(section).not.toMatch(/ZodType|TS\d{4}|\(type\)|\(signature\)/);
+    expect(section).toMatch(/\*\*`zod`\*\* \(\d+\)/);
+  });
+
+  it('omits the breaking-sites section when nothing breaks', () => {
+    const upgrade = fromFix(storefront(), { pr: PR, durationMs: 1 });
+    const summary = renderSummary(run([{ ...upgrade, breaking: [] }]));
+    expect(summary).not.toContain('### Breaking sites');
+    expect(summary).not.toContain('<details>');
+  });
+
+  it('says not analyzed instead of 0 when no pack stands behind the count', () => {
+    const base = skipped({ package: 'next', from: '15.5.4', to: '16.0.1' }, 'available');
+    const row = (extra: Partial<RunReport['upgrades'][number]>) =>
+      renderSummary(run([{ ...base, ...extra }], { mode: 'check' }))
+        .split('\n')
+        .find((l) => l.startsWith('| `next`'));
+    expect(row({ analysis: 'pack' })).toBe(
+      '| `next` | 15.5.4 → 16.0.1 (major) | available | 0 |  |  |  |',
+    );
+    expect(row({ analysis: 'none' })).toBe(
+      '| `next` | 15.5.4 → 16.0.1 (major) | available | not analyzed: no pack yet |  |  |  |',
+    );
+    expect(row({})).toContain('| available | not analyzed |');
+    expect(reportProblems(run([{ ...base, analysis: 'none' }]))).toEqual([]);
+    expect(reportProblems(run([{ ...base, analysis: 'maybe' as 'none' }]))).toEqual([
+      'upgrades[0].analysis must be one of pack, none',
+    ]);
+  });
+
+  it('prints no kind when nothing moves, and a companion as moving with its lead', () => {
+    const current = skipped({ package: 'zod', from: '4.6.5' }, 'up_to_date');
+    const summary = renderSummary(run([current]));
+    expect(summary).toContain('| `zod` | 4.6.5 | up to date |  |');
+    expect(summary).not.toContain('(patch)');
+    const companion = {
+      ...skipped({ package: 'react-dom', from: '18.3.1', to: '19.2.0' }, 'available'),
+      movesWith: 'react',
+    };
+    expect(renderSummary(run([companion]))).toContain(
+      '| `react-dom` | 18.3.1 → 19.2.0 (major) | moves with `react` | with `react` |',
+    );
+    expect(reportProblems(run([companion]))).toEqual([]);
+    expect(reportProblems(run([{ ...companion, movesWith: 'react dom' }]))).toEqual([
+      'upgrades[0].movesWith is not in the expected format',
+    ]);
   });
 });
 

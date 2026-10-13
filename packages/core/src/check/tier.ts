@@ -1,10 +1,20 @@
-import type { Finding, RuntimeReport, Tier } from '../domain/report.js';
+import type { Finding, PackageReport, RuntimeReport, Tier } from '../domain/report.js';
 import type { MigrationPack } from '../packs/types.js';
 import { runtimeConfirms } from './file-kind.js';
 
 /** The difference, in one line, wherever a tier is shown. */
 export const TIER_LEGEND =
   'verified: migration pack · generic: no pack · in both, breaking only if the compiler, the runtime probe or the pack confirms it';
+
+/**
+ * What a package without a pack says where a pack's would say `0 breaking`: nothing confirmed
+ * that the upgrade breaks it, which without a pack is not the same as nothing breaking.
+ */
+export const NO_PACK = 'not analyzed: no pack yet';
+
+/** Whether a breaking count of zero is no answer: no pack, and nothing confirmed breaking. */
+export const noPackVerdict = (p: Pick<PackageReport, 'tier' | 'findings'>): boolean =>
+  p.tier === 'generic' && !p.findings.some((f) => f.severity === 'breaking');
 
 /**
  * `verified`: a migration pack covers this upgrade (rules, a guide, ground truth it is scored

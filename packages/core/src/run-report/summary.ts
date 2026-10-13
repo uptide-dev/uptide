@@ -10,6 +10,24 @@ const STATUS: Record<Upgrade['status'], string> = {
   up_to_date: 'up to date',
 };
 
+/** `3.25.76 → 4.6.5 (major)`; one version, and no kind, when nothing moves. */
+const move = (u: Upgrade): string => (u.from === u.to ? u.from : `${u.from} → ${u.to} (${u.kind})`);
+
+const status = (u: Upgrade): string =>
+  u.movesWith ? `moves with \`${u.movesWith}\`` : STATUS[u.status];
+
+/**
+ * The breaking count, only where it is an answer: zero means nothing breaks only when a pack
+ * analyzed the upgrade. Without a pack, or without an analysis, it says so instead of a number.
+ */
+function breaking(u: Upgrade): string {
+  if (u.movesWith) return `with \`${u.movesWith}\``;
+  if (u.breaking.length) return String(u.breaking.length);
+  if (u.analysis === 'pack') return '0';
+  if (u.analysis === 'none') return 'not analyzed: no pack yet';
+  return u.status === 'up_to_date' ? '' : 'not analyzed';
+}
+
 function verification(u: Upgrade): string {
   const v = u.verification;
   if (!v) return '';
@@ -34,24 +52,23 @@ export function renderSummary(report: RunReport): string {
     );
     for (const u of report.upgrades)
       lines.push(
-        `| \`${u.package}\` | ${u.from} → ${u.to} (${u.kind}) | ${STATUS[u.status]} | ${u.breaking.length} | ${verification(u)} | ${u.pr ? `[#${u.pr.number}](${u.pr.url})` : ''} | ${u.costUsd ? usd(u.costUsd) : ''} |`,
+        `| \`${u.package}\` | ${move(u)} | ${status(u)} | ${breaking(u)} | ${verification(u)} | ${u.pr ? `[#${u.pr.number}](${u.pr.url})` : ''} | ${u.costUsd ? usd(u.costUsd) : ''} |`,
       );
     const notes = report.upgrades.filter((u) => u.error);
     if (notes.length) {
       lines.push('');
       for (const u of notes) lines.push(`- \`${u.package}\`: ${cell(u.error as string)}`);
     }
+    // Where each package breaks, by path and line; no heading when nothing does.
     const sites = report.upgrades.filter((u) => u.breaking.length);
     if (sites.length) {
-      lines.push('', '<details><summary>Breaking sites</summary>', '');
+      lines.push('', '### Breaking sites');
       for (const u of sites) {
-        lines.push(`**${u.package}**`, '');
-        for (const s of u.breaking.slice(0, 50))
-          lines.push(`- \`${s.file}:${s.line}\` ${s.symbol} (${s.change})`);
-        if (u.breaking.length > 50) lines.push(`- and ${u.breaking.length - 50} more`);
-        lines.push('');
+        const places = [...new Set(u.breaking.map((s) => `${s.file}:${s.line}`))];
+        lines.push('', `**\`${u.package}\`** (${places.length})`, '');
+        for (const place of places.slice(0, 50)) lines.push(`- \`${cell(place)}\``);
+        if (places.length > 50) lines.push(`- and ${places.length - 50} more`);
       }
-      lines.push('</details>');
     }
   }
   const cost = report.upgrades.reduce((sum, u) => sum + u.costUsd, 0);

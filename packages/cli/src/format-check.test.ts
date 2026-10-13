@@ -408,8 +408,10 @@ describe('tiers, the time budget and failures on the first screen', () => {
     const none = formatCheck(report([{ ...generic, status: 'safe', findings: [unconfirmed] }]), {
       color: false,
     });
-    expect(none).toContain('? 1 possible impact');
+    // Without a pack, nothing confirmed is no answer: not analyzed, with what the types show.
+    expect(none).toContain('– not analyzed: no pack yet, 1 possible impact');
     expect(none).not.toContain('✓');
+    expect(none).not.toContain('0 breaking');
     // The verified tier lists it the same way: breaking means confirmed in both.
     const kept = formatCheck(
       report([{ ...generic, name: 'zod', tier: 'verified', findings: [unconfirmed] }]),
@@ -470,9 +472,16 @@ describe('tiers, the time budget and failures on the first screen', () => {
     const quiet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((name) =>
       pkg({ name, tier: 'generic' }),
     );
+    // Without a pack, folded apart from what a pack found nothing in, and with no count.
     const out = formatCheck(report([generic, ...quiet]), { color: false });
-    expect(out).toContain('✓ 8 more with no impact on your code: a, b, c, d, e, f, and 2 more');
+    expect(out).toContain('– 8 more not analyzed: no pack yet: a, b, c, d, e, f, and 2 more');
+    expect(out).not.toContain('no impact on your code');
+    expect(out).not.toContain('0 breaking');
     expect(out).not.toMatch(/^a +5\.0\.1/m);
+    const verified = quiet.map((p) => ({ ...p, tier: 'verified' as const }));
+    expect(formatCheck(report([generic, ...verified]), { color: false })).toContain(
+      '✓ 8 more with no impact on your code: a, b, c, d, e, f, and 2 more',
+    );
     // Five or fewer keep their rows.
     expect(formatCheck(report(quiet.slice(0, 5)), { color: false })).toMatch(/^a +5\.0\.1/m);
   });

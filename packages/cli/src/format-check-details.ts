@@ -3,6 +3,8 @@ import {
   callSitesLine,
   type Finding,
   isNativeProbeSkip,
+  NO_PACK,
+  noPackVerdict,
   type PackageReport,
 } from '@uptide/core';
 import pc from 'picocolors';
@@ -175,6 +177,11 @@ function packageLines(p: PackageReport, opts: DetailOptions, colors: Colors): st
     if (p.status === 'unknown') {
       lines.push(
         `  ${colors.magenta('?')} unknown: ${unanalyzed} of ${plural(p.callSitesChecked + unanalyzed, 'site')} not analyzed (require/dynamic import)`,
+      );
+    } else if (noPackVerdict(p)) {
+      // Without a pack, nothing confirmed is no answer: no check mark.
+      lines.push(
+        `  ${colors.dim('–')} ${NO_PACK} (${plural(p.callSitesChecked, 'call site')} found; nothing confirmed breaking)`,
       );
     } else if (unanalyzed > 0) {
       lines.push(

@@ -1,4 +1,5 @@
 import type { PackageReport } from '../domain/report.js';
+import { NO_PACK, noPackVerdict } from './tier.js';
 
 /** The verdict of one analyzed package, and what verified it. */
 export interface Verdict {
@@ -12,7 +13,10 @@ export interface Verdict {
   notVerified?: string;
   /** Set when some, not all, of the files were compiled: the coverage line. */
   partlyVerified?: string;
-  /** `0 breaking · compiled against 4.6.5: 0 new type errors`, as terminal and HTML print it. */
+  /**
+   * `0 breaking · compiled against 4.6.5: 0 new type errors`, as terminal and HTML print it.
+   * Without a pack and nothing confirmed breaking, `not analyzed: no pack yet` instead of `0 breaking`.
+   */
   summary: string;
 }
 
@@ -52,6 +56,7 @@ function compilersPhrase(compilers: { version: string; own: boolean }[]): string
  */
 export function verdictOf(p: PackageReport, notCompiled?: string): Verdict {
   const breaking = p.findings.filter((f) => f.severity === 'breaking').length;
+  const head = noPackVerdict(p) ? NO_PACK : `${breaking} breaking`;
   const coverage = p.compile?.coverage;
   if (p.compile !== undefined && p.compile.skipped === undefined) {
     // Reports stored before the count was kept say what was compiled, without a number.
@@ -65,20 +70,20 @@ export function verdictOf(p: PackageReport, notCompiled?: string): Verdict {
         compiledAgainst: p.target,
         ...(newErrors !== undefined ? { newErrors } : {}),
         partlyVerified: partly,
-        summary: `${breaking} breaking · types partly verified: ${partly}`,
+        summary: `${head} · types partly verified: ${partly}`,
       };
     }
     return {
       breaking,
       compiledAgainst: p.target,
       ...(newErrors !== undefined ? { newErrors } : {}),
-      summary: `${breaking} breaking · compiled against ${p.target}${newErrors !== undefined ? `: ${count(newErrors, 'new type error')}` : ''}`,
+      summary: `${head} · compiled against ${p.target}${newErrors !== undefined ? `: ${count(newErrors, 'new type error')}` : ''}`,
     };
   }
   const reason = p.compile?.skipped ?? notCompiled ?? 'the compiler did not run';
   return {
     breaking,
     notVerified: reason,
-    summary: `${breaking} breaking · types not verified: ${reason}`,
+    summary: `${head} · types not verified: ${reason}`,
   };
 }

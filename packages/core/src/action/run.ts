@@ -5,7 +5,15 @@ import type { FixReport } from '../fix/types.js';
 import type { ListedDependency, ListReport } from '../list/list.js';
 import { loadUptideConfig } from '../onboarding/node.js';
 import { DEFAULT_CONFIG, UPTIDE_CONFIG_FILE, type UptideConfig } from '../onboarding/schema.js';
-import { fromChecked, fromFix, fromListed, sentence, skipped } from '../run-report/build.js';
+import {
+  fromChecked,
+  fromFix,
+  fromListed,
+  kindOf,
+  version as reportVersion,
+  sentence,
+  skipped,
+} from '../run-report/build.js';
 import {
   RUN_REPORT_SCHEMA_ID,
   type RunMode,
@@ -93,6 +101,7 @@ function byPackage(packages: PackageReport[]): Upgrade[] {
       seen.breaking.push(
         ...row.breaking.filter((s) => !keys.has(`${s.symbol}\0${s.file}\0${s.line}`)),
       );
+      if (!seen.analysis && row.analysis) seen.analysis = row.analysis;
       // A workspace that could not be analyzed makes the package's answer incomplete.
       if (row.status === 'failed' && seen.status !== 'failed') {
         seen.status = 'failed';
@@ -105,7 +114,39 @@ function byPackage(packages: PackageReport[]): Upgrade[] {
       }
     }
   }
+  movingWithLeads(packages, rows);
   return [...rows.values()];
+}
+
+/**
+ * A companion (`react-dom`, `@types/react`) that `check` also reports on its own, at the
+ * version installed: it is not up to date, it moves with its lead's upgrade. Its row takes the
+ * versions the lead's plan gives it and names the lead.
+ */
+function movingWithLeads(packages: PackageReport[], rows: Map<string, Upgrade>): void {
+  const moves = (u: Upgrade): boolean => u.from !== u.to && u.status !== 'up_to_date';
+  for (const pkg of packages) {
+    const lead = rows.get(pkg.name);
+    if (!lead || !moves(lead)) continue;
+    const together = [
+      ...(pkg.companions ?? []),
+      ...(pkg.members ?? []).map((m) => ({ name: m.name, from: m.installed, to: m.target })),
+    ];
+    for (const c of together) {
+      const row = rows.get(c.name);
+      if (!row || c.name === lead.package || moves(row)) continue;
+      if (row.status !== 'up_to_date' && row.status !== 'available') continue;
+      if (c.from === c.to || reportVersion(c.from) !== c.from || reportVersion(c.to) !== c.to)
+        continue;
+      row.from = c.from;
+      row.to = c.to;
+      row.kind = kindOf(c.from, c.to);
+      row.status = 'available';
+      row.movesWith = lead.package;
+      row.breaking = [];
+      delete row.analysis;
+    }
+  }
 }
 
 /**

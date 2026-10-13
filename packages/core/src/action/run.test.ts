@@ -2,9 +2,11 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { CheckReport } from '../domain/report.js';
 import type { FixReport } from '../fix/types.js';
 import type { ListedDependency, ListReport } from '../list/list.js';
 import { reportProblems } from '../run-report/safe.js';
+import { renderSummary } from '../run-report/summary.js';
 import type { EngineRun } from './engine.js';
 import { ActionAuthError } from './oidc.js';
 import { type ActionInputs, type ActionServices, runAction } from './run.js';
@@ -135,6 +137,81 @@ describe('the Uptide Action run', () => {
     expect(zod?.status).toBe('available');
     expect(zod?.breaking.length).toBeGreaterThan(0);
     expect(calls.some((c) => c.apiKey)).toBe(false);
+  });
+
+  it('check: a package without a pack is not analyzed, and companions move with their lead', async () => {
+    const pkg = (name: string, installed: string, target: string, extra: object = {}) => ({
+      workspace: '.',
+      name,
+      installed,
+      latest: target,
+      target,
+      majorsBehind: 0,
+      findings: [],
+      callSitesChecked: 3,
+      unanalyzed: [],
+      status: 'safe',
+      notes: [],
+      timing: { fetchMs: 0, diffMs: 0, usagesMs: 0, compileMs: 0 },
+      ...extra,
+    });
+    const zod = (storefrontCheck() as CheckReport).packages.find((p) => p.name === 'zod');
+    const { s } = services({
+      list: listReport([
+        dep('zod', '3.25.76', '4.6.5'),
+        dep('react', '18.3.1', '19.2.0'),
+        dep('react-dom', '18.3.1', '19.2.0'),
+        dep('@types/react', '18.3.12', '19.2.2'),
+        dep('prisma', '6.16.0', '7.0.0'),
+      ]),
+      check: {
+        repo: '.',
+        workspaces: ['.'],
+        packages: [
+          { ...zod, findings: [] },
+          pkg('react', '18.3.1', '19.2.0', {
+            tier: 'generic',
+            companions: [
+              { name: '@types/react', from: '18.3.12', to: '19.2.2', reason: 'types react' },
+              { name: 'react-dom', from: '18.3.1', to: '19.2.0', reason: 'released with react' },
+            ],
+          }),
+          // What `check` reports for a companion asked for by name: its installed version.
+          pkg('react-dom', '18.3.1', '18.3.1', { notes: ['up to date'] }),
+          pkg('@types/react', '18.3.12', '18.3.12', { notes: ['up to date'] }),
+          pkg('prisma', '6.16.0', '7.0.0', { tier: 'generic' }),
+        ],
+        summary: {},
+        timing: { totalMs: 1 },
+      },
+    });
+    const report = await runAction(inputs(workspace('version: 1\n'), { mode: 'check' }), s);
+    expect(reportProblems(report)).toEqual([]);
+    const row = (name: string) => report.upgrades.find((u) => u.package === name);
+    // Zero from a pack is an answer; zero without one is not.
+    expect(row('zod')).toMatchObject({ analysis: 'pack', breaking: [] });
+    expect(row('prisma')).toMatchObject({ analysis: 'none', breaking: [] });
+    expect(row('react')).toMatchObject({ analysis: 'none', status: 'available' });
+    expect(row('react-dom')).toMatchObject({
+      from: '18.3.1',
+      to: '19.2.0',
+      kind: 'major',
+      status: 'available',
+      movesWith: 'react',
+    });
+    expect(row('@types/react')).toMatchObject({ to: '19.2.2', movesWith: 'react' });
+    expect(row('react-dom')?.analysis).toBeUndefined();
+    const summary = renderSummary(report);
+    expect(summary).toContain(
+      '| `prisma` | 6.16.0 → 7.0.0 (major) | available | not analyzed: no pack yet |',
+    );
+    expect(summary).toContain('| `zod` | 3.25.76 → 4.6.5 (major) | available | 0 |');
+    expect(summary).toContain(
+      '| `react-dom` | 18.3.1 → 19.2.0 (major) | moves with `react` | with `react` |',
+    );
+    expect(summary).not.toContain('up to date');
+    // Nothing breaks anywhere: no breaking-sites section at all.
+    expect(summary).not.toContain('### Breaking sites');
   });
 
   it('fix: migrates, opens the PR with the installation token, and reports it', async () => {

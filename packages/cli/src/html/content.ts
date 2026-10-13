@@ -1,5 +1,5 @@
 import type { CheckReport, PackageReport, PlanGroup } from '@uptide/core';
-import { BY } from '@uptide/core';
+import { BY, NO_PACK, noPackVerdict } from '@uptide/core';
 import type { Row } from '../format-check.js';
 
 export function groupsForHtml(p: PackageReport, plan: PlanGroup[]): PlanGroup[] {
@@ -51,6 +51,7 @@ export function verdict(rows: Row[]): string {
   const unverified = groups
     .filter((g) => g.severity === 'unverified')
     .reduce((sum, g) => sum + g.sites, 0);
+  const noPack = rows.filter((r) => noPackVerdict(r.p)).length;
   return [
     n
       ? `${n} breaking ${n === 1 ? 'change' : 'changes'} in ${files} ${files === 1 ? 'file' : 'files'}.`
@@ -64,6 +65,8 @@ export function verdict(rows: Row[]): string {
     unverified
       ? `${unverified} unverified ${unverified === 1 ? 'site' : 'sites'} need review.`
       : '',
+    // Without a pack, no confirmed break is no answer: the count says how many have none.
+    noPack ? `${noPack} ${noPack === 1 ? 'package' : 'packages'} ${NO_PACK}.` : '',
   ]
     .filter(Boolean)
     .join(' ');

@@ -241,6 +241,14 @@
           "error": {
             "type": "string",
             "pattern": "^[^\\u0000-\\u001f`]{1,300}$"
+          },
+          "analysis": {
+            "enum": ["pack", "none"]
+          },
+          "movesWith": {
+            "type": "string",
+            "pattern": "^(?:@[A-Za-z0-9._~-]+/)?[A-Za-z0-9._~-]+$",
+            "maxLength": 214
           }
         }
       }
