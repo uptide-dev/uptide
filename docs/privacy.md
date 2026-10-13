@@ -90,7 +90,7 @@ What leaves your machine:
   [environment variables](https://code.claude.com/docs/en/env-vars)).
   - The session has no web tool, so Claude Code's WebFetch domain check never runs.
   - `persistSession: false`: no transcript is written under `~/.claude/projects/`.
-  - `settingSources: []`: your Claude Code settings, hooks and `CLAUDE.md` files are not loaded.
+  - `settingSources: []`: your Claude Code settings, hooks and `CLAUDE.md` files are not automatically loaded.
 - **The session's environment** holds `PATH`, `HOME`, the key and the switches above, and
   nothing else of yours. The tests the session asks for run through Uptide, without your
   keys or tokens, as in every `fix`.

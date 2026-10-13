@@ -211,10 +211,11 @@ repository, and there:
 6. **Verifies.** Type-checks with *your* TypeScript (or the bundled compiler when absent)
    before and after and subtracts the errors you already had; runs the tests of the affected
    workspaces (each workspace's `test` script, else the vitest or jest configuration that
-   covers it, scoped to the tests related to the migrated files, else the root `test`
-   script) and reports what ran; by default only tests that need no database, cache or queue
+   covers it, else the root `test` script) and reports what ran. SDK runs use the full
+   selected suite before and after migration; patch runs can scope detected runners to
+   tests related to the migrated files. By default only tests that need no database, cache or queue
    run, and the report counts the integration tests it left out (`--with-services --yes`
-   includes them, after printing what they connect to); formats the files it edited, and
+   includes them after printing what they connect to). It formats the files it edited, and
    only those, with your formatter and runs your lint (biome, prettier, eslint) on them,
    where a new lint failure fails verification; for zod, compares v3 and v4 behavior of
    your schemas on generated inputs.
@@ -238,18 +239,18 @@ small PR: same SDK, `apiVersion` made explicit on every client that omits it.
 ## A dependency without a pack
 
 `uptide fix <any dependency>` works without a pack: there are no rules, so every site with
-evidence goes to the agent, one at a time, and an edit is kept only if that site's compiler
-error disappears and no new one appears. The verification and the publish gate are the same
-as for a verified dependency.
+evidence goes to the selected executor. The SDK groups the sites in one session; the patch
+executor handles them one at a time. Sites count as fixed when their compiler errors disappear,
+and the gate rejects new errors. Final verification works as it does for a verified dependency.
 
 - It needs the selected provider's environment API key ([models](../models.md)). Without
   one, or with `--no-llm`, it says what it cannot do and exits before creating a clone, a
   branch or an install.
-- `--max-cost <usd>` (default 1) divides the remaining SDK budget across tasks; enforcement
+- `--max-cost <usd>` (default 1) sets the SDK session budget for each package; enforcement
   after each turn can overshoot by one turn. With `--agent patch`, it reserves the
   worst-case cost before every call, including
   retries. Sites not completed stay manual, the summary and the pull request say how many,
-  and a run with sites left does not verify, so it cannot be published.
+  and final verification decides whether the result can be published.
 - The pull request opens with a note that no migration pack covers the package, and its
   risk is never Low.
 
