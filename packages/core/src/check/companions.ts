@@ -223,6 +223,7 @@ export async function companionsOf(input: {
   manifests: (name: string) => Promise<Manifests>;
   /** Known companions eligible to move when their installed peer range rejects the target. */
   lockstep?: readonly string[];
+  releaseGroup?: readonly string[];
   /** Targets already planned before an explicitly requested peer upgrade. */
   peerTargets?: Record<string, string>;
 }): Promise<CompanionPlan> {
@@ -247,7 +248,8 @@ export async function companionsOf(input: {
         scope !== undefined &&
         families.has(scope) &&
         d.workspaces.some((w) => lead.workspaces.includes(w));
-      if (!host && !family) continue;
+      const declared = input.releaseGroup?.includes(d.name) && visibleFrom(d, lead);
+      if (!host && !family && !declared) continue;
       members.push(d);
       if (host && scope !== undefined) families.add(scope);
       grew = true;
@@ -285,7 +287,32 @@ export async function companionsOf(input: {
       if (!typesHost && typed !== undefined && names.has(typed) && waitForTyped) continue;
       const versions = await input.manifests(c.name);
       let move: { version: string; reason: string } | undefined;
-      if (typesHost) {
+      if (input.releaseGroup?.includes(c.name)) {
+        const compatible = (v: string): boolean => {
+          const m = versions[v];
+          if (!m) return false;
+          const ranges = [m.dependencies?.[lead.name], m.peerDependencies?.[lead.name]].filter(
+            (r): r is string => r !== undefined,
+          );
+          return (
+            ranges.every((r) => accepts(r, input.target)) &&
+            (v === input.target || ranges.length > 0)
+          );
+        };
+        const version = compatible(input.target)
+          ? input.target
+          : versions[input.target]
+            ? undefined
+            : Object.keys(versions)
+                .filter((v) => stable(v) && compatible(v))
+                .sort(compareVersions)
+                .at(-1);
+        if (version)
+          move = {
+            version,
+            reason: `${c.name} ${version} moves with ${lead.name} ${input.target} (declared release group)`,
+          };
+      } else if (typesHost) {
         move = typesMove(
           c,
           typed as string,
@@ -372,13 +399,20 @@ export async function companionsOf(input: {
     const manifest = move && (await input.manifests(c.name))[move.version];
     if (manifest) targets.set(c.name, manifest);
   }
-  const group = dependencyGroups(packages, metadata, targets).find((g) =>
-    g.members.some((m) => m.name === lead.name),
-  );
+  const group = dependencyGroups(
+    packages,
+    metadata,
+    targets,
+    new Map(input.releaseGroup?.length ? [[lead.name, input.releaseGroup]] : []),
+  ).find((g) => g.members.some((m) => m.name === lead.name));
   const inGroup = new Set((group?.members ?? [listed(lead, input.target)]).map((m) => m.name));
   // A package the pack names is a member whatever `list` draws: the pack knows it moves with the lead.
   for (const c of candidates)
-    if (input.lockstep?.includes(c.name) && moves.get(c.name) !== undefined) inGroup.add(c.name);
+    if (
+      input.releaseGroup?.includes(c.name) ||
+      (input.lockstep?.includes(c.name) && moves.get(c.name) !== undefined)
+    )
+      inGroup.add(c.name);
   // `list` links nothing to a types package: `@types/<pkg>` joins the group of its `<pkg>`,
   // and what `list` would group with it (`@types/react-dom`, a peer of `@types/react`) follows.
   for (let grew = true; grew; ) {
@@ -388,7 +422,12 @@ export async function companionsOf(input: {
       const typed = typedPackageOf(c.name);
       const joins =
         (typesLinked.has(c.name) && typed !== undefined && inGroup.has(typed)) ||
-        dependencyGroups(packages, metadata, targets).some(
+        dependencyGroups(
+          packages,
+          metadata,
+          targets,
+          new Map(input.releaseGroup?.length ? [[lead.name, input.releaseGroup]] : []),
+        ).some(
           (g) =>
             g.members.some((m) => m.name === c.name) && g.members.some((m) => inGroup.has(m.name)),
         );

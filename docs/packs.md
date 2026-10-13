@@ -313,3 +313,22 @@ arguments).
 
 The "Verified packs" table in the README is generated from each pack's `verification.json`
 and ground truth by `pnpm docs:packs`; CI fails when it is stale.
+
+### Release groups
+
+Use `releaseGroup` for packages published in lockstep with the pack's lead. Like
+`companions`, each entry has `name` and an official HTTPS `source`. Unlike ordinary
+companions, installed release-group members move even when they have no dependency
+edge or their installed peer range already accepts the target. Check, fix preflight,
+and pack verification use the same planner; list reports the group with `movesWith`.
+Members must be visible in the lead's workspace.
+
+The planner selects the lead's exact target version when published. If that version
+is absent, it selects the newest stable release whose published dependency/peer
+ranges explicitly accept the lead target. Without that evidence, or when the exact
+release rejects the lead, planning reports a conflict rather than leaving the member
+behind. Undeclared packages retain existing companion behavior.
+
+For Next, the declared members are `eslint-config-next`, `@next/eslint-plugin-next`,
+`@next/bundle-analyzer`, `@next/mdx`, and `@next/third-parties`; declare only installed
+members of this release family, not independently versioned React packages.
