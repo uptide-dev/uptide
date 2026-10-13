@@ -11,8 +11,9 @@ the [provider evaluation](provider-evaluation.md); rates in [model pricing](mode
 
 ## Choosing a provider and model
 
-Assisted fixes support Anthropic, OpenAI and Gemini (experimental), with the same prompts,
-tool, verification and publish gate. Set the chosen provider's key in your environment:
+Assisted fixes support Anthropic, OpenAI and Gemini (experimental), with the same final
+diagnostic comparison and publish gate. Anthropic uses the SDK executor by default when it is installed; OpenAI and Gemini
+use the patch executor. Set the chosen provider's key in your environment:
 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY`. Never put keys in repository
 config or command arguments.
 
@@ -66,6 +67,10 @@ times, exact echoed IDs and the Sonnet 4.6/high/medium comparison are in the
 [provider evaluation](provider-evaluation.md). These single fixture trials are not a general
 model ranking.
 
+The following protocol describes the patch executor (`--agent patch`), which remains the
+default for OpenAI and Gemini. Anthropic defaults to [Agent SDK sessions](commands/fix.md#assisted-fix-executor);
+the [executor evaluation](agent-sdk-evaluation.md) compares them on three public repositories.
+
 Tool choice follows each model's capabilities. Sonnet 5.5 uses `auto` with a strict
 `submit_patch` schema and a tool-only system instruction; Sonnet 4.6, OpenAI and Gemini use
 forced tool calls. Missing or invalid calls consume an attempt and their reported cost, then
@@ -75,12 +80,16 @@ reservation fits the budget.
 
 ## `--max-cost`
 
-`--max-cost` defaults to **$1 per package**, including zod and stripe. Before every call and
-retry, Uptide reserves its worst-case input and maximum output cost. A call that would exceed
+`--max-cost` defaults to **$1 per package**, including zod and stripe. The SDK executor gives
+the package's session this budget and enforces it after each turn, so it can overshoot
+by one turn.
+
+With the patch executor, before every call and retry, Uptide reserves its worst-case input
+and maximum output cost. A call that would exceed
 the remaining budget is never sent. Actual returned usage replaces the reservation; failures
 without valid usage keep the full reservation, shown separately as unknown spend. Rejected
-patches still consume budget. Unfinished sites remain manual and cannot pass the publish
-gate. Unknown models use the provider's highest listed rates with a warning. See
+patches still consume budget. Unfinished sites remain manual; final verification decides
+whether the result can be published. Unknown models use the provider's highest listed rates with a warning. See
 [model pricing](model-pricing.md) for rates, token estimation and the scope of accounting.
 
 ## `OPENAI_BASE_URL`
@@ -95,7 +104,8 @@ differ from the built-in OpenAI table.
 
 ## Privacy
 
-Assisted fixes send the finding, enclosing code snippet and compiler error to the provider
+The patch executor sends the finding, enclosing code snippet and compiler error to the provider
 you chose (or your `OPENAI_BASE_URL`). Your provider's data policy applies. `--no-llm` keeps
-assisted fixes off. Anonymous telemetry, when enabled, adds only the provider and a public
-model ID; private/custom model IDs become `custom`. The full model: [privacy](privacy.md).
+assisted fixes off. SDK sessions can also read and send files throughout the temporary clone
+and the output of type-checks, lint and tests to Anthropic. Anonymous telemetry, when enabled,
+adds only the provider and a public model ID; private/custom model IDs become `custom`. The full model: [privacy](privacy.md).

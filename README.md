@@ -118,7 +118,7 @@ The stripe run from the same fixture, and what each step of `fix` does, are in
 ## Privacy
 
 Analysis runs locally, with no account and no Uptide server. Code leaves your machine only
-for assisted fixes in `uptide fix`, with your own API key, one site at a time; `--no-llm`
+for assisted fixes in `uptide fix`, with your own API key; `--no-llm`
 turns that off. `check` loads your installed `typescript` to compile with and runs none of
 your scripts. Anonymous telemetry is off by default and collects no IP, code, paths or repo names.
 
@@ -127,7 +127,7 @@ your scripts. Anonymous telemetry is off by default and collects no IP, code, pa
 | `list`, `plan` | locally | package names/versions requested from your npm registry, and `list` sends public packages' names and installed versions to npm's advisory endpoint; metadata only, no source code |
 | `check` | locally | nothing of yours; it downloads package tarballs from your npm registry. No LLM call. It loads your installed `typescript` package to compile with, and runs no script or other code of yours. |
 | `fix`, rules and verification | locally, in a temporary clone | nothing of yours |
-| `fix`, assisted fixes | Your chosen provider's API, with **your** environment API key | per site no rule covers: the finding, the enclosing function or declaration, and the compiler error |
+| `fix`, assisted fixes | Your chosen provider's API, with **your** environment API key | patch executor: findings, enclosing code, compiler-linked declarations and errors; Anthropic SDK default: also files read throughout the clone and output from its checks |
 | `pr`, `fix --pr` | GitHub, through your own `gh` | the branch and the pull request, when you say so |
 
 The full statement and the isolation model: [privacy](docs/privacy.md) and [SECURITY.md](SECURITY.md).

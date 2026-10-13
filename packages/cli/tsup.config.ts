@@ -32,8 +32,8 @@ export default defineConfig({
   target: 'node20',
   splitting: true,
   // `npx uptide` installs one package: the engine and every dependency are inlined.
-  // Except the Agent SDK behind the experimental `--agent sdk`: not open source, so never
-  // inlined; an optional peer the user installs, loaded only when the flag asks for it.
+  // Except the Claude Agent SDK: not open source, so never inlined; an optional peer the
+  // user installs, loaded only for SDK assistance.
   noExternal: [/^(?!@anthropic-ai\/claude-agent-sdk)/],
   external: ['@anthropic-ai/claude-agent-sdk'],
   banner: { js: cjsGlobals },

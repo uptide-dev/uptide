@@ -117,6 +117,7 @@ export async function reverify(
     // to pass outright.
     baselineLint: [],
     services,
+    fullSuite: report.llm.agent === 'sdk',
     withServices: options.withServices === true,
     ...(options.onProgress ? { onProgress: options.onProgress } : {}),
     ...(options.testTimeoutMs ? { testTimeoutMs: options.testTimeoutMs } : {}),

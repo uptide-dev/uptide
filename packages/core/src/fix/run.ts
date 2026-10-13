@@ -31,7 +31,7 @@ import { pinCurrentApi } from './pin.js';
 import { command, git, projectRoot } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { changeRule, editDiff, prBody } from './report.js';
-import { assistWithSdk, type TaskRunner } from './sdk-agent.js';
+import { assistWithSdk, sdkInstalled, type TaskRunner } from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
 import { lintFiles } from './style.js';
@@ -87,13 +87,13 @@ export interface FixOptions {
    */
   pinCurrentApi?: boolean;
   /**
-   * Reserve the worst-case cost before every call/retry. Sites that cannot finish stay
-   * manual and the run says so. Default: 1 USD for every package.
+   * Assisted-fix budget: SDK tasks may overshoot by one turn; patch calls reserve their
+   * worst-case cost. Unfinished sites stay manual. Default: 1 USD for every package.
    */
   maxCostUsd?: number;
   /**
-   * Experimental: `sdk` runs assisted fixes as Claude Agent SDK sessions, one per pack rule,
-   * gated at the end of each (`sdk-agent.ts`). Anthropic only; the patch agent by default.
+   * `sdk` runs assisted fixes in one Claude Agent SDK session per package.
+   * Default for authenticated Anthropic runs without a supplied fixer; otherwise `patch`.
    */
   agent?: 'patch' | 'sdk';
   /** The build doing the work; injected by tests, which run from a checkout under development. */
@@ -125,6 +125,8 @@ export interface FixServices {
   manifests?: PackageFetcher['manifests'];
   /** `--agent sdk` sessions; the Claude Agent SDK by default. */
   agentRunner?: TaskRunner;
+  /** Whether the optional SDK peer can be imported; decides the default executor. */
+  sdkInstalled?: () => Promise<boolean>;
   /** The publish step of a `--pr` run; `publishVerified` by default. */
   publish?(
     result: FixReport,
@@ -191,7 +193,16 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   )
     throw new Error('--max-cost must be a positive finite amount in USD');
   const selection = selectLlm(root, options);
-  const sdkAgent = options.agent === 'sdk' && options.fixer !== null;
+  const sdkDefault =
+    options.agent === undefined &&
+    options.fixer === undefined &&
+    selection.provider === 'anthropic' &&
+    selection.available;
+  // The SDK is an optional peer: the default uses it only when it is installed.
+  const sdkMissing =
+    sdkDefault && !services.agentRunner && !(await (services.sdkInstalled ?? sdkInstalled)());
+  const sdkAgent =
+    options.fixer !== null && (options.agent === 'sdk' || (sdkDefault && !sdkMissing));
   if (sdkAgent && selection.provider !== 'anthropic')
     throw new UptideError(
       'NO_FIXER',
@@ -343,6 +354,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const baselineTests = await verify(`tests (${names(workspaces)})`, () =>
     services.tests(root, workspaces, options.testTimeoutMs, affected, {
       withServices: options.withServices === true,
+      fullSuite: sdkAgent,
     }),
   );
   if (git(root, 'status', '--porcelain', '--untracked-files=all'))
@@ -398,9 +410,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   // The install replaced node_modules, and what was generated into it with them.
   if (generated.length)
     await verify('generate', () => (services.generate ?? generateClients)(root, workspaces));
-  const targetErrors = await verify(`types (${names(workspaces)})`, () =>
-    services.diagnostics(root, workspaces),
-  );
+  const targetChecker =
+    sdkAgent && services.diagnostics === diagnostics ? typeChecker(root, workspaces) : undefined;
+  const checkTarget = targetChecker?.check ?? (() => services.diagnostics(root, workspaces));
+  const targetErrors = await verify(`types (${names(workspaces)})`, checkTarget);
   const sites: FixSite[] = [];
   const changed = new Set<string>();
   const rulesStarted = performance.now();
@@ -484,6 +497,25 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     commit(root, `fix(${pack.name}): add ${helper.name} to ${helper.file}`, files);
     packContext = { ...packContext, helpers: [...(packContext.helpers ?? []), helper] };
   }
+  const pendingCompilerSites = sites.filter(
+    (s) => s.outcome === 'manual' && s.finding.usage.compileError,
+  );
+  if (pendingCompilerSites.length && sites.some((s) => s.outcome === 'mechanical')) {
+    const errorFiles = new Set((await verify('types after rules', checkTarget)).map((d) => d.file));
+    for (const site of pendingCompilerSites) {
+      const usage = site.finding.usage;
+      if (
+        !errorFiles.has(usage.file) &&
+        targetErrors.some(
+          (d) =>
+            d.file === usage.file && (d.line === usage.line || d.message === usage.compileError),
+        )
+      ) {
+        site.outcome = 'mechanical';
+        site.reason = 'compiler error resolved by preceding rule-based edits';
+      }
+    }
+  }
   const llm = await progress(options.onProgress, { phase: 'assist', package: pack.name }, () =>
     sdkAgent
       ? assistWithSdk({
@@ -494,14 +526,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           context: packContext,
           model: selection.model,
           maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD,
-          // One program per workspace across the tasks: each check re-reads what changed.
-          diagnostics:
-            services.diagnostics === diagnostics
-              ? (
-                  (checker) => () =>
-                    checker.check()
-                )(typeChecker(root, workspaces))
-              : () => services.diagnostics(root, workspaces),
+          // Reuse the post-install program; final verification still checks independently.
+          diagnostics: checkTarget,
           tests: (files) =>
             services.tests(root, workspaces, options.testTimeoutMs, files, {
               withServices: options.withServices === true,
@@ -552,6 +578,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       affected,
     });
   }
+  // Release cached programs before final verification builds independent ones.
+  targetChecker?.clear();
   const behavior = pack.name === 'zod' ? behaviorCheck(root, originals, sites) : undefined;
   const {
     tests: ran,
@@ -570,6 +598,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     target,
     baselineLint,
     services,
+    fullSuite: sdkAgent,
     withServices: options.withServices === true,
     ...(options.onProgress ? { onProgress: options.onProgress } : {}),
     ...(options.testTimeoutMs ? { testTimeoutMs: options.testTimeoutMs } : {}),
@@ -618,7 +647,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
         lint.every((l) => l.status !== 'failed'),
     },
-    llm,
+    llm: sdkMissing ? { ...llm, sdkMissing: true } : llm,
     ...(behavior ? { behavior } : {}),
     timingMs: Date.now() - started,
     prBody: join(root, '.uptide/pr-body.md'),

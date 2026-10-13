@@ -660,6 +660,11 @@ export function renderMigration(
   if (report.tier === 'generic' && report.sites.some((s) => s.outcome === 'agent'))
     lines.push(`> ${GENERIC_NOTE(report.package)}`, '');
   if (report.llm.disabled) lines.push('Assisted fixes disabled (--no-llm).', '');
+  if (mode === 'compact' && report.llm.sdkMissing)
+    lines.push(
+      'Assisted fixes used the patch agent: install @anthropic-ai/claude-agent-sdk next to uptide for the SDK executor (--agent patch silences this).',
+      '',
+    );
   lines.push(...summaryRows(report), '');
   if (report.lockfile?.peerReresolved?.length) {
     lines.push(

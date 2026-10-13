@@ -3,11 +3,13 @@
  * compares them). Change it only together with what the code does.
  */
 export const PRIVACY = `Privacy:
-  Analysis runs locally. Code snippets go to your chosen LLM provider (Anthropic, OpenAI or Gemini), only
+  Analysis runs locally. Code goes to your chosen LLM provider (Anthropic, OpenAI or Gemini), only
   for assisted fixes in \`uptide fix\`, and only with your own API key from ANTHROPIC_API_KEY,
-  OPENAI_API_KEY or GEMINI_API_KEY: for each
-  site the rules cannot migrate, the finding, the enclosing code and compiler-linked repository declarations, and the compiler
-  error. \`uptide fix --no-llm\` turns assisted fixes off. No account.
+  OPENAI_API_KEY or GEMINI_API_KEY. The patch executor sends the finding, enclosing code,
+  compiler-linked repository declarations and compiler error. The Anthropic SDK executor,
+  on by default for Anthropic, can also send files throughout the temporary clone and
+  output from type-checks, lint and tests. \`--agent patch\` selects the patch executor.
+  \`uptide fix --no-llm\` turns assisted fixes off. No account.
   \`check\` and \`verify\` load the \`typescript\` package your repository installs (resolved from its
   node_modules) to compile with, and never run your repository's scripts or other code outside
   \`fix\`'s verification step.

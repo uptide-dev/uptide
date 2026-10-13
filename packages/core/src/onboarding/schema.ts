@@ -116,7 +116,7 @@ export const UPTIDE_CONFIG_SCHEMA = {
     },
     executor: {
       description:
-        'How assisted fixes are applied: auto (Uptide chooses), patch (one edit per site), sdk (experimental: a Claude Agent SDK session).',
+        'How assisted fixes are applied: auto (SDK for Anthropic when installed, patch otherwise), patch (one edit per site), sdk (a Claude Agent SDK session).',
       enum: [...EXECUTORS],
       default: 'auto',
     },

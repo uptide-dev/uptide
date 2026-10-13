@@ -310,9 +310,13 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
  * between checks and is re-checked only when a repository file it reads changed, and then
  * only the files that change can affect. `--agent sdk` checks after every task with one.
  */
-export function typeChecker(root: string, workspaces: string[]): { check(): FixDiagnostic[] } {
+export function typeChecker(
+  root: string,
+  workspaces: string[],
+): { check(): FixDiagnostic[]; clear(): void } {
   const states = new Map<string, CheckedWorkspace>();
   return {
+    clear: () => states.clear(),
     check() {
       const all = new Map<string, FixDiagnostic>();
       const queue = [...workspaces];
@@ -576,9 +580,12 @@ export interface TestOptions {
   /**
    * Only what can see `files`: the workspaces that own one and those that depend on them,
    * and a script that is just the runner (`vitest run`, `jest`) in its related-tests mode.
-   * For the agent's own checks between tasks; verification runs the full selection.
+   * For the agent's own checks between tasks; never widens to the full suite on no matches.
+   * Final verification runs the full selection.
    */
   related?: boolean;
+  /** Run every test in the selected workspaces, including detected runner configurations. */
+  fullSuite?: boolean;
 }
 
 const VITEST_CONFIGS = ['vitest.config', 'vitest.workspace'].flatMap((base) =>
@@ -697,6 +704,23 @@ export function planTests(
   files: string[] = [],
   options: TestOptions = {},
 ): TestPlan[] {
+  const recursive = manifest(root)?.scripts?.test;
+  // A recursive root script already runs the workspace suites; do not run each again.
+  if (
+    options.fullSuite &&
+    workspaces.includes('.') &&
+    recursive &&
+    /^pnpm\s+(?:-r|--recursive)\s+(?:run\s+)?test\s*$/.test(recursive)
+  )
+    return [
+      {
+        workspace: '.',
+        covers: workspaces,
+        cwd: root,
+        command: recursive.replace(/(-r|--recursive)\b/, '$1 --no-bail'),
+        scope: 'the recursive `test` script of the repository',
+      },
+    ];
   const plans: TestPlan[] = [];
   const shared = new Map<
     string,
@@ -745,7 +769,7 @@ export function planTests(
   for (const group of shared.values()) {
     const inside = (file: string): boolean =>
       group.covers.some((w) => w === '.' || file === w || file.startsWith(`${w}/`));
-    const related = [...new Set(files)]
+    const related = [...new Set(options.fullSuite ? [] : files)]
       .filter(inside)
       .filter((file) => existsSync(join(root, file)))
       .map((file) => relative(group.dir, join(root, file)))
@@ -946,7 +970,7 @@ export async function testWorkspaces(
     let fellBack: TestResult['fallback'];
     try {
       result = await attempt();
-      if (result.code && !result.timeout) {
+      if (result.code && !result.timeout && !options.related && !options.fullSuite) {
         // A failure in a test that is not about the affected files gets one more run: a socket
         // reset in an unrelated e2e test must not fail a migration. A test of an affected file
         // that fails is ours, and is never retried into a pass.
@@ -967,7 +991,7 @@ export async function testWorkspaces(
         !result.timeout &&
         failedTestFiles(scopedOutput).length === 0 &&
         !/^\s*Tests?:?\s.*\b\d+ failed/m.test(scopedOutput);
-      if (plan.fallback && (refused || noTestsRan(result, scopedOutput))) {
+      if (!options.related && plan.fallback && (refused || noTestsRan(result, scopedOutput))) {
         const scoped = result;
         result = await command(
           plan.cwd,

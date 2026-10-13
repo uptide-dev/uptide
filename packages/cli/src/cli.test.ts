@@ -405,6 +405,13 @@ describe('uptide fix', () => {
     },
   );
 
+  it.each(['patch', 'sdk'] as const)('forwards --agent %s to the worker', async (agent) => {
+    const engine = fakeEngine();
+    const io = memoryIo({ cwd: pnpmGitRepo(), env: { ANTHROPIC_API_KEY: 'test-key' } });
+    expect(await run(['fix', 'zod', '--agent', agent], io, engine)).toBe(0);
+    expect(engine.calls).toContainEqual(expect.objectContaining({ agent, llm: true }));
+  });
+
   it('prints the FixReport with --json', async () => {
     const io = memoryIo({ cwd: pnpmGitRepo() });
     await run(['fix', '--only', 'zod', '--json', '--target', 'zod@4.6.5'], io, fakeEngine());

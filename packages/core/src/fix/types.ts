@@ -120,7 +120,7 @@ export interface AgentSummary {
   assumptions: string[];
   couldNotDo: string[];
 }
-/** One `--agent sdk` task: a pack rule over its files, measured, and the gate's verdict. */
+/** One SDK session over the package's manual sites, measured, and the gate's verdict. */
 export interface AgentTaskRecord {
   id: string;
   rule: string;
@@ -135,6 +135,8 @@ export interface AgentTaskRecord {
   toolCalls: Record<string, number>;
   gate: 'accepted' | 'rejected' | 'no-change' | 'error';
   rejection?: string;
+  /** Undeclared new files removed before validating and checking the remaining edits. */
+  discardedFiles?: string[];
   /** The SDK's stop reason when it did not finish cleanly (`error_max_budget_usd`). */
   stop?: string;
   /** How many single-site tasks shared this task's gate. */
@@ -244,8 +246,10 @@ export interface FixReport {
     disabled?: boolean;
     /** Set when `--max-cost` stopped the agent: the limit and unfinished sites (including stopped retries). */
     costLimit?: { limitUsd: number; notAttempted: number };
-    /** Experimental `--agent sdk`: Agent SDK sessions instead of the patch agent. */
+    /** Agent SDK sessions (the Anthropic default) instead of the patch agent. */
     agent?: 'sdk';
+    /** The SDK would have been the default but is not installed: the patch agent ran. */
+    sdkMissing?: true;
     tasks?: AgentTaskRecord[];
   };
   timingMs: number;
