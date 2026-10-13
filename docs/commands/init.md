@@ -35,7 +35,17 @@ const { files, prTitle, prBody } = generateOnboarding(
 );
 ```
 
-It holds the generator and the `uptide.yml` loader only: no analysis engine, no network.
+It holds the generator only: no analysis engine, no network, no file system and no Node
+globals, so it bundles for a browser as well as it imports under Node, Vitest or Turbopack.
+Its one dependency, `yaml`, is installed with it. What reads a checkout from disk is a
+separate entry, for Node only:
+
+```ts
+import { loadUptideConfig, snapshotFromDisk } from 'uptide/onboarding/node';
+
+const loaded = loadUptideConfig(dir); // the nearest uptide.yml, or undefined
+const facts = repoFacts(snapshotFromDisk(dir, { slug: 'owner/name', defaultBranch: 'main' }));
+```
 
 ## What it reads
 

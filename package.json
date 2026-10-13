@@ -19,6 +19,7 @@
     "version-packages": "changeset version",
     "release": "echo 'Releases are published by the Release workflow on every push to main. See docs/releasing.md.' && exit 1",
     "smoke": "node packages/cli/smoke/run.mjs",
+    "smoke:onboarding": "node packages/cli/smoke/onboarding.mjs",
     "eval": "pnpm --filter @uptide/core build && tsx scripts/eval.ts",
     "test:network": "UPTIDE_NETWORK=1 turbo run test",
     "eval:check": "pnpm --filter @uptide/core build && tsx scripts/eval-check.ts",

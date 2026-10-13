@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadUptideConfig, packageSelected, parseUptideConfig } from './config.js';
+import { packageSelected, parseUptideConfig } from './config.js';
+import { loadUptideConfig } from './node.js';
 import { DEFAULT_CONFIG, UPTIDE_CONFIG_SCHEMA } from './schema.js';
 import { KEYWORDS } from './validate.js';
 

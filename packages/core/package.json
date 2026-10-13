@@ -24,6 +24,11 @@
       "source": "./src/onboarding/index.ts",
       "types": "./dist/onboarding.d.ts",
       "import": "./dist/onboarding.js"
+    },
+    "./onboarding/node": {
+      "source": "./src/onboarding/node.ts",
+      "types": "./dist/onboarding-node.d.ts",
+      "import": "./dist/onboarding-node.js"
     }
   },
   "files": [

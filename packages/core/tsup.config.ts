@@ -15,6 +15,7 @@ export default defineConfig({
     'list-worker': 'src/list/list-worker.ts',
     // What the GitHub App imports: the generator and uptide.yml, without the engine.
     onboarding: 'src/onboarding/index.ts',
+    'onboarding-node': 'src/onboarding/node.ts',
   },
   format: ['esm'],
   dts: true,

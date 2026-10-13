@@ -37,3 +37,8 @@ export interface Adapter {
   headers(key: string): Record<string, string>;
   parse(body: unknown): LlmResponse;
 }
+/** Whether a setting looks like a credential: never accepted in a config file. */
+export const keyLike = (s: string): boolean =>
+  /(?:sk-[\w-]{8,}|AIza[\w-]{12,}|phc_[\w-]+|bearer\s|api[_-]?key|secret|password|access[_-]?token)/i.test(
+    s,
+  );

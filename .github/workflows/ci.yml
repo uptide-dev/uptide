@@ -72,3 +72,21 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm smoke ${{ matrix.node }}
+
+  onboarding:
+    # `uptide/onboarding` as a consumer installs it, from the packed tarball: imported under
+    # plain Node ESM, and bundled by esbuild for the browser with no fs or other builtin.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm smoke:onboarding

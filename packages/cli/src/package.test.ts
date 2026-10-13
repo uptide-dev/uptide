@@ -19,21 +19,29 @@ const manifest = JSON.parse(readFileSync(`${root}package.json`, 'utf8'));
 const bin = `${root}dist/index.js`;
 
 describe('published package', () => {
-  it('is one package named uptide with no runtime dependencies', () => {
+  it('is one package named uptide whose only runtime dependency is yaml', () => {
     expect(manifest.name).toBe('uptide');
     expect(manifest.bin).toEqual({ uptide: './dist/index.js' });
-    expect(manifest.dependencies).toBeUndefined();
+    // The command inlines everything. `uptide/onboarding` imports yaml instead: bundled, its
+    // CommonJS build calls require("process"), which breaks consumers' ES module builds.
+    expect(Object.keys(manifest.dependencies)).toEqual(['yaml']);
+    expect(manifest.devDependencies?.yaml).toBeUndefined();
     // The experimental `--agent sdk` loads the Claude Agent SDK only if the user installed it.
     expect(manifest.peerDependencies).toEqual({ '@anthropic-ai/claude-agent-sdk': '>=0.3.296' });
     expect(manifest.peerDependenciesMeta).toEqual({
       '@anthropic-ai/claude-agent-sdk': { optional: true },
     });
     expect(manifest.engines.node).toBe('>=20');
-    // One library entry besides the command: what the GitHub App imports (onboarding-export.test.ts).
+    // The library entries besides the command, what the GitHub App imports: the pure
+    // generator, and what reads it from disk (onboarding-export.test.ts).
     expect(manifest.exports).toEqual({
       './onboarding': {
         types: './dist/onboarding/index.d.ts',
         import: './dist/onboarding/index.js',
+      },
+      './onboarding/node': {
+        types: './dist/onboarding/node.d.ts',
+        import: './dist/onboarding/node.js',
       },
       './package.json': './package.json',
     });
