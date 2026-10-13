@@ -47,6 +47,10 @@ for (const name of ['storefront-zod', 'stripe'])
         body = prBody(report),
         top = visible(body);
       expect(top.match(/^\| \*\*/gm)).toHaveLength(6);
+      // A pack analyzed the upgrade: the build is not owed, so it is not a warning.
+      expect(top).toMatch(
+        /^\| \*\*Verified by\*\* \|.* · build not required \(pack-verified migration\) · /m,
+      );
       // A decision names the file it is about; everything else above the fold stays path-free.
       expect(top.replace(/### Decisions for you\n[\s\S]*?(?=\n### |$)/, '')).not.toMatch(
         /packages\/|src\/|seed|methodology|tokens|claude|Diagnostic|earlier accepted edit/,

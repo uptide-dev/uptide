@@ -530,8 +530,11 @@ export function verifiedBy(report: FixReport): string {
       ? '❌ type-check'
       : '✅ type-check';
   const failing = (s: string) => s === 'failed' || s === 'timeout';
+  // A pack analyzed the upgrade: the build is required only of runs without one.
   const build = !v.build
-    ? '⚠️ build not run'
+    ? report.tier === 'generic'
+      ? '⚠️ build not run'
+      : 'build not required (pack-verified migration)'
     : v.build.every((b) => b.status === 'missing')
       ? '⚠️ build not run: no build script'
       : v.build.some((b) => failing(b.status))
