@@ -161,7 +161,7 @@ describe('uptide.run/v1', () => {
         r.diff = '-a\n+b';
       }),
     ).toContain(
-      'diff is not a setting here (known: schema, engineVersion, repo, sha, runId, runAttempt, mode, startedAt, finishedAt, upgrades, error)',
+      'diff is not a setting here (known: schema, engineVersion, repo, sha, runId, runAttempt, mode, startedAt, finishedAt, upgrades, llmKey, error)',
     );
     expect(
       tamper((r) => {
@@ -281,6 +281,29 @@ describe('uptide.run/v1', () => {
     expect(reportProblems(run([{ ...base, analysis: 'maybe' as 'none' }]))).toEqual([
       'upgrades[0].analysis must be one of pack, none',
     ]);
+  });
+
+  it('says whether the run had an Anthropic key, as present or missing only', () => {
+    expect(reportProblems(run([], { llmKey: 'present' }))).toEqual([]);
+    expect(reportProblems(run([], { llmKey: 'missing' }))).toEqual([]);
+    // Reports written before the field still validate.
+    expect(reportProblems(run([]))).toEqual([]);
+    expect(reportProblems(run([], { llmKey: 'sk-ant' as 'present' }))).toEqual([
+      'llmKey must be one of present, missing',
+    ]);
+    expect(RUN_REPORT_SCHEMA.required).not.toContain('llmKey');
+  });
+
+  it('tells a run without a key exactly what to add, and where', () => {
+    const summary = renderSummary(
+      run([], { mode: 'check', llmKey: 'missing', error: 'LLM_KEY_MISSING: no key' }),
+    );
+    expect(summary).toContain('**The run stopped:** LLM_KEY_MISSING: no key');
+    expect(summary).toContain('### Add the Anthropic API key');
+    expect(summary).toContain('**Settings → Secrets and variables → Actions**');
+    expect(summary).toContain('name it `ANTHROPIC_API_KEY`');
+    expect(summary).not.toContain('No dependency upgrades to report');
+    expect(renderSummary(run([], { llmKey: 'present' }))).not.toContain('Add the Anthropic');
   });
 
   it('prints no kind when nothing moves, and a companion as moving with its lead', () => {

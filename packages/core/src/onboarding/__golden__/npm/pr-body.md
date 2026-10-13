@@ -33,20 +33,16 @@ With that proof, the Uptide GitHub App gives the run a token that expires within
 
 ## Set the API key
 
-Assisted fixes need an Anthropic API key, stored as a repository secret named `ANTHROPIC_API_KEY`:
+Uptide needs an Anthropic API key, stored as a repository secret named `ANTHROPIC_API_KEY`:
 
-- In GitHub: Settings, Secrets and variables, Actions, New repository secret.
+- In GitHub: Settings → Secrets and variables → Actions → New repository secret.
 - Or with the GitHub CLI: `gh secret set ANTHROPIC_API_KEY`
 
-Without the secret, Uptide still runs and applies only its rule-based fixes. The key is passed to the Uptide step alone, never to the install step or to your tests.
-
-## Turn the LLM off
-
-Set `enabled: false` under `llm` in `uptide.yml`. Uptide then sends no code anywhere and applies only rule-based fixes. You can also delete the `ANTHROPIC_API_KEY` secret.
+Without the secret, the workflow does not run Uptide: the job fails and its summary says what to add. The key is passed to the Uptide step alone, never to the install step or to your tests.
 
 ## Remove Uptide
 
-Delete `.github/workflows/uptide.yml` and `uptide.yml`, and the `ANTHROPIC_API_KEY` secret if you added it. If you installed the Uptide GitHub App, uninstall it in Settings, GitHub Apps. To not start at all, close this pull request.
+Delete `.github/workflows/uptide.yml` and `uptide.yml`, and the `ANTHROPIC_API_KEY` secret. If you installed the Uptide GitHub App, uninstall it in Settings, GitHub Apps. To not start at all, close this pull request.
 
 ## Detected in this repository
 

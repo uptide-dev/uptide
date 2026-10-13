@@ -6,7 +6,7 @@ description: The settings file the Uptide workflow and the uptide CLI read, fiel
 # `uptide.yml`
 
 The settings for Uptide in one repository: which dependencies it looks at, when the workflow
-runs, how many pull requests it keeps open, and whether it may send code to an LLM. It sits
+runs, how many pull requests it keeps open, and how much it may spend on the LLM. It sits
 at the repository root. [`uptide init`](commands/init.md) writes one with the defaults and a
 comment on every field; the "Add Uptide" pull request of the GitHub App contains the same
 file.
@@ -19,7 +19,6 @@ packages:
 schedule: '17 6 * * 1'
 maxOpenPrs: 3
 llm:
-  enabled: true
   provider: anthropic
 maxCost: 1
 executor: auto
@@ -35,8 +34,7 @@ Only `version` is required. Every other field has the default shown in the table
 | `packages.deny` | list of globs | `[]` | Never these, even when `allow` matches them. |
 | `schedule` | cron (UTC) or `manual` | `17 6 * * 1` | When the workflow runs. See [Schedule](#schedule). |
 | `maxOpenPrs` | 1 to 50 | `3` | No new pull request is opened while this many Uptide pull requests are open. |
-| `llm.enabled` | boolean | `true` | `false`: no code is sent to an LLM; only rule-based fixes are made. |
-| `llm.provider` | `anthropic`, `openai`, `gemini` | `anthropic` | Who receives that code, with the repository's own API key. |
+| `llm.provider` | `anthropic`, `openai`, `gemini` | `anthropic` | Who receives the code around call sites no rule fixes, with the repository's own API key. The Uptide Action takes `anthropic` only. |
 | `maxCost` | USD, more than 0, at most 100 | `1` | LLM budget; the SDK may overshoot by one turn. |
 | `executor` | `auto`, `patch`, `sdk` | `auto` | With `auto`, SDK for Anthropic when it is installed, patch otherwise. `patch` or `sdk` explicitly selects the executor. |
 | `minReleaseAgeDays` | days, 0 to 365 | none | Uptide never targets a release younger than this, when the repository sets no release-age policy of its own. Days, unlike pnpm's minutes. See [Release age](#release-age). |
@@ -127,13 +125,14 @@ it from outside the repository (`npx uptide list --cwd path/to/repo`).
 
 - **The Uptide Action** (in the Uptide workflow) applies:
   - `packages`, through `uptide list`: only the dependencies it allows are checked or fixed.
-  - `llm.enabled` and `llm.provider`: assisted fixes run when the LLM is on and the provider
-    is `anthropic`, the one key the workflow passes.
+  - `llm.provider`: `anthropic`, the one key the workflow passes. The Action does not run
+    without that key ([CI](ci.md#the-anthropic-key-is-required)); any other provider stops the
+    run with an error.
   - `maxCost`: the limit of each `fix` run.
   - `maxOpenPrs`: no new pull request while that many Uptide pull requests are open.
   - `executor`: `patch` for the patch agent; otherwise the Agent SDK.
   It does not read `schedule`: see below.
-- **`uptide fix`** reads `llm.enabled`, `llm.provider`, `maxCost` and `executor`.
+- **`uptide fix`** reads `llm.provider`, `maxCost` and `executor`.
 - **`uptide list`**, **`uptide check`**, **`uptide fix`**, **`uptide plan`** and the Action
   read `minReleaseAgeDays` when the repository sets no release-age policy of its own.
 - **`uptide check`** and **`uptide fix`** read `packages` and say when a dependency named on
@@ -153,7 +152,6 @@ A flag on the command line overrides the file, and the file overrides the defaul
 
 | Setting | Flag | Also |
 | --- | --- | --- |
-| `llm.enabled` | `--llm`, `--no-llm` | |
 | `llm.provider` | `--provider` | `UPTIDE_PROVIDER` ranks above the file |
 | `maxCost` | `--max-cost` | |
 | `executor` | `--agent patch`, `--agent sdk` | |

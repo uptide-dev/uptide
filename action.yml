@@ -15,7 +15,7 @@ inputs:
     description: One dependency to check or fix. Empty for every dependency the settings allow.
     default: ''
   anthropic-api-key:
-    description: For assisted fixes. Pass a secret (secrets.ANTHROPIC_API_KEY); empty for rule-based fixes only. Never given to installs or tests.
+    description: Required. Pass the repository secret (secrets.ANTHROPIC_API_KEY); without it the run stops before doing anything and the job fails. Never given to installs or tests.
     default: ''
   app-url:
     description: The Uptide app, which issues the push token and receives the run report.
@@ -37,6 +37,8 @@ runs:
         UPTIDE_TOOLS: ${{ runner.temp }}/uptide-tools
         # The commit the workflow pinned: recorded in every run, as the archive has no .git.
         UPTIDE_BUILD_COMMIT: ${{ github.action_ref }}
+        # Only whether a key was passed, never the key: without one the engine is not built.
+        UPTIDE_LLM_KEY: ${{ inputs.anthropic-api-key != '' && 'present' || 'missing' }}
       run: bash scripts/action-setup.sh
     - id: run
       name: Run Uptide

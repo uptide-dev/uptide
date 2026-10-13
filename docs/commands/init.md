@@ -101,8 +101,8 @@ Only files at the repository root (the Git top level):
   | Yarn Berry | `yarn install --immutable --mode=skip-build` |
 
 - The Uptide Action, with `uptide.yml`, the mode, the package and
-  `secrets.ANTHROPIC_API_KEY`. The key is given to that step alone; with `llm.enabled: false`
-  it is not passed at all. The Action is `action.yml` at the root of
+  `secrets.ANTHROPIC_API_KEY`. The key is given to that step alone, and the Action does not
+  run without it ([CI](../ci.md#the-anthropic-key-is-required)). The Action is `action.yml` at the root of
   [uptide-dev/uptide](https://github.com/uptide-dev/uptide), released with the CLI's version
   tags and pinned by the commit of a release tag ([CI](../ci.md)). Until a release pins it,
   `init` says the workflow cannot run yet.
@@ -122,7 +122,8 @@ It writes nothing, and says why, when the files would not work:
 | Yarn Plug'n'Play | Uptide reads installed packages from `node_modules`. |
 | No way to tell which pnpm or Yarn Berry to run | Set `packageManager`. |
 | `engines.node` that no current Node release satisfies | Add an `.nvmrc`. |
-| `llm.provider` other than `anthropic` in an existing `uptide.yml` | The workflow passes only `ANTHROPIC_API_KEY` for now. |
+| `llm.provider` other than `anthropic` in an existing `uptide.yml` | The workflow passes only `ANTHROPIC_API_KEY`. |
+| An existing `uptide.yml` that turns the LLM off | The Action always uses the Anthropic key and rejects that setting; remove it from the file. |
 
 ## Running it again
 
@@ -134,8 +135,9 @@ with `--dry-run`.
 ## After it
 
 1. Review the two files, commit them on a branch and open a pull request.
-2. For assisted fixes, add the repository secret `ANTHROPIC_API_KEY`
-   (`gh secret set ANTHROPIC_API_KEY`). Without it, Uptide applies rule-based fixes only.
+2. Add the repository secret `ANTHROPIC_API_KEY` (`gh secret set ANTHROPIC_API_KEY`, or
+   Settings → Secrets and variables → Actions). Without it the workflow does not run Uptide:
+   the job fails and its summary says what to add.
 3. Once the workflow is on the default branch it runs on its schedule, and from the Actions
    tab with Run workflow.
 

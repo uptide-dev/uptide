@@ -83,6 +83,12 @@ export interface Upgrade {
   error?: string;
 }
 
+/**
+ * Whether the run had an Anthropic API key: never the key, nor any part of it. The Action
+ * does not run without one (`LLM_KEY_MISSING`). Absent in reports written before it.
+ */
+export type LlmKey = 'present' | 'missing';
+
 export interface RunReport {
   schema: typeof RUN_REPORT_SCHEMA_ID;
   engineVersion: string;
@@ -94,6 +100,7 @@ export interface RunReport {
   startedAt: string;
   finishedAt: string;
   upgrades: Upgrade[];
+  llmKey?: LlmKey;
   error?: string;
 }
 
@@ -276,6 +283,7 @@ export const RUN_REPORT_SCHEMA = {
         },
       },
     },
+    llmKey: { enum: ['present', 'missing'] },
     error: { type: 'string', pattern: SENTENCE },
   },
 } as const;

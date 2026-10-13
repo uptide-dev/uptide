@@ -59,7 +59,7 @@ describe('uptide init', () => {
   }, 20_000);
 
   it('keeps an existing uptide.yml and writes the workflow from its settings', async () => {
-    const settings = "version: 1\nschedule: '7 5 * * 2'\nllm:\n  enabled: false\n";
+    const settings = "version: 1\nschedule: '7 5 * * 2'\nmaxOpenPrs: 1\n";
     const cwd = clonedRepo({ 'uptide.yml': settings });
     const io = memoryIo({ cwd });
     expect(await run(['init'], io, fakeEngine())).toBe(0);
@@ -67,7 +67,17 @@ describe('uptide init', () => {
     expect(readFileSync(join(cwd, 'uptide.yml'), 'utf8')).toBe(settings);
     const workflow = readFileSync(join(cwd, WORKFLOW), 'utf8');
     expect(workflow).toContain("- cron: '7 5 * * 2'");
-    expect(workflow).not.toContain('ANTHROPIC_API_KEY');
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a GitHub Actions expression.
+    expect(workflow).toContain('anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}');
+  });
+
+  it('writes nothing for an existing uptide.yml that turns the LLM off', async () => {
+    const settings = 'version: 1\nllm:\n  enabled: false\n';
+    const cwd = clonedRepo({ 'uptide.yml': settings });
+    const io = memoryIo({ cwd });
+    expect(await run(['init'], io, fakeEngine())).toBe(2);
+    expect(io.stderr()).toContain('Remove llm.enabled from uptide.yml');
+    expect(existsSync(join(cwd, WORKFLOW))).toBe(false);
   });
 
   it('never replaces a workflow that differs without --force, and is quiet when nothing changed', async () => {
