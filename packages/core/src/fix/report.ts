@@ -3,6 +3,7 @@ import type { Finding } from '../domain/report.js';
 import { BY } from '../domain/wording.js';
 import { GENERIC_NOTE } from '../packs/generic.js';
 import { UPTIDE_COMMAND } from '../version.js';
+import { baselineHeadline, baselineHealthOf } from './baseline.js';
 import type { BehaviorResult } from './behavior.js';
 import { fitPieces, must, type Piece } from './budget.js';
 import { describeTransitive } from './managers/lock-guard.js';
@@ -539,7 +540,7 @@ export function summaryCells(report: FixReport): {
       ? '⚠️ verification pending'
       : report.verification.typesUnverified
         ? '⚠️ not verified (type resolution failed)'
-        : `${report.verification.newErrors.length ? '❌' : '✅'} ${count(report.verification.target.length, 'error')} ${report.mode === 'pin' ? 'before' : 'after the bump'} → ${report.verification.after.length}${report.verification.baseline.length ? ` (${report.verification.baseline.length} pre-existing)` : ''}`,
+        : `${report.verification.newErrors.length ? '❌' : '✅'} ${count(report.verification.target.length, 'error')} ${report.mode === 'pin' ? 'before' : 'after the bump'} → ${report.verification.after.length}${report.verification.baseline.length ? ` (${report.verification.baseline.length} pre-existing, ${report.verification.newErrors.length} introduced by the upgrade)` : ''}`,
     behavior,
     tests: cell(report.verificationPending ? '⚠️ not run' : tests),
   };
@@ -604,6 +605,10 @@ export function renderMigration(
     report.mode === 'pin'
       ? [`## Pin the Stripe API version to ${report.apiVersion}`, '']
       : [`## Upgrade ${report.package} ${from} → ${report.target}`, ''];
+  // Broken before the upgrade: said first, so no reader takes the comparison for proof.
+  const unhealthy = baselineHeadline(baselineHealthOf(report));
+  if (mode === 'full' && unhealthy && !report.verificationPending)
+    lines.push(`> ⚠️ ${sentenceCase(unhealthy)}.`, '');
   if (mode === 'full' && report.mode === 'pin') {
     const manual = report.sites.filter((s) => s.outcome === 'manual').length;
     lines.push(

@@ -11,6 +11,7 @@ import { UptideError } from '../errors.js';
 import { sdkApiVersion, stripePack } from '../packs/stripe/index.js';
 import { pinClient, unpinnedClients } from '../packs/stripe/relevance.js';
 import { uptideVersionInfo } from '../version.js';
+import { baselineHealth } from './baseline.js';
 import { generateClients } from './generate.js';
 import { git } from './process.js';
 import { editDiff, prBody } from './report.js';
@@ -218,6 +219,7 @@ export async function pinCurrentApi(
       ...(lint.length ? { lint } : {}),
       ...(formatted.length ? { formatted } : {}),
       ...(unverified ? { typesUnverified: unverified } : {}),
+      baselineHealth: baselineHealth(baseline, baselineTests),
       passed:
         !unverified &&
         newErrors.length === 0 &&

@@ -108,6 +108,13 @@ export {
 export { loadRegistryConfig, type RegistryConfig } from './fetch/npmrc.js';
 export { maxSatisfying, satisfies, validRange } from './fetch/range.js';
 export {
+  type BaselineHealth,
+  baselineHeadline,
+  baselineHealth,
+  baselineHealthOf,
+  fixVerdict,
+} from './fix/baseline.js';
+export {
   cleanRuns,
   fixPreflight,
   isolatedFix,

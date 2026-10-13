@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { type FixReport, migrationBody, summaryCells } from '@uptide/core';
+import { type FixReport, fixVerdict, migrationBody, summaryCells } from '@uptide/core';
 import { elapsed } from '../progress.js';
 import { css } from './assets.js';
 import { escapeHtml } from './render.js';
@@ -25,7 +25,7 @@ export function renderMigrationHtml(report: FixReport, opts: MigrationHtmlOption
   const body = migrationBody(report);
   const title = body.split('\n')[0]?.replace(/^#+\s*/, '') ?? 'Migration report';
   const cells = summaryCells(report);
-  const verdict = report.verification.passed ? 'verification passed' : 'verification failed';
+  const verdict = fixVerdict(report).text;
   const when = new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'short',

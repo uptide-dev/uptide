@@ -1,5 +1,13 @@
 import { isAbsolute, relative } from 'node:path';
-import { describeTransitive, type FixReport, groupPeerBlockers, summaryCells } from '@uptide/core';
+import {
+  baselineHeadline,
+  baselineHealthOf,
+  describeTransitive,
+  type FixReport,
+  fixVerdict,
+  groupPeerBlockers,
+  summaryCells,
+} from '@uptide/core';
 import pc from 'picocolors';
 import { elapsed } from './progress.js';
 
@@ -26,12 +34,18 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
     report.mode === 'pin'
       ? `pin ${report.package} API version ${report.apiVersion ?? ''}`
       : `${report.package} ${report.from ?? '?'} → ${report.target}${report.targetSource ? ` ${colors.dim(`(${report.targetSource})`)}` : ''}`;
-  const verdict = report.verification.passed
-    ? colors.green('verification passed')
-    : colors.red('verification failed');
+  const { text, tone } = fixVerdict(report);
+  const verdict = (
+    tone === 'passed' ? colors.green : tone === 'compared' ? colors.yellow : colors.red
+  )(text);
+  const unhealthy = report.verificationPending
+    ? undefined
+    : baselineHeadline(baselineHealthOf(report));
   const lines = [
     `${colors.bold('uptide fix')} ${dot} ${title} ${dot} ${verdict} ${dot} ${elapsed(opts.ms ?? report.timingMs)}`,
     '',
+    // Broken before the upgrade: the first thing to read, before any row of the comparison.
+    ...(unhealthy ? [colors.yellow(`⚠ ${unhealthy}`), ''] : []),
     ...(
       [
         ['Risk', cells.risk],

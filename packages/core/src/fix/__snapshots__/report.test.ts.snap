@@ -3,13 +3,15 @@
 exports[`storefront-zod > snapshots the full PR description and compact terminal/comment summary 1`] = `
 "## Upgrade zod 3.25.76 → 4.6.5
 
+> ⚠️ This repository does not type-check before the upgrade (1 error); verification can only compare, not prove.
+
 **Ready for review.** The code was migrated to zod 4 in \`api\` and \`shared\`. No new type errors; pre-existing errors remain.
 
 | | |
 |---|---|
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing) |
+| **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing, 0 introduced by the upgrade) |
 | **Behavior** | ✅ 9 schemas identical · 2 not checked · 21/21 custom-message assertions |
 | **Tests** | ✅ 5 tests in 3 files passed |
 
@@ -263,7 +265,7 @@ exports[`storefront-zod > snapshots the full PR description and compact terminal
 |---|---|
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
-| **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing) |
+| **Types** | ✅ 29 errors after the bump → 1 (1 pre-existing, 0 introduced by the upgrade) |
 | **Behavior** | ✅ 9 schemas identical · 2 not checked · 21/21 custom-message assertions |
 | **Tests** | ✅ 5 tests in 3 files passed |
 

@@ -16,6 +16,7 @@ import type { MigrationPack, PackContext } from '../packs/types.js';
 import { resetSharedState } from '../shared-state.js';
 import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
 import { assist } from './assisted.js';
+import { baselineHealth } from './baseline.js';
 import { behaviorCheck } from './behavior.js';
 import { type Generated, generateClients } from './generate.js';
 import { assertManagerAvailable } from './managers/availability.js';
@@ -640,6 +641,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ...(lint.length ? { lint } : {}),
       ...(formatted.length ? { formatted } : {}),
       ...(unverified ? { typesUnverified: unverified } : {}),
+      baselineHealth: baselineHealth(baseline, baselineTests),
       passed:
         !unverified &&
         newErrors.length === 0 &&

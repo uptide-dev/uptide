@@ -240,8 +240,12 @@ function sectionLines(row: Row, colors: Colors): string[] {
   const heading = row.summary
     ? `${colors.bold(row.p.name)}   ${colors.dim(row.summary)}`
     : colors.bold(row.p.name);
+  // Errors already there at the installed version: subtracted here, and what `fix` can only compare against.
+  const preexisting = row.p.compile?.baselineErrors
+    ? ` · ${row.p.compile.baselineErrors} pre-existing type error${row.p.compile.baselineErrors === 1 ? '' : 's'} in these files (subtracted)`
+    : '';
   const coverage = row.p.compile?.coverage
-    ? [colors.dim(`  ${coverageLine(row.p.compile.coverage)}`)]
+    ? [colors.dim(`  ${coverageLine(row.p.compile.coverage)}${preexisting}`)]
     : [];
   if (
     acting.length === 0 &&
