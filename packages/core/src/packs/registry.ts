@@ -14,6 +14,8 @@ import { sentryBrowserPack } from './sentry-browser/index.js';
 import sentryBrowserVerification from './sentry-browser/verification.json' with { type: 'json' };
 import { sentryNextjsPack } from './sentry-nextjs/index.js';
 import sentryNextjsVerification from './sentry-nextjs/verification.json' with { type: 'json' };
+import { sentryReactPack } from './sentry-react/index.js';
+import sentryReactVerification from './sentry-react/verification.json' with { type: 'json' };
 import { stripePack } from './stripe/index.js';
 import stripeVerification from './stripe/verification.json' with { type: 'json' };
 import { vitestPack } from './vitest/index.js';
@@ -39,6 +41,11 @@ export const REGISTRY: readonly RegisteredPack[] = [
     dir: 'sentry-nextjs',
     pack: sentryNextjsPack,
     verification: sentryNextjsVerification as PackVerification,
+  },
+  {
+    dir: 'sentry-react',
+    pack: sentryReactPack,
+    verification: sentryReactVerification as PackVerification,
   },
   { dir: 'stripe', pack: stripePack, verification: stripeVerification as PackVerification },
   { dir: 'vitest', pack: vitestPack, verification: vitestVerification as PackVerification },

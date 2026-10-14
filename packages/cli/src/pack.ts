@@ -99,6 +99,7 @@ export function formatPackTest(report: PackTestReport, color = false): string {
       if (r.installedMismatch) out.push(`    ${c.yellow('!')} ${r.installedMismatch}`);
       if (r.companions?.length)
         out.push(`    with ${r.companions.map((m) => `${m.name} ${m.from} → ${m.to}`).join(', ')}`);
+      for (const stay of r.stays ?? []) out.push(`    ${c.dim(`· ${stay}`)}`);
       for (const left of r.leftBehind ?? []) out.push(`    ${c.red('✗')} ${left}`);
     }
     out.push('');

@@ -987,3 +987,14 @@ it('renders scoped declarative behavior decisions in the PR body', async () => {
   expect(section).not.toContain('image defaults');
   expect(section).not.toContain('cacheComponents');
 });
+it('names the packages of the scope that stay where they are', () => {
+  const report = ruleOnly();
+  report.companionStays = [
+    '@sentry/vite-plugin stays at 5.4.0 (not in the release group of @sentry/react)',
+  ];
+  expect(visible(prBody(report))).toContain(
+    '- `@sentry/vite-plugin` stays at 5.4.0 (not in the release group of @sentry/react)',
+  );
+  delete report.companionStays;
+  expect(prBody(report)).not.toContain('Left where they are');
+});

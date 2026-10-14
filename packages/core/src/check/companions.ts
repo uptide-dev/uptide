@@ -31,6 +31,12 @@ export interface CompanionPlan {
    * `next-mdx-remote-client 1.1.2 declares react >= 18.3.0 < 19.0.0`. Possible impact, never breaking.
    */
   peerConflicts: string[];
+  /**
+   * Packages of the lead's scope that do not move with it, and why: versioned on their own
+   * (`@sentry/vite-plugin stays at 5.4.0 (versioned on its own)`), or outside the release group
+   * the pack declares. Information, never a reason to refuse the upgrade.
+   */
+  stays?: string[];
   /** The group as `list` names it (`@ai-sdk family, shared @ai-sdk/provider-utils`). */
   reason?: string;
 }
@@ -238,29 +244,54 @@ export async function companionsOf(input: {
   const members: InstalledDependency[] = [lead];
   const families = new Set<string>();
   if (scope) families.add(scope);
-  const grow = (): boolean => {
+  // A package of the same scope is a candidate; it moves only when something relates it to the
+  // group (a pin, a peer, a release at the lead's target), and stays otherwise: a scope also
+  // holds packages versioned on their own (`@sentry/vite-plugin` 5.x next to the 10.x SDK).
+  // A pack's declared release group says who is released with the lead, and replaces the scope.
+  const familyOnly = new Set<string>();
+  const sameScope = (d: InstalledDependency): boolean => {
+    const s = scopeOf(d.name);
+    return (
+      s !== undefined && families.has(s) && d.workspaces.some((w) => lead.workspaces.includes(w))
+    );
+  };
+  const grow = async (): Promise<boolean> => {
     let grew = false;
     for (const d of input.installed) {
       if (members.includes(d) || d.name === lead.name) continue;
       const host = members.find((m) => related(m, d) || typesOf(d, m));
       const scope = scopeOf(d.name);
-      const family =
-        scope !== undefined &&
-        families.has(scope) &&
-        d.workspaces.some((w) => lead.workspaces.includes(w));
       const declared = input.releaseGroup?.includes(d.name) && visibleFrom(d, lead);
+      const family = !host && !declared && input.releaseGroup === undefined && sameScope(d);
       if (!host && !family && !declared) continue;
       members.push(d);
+      if (family) familyOnly.add(d.name);
       if (host && scope !== undefined) families.add(scope);
       grew = true;
     }
     return grew;
   };
-  while (grow()) {
+  while (await grow()) {
     // until the closure is complete
   }
+  // A family member another member pins or peers on moves by that relation, not by its name.
+  const relatedToGroup = (c: InstalledDependency): boolean =>
+    members.some((m) => m !== c && related(m, c));
+  const stays: string[] = input.installed
+    .filter(
+      (d) =>
+        d !== lead &&
+        !members.includes(d) &&
+        scope !== undefined &&
+        scopeOf(d.name) === scope &&
+        sameScope(d),
+    )
+    .map(
+      (d) =>
+        `${d.name} stays at ${d.version} (${input.releaseGroup ? 'not in the release group of' : 'versioned on its own, apart from'} ${lead.name})`,
+    );
   const candidates = members.filter((d) => d !== lead);
-  if (candidates.length === 0) return none;
+  if (candidates.length === 0) return stays.length ? { ...none, stays: stays.sort() } : none;
 
   // Each candidate moves to the version that agrees with a decided package: the lead, else a
   // companion already placed (`@types/react-dom` with `react-dom`, which moved with `react`).
@@ -312,6 +343,11 @@ export async function companionsOf(input: {
             version,
             reason: `${c.name} ${version} moves with ${lead.name} ${input.target} (declared release group)`,
           };
+      } else if (familyOnly.has(c.name) && versions[input.target] && !relatedToGroup(c)) {
+        move = {
+          version: input.target,
+          reason: `${c.name} ${input.target} is released with ${lead.name} ${input.target} (same scope and version)`,
+        };
       } else if (typesHost) {
         move = typesMove(
           c,
@@ -436,13 +472,20 @@ export async function companionsOf(input: {
       grew = true;
     }
   }
-  if (inGroup.size < 2) return none;
+  if (inGroup.size < 2) return stays.length ? { ...none, stays: stays.sort() } : none;
   const companions: Companion[] = [];
   const conflicts: string[] = [];
   for (const member of candidates.filter((c) => inGroup.has(c.name))) {
     const move = moves.get(member.name);
     // Left in place on purpose: reported as a peer conflict, not as an upgrade that cannot agree.
     if (!move && peerConflicts.has(member.name)) continue;
+    // A package that joined only by its scope and version never blocks the upgrade.
+    if (!move && familyOnly.has(member.name)) {
+      stays.push(
+        `${member.name} stays at ${member.version} (no release agrees with ${lead.name} ${input.target})`,
+      );
+      continue;
+    }
     if (!move) {
       conflicts.push(
         `${member.name} ${member.version} has no release that agrees with ${lead.name} ${input.target}`,
@@ -469,6 +512,7 @@ export async function companionsOf(input: {
     companions: companions.sort((a, b) => a.name.localeCompare(b.name)),
     conflicts,
     peerConflicts: [...peerConflicts.values()].sort(),
+    ...(stays.length ? { stays: stays.sort() } : {}),
     ...(reason ? { reason } : {}),
   };
 }
