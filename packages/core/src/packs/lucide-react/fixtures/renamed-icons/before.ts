@@ -18,4 +18,4 @@ export const fromNamespace = Icons.SquareGantt; // @uptide renamed-icons at:Squa
 export const fromMap = icons.MousePointerSquare; // @uptide renamed-icons at:MousePointerSquare
 export const byKey = icons['SquareKanbanDashed']; // @uptide renamed-icons at:icons[
 export const notLucide = Chart.SquareGantt; // @uptide renamed-icons keep at:SquareGantt
-export const used = [SquareGantt, Pointer, SquareKanbanDashedIcon, LucideGanttSquare, House, Activity, AlignHorizonalDistributeCenter, Github, GanttSquare];
+export const used = [SquareGantt, Pointer, SquareKanbanDashedIcon, LucideGanttSquare, House, Activity, AlignHorizonalDistributeCenter, Github, GanttSquare]; // @uptide brand-icons-removed

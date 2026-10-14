@@ -56,6 +56,7 @@ export const RENAMED_ICONS: Readonly<Record<string, string>> = {
 };
 
 /** Every old exported name with its 1.x replacement, all three forms. */
+// shared-state: not TS-dependent
 export const RENAMES: ReadonlyMap<string, string> = new Map(
   Object.entries(RENAMED_ICONS).flatMap(([from, to]) => {
     const old = forms(from);

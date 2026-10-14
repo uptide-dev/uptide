@@ -127,6 +127,41 @@ function specifiers(source: SourceFile): { node: Node; value: string }[] {
   return found;
 }
 
+const BRAND = new Set(BRAND_NAMES);
+
+/**
+ * Every use of a brand icon imported from "lucide-react" (`<Github />`, `{ icon: Github }`,
+ * `export { Github }`): the compiler reports the import only, and each use is where the
+ * component is undefined at runtime and where the chosen replacement goes. Uses are matched by
+ * the import's symbol, so a local of the same name in an inner scope is not one of them.
+ */
+export function brandIconUseSites(text: string): SourceSite[] {
+  if (!text.includes(PACKAGE)) return [];
+  const source = parse(text);
+  const imports = source
+    .getImportDeclarations()
+    .filter((declaration) => declaration.getModuleSpecifierValue() === PACKAGE)
+    .flatMap((declaration) => declaration.getNamedImports())
+    .filter((element) => BRAND.has(element.getName()));
+  const sites: SourceSite[] = [];
+  for (const element of imports) {
+    const local = element.getAliasNode() ?? element.getNameNode();
+    const symbol = local.getSymbol();
+    if (!symbol) continue;
+    for (const identifier of source.getDescendantsOfKind(SyntaxKind.Identifier)) {
+      if (identifier === local || identifier.getText() !== local.getText()) continue;
+      if (identifier.getFirstAncestorByKind(SyntaxKind.ImportDeclaration)) continue;
+      // `export { Github }` binds through an export specifier; anything else by the symbol.
+      const target = identifier.getParentIfKind(SyntaxKind.ExportSpecifier)
+        ? identifier.getSymbol()?.getAliasedSymbol()
+        : identifier.getSymbol();
+      if (target !== symbol && identifier.getSymbol() !== symbol) continue;
+      sites.push(site(source, identifier, element.getName()));
+    }
+  }
+  return dedupe(sites);
+}
+
 /**
  * Removed icons reached where the compiler cannot see them: through a cast (`icons as any`,
  * `name={x as IconName}`), a deep import of the icon's file (typed by a local shim, if at all),

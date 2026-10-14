@@ -112,7 +112,7 @@
       "from": ">=0 <1",
       "to": ">=1 <2",
       "why": "declared directly in 27 of 52 sample repositories, 21 of them on an older major; 7587 breaking API changes, 102 distinct (92 removed or renamed, 10 change shapes) from 0.577.0 to 1.52.0",
-      "status": "todo",
+      "status": "verified",
       "repos": 27,
       "reposBehind": 21,
       "weeklyDownloads": 0,

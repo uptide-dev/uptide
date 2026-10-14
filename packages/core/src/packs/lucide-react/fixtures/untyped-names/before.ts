@@ -20,4 +20,4 @@ export const socials = [
   { label: 'Home', icon: 'house' }, // @uptide untyped-icon-names keep
   { label: 'Login', provider: 'github' }, // @uptide untyped-icon-names keep
 ];
-export const used = [Github, LinkedinMark, HouseMark];
+export const used = [Github, LinkedinMark, HouseMark]; // @uptide brand-icons-removed

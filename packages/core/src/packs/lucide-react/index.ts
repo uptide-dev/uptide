@@ -1,6 +1,6 @@
 import { definePack } from '../contract.js';
 import { lucideBehavior } from './behavior.js';
-import { absoluteStrokeWidthSites, renameIcon } from './detect.js';
+import { absoluteStrokeWidthSites, brandIconUseSites, renameIcon } from './detect.js';
 import { BRAND_ICONS, BRAND_NAMES, LEGACY_EXPORTS, pathOf, quoted, RENAMES } from './names.js';
 
 const docs = 'https://github.com/lucide-icons/lucide/blob/1.56.0';
@@ -84,6 +84,8 @@ export const lucideReactPack = definePack({
       kinds: ['removed', 'type'],
       symbols: pathOf(BRAND),
       message: quoted(BRAND),
+      // The compiler stops at the import; each use is a site the replacement must reach.
+      detect: (text) => brandIconUseSites(text),
       guide:
         "Lucide 1.x removed every brand icon for legal reasons and will not add them back (BRAND_LOGOS_STATEMENT.md); there is no lucide icon with the same meaning, so never substitute one silently. This is a choice for the owner; make one and record it in decisions with the files and icons it covers: (a) the brand's official SVG from its brand asset page, or Simple Icons (simpleicons.org, same 24x24 viewBox), as a local component that accepts the same props the call sites pass (size, className, strokeWidth via LucideProps); (b) a brand icon package such as Simple Icons, which adds a dependency; (c) a generic lucide icon (Globe, Link, Mail, MessageCircle) only where the logo was decorative, which changes what users see. Keep the import name the call sites use, re-exported names and alt text/aria labels as they are. Do not copy the 0.x lucide brand paths back.",
     },

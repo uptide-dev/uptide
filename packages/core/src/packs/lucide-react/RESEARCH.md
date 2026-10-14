@@ -84,3 +84,77 @@ lucide-react has no peer on another lucide package.
 
 `requiresBuild: true`: deep imports are typed by local shims or not at all, so a path 1.x no
 longer ships (`.js`, `dist/umd`, a brand icon file) compiles and fails in the bundler.
+
+## Independent ground truth
+
+Three public, single-package Next.js applications with npm lockfiles. Each parent was fetched
+shallow at its pinned commit and installed from its own lockfile with lifecycle scripts off;
+nothing from a repository was built, tested or run, and nothing was pushed, commented or opened
+on any of them. Expectations were drafted with `pnpm packs:truth` (each repository's own
+TypeScript 5.9.3, the target linked as an install would) and the merged upgrade diff, then
+reviewed by hand before the first score. They were not changed after scoring.
+
+| Repository | Parent | Merged upgrade | Versions | Expected |
+| --- | --- | --- | --- | --- |
+| [tradeblocks-org/tradeblocks](https://github.com/tradeblocks-org/tradeblocks/pull/530) | `918c0dadccacec7e0533ea1a208f252562ac711f` | `df0669aa473bd825ca47a3e7d1e9a6df875313b2` | 0.577.0 → 1.52.0 | `Github` import (TS2305) and its two JSX uses, replaced by @tabler/icons-react |
+| [spizeck/SFPCA](https://github.com/spizeck/SFPCA/commit/e0e06ada6ed4e4b6d501b7882d74f9622dedc678) | `7f5b9dcb8985260e7b9ab345be971b392bd129a5` | `e0e06ada6ed4e4b6d501b7882d74f9622dedc678` | 0.563.0 → 1.47.0 | `Facebook`/`Instagram`/`Twitter` imports in two files (TS2305) and their six JSX uses, replaced by local Simple Icons components |
+| [cubicsteak/keep](https://github.com/cubicsteak/keep/commit/cc8fb5147d1f28fc46d5a8239b1bb648975df546) | `9380d10ea22b66e4559779d7cc3afb4f209cf198` | `cc8fb5147d1f28fc46d5a8239b1bb648975df546` | 0.483.0 → 1.47.0 | none: negative control, 45 files import lucide-react, no new diagnostic, no source change |
+
+Sites follow docs/packs.md: one per change, so a JSX use the upgrade rewrote apart from the
+import is its own site. SFPCA's renames of `Trash2`, `HelpCircle`, `CheckCircle`, `XCircle` and
+`Loader2` are **not** sites: 1.47.0 still exports each of them (aliases of Trash,
+CircleQuestionMark, CircleCheckBig, CircleX, LoaderCircle), undeprecated, and its compiler
+reports nothing there; the repository chose to rename them.
+
+### Screened out
+
+Found by searching merged upgrade commits read-only (blobless clones, `git log`/`show` only):
+
+- [elie222/inbox-zero](https://github.com/elie222/inbox-zero/pull/2180) (0.577.0 → 1.7.0,
+  replaces `ChromeIcon`, `SlackIcon`): the app is `apps/web` in a pnpm workspace with only a
+  root lockfile, which the ground-truth installer refuses (`UNSUPPORTED_PACKAGE_MANAGER`).
+- [mfts/papermark](https://github.com/mfts/papermark/pull/2132) (0.577.0 → 1.7.0, replaces
+  `Youtube`): its lockfile is out of sync at the parent (`npm ci` refuses), and the unfrozen
+  install needs `cdn.sheetjs.com`, which this environment's network policy denies.
+- coders-clan/wishscene, botho-project/botho: workspace subdirectories with a root lockfile.
+- Hardonian/ReadyLayer: the upgrade commit is a bare bump that broke the build; the fix is a
+  later commit mixed with unrelated changes.
+- lobehub/lobe-chat: no lockfile. mtrifilo/matttrifilo.com (bun): usable, not needed.
+- Twelve further merged upgrades were pure version bumps (manifest and lockfile only); one of
+  them is the negative control above.
+
+## Measured pack test
+
+`pnpm uptide pack test lucide-react --write`: **verified**, 3 public repositories.
+
+| Rule / scoring group | Precision | Recall | TP | FP | FN |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| brand-icons-removed | 100% | 100% | 11 | 0 | 0 |
+| Overall sites | 100% | 100% | 11 | 0 | 0 |
+| Breaking sites | 100% | 100% | 11 | 0 | 0 |
+
+The first score, before `brand-icons-removed` had its `detect`, was 3 TP, 0 FP, 8 FN (27%
+recall): `check` reports the uses of a removed import only as information, and the compiler
+stops at the import. The rule now finds every use of a brand icon imported from lucide-react by
+the import's symbol (a shadowing parameter of the same name is not one), which is where the
+component is undefined at runtime. The ground truth was not changed.
+
+Not measured by public ground truth: `renamed-icons` (its names were dropped in 0.352.0 and
+earlier; no public 0.x → 1.x upgrade from before 0.352.0 was found), `legacy-exports`,
+`absolute-stroke-width`, `icon-node-type`, `untyped-icon-names`, `deep-imports` and the
+`aria-hidden-default` decision. Fixtures (6 cases, 33 sites, each with sites to leave alone)
+and unit tests cover them; the negative control shows none of them fires on 45 ordinary
+lucide files.
+
+## What the engine cannot express
+
+- **Uses of a removed import.** `check` reports them at information level, so `fix` never
+  selects them; the pack's own `detect` is what makes them sites. The rename at an import
+  therefore aliases (`SquareChartGantt as SquareGantt`) instead of renaming every use: those
+  uses are not reported sites and must not be edited.
+- **Deep imports by target version.** A `detect` has no target version, so a `.js` deep import
+  (broken only from 1.9.0) cannot be breaking for 1.9+ and silent for 1.0–1.8: it is a
+  `deprecated` finding with a decision, and `requiresBuild` is the gate.
+- **Workspace apps with a root lockfile** cannot be ground truth (inbox-zero above).
+- **`absoluteStrokeWidth`** is not in the type diff (a JSX attribute's deprecation), so it is
+  detected syntactically on lucide components only; a wrapper that forwards it is not found.
