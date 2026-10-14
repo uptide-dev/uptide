@@ -17,6 +17,7 @@ import { UPTIDE_COMMAND } from '../version.js';
 import { type ManagerKind, packageManager } from './managers/manager.js';
 import { fixDependencies } from './range-preflight.js';
 import type { FixOptions, FixServices } from './run.js';
+import { standInDependencies } from './stand-in-lead.js';
 import { type ResolvedTarget, resolveTarget } from './target.js';
 import { assertNoDowngrades, validateVersionRanges } from './versions.js';
 
@@ -113,8 +114,11 @@ export async function peerPreflight(
 ): Promise<PeerPlan | undefined> {
   if (options.pinCurrentApi) return;
   const { installed } = fixDependencies(options.cwd, read);
-  const deps = [...installed.values()];
   const pack = options.pack ?? activePack(options.only);
+  const deps = [
+    ...installed.values(),
+    ...standInDependencies(options.cwd, pack, [...installed.values()]),
+  ];
   const installedNames = new Set(deps.map((d) => d.name));
   // A peer may reject a discovered companion even when nobody peers on the leader.
   if (

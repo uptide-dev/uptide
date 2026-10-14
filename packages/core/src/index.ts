@@ -190,6 +190,7 @@ export {
   VERIFIED_MIN_REPOS,
 } from './packs/contract.js';
 export { activePacks, packStatus, registeredPacks } from './packs/index.js';
+export { leadName, leadNames, packLeading } from './packs/leads.js';
 export { sdkApiVersion, stripeConcerns, stripePack } from './packs/stripe/index.js';
 export { type FixtureResult, runFixtures } from './packs/tooling/fixtures.js';
 export {

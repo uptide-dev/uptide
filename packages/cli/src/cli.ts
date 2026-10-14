@@ -6,10 +6,13 @@ import {
   errorCode,
   formatFix,
   isFailure,
+  leadName,
+  leadNames,
   loadUptideConfig,
   PeerPreflightError,
   PRICE_DATE,
   packageSelected,
+  packLeading,
   priceFor,
   publicationFailureReason,
   registeredPacks,
@@ -232,6 +235,24 @@ export async function run(
       );
   };
 
+  /** A lead nobody declares stands as the alternate lead its pack names, where one is declared. */
+  const withAlternates = async (
+    repo: Repo,
+    deps: Awaited<ReturnType<typeof locateDependencies>>,
+  ): Promise<Awaited<ReturnType<typeof locateDependencies>>> => {
+    const alternates = (name: string) =>
+      (packLeading(name, activePacks())?.alternateLeads ?? []).map((a) => a.name);
+    const wanted = deps.filter((d) => d.workspaces.length === 0).flatMap((d) => alternates(d.name));
+    if (!wanted.length) return deps;
+    const found = await locateDependencies(repo, engine, wanted);
+    return deps.map(
+      (d) =>
+        (d.workspaces.length === 0 &&
+          found.find((a) => alternates(d.name).includes(a.name) && a.workspaces.length > 0)) ||
+        d,
+    );
+  };
+
   /** Before any analysis: what was asked for exists and the repository is installed. */
   const requireDependencies = (
     repo: Repo,
@@ -247,10 +268,12 @@ export async function run(
           only ?? (await declaredDependencies(repo, engine)),
         );
         if (only) {
-          // Asked for by name and absent is an error, not an empty answer.
-          const absent = deps.filter((d) => d.workspaces.length === 0).map((d) => d.name);
+          // Asked for by name and absent is an error, not an empty answer, unless a pack's
+          // alternate lead is declared instead (`react-router-dom` for `react-router`).
+          const present = await withAlternates(repo, deps);
+          const absent = present.filter((d) => d.workspaces.length === 0).map((d) => d.name);
           if (absent.length > 0) throw notADependency(repo, absent);
-          requireInstalled(repo, deps);
+          requireInstalled(repo, present);
         } else requireNodeModules(repo, deps);
         return deps;
       },
@@ -500,7 +523,11 @@ ${EXIT_CODES(
             if (flags.open && !flags.html) throw new CliError('--open requires --html');
             const started = io.now();
             const quiet = !flags.verbose;
-            const only = [...new Set([...packages, ...(list(flags.only) ?? [])])];
+            const requested = [...new Set([...packages, ...(list(flags.only) ?? [])])];
+            // An alternate lead's name (`react-router-dom`) asks for its pack's lead.
+            const only = requested.includes('all')
+              ? requested
+              : leadNames(requested, activePacks());
             if ((!flags.group && only.length === 0) || only.includes('all'))
               throw new CliError(
                 'check requires one or more package names. Start with uptide list.',
@@ -517,7 +544,7 @@ ${EXIT_CODES(
               describeRepo,
             );
             const loaded = settings(cwd, flags.config);
-            namedOutside(loaded, only);
+            namedOutside(loaded, requested);
             if (flags.group) {
               if (!engine.list) throw new CliError('this build cannot discover groups');
               const discoverGroup = engine.list;
@@ -552,7 +579,12 @@ ${EXIT_CODES(
                 );
               only.push(...kept.filter((name) => !only.includes(name)));
             }
-            const targets = parseTargets(flags.target, only);
+            // Named after what was asked for; an alternate lead's target is its lead's.
+            const targets = Object.fromEntries(
+              Object.entries(parseTargets(flags.target, [...new Set([...requested, ...only])])).map(
+                ([name, version]) => [leadName(name, activePacks()), version],
+              ),
+            );
             const htmlReport = async (report: CheckReport): Promise<void> => {
               if (flags.html) {
                 const path = writeHtml(
@@ -902,16 +934,26 @@ ${PRIVACY}`,
             const loaded = settings(cwd, flags.config);
             if (packageName && flags.only && packageName !== flags.only)
               throw new CliError('choose one package for fix');
-            const only = packageName ?? flags.only;
-            if (!only)
+            const requested = packageName ?? flags.only;
+            if (!requested)
               throw new CliError('fix requires a package name. Start with uptide list.', {
                 next: 'uptide list',
               });
-            if (only.includes(','))
-              throw new CliError(`--only ${only}: fix upgrades one dependency at a time`, {
-                next: `uptide fix ${only.split(',')[0]}`,
+            if (requested.includes(','))
+              throw new CliError(`--only ${requested}: fix upgrades one dependency at a time`, {
+                next: `uptide fix ${requested.split(',')[0]}`,
               });
-            namedOutside(loaded, [only]);
+            namedOutside(loaded, [requested]);
+            // An alternate lead's name (`react-router-dom`) fixes its pack's lead, and a target
+            // named after the alternate is the lead's.
+            const only = leadName(requested, activePacks());
+            const target =
+              only === requested
+                ? flags.target
+                : flags.target?.replace(
+                    new RegExp(`^${requested.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}@`),
+                    `${only}@`,
+                  );
             // Flags first, then uptide.yml, then the defaults.
             const maxCost =
               flags.maxCost !== undefined ? Number(flags.maxCost) : (loaded?.config.maxCost ?? 1);
@@ -931,12 +973,12 @@ ${PRIVACY}`,
               throw new CliError('--pin-current-api applies to stripe only', {
                 next: 'uptide fix stripe --pin-current-api',
               });
-            if (flags.pinCurrentApi && flags.target)
+            if (flags.pinCurrentApi && target)
               throw new CliError('--pin-current-api keeps the installed version; drop --target', {
                 next: 'uptide fix stripe --pin-current-api',
               });
             // `--only zod --target stripe@23.0.0` would upgrade zod to 23.0.0, or fail late.
-            if (flags.target) parseTargets([flags.target], [only]);
+            if (target) parseTargets([target], [only]);
             if (flags.pr && !flags.yes)
               io.err('--pr without --yes: the publication plan is printed, nothing is pushed.\n');
             const repo = await progress.phase(
@@ -946,11 +988,14 @@ ${PRIVACY}`,
                 requireFixable(
                   found,
                   only,
-                  flags.target ? parseTargets([flags.target], [only])[only] : undefined,
+                  target ? parseTargets([target], [only])[only] : undefined,
                 );
-                const deps = await locateDependencies(found, engine, [only]);
+                const deps = await withAlternates(
+                  found,
+                  await locateDependencies(found, engine, [only]),
+                );
                 if (deps.every((d) => d.workspaces.length === 0))
-                  throw notADependency(found, [only]);
+                  throw notADependency(found, [requested]);
                 requireInstalled(found, deps);
                 return found;
               },
@@ -1024,7 +1069,7 @@ ${PRIVACY}`,
                   {
                     cwd: repo.root,
                     only,
-                    target: flags.target,
+                    target: target,
                     includeDeprecated: flags.includeDeprecated,
                     ...(peers.length ? { also: peers } : {}),
                     ...(flags.allowPeer?.length ? { allowPeer: flags.allowPeer } : {}),

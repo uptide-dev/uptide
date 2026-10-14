@@ -275,6 +275,9 @@ export async function testPack(
     ...companionProblems(pack.releaseGroup, pack.name).map((p) =>
       p.replace('companions[', 'releaseGroup['),
     ),
+    ...companionProblems(pack.alternateLeads, pack.name).map((p) =>
+      p.replace('companions[', 'alternateLeads['),
+    ),
   );
   const fixtures = runFixtures(pack, dir, { update: options.updateFixtures === true });
   if (fixtures.cases.length === 0 && pack.rules.some((r) => r.rewrite || r.detect))

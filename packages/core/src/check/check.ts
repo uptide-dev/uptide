@@ -35,6 +35,7 @@ import { scanImports } from '../list/scan.js';
 import { packFixability } from '../packs/fixability.js';
 import { activePacks } from '../packs/index.js';
 import { packInventory } from '../packs/inventory.js';
+import { leadName, leadNames } from '../packs/leads.js';
 import type { MigrationPack } from '../packs/types.js';
 import { diffRuntime, probeRuntime } from '../runtime/runtime.js';
 import { resetSharedState } from '../shared-state.js';
@@ -58,6 +59,7 @@ import { mapWithLimit, mapWithSerialRetry } from './pool.js';
 import { isBehind, rankCandidates } from './rank.js';
 import { foldSharedRoots, groupRootCauses } from './root-cause.js';
 import { runtimeChangeFindings } from './runtime-changes.js';
+import { type StandIns, standInLeads } from './stand-ins.js';
 import { confirmBreaking, evidenceOf, tierOf } from './tier.js';
 import { typedPackageOf, typesPackageOf, typesReleaseFor } from './types-release.js';
 import { unattributedFindings } from './unattributed.js';
@@ -128,6 +130,11 @@ export interface CheckOptions {
    */
   companions?: Record<string, CompanionPlan>;
   /**
+   * Set by `check`: a lead asked for by name that a workspace reaches only through an
+   * alternate lead it declares (`react-router` through `react-router-dom`), with its copy.
+   */
+  standIns?: StandIns;
+  /**
    * The packs to use instead of the verified ones (`uptide pack test` passes a candidate).
    * Packs are code, which no worker receives: with this set, workspaces are checked in this
    * thread.
@@ -179,6 +186,28 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
     catalogByWorkspace[workspace] = [...specifiers]
       .filter(([, spec]) => spec.startsWith('catalog:'))
       .map(([name]) => name);
+  }
+  // Asked for by an alternate lead's name, the pack's lead is what is checked; a workspace that
+  // declares only the alternate has the lead through it, at the version installed there.
+  if (opts.only) {
+    const packs = packsOf(opts);
+    const only = leadNames(opts.only, packs);
+    const targets = opts.targets && {
+      ...Object.fromEntries(Object.entries(opts.targets).map(([n, v]) => [leadName(n, packs), v])),
+      ...Object.fromEntries(Object.entries(opts.targets).filter(([n]) => only.includes(n))),
+    };
+    const standIns = standInLeads(opts.cwd, workspaces, installedByWorkspace, packs, only);
+    for (const [workspace, leads] of Object.entries(standIns))
+      installedByWorkspace[workspace] = {
+        ...installedByWorkspace[workspace],
+        ...Object.fromEntries(Object.entries(leads).map(([lead, s]) => [lead, s.version])),
+      };
+    opts = {
+      ...opts,
+      only,
+      ...(targets ? { targets } : {}),
+      ...(Object.keys(standIns).length ? { standIns } : {}),
+    };
   }
   // What moves with each package asked for by name, analyzed with it at the versions that
   // agree with its target: the upgrade `fix` makes, not one no install ever produces.
@@ -925,6 +954,8 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
       installed.set(name, version);
       undeclared.set(name, via ? { via } : {});
     }
+    for (const [lead, standIn] of Object.entries(opts.standIns?.[workspace] ?? {}))
+      undeclared.set(lead, { via: standIn.via });
     const rank = new Map((opts.order ?? []).map((name, i) => [name, i]));
     const entries = [...installed]
       .sort(
@@ -954,7 +985,15 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
       analyzable.map(([name, version]) => ({
         name,
         installed: version,
-        dependsOn: dependsOnOf(installedPackageDirOf(adapter, repo, name, version)?.dir),
+        dependsOn: dependsOnOf(
+          installedPackageDirOf(
+            adapter,
+            repo,
+            name,
+            version,
+            opts.standIns?.[workspace]?.[name]?.dir,
+          )?.dir,
+        ),
       })),
     );
     // A package asked for by name leads its companions' group, and absorbs any release group
@@ -1061,6 +1100,11 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
       }
       const undeclaredAs = undeclared.get(r.name);
       if (undeclaredAs) r.undeclared = undeclaredAs;
+      const standIn = opts.standIns?.[workspace]?.[r.name];
+      if (standIn && r.target && r.target !== r.installed)
+        r.notes.push(
+          `${r.name} is installed through ${standIn.via}, which this workspace declares instead: fix declares ${r.name} ${r.target} beside it`,
+        );
     }
     // Analyzed in order of impact, reported in a stable one.
     packages.push(...reports.flat().sort((x, y) => x.name.localeCompare(y.name)));
@@ -1155,10 +1199,11 @@ async function companionPlans(
             installedPackageDirCheap?: (repo: RepoDir, pkg: string) => string | undefined;
           }
         ).installedPackageDirCheap;
-        const dir = cheap
-          ? cheap({ dir: resolve(opts.cwd, workspace) }, name)
-          : installedPackageDirOf(adapter, { dir: resolve(opts.cwd, workspace) }, name, version)
-              ?.dir;
+        const dir =
+          (cheap
+            ? cheap({ dir: resolve(opts.cwd, workspace) }, name)
+            : installedPackageDirOf(adapter, { dir: resolve(opts.cwd, workspace) }, name, version)
+                ?.dir) ?? opts.standIns?.[workspace]?.[name]?.dir;
         let manifest = {};
         try {
           if (dir) manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
@@ -1446,7 +1491,13 @@ async function prepare(
     return base('safe', target, latest);
   }
 
-  let installedDir = installedPackageDirOf(ctx.adapter, repo, name, installedVersion);
+  let installedDir = installedPackageDirOf(
+    ctx.adapter,
+    repo,
+    name,
+    installedVersion,
+    ctx.opts.standIns?.[workspace]?.[name]?.dir,
+  );
   const nodeTypes = installedPackageDirOf(ctx.adapter, repo, '@types/node', '')?.dir;
   if (installedDir && nodeTypes) installedDir.types = [nodeTypes];
   // Typed through DefinitelyTyped: the surface to diff is @types/<name>'s, at the version matching the target's major.
@@ -2338,10 +2389,12 @@ function installedPackageDirOf(
   repo: RepoDir,
   name: string,
   version: string,
+  /** The copy a declared alternate lead installs, when the workspace cannot resolve `name`. */
+  standIn?: string,
 ): PackageDir | undefined {
   const locate = (
     adapter as { installedPackageDir?: (repo: RepoDir, pkg: string) => string | undefined }
   ).installedPackageDir;
-  const dir = locate?.(repo, name);
+  const dir = locate?.(repo, name) ?? standIn;
   return dir ? { name, version, dir } : undefined;
 }

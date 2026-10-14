@@ -28,6 +28,13 @@ it('rejects a release group without an official source', async () => {
   expect(report.passed).toBe(false);
 });
 
+it('rejects an alternate lead without an official source', async () => {
+  const pack = { ...aiPack, alternateLeads: [{ name: 'ai-compat', source: 'http://example.com' }] };
+  const report = await testPack({ dir: 'ai', pack, verification }, { root, fixturesOnly: true });
+  expect(report.problems[0]).toContain('alternateLeads[0] "ai-compat"');
+  expect(report.passed).toBe(false);
+});
+
 it('passes every registered pack: each companion it names carries its source', async () => {
   for (const entry of registeredPacks()) {
     const report = await testPack(entry, { root, fixturesOnly: true });
