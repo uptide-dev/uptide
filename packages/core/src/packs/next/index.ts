@@ -1,4 +1,5 @@
 import { definePack } from '../contract.js';
+import { nextBehavior } from './behavior.js';
 import {
   eslintConfigSites,
   middlewareSites,
@@ -40,7 +41,9 @@ export const nextPack = definePack({
     'next.config.{js,mjs,ts,cjs}',
     '{middleware,src/middleware}.{ts,js}',
     'package.json',
-    '{app,src/app}/**/default.{ts,tsx,js,jsx}',
+    '{app,src/app,pages,src/pages}/**/*.{ts,tsx,js,jsx}',
+    '.github/workflows/*.{yml,yaml}',
+    '{.nvmrc,.node-version}',
   ],
   releaseGroup: [
     {
@@ -155,80 +158,7 @@ export const nextPack = definePack({
         'The replacement was not available at 16.0 launch. Where the target supplies generated next/root-params APIs, use those appropriate to the route; otherwise stop for a route-specific redesign. Review generation and caching context; do not invent route parameter names or cast the old value.',
     },
   ],
-  behavior: [
-    {
-      id: 'minor-config',
-      summary:
-        'Check the target minor: cacheLife/cacheHandlers and enablePrerenderSourcemaps stabilize in 16.0; turbopack.moduleIds moves under experimental. Later 16.x removes clientSegmentCache, devCacheControlNoCache and appNewScrollHandler; adapterPath and browser log forwarding stabilize; experimental unstable_prefetch becomes unstable_instant, and agentUpgrade no longer accepts true. Build caching, shared runtime, CJS tree shaking and export mangling defaults evolve. Review exact release notes rather than applying these options to every 16.x target.',
-      reported: ['decision'],
-    },
-    {
-      id: 'platform-minimums',
-      summary:
-        'Both routers require Node >=20.9.0 and TypeScript >=5.1.0; supported browsers start at Chrome/Edge/Firefox 111 and Safari 16.4. Check CI, Docker and deployment runtimes.',
-      reported: ['decision'],
-    },
-    {
-      id: 'turbopack-default',
-      summary:
-        'next dev/build default to Turbopack. Review webpack plugins/loaders, Sass tilde imports, Node-module fallbacks and modern Sass API. A custom webpack config can fail the default build; choose migration or explicit --webpack. File-system caching defaults vary across 16.x.',
-      reported: ['decision'],
-    },
-    {
-      id: 'config-conventions',
-      summary:
-        'Review next.config.js/mjs/ts: experimental.turbo becomes turbopack; reactCompiler moves to top level; turbo minify/treeShaking/sourceMaps map to experimental.turbopackMinify/turbopackModuleFragments/turbopackSourceMaps; memoryLimit/turbopackMemoryLimit are removed. Config files are inventoried independently of imports; options without a safe rewrite remain explicit review decisions.',
-      reported: ['decision'],
-    },
-    {
-      id: 'middleware-runtime',
-      summary:
-        'middleware is deprecated in favor of proxy (including named export and NextMiddleware/MiddlewareConfig types). proxy is Node-only; retain middleware when Edge is required. Review skipMiddlewareUrlNormalize and experimental middlewarePrefetch/middlewareClientMaxBodySize/externalMiddlewareRewritesResolve renames. Simple exported functions are renamed transactionally; explicit runtimes and ambiguous exports require review.',
-      reported: ['decision'],
-    },
-    {
-      id: 'lint-tooling',
-      summary:
-        'next lint and next.config eslint are removed; next build no longer lints. Migrate scripts and ESLint config explicitly; eslint-config-next uses flat config. The obsolete static eslint block is removed mechanically; script and ESLint migrations remain assisted.',
-      reported: ['decision'],
-    },
-    {
-      id: 'removed-options',
-      summary:
-        'Remove AMP options and next/amp, serverRuntimeConfig/publicRuntimeConfig and next/config, and devIndicators.appIsrStatus/buildActivity/buildActivityPosition after review. Preserve private runtime environment visibility. Type-visible imports have rules; untyped configuration needs manual inspection.',
-      reported: ['decision'],
-    },
-    {
-      id: 'cache-components',
-      summary:
-        'experimental.ppr, route experimental_ppr, dynamicIO and useCache no longer select the old behavior. cacheComponents is an opt-in model change, not a rename: review Suspense, runtime, segment options and caching. Do not auto-enable it or delete route options silently. Later 16.x partial-prefetch/instant opt-in codemods are not required baseline migrations.',
-      reported: ['decision'],
-    },
-    {
-      id: 'metadata-promises',
-      summary:
-        'App Router image generators receive Promise params and id; generateImageMetadata params remain synchronous. sitemap id becomes Promise<string>, requiring await and explicit numeric conversion if used arithmetically. Local annotations can hide this from tsc without Next type generation. Pages Router data fetching is unchanged.',
-      reported: ['decision'],
-    },
-    {
-      id: 'image-defaults',
-      summary:
-        'Review images: local query strings require localPatterns.search; minimumCacheTTL is 14400 seconds, default imageSizes omits 16, qualities defaults to [75], local IP optimization is blocked, redirects are limited to 3. Review priority/preload, deprecated legacy/image and domains. Never silently loosen image security.',
-      reported: ['decision'],
-    },
-    {
-      id: 'routing-build',
-      summary:
-        'Parallel route slots need default files; choose notFound or null explicitly. Prefetch deduplication changes request counts. Smooth-scroll override now needs data-scroll-behavior="smooth". Development output moves to .next/dev with process locks; build size/First Load JS columns are removed. next dev config process.argv no longer contains dev; use phase/NODE_ENV as appropriate.',
-      reported: ['decision'],
-    },
-    {
-      id: 'peers',
-      summary:
-        'Check installed peer ranges before publication. Next 16.0.0 and 16.4.0 accept react/react-dom ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0; App Router bundles React canary features. Do not force React 19 for Pages Router or auto-upgrade a third-party peer blocker. Published next-i18next 15.4.2 accepts next >=12.0.0; inspect the exact installed manifest.',
-      reported: ['decision'],
-    },
-  ],
+  behavior: nextBehavior,
   instructions:
     'Sources read 2026-10-13; see RESEARCH.md. Migrate only supported reported sites. Preserve values, control flow, caching freshness, router boundaries and secret visibility. Never cast to any, suppress diagnostics, run an unpinned codemod, or enable experimental behavior to get a clean compile. Review behavior decisions and run the actual application build before publication. A verified pack score does not replace the required consumer build or unresolved runtime decisions.',
 });

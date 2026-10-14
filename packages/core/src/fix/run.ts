@@ -11,6 +11,7 @@ import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { DEFAULT_MAX_COST_USD, providerFixer } from '../llm/fixer.js';
+import { decisionInventory, packDecisions } from '../packs/decisions.js';
 import { genericPack } from '../packs/generic.js';
 import { activePack } from '../packs/index.js';
 import { payloadApiVersions, stripeUsageContext } from '../packs/stripe/relevance.js';
@@ -368,6 +369,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ...(await stripeUsageContext(root, workspaces, initialContext.from)),
       payloadVersions: payloadApiVersions(root, workspaces),
     };
+  packContext = { ...packContext, inventory: decisionInventory(root, workspaces, pack) };
   if (pack.scanContext) packContext = { ...packContext, ...pack.scanContext(root, workspaces) };
   // Validate checked-in knowledge before any version or source write.
   pack.reviewSections?.(packContext);
@@ -767,7 +769,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const rules = [...new Set(sites.map((s) => s.rule).filter((r): r is string => !!r))];
   result.packContext = packContext;
   refreshReview(result, pack);
-  const decisions = pack.decisions?.(packContext, rules, followed);
+  const decisions = packDecisions(pack, packContext, rules, followed);
   if (decisions?.length) result.decisions = decisions;
   const remote = originOf(root);
   if (remote) result.remote = remote;

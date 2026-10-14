@@ -10,7 +10,6 @@ import {
   migrationRisk,
   PR_BODY_BUDGET,
   prBody,
-  renderMigration,
 } from './report.js';
 import type { FixReport } from './types.js';
 
@@ -965,4 +964,28 @@ it('lists npm peer re-resolutions and their pre-existing ranges in the report an
     expect(body).toContain('`plugin` 1.1.0 → 1.2.0; peers on `zod`');
     expect(body).toContain('. (dependencies): ^1');
   }
+});
+
+it('renders scoped declarative behavior decisions in the PR body', async () => {
+  const { nextPack } = await import('../packs/next/index.js');
+  const { packDecisions } = await import('../packs/decisions.js');
+  const report = fixture('storefront-zod');
+  report.package = 'next';
+  report.decisions = packDecisions(
+    nextPack,
+    {
+      from: '15.5.5',
+      to: '16.0.1',
+      includeDeprecated: false,
+      inventory: [{ file: 'next.config.mjs', text: 'export default { webpack() {} }' }],
+    },
+    [],
+  );
+  const body = prBody(report);
+  const section = body.split('### Decisions for you\n')[1]?.split('\n### ')[0];
+  expect(section).toContain('`next.config.mjs` has `webpack`');
+  expect(section).toContain('keep --webpack or migrate');
+  expect(section).toContain('Also review');
+  expect(section).not.toContain('image defaults');
+  expect(section).not.toContain('cacheComponents');
 });
