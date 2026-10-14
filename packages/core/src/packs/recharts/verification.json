@@ -1,0 +1,10 @@
+{
+  "status": "candidate",
+  "truth": "sha256-bd2dfb076a8c9321cc9e40c4268ad819ac4694961349d77c6b8786604bc70993",
+  "repos": 2,
+  "breaking": {
+    "precision": 0.2118,
+    "recall": 0.3051,
+    "falsePositives": 67
+  }
+}
