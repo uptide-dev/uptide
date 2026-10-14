@@ -8,6 +8,10 @@ import { nextPack } from './next/index.js';
 import nextVerification from './next/verification.json' with { type: 'json' };
 import { reactPack } from './react/index.js';
 import reactVerification from './react/verification.json' with { type: 'json' };
+import { sentryBrowserPack } from './sentry-browser/index.js';
+import sentryBrowserVerification from './sentry-browser/verification.json' with { type: 'json' };
+import { sentryNextjsPack } from './sentry-nextjs/index.js';
+import sentryNextjsVerification from './sentry-nextjs/verification.json' with { type: 'json' };
 import { stripePack } from './stripe/index.js';
 import stripeVerification from './stripe/verification.json' with { type: 'json' };
 import { vitestPack } from './vitest/index.js';
@@ -19,6 +23,16 @@ export const REGISTRY: readonly RegisteredPack[] = [
   { dir: 'ai', pack: aiPack, verification: aiVerification as PackVerification },
   { dir: 'next', pack: nextPack, verification: nextVerification as PackVerification },
   { dir: 'react', pack: reactPack, verification: reactVerification as PackVerification },
+  {
+    dir: 'sentry-browser',
+    pack: sentryBrowserPack,
+    verification: sentryBrowserVerification as PackVerification,
+  },
+  {
+    dir: 'sentry-nextjs',
+    pack: sentryNextjsPack,
+    verification: sentryNextjsVerification as PackVerification,
+  },
   { dir: 'stripe', pack: stripePack, verification: stripeVerification as PackVerification },
   { dir: 'vitest', pack: vitestPack, verification: vitestVerification as PackVerification },
   { dir: 'zod', pack: zodPack, verification: zodVerification as PackVerification },

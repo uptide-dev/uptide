@@ -1,0 +1,38 @@
+{
+  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. The truth helper links @sentry/react outside the consumer, so React's types do not resolve from it and Sentry.ErrorBoundary reports TS2607/TS2786 in both repositories; a real scripts-off install of the target (youth-activity-scheduler, recorded in ../sentry/RESEARCH.md) leaves only the two sendDefaultPii errors, and neither upgrade touched ErrorBoundary. Those diagnostics are helper artifacts, not expectations.",
+  "package": "@sentry/react",
+  "repos": [
+    {
+      "repo": "owine/youth-activity-scheduler",
+      "commit": "18b467f5c4f2fc066e14dc5edfe10874016ba3d3",
+      "migration": "https://github.com/owine/youth-activity-scheduler/pull/502",
+      "directory": "frontend",
+      "from": "10.75.3",
+      "to": "11.0.0",
+      "why": "Vite/React frontend whose Sentry.init spreads a config and passes sendDefaultPii: false (TS2353), with a unit test asserting the option (TS2339). Upgrade 43afc60ff5d954791107af93ac33d7ce3f465ff9.",
+      "findings": [
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 51,
+          "rule": "send-default-pii",
+          "note": "TS2353; replaced by dataCollection { userInfo: false, cookies: false, httpHeaders: false, urlQueryParams: false }."
+        },
+        {
+          "file": "src/lib/sentry.test.ts",
+          "line": 73,
+          "rule": "send-default-pii",
+          "note": "TS2339 options.sendDefaultPii; the assertion moves to dataCollection."
+        }
+      ]
+    },
+    {
+      "repo": "successible/cleanslate",
+      "commit": "5d45401e6562e6c028028774c9097ecb4737dc6e",
+      "migration": "https://github.com/successible/cleanslate/pull/584",
+      "from": "10.74.0",
+      "to": "11.0.0",
+      "why": "Next.js Pages app that declares @sentry/react directly (ErrorBoundary, init in _app). Upgrade b21e87edaa1aca1323b20e516cca384429718a8d changes only package.json and the lockfile: nothing to migrate, every reported site would be a false positive. TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3.",
+      "findings": []
+    }
+  ]
+}

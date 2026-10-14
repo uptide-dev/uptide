@@ -1,0 +1,10 @@
+{
+  "status": "verified",
+  "truth": "sha256-fde34dee257f30c945bdf9419815bf7f152f05c66892011da0fb4dffa3857dc0",
+  "repos": 2,
+  "breaking": {
+    "precision": 1,
+    "recall": 1,
+    "falsePositives": 0
+  }
+}

@@ -27,10 +27,19 @@ export function renderRegistry(entries: readonly RegistryEntry[]): string {
     ]),
   ];
   imports.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  const rows = sorted.map(
-    (e) =>
-      `  { dir: '${e.dir}', pack: ${e.name}, verification: ${verificationName(e)} as PackVerification },`,
-  );
+  const rows = sorted.map((e) => {
+    const row = `  { dir: '${e.dir}', pack: ${e.name}, verification: ${verificationName(e)} as PackVerification },`;
+    // Past biome's line width (100) the entry is written the way biome wraps it.
+    return row.length <= 100
+      ? row
+      : [
+          '  {',
+          `    dir: '${e.dir}',`,
+          `    pack: ${e.name},`,
+          `    verification: ${verificationName(e)} as PackVerification,`,
+          '  },',
+        ].join('\n');
+  });
   return [
     HEADER,
     '',
@@ -47,9 +56,9 @@ function verificationName(e: RegistryEntry): string {
   return `${e.name.replace(/Pack$/, '')}Verification`;
 }
 
-/** The entries of a registry file as rendered above. */
+/** The entries of a registry file as rendered above, on one line or wrapped. */
 export function parseRegistry(text: string): RegistryEntry[] {
-  return [...text.matchAll(/\{ dir: '([^']+)', pack: (\w+),/g)].map((m) => ({
+  return [...text.matchAll(/\{\s*dir: '([^']+)',\s*pack: (\w+),/g)].map((m) => ({
     dir: m[1] as string,
     name: m[2] as string,
   }));
