@@ -4,6 +4,8 @@
 import { aiPack } from './ai/index.js';
 import aiVerification from './ai/verification.json' with { type: 'json' };
 import type { PackVerification, RegisteredPack } from './contract.js';
+import { lucideReactPack } from './lucide-react/index.js';
+import lucideReactVerification from './lucide-react/verification.json' with { type: 'json' };
 import { nextPack } from './next/index.js';
 import nextVerification from './next/verification.json' with { type: 'json' };
 import { reactPack } from './react/index.js';
@@ -21,6 +23,11 @@ import zodVerification from './zod/verification.json' with { type: 'json' };
 
 export const REGISTRY: readonly RegisteredPack[] = [
   { dir: 'ai', pack: aiPack, verification: aiVerification as PackVerification },
+  {
+    dir: 'lucide-react',
+    pack: lucideReactPack,
+    verification: lucideReactVerification as PackVerification,
+  },
   { dir: 'next', pack: nextPack, verification: nextVerification as PackVerification },
   { dir: 'react', pack: reactPack, verification: reactVerification as PackVerification },
   {
