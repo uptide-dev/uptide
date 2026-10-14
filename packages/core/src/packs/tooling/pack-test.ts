@@ -49,6 +49,8 @@ export interface RepoScore {
   installedMismatch?: string;
   /** What `check` moves with the package there, at versions that agree (`fix` installs them together). */
   companions?: Companion[];
+  /** Packages of the scope `check` leaves where they are (`check/companions.ts`). */
+  stays?: string[];
   /** Packages the real upgrade moved (`with`) that `check` would leave behind, or cannot move consistently. */
   leftBehind?: string[];
   predicted: ScoredSite[];
@@ -219,6 +221,7 @@ async function scoreRepo(
     const companions = [
       ...new Map(own.flatMap((p) => p.companions ?? []).map((c) => [c.name, c])).values(),
     ].sort((a, b) => a.name.localeCompare(b.name));
+    const stays = [...new Set(own.flatMap((p) => p.companionStays ?? []))].sort();
     const leftBehind = [
       ...new Set(own.flatMap((p) => p.companionConflicts ?? [])),
       ...Object.entries(entry.with ?? {})
@@ -229,6 +232,7 @@ async function scoreRepo(
     return {
       ...base,
       ...(companions.length ? { companions } : {}),
+      ...(stays.length ? { stays } : {}),
       ...(leftBehind.length ? { leftBehind } : {}),
       predicted,
       ...scoreSites(predicted, expected),

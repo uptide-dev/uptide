@@ -735,6 +735,13 @@ export function renderMigration(
       ...report.companions.map((c) => `- \`${c.name}\` ${c.from} → ${c.to} (${c.reason})`),
       '',
     );
+  if (report.companionStays?.length)
+    lines.push(
+      'Left where they are (not released with it):',
+      '',
+      ...report.companionStays.map((s) => `- ${s.replace(/^(\S+)/, '`$1`')}`),
+      '',
+    );
   // The note vouches for agent edits; with none, it has nothing to say.
   if (report.tier === 'generic' && report.sites.some((s) => s.outcome === 'agent'))
     lines.push(`> ${GENERIC_NOTE(report.package)}`, '');
