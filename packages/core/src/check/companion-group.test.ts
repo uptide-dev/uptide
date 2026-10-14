@@ -5,6 +5,7 @@ import { expect, it } from 'vitest';
 import { createTypescriptAdapter } from '../adapters/typescript/index.js';
 import type { PackageFetcher, SurfaceCache } from '../domain/io.js';
 import type { ApiSurface } from '../domain/surface.js';
+import { definePack } from '../packs/contract.js';
 import { check } from './check.js';
 
 process.env.UPTIDE_CACHE_DIR = mkdtempSync(join(tmpdir(), 'uptide-test-cache-'));
@@ -84,55 +85,70 @@ function consumer(): string {
   return repo;
 }
 
-it('analyzes companions nothing imports at the versions the lead moves them to, in its group', async () => {
-  // On a Next app (react-dom never imported, @types/react type-only) `check react` reported
-  // react-dom and @types/react on their own at their installed versions, "up to date", while
-  // react moved to 19: both were filtered out of react's group before it was analyzed.
-  const fetched: string[] = [];
-  const fetcher: PackageFetcher = {
-    async resolve(_name, requested) {
-      return requested === 'latest' ? '2.0.0' : requested;
-    },
-    async versions(name) {
-      return Object.keys(registry[name] ?? {});
-    },
-    async manifests(name) {
-      return registry[name] ?? {};
-    },
-    async fetch(name, version) {
-      fetched.push(`${name}@${version}`);
-      const dir = mkdtempSync(join(tmpdir(), 'uptide-target-'));
-      writePackage(dir, name, version);
-      return { name, version, dir };
-    },
-  };
-  const result = await check({
-    cwd: consumer(),
-    only: ['ui'],
-    adapter,
-    fetcher,
-    cache: memoryCache(),
-    runtime: false,
-  });
-  expect(result.packages.map((p) => p.name)).toEqual(['ui']);
-  const ui = result.packages[0];
-  expect(ui?.target).toBe('2.0.0');
-  expect(ui?.members).toEqual(
-    expect.arrayContaining([
-      { name: 'ui', installed: '1.0.0', target: '2.0.0' },
-      { name: '@types/ui', installed: '1.0.0', target: '2.0.0' },
-      { name: 'ui-dom', installed: '1.0.0', target: '2.0.0' },
-    ]),
-  );
-  expect(ui?.members).toHaveLength(3);
-  // Compiled against the upgrade `fix` makes: ui-dom linked at 2.0.0, @types/ui once.
-  expect(fetched).toContain('ui-dom@2.0.0');
-  expect(fetched.filter((f) => f === '@types/ui@2.0.0')).toHaveLength(1);
-  expect(ui?.status).toBe('breaking');
-});
+it.each([false, true])(
+  'analyzes unused companions (explicit release group: %s)',
+  async (declared) => {
+    registry['ui-dom'] = declared
+      ? { '1.0.0': {}, '2.0.0': {} }
+      : {
+          '1.0.0': { peerDependencies: { ui: '^1' } },
+          '2.0.0': { peerDependencies: { ui: '^2' } },
+        };
+    const pack = definePack({
+      meta: { package: 'ui', from: '^1', to: '^2', sources: [], maintainer: 'test' },
+      rules: [],
+      instructions: '',
+      releaseGroup: [{ name: 'ui-dom', source: 'https://example.com/releases' }],
+    });
+    // On a Next app (react-dom never imported, @types/react type-only) `check react` reported
+    // react-dom and @types/react on their own at their installed versions, "up to date", while
+    // react moved to 19: both were filtered out of react's group before it was analyzed.
+    const fetched: string[] = [];
+    const fetcher: PackageFetcher = {
+      async resolve(_name, requested) {
+        return requested === 'latest' ? '2.0.0' : requested;
+      },
+      async versions(name) {
+        return Object.keys(registry[name] ?? {});
+      },
+      async manifests(name) {
+        return registry[name] ?? {};
+      },
+      async fetch(name, version) {
+        fetched.push(`${name}@${version}`);
+        const dir = mkdtempSync(join(tmpdir(), 'uptide-target-'));
+        writePackage(dir, name, version);
+        return { name, version, dir };
+      },
+    };
+    const result = await check({
+      cwd: consumer(),
+      only: ['ui'],
+      ...(declared ? { packs: [pack] } : {}),
+      adapter,
+      fetcher,
+      cache: memoryCache(),
+      runtime: false,
+    });
+    expect(result.packages.map((p) => p.name)).toEqual(['ui']);
+    const ui = result.packages[0];
+    expect(ui?.target).toBe('2.0.0');
+    expect(ui?.members).toEqual(
+      expect.arrayContaining([
+        { name: 'ui', installed: '1.0.0', target: '2.0.0' },
+        { name: '@types/ui', installed: '1.0.0', target: '2.0.0' },
+        { name: 'ui-dom', installed: '1.0.0', target: '2.0.0' },
+      ]),
+    );
+    expect(ui?.members).toHaveLength(3);
+    // Compiled against the upgrade `fix` makes: ui-dom linked at 2.0.0, @types/ui once.
+    expect(fetched).toContain('ui-dom@2.0.0');
+    expect(fetched.filter((f) => f === '@types/ui@2.0.0')).toHaveLength(1);
+    expect(ui?.status).toBe('breaking');
+  },
+);
 
 it('checks an inventory-only configuration when the package has no imported usages', async () => {
-  const { definePack } = await import('../packs/contract.js');
   const cwd = consumer();
   writeFileSync(join(cwd, 'src/index.ts'), 'export {};');
   writeFileSync(join(cwd, 'next.config.mjs'), 'export default { eslint: {} };');

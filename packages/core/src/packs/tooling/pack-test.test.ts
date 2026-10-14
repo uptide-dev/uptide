@@ -21,6 +21,13 @@ it('fails a pack with a companion that has no source, and scores nothing', async
   expect(report.passed).toBe(false);
 });
 
+it('rejects a release group without an official source', async () => {
+  const pack = { ...aiPack, releaseGroup: [{ name: 'plugin', source: '' }] };
+  const report = await testPack({ dir: 'ai', pack, verification }, { root, fixturesOnly: true });
+  expect(report.problems[0]).toContain('releaseGroup[0]');
+  expect(report.passed).toBe(false);
+});
+
 it('passes every registered pack: each companion it names carries its source', async () => {
   for (const entry of registeredPacks()) {
     const report = await testPack(entry, { root, fixturesOnly: true });

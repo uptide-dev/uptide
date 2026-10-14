@@ -6,6 +6,7 @@ import { UptideError } from '../errors.js';
 import { activePack } from '../packs/index.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { uptideVersionInfo } from '../version.js';
+import { buildWorkspaces } from './build.js';
 import { git } from './process.js';
 import { prBody } from './report.js';
 import { confirmServices } from './run.js';
@@ -34,6 +35,7 @@ export interface ReverifyOptions {
   yes?: boolean;
 }
 export interface ReverifyServices {
+  build?: typeof buildWorkspaces;
   diagnostics(root: string, workspaces: string[]): ReturnType<typeof diagnostics>;
   tests(
     root: string,
@@ -122,6 +124,10 @@ export async function reverify(
     ...(options.onProgress ? { onProgress: options.onProgress } : {}),
     ...(options.testTimeoutMs ? { testTimeoutMs: options.testTimeoutMs } : {}),
   });
+  const buildRequired = report.verification.buildRequired || pack.requiresBuild === true;
+  const build = buildRequired
+    ? await (services.build ?? buildWorkspaces)(root, workspaces)
+    : report.verification.build;
   assertInstalledVersions(root, moves);
   const left = git(root, 'status', '--porcelain', '--untracked-files=all')
     .split('\n')
@@ -160,6 +166,7 @@ export async function reverify(
       after,
       newErrors,
       tests,
+      ...(buildRequired ? { buildRequired: true, build } : {}),
       ...(lint.length ? { lint } : {}),
       ...(formatted.length ? { formatted } : {}),
       ...(unverified ? { typesUnverified: unverified } : {}),
@@ -167,6 +174,7 @@ export async function reverify(
         !unverified &&
         newErrors.length === 0 &&
         left.length === 0 &&
+        (!buildRequired || (!!build?.length && build.every((b) => b.status === 'passed'))) &&
         tests.every((t) => t.status === 'passed' || t.status === 'missing') &&
         lint.every((l) => l.status !== 'failed'),
     },

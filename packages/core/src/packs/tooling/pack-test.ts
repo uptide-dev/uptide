@@ -271,6 +271,11 @@ export async function testPack(
   if (!pack.meta.sources.length) problems.push('meta.sources lists no changelog or guide');
   if (!pack.meta.maintainer) problems.push('meta.maintainer is empty');
   problems.push(...companionProblems(pack.companions, pack.name));
+  problems.push(
+    ...companionProblems(pack.releaseGroup, pack.name).map((p) =>
+      p.replace('companions[', 'releaseGroup['),
+    ),
+  );
   const fixtures = runFixtures(pack, dir, { update: options.updateFixtures === true });
   if (fixtures.cases.length === 0 && pack.rules.some((r) => r.rewrite || r.detect))
     problems.push('rules that rewrite or detect need fixtures (fixtures/<case>/before.ts)');

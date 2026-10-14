@@ -577,6 +577,11 @@ export async function listDependencies(opts: ListOptions): Promise<ListReport> {
         .filter((key) => targets.has(key))
         .map((key) => [localName(key), targets.get(key) as Manifest]),
     ),
+    new Map(
+      activePacks()
+        .filter((p) => p.releaseGroup?.length)
+        .map((p) => [p.name, (p.releaseGroup ?? []).map((c) => c.name)]),
+    ),
   );
   // Signals, then priorities: what to upgrade first and why.
   const keyOf = new Map(names.map((key) => [localName(key), key]));

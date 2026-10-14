@@ -9,7 +9,8 @@ The settings for Uptide in one repository: which dependencies it looks at, when 
 runs, how many pull requests it keeps open, and how much it may spend on the LLM. It sits
 at the repository root. [`uptide init`](commands/init.md) writes one with the defaults and a
 comment on every field; the "Add Uptide" pull request of the GitHub App contains the same
-file.
+file. `minReleaseAgeDays` has no default, so the file has that line, with its comment, only
+when the settings it was written from set it (in the GitHub App's onboarding, for example).
 
 ```yaml
 version: 1
