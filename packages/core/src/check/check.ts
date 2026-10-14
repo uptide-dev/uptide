@@ -54,6 +54,7 @@ import {
   resolveNodeVersion,
   shipsTypes,
 } from './module-format.js';
+import { foldOptionCascades } from './option-cascades.js';
 import { mapWithLimit, mapWithSerialRetry } from './pool.js';
 import { isBehind, rankCandidates } from './rank.js';
 import { foldSharedRoots, groupRootCauses } from './root-cause.js';
@@ -417,6 +418,24 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
         }
         return packFixability(finding, source, pack);
       });
+    }
+  // Implicit-any errors inside an option the pack reports as removed are that option's site.
+  if (adapter.id === 'typescript')
+    for (const report of results.flat()) {
+      const pack = packsOf(opts).find((p) => p.name === report.name);
+      if (!pack) continue;
+      const own = new Set(pack.rules.map((r) => r.id));
+      report.findings = foldOptionCascades(
+        report.findings,
+        (f) => (f.rule !== undefined && own.has(f.rule)) || pack.ruleOf?.(f) !== undefined,
+        (file) => {
+          try {
+            return readFileSync(resolve(opts.cwd, report.workspace, file), 'utf8');
+          } catch {
+            return undefined;
+          }
+        },
+      );
     }
   const order = new Map(workspaces.map((w, i) => [w, i]));
   const packages = mergeAcrossWorkspaces(
