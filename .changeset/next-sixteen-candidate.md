@@ -2,4 +2,4 @@
 "uptide": minor
 ---
 
-Add a candidate Next.js 15 to 16 migration pack with source-backed rules, conservative cache import rewrites, router-specific guidance, and explicit configuration/build decisions. Keep verification gated on public ground truth and record engine limitations instead of silently changing runtime behavior.
+Add a verified Next.js 15 to 16 migration pack with source-backed rules, lockstep release-group companions, required consumer builds, scoped config/convention discovery, and transactional middleware-to-proxy edits. Verify against two unchanged public upgrade baselines and document remaining generated-type, deprecation and runtime coverage limits.

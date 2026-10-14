@@ -1,7 +1,7 @@
 # Next 15 → 16: evidence and verification limits
 
 Read date for every source below: **2026-10-13**. Scope: stable Next 15 to stable Next 16,
-including 16.4.0. This is a **candidate**, not permission to publish a Next upgrade as verified.
+including 16.4.0. Rebased onto main after #115–#117 (0.11.2). The unchanged two-repository gate now passes; remaining coverage limits are documented below.
 No engine implementation changes are part of this pack.
 
 ## Source ledger
@@ -67,7 +67,7 @@ that a pack can discover every config file or safely edit it.
 | reactCompiler promoted to top level, opt-in | C `config-conventions`; do not enable it | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#react-compiler-support) |
 | experimental.ppr and route experimental_ppr removed | C/R `cache-components`; cannot silently switch programming models | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#partial-prerendering-ppr) |
 | experimental.dynamicIO and useCache removed | C/R `cache-components`; remove unused flags or deliberately adopt cacheComponents | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#experimentaldynamicio-and-experimentalusecache) |
-| middleware filename/export deprecated in favor of proxy | C `middleware-proxy`; rename unsupported by pack contract, **not a removal** | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#middleware-to-proxy) |
+| middleware filename/export deprecated in favor of proxy | C `middleware-proxy`; inventory detection and transactional exported-function rename; **deprecation, not a removal** | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#middleware-to-proxy) |
 | Proxy runs only on Node; Edge middleware cannot be blindly renamed | R `middleware-proxy`; retain middleware for Edge | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#middleware-to-proxy) |
 | middlewarePrefetch, middlewareClientMaxBodySize, externalMiddlewareRewritesResolve, skipMiddlewareUrlNormalize renamed; NextMiddleware/MiddlewareConfig type names also migrate | C `middleware-proxy`; coordinated change deferred | [codemod](https://github.com/vercel/next.js/blob/v16.4.0/packages/next-codemod/transforms/middleware-to-proxy.ts) |
 | Local image src query strings require localPatterns.search | C/R `image-defaults`; no silent security relaxation | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#local-images-with-query-strings-breaking-change) |
@@ -83,7 +83,7 @@ that a pack can discover every config file or safely edit it.
 | Node >=20.9.0, TypeScript >=5.1.0; Chrome/Edge/Firefox >=111, Safari >=16.4 | R `platform-minimums`, both routers | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#nodejs-runtime-and-browser-support) |
 | App Router includes React canary/19.2 features; Pages accepts React 18 | R `peers`; use published peer ranges, not mandatory latest React | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#react-192) |
 | Prefetch layout deduplication/incremental requests | R `routing-build`; request counts change | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#enhanced-routing-and-navigation) |
-| Parallel route slots require explicit default files | C/R `routing-build`; choose null or notFound, cannot create route files via contract | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#parallel-routes-defaultjs-requirement) |
+| Parallel route slots require explicit default files | C/R `routing-build`; choose null or notFound, transactional creation is available, but the application must choose the intended fallback | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#parallel-routes-defaultjs-requirement) |
 | Smooth scroll no longer overridden without data-scroll-behavior | R `routing-build`; CSS/HTML coordination | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#scroll-behavior-override) |
 | Dev output .next/dev and process locks; build size/First Load JS metrics removed | R `routing-build`; inspect CI/output consumers | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#concurrent-dev-and-build) |
 | next dev config loads in child; process.argv dev detection changes | R `routing-build`; use phase or NODE_ENV deliberately | [guide](https://nextjs.org/docs/app/guides/upgrading/version-16#next-dev-config-load) |
@@ -123,18 +123,18 @@ Other declared peers are `sass ^1.3.0`, `@playwright/test ^1.51.1`,
 The Node engine is `>=20.9.0`. The TypeScript minimum comes from the upgrade guide, not
 an invented Next peer entry.
 
-Declared pack companions: eslint-config-next, @next/eslint-plugin-next,
+Declared `releaseGroup` members: eslint-config-next, @next/eslint-plugin-next,
 @next/bundle-analyzer, @next/mdx, @next/third-parties. These are fixed-version release
 packages, with official codemod/release sources in metadata. Next's own @next/env and
 platform @next/swc packages are exact dependencies/optional dependencies; do not add
 all platforms to a consumer. Other directly installed @next packages need release-group
-support rather than a wildcard package name in the current contract.
+entries rather than an unbounded wildcard package name.
 
 `eslint-config-next@16.4.0` peers on `eslint >=9.0.0` and `typescript >=3.3.1` and pins
 `@next/eslint-plugin-next 16.4.0`; it does **not** peer on Next. Neither bundle-analyzer nor
 the ESLint plugin declares a Next peer. @next/mdx peers on the MDX packages, not Next.
 @next/third-parties accepts `^13.0.0 || ^14.0.0 || ^15.0.0 || ^16.0.0` for Next.
-This matters to the engine's current relationship-based companion planner.
+The release-group planner introduced in #115 now moves these installed packages even without a Next peer edge.
 
 Both **next-i18next 15.4.2 and 15.4.3 accept Next `>= 12.0.0`**, React `>= 17.0.2`,
 i18next `>= 23.7.13`, and react-i18next `>= 13.5.0`. BoxyHQ currently declares 15.4.3.
@@ -193,50 +193,58 @@ to its predictions.
 A clean public Pages Router baseline remains desirable follow-up coverage; a synthetic
 negative test is not counted as a public repository.
 
-## Measured pack test
+## Measured pack test after 0.11.2
 
-`pnpm uptide pack test next --write` records candidate and exits **1**, because the
-companion gate fails. The breaking precision gate alone passes; it is insufficient.
-No expectations were removed to manufacture verification.
+`pnpm uptide pack test next --write` passes **verified** against the unchanged ground truth.
+The rebase is onto main `6f67430`. Both public parent commits and every expected finding
+remain byte-for-byte unchanged. `requiresBuild: true` now blocks fix publication when the
+consumer build is missing or fails; pack test measures detection, not a completed migration build.
 
 | Rule / scoring group | Precision | Recall | TP | FP | FN |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | revalidate-tag-profile | 100% | 100% | 10 | 0 | 0 |
-| image-priority | 100%* | 0% | 0 | 0 | 1 |
-| middleware-proxy | 100%* | 0% | 0 | 0 | 1 |
-| lint-removal | 100%* | 0% | 0 | 0 | 1 |
-| generic | 100%* | 0% | 0 | 0 | 2 |
-| stable-cache-exports | N/A | N/A | 0 | 0 | 0 |
-| async-request-apis | N/A | N/A | 0 | 0 | 0 |
-| removed-amp | N/A | N/A | 0 | 0 | 0 |
-| removed-runtime-config | N/A | N/A | 0 | 0 | 0 |
-| removed-root-params | N/A | N/A | 0 | 0 | 0 |
-| Overall sites | 100% | 66.67% | 10 | 0 | 5 |
-| Breaking sites | 100% | 71.43% | 10 | 0 | 4 |
+| image-priority | N/A | 0% | 0 | 0 | 1 |
+| middleware-proxy | 100% | 100% | 1 | 0 | 0 |
+| lint-removal | 100% | 100% | 1 | 0 | 0 |
+| generic | N/A | 0% | 0 | 0 | 2 |
+| Overall sites | 100% | 80% | 12 | 0 | 3 |
+| Breaking sites | 100% | 84.62% | 11 | 0 | 2 |
 
-\* The scorer prints 100% when no findings were predicted; this is a zero denominator,
-not evidence of accuracy. Rules with no public examples remain unmeasured. Two mechanical/
-detection fixture cases cover four positive sites plus negative controls; unit tests also
-exercise compiler claiming, Pages Router exclusions, no-op safety and peer preflight.
-The scorer classifies non-rule expected convention sites as breaking by default, including
-the middleware deprecation; retain its raw metric while describing the actual change honestly.
+The other rules have no public expected sites and remain unmeasured. N/A means no
+predictions; the CLI displays 100% for that zero denominator. Middleware is correctly
+classified as deprecated, not breaking: Next 16 still supports middleware. The previous
+candidate counted the unclaimed expectation as breaking by the scorer's default.
 
-False positives: **none**. False negatives, retained with reasons:
+False positives: **none**. Remaining false negatives:
 
-- ExIF `middleware.ts:13`, `middleware-proxy`: no convention discovery/rename hook.
-- ExIF `src/components/image/ImageWithFallback.tsx:16`, `image-priority`: compiler-only
-  deprecation in a shared wrapper is not surfaced by the current checker at that anchor.
-- ExIF `src/app/static.ts:24` and `:50`, `generic`: runtime static-generation gating
-  changes in the merged upgrade; no compiler finding or safe mechanical inference.
-- Wortkarte `next.config.mjs:3`, `lint-removal`: JSDoc config has no imported package usage;
-  decision notes do not produce scored file findings without detection support.
+- ExIF `src/components/image/ImageWithFallback.tsx:16`: shared-wrapper deprecation/root-cause
+  reporting is still missing from the engine.
+- ExIF `src/app/static.ts:24` and `:50`: application-specific static-generation gating
+  changes have no safe mechanical inference or compiler finding.
 
-Companion failures (not false-positive source findings): ExIF leaves all three of
-@next/bundle-analyzer, @next/eslint-plugin-next, eslint-config-next at 15.5.5; Wortkarte
-leaves eslint-config-next at 15.5.27. The real upgrades move them to 16.0.1 and 16.3.8,
-respectively. `with` retains those real requirements.
+Companions now match the real upgrades: ExIF moves @next/bundle-analyzer,
+@next/eslint-plugin-next and eslint-config-next from 15.5.5 to **16.0.1**; Wortkarte moves
+eslint-config-next from 15.5.27 to **16.3.8**. No `with` expectations changed.
 
-## Separate engine tasks blocking verified or complete coverage
+Config and convention detection uses the new scoped inventory, independently of imports.
+Middleware rename keeps the **old path** as its finding anchor and returns a transactional
+rename together with the scope-aware function edit. Explicit runtime declarations, middleware
+type imports and ambiguous exports remain assisted. Existing proxy destination collisions
+are rejected by the transaction engine. The removed static eslint block is found in ESM and
+CommonJS configs; executable values, computed keys and wrappers are not silently removed.
+Lint scripts, ESLint config and other config decisions still require review.
+
+Four fixture cases cover six positive sites and negative controls. Convention fixtures use
+an optional `filename.txt` logical path in the test harness; production detection contains no
+fixture-path exceptions. Unit tests also exercise runtime exclusions, computed-key side effects,
+last/sole property removal, compiler claiming, Pages Router exclusions and peer preflight.
+
+## Separate engine tasks: current status
+
+The original blockers below are retained as provenance. Items 1 and 2 are resolved by
+#115 and #117 and used by this pack. The build-publication part of item 3 is resolved by
+#116. Generated types, wrapper deprecations, truth linking, extraction and uniform peer
+blocking remain follow-up work; they do not block the measured two-repository gate.
 
 1. **Honor declared fixed-version companions without dependency edges.**
    `check/companions.ts` grows candidates through dependency/peer/shared-pin relationships;
@@ -278,9 +286,8 @@ respectively. `with` retains those real requirements.
    Next ^15 → 16. pnpm/Yarn preflight currently reports conflicts and can continue
    (`fix/peer-preflight.test.ts` explicitly tests that policy). Make rejection independent
    of package manager for publication, if the requirement is unconditional. Do not invent
-   a next-i18next conflict: the checked published ranges accept 16. Candidate Next remains
-   blocked from major-upgrade PR publication by the existing no-verified-pack gate.
+   a next-i18next conflict: the checked published ranges accept 16. Next now passes the measured pack gate, so this cross-manager policy gap remains material.
 
-These are proposed tasks, not engine patches bundled with the pack. After the companion
-engine change, rerun this unchanged ground truth; then expand clean public Pages Router,
-async-request and cache-export coverage before presenting the pack as comprehensive.
+No migration-engine implementation is bundled with this pack. The unchanged ground truth
+was rerun after the merged engine work. Clean public Pages Router, async-request and
+cache-export coverage should still be expanded before presenting the pack as comprehensive.

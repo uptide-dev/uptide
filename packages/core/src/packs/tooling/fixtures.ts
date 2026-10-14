@@ -167,8 +167,10 @@ export function runFixtures(
   ]);
   for (const name of fixtureCases(dir)) {
     result.cases.push(name);
-    const file = `fixtures/${name}/before.ts`;
-    const before = readFileSync(join(dir, file), 'utf8');
+    const fixtureFile = `fixtures/${name}/before.ts`;
+    const filenamePath = join(dir, 'fixtures', name, 'filename.txt');
+    const file = existsSync(filenamePath) ? readFileSync(filenamePath, 'utf8').trim() : fixtureFile;
+    const before = readFileSync(join(dir, fixtureFile), 'utf8');
     const afterPath = join(dir, 'fixtures', name, 'after.ts');
     const after = existsSync(afterPath) ? readFileSync(afterPath, 'utf8') : before;
     const sites = parseMarkers(before, name, file);

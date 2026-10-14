@@ -1,4 +1,10 @@
 import { definePack } from '../contract.js';
+import {
+  eslintConfigSites,
+  middlewareSites,
+  removeEslintConfig,
+  renameMiddleware,
+} from './conventions.js';
 import { revalidateTagSites, stabilizeCacheImport, stableCacheSites } from './detect.js';
 
 const guide = 'https://nextjs.org/docs/app/guides/upgrading/version-16';
@@ -29,7 +35,14 @@ export const nextPack = definePack({
     maintainer: 'uptide-dev',
   },
   defaultTarget: '16.4.0',
-  companions: [
+  requiresBuild: true,
+  inventory: [
+    'next.config.{js,mjs,ts,cjs}',
+    '{middleware,src/middleware}.{ts,js}',
+    'package.json',
+    '{app,src/app}/**/default.{ts,tsx,js,jsx}',
+  ],
+  releaseGroup: [
     {
       name: 'eslint-config-next',
       source: 'https://nextjs.org/docs/app/guides/upgrading/codemods#upgrade',
@@ -44,6 +57,29 @@ export const nextPack = definePack({
     })),
   ],
   rules: [
+    {
+      id: 'middleware-proxy',
+      summary:
+        'Migrate the deprecated middleware convention to proxy after reviewing Node runtime compatibility',
+      severity: 'deprecated',
+      kinds: [],
+      symbols: /$^/,
+      detect: middlewareSites,
+      rewrite: renameMiddleware,
+      guide:
+        'Port of the pinned middleware-to-proxy codemod for exported functions. Explicit runtime declarations and ambiguous exports remain assisted. Proxy runs on Node; retain middleware if Edge is required. The rename keeps the old finding anchor.',
+    },
+    {
+      id: 'lint-removal',
+      summary: 'Remove the unsupported next.config eslint option',
+      severity: 'breaking',
+      kinds: [],
+      symbols: /$^/,
+      detect: eslintConfigSites,
+      rewrite: removeEslintConfig,
+      guide:
+        'Remove the obsolete eslint option from the exported Next config. Review lint scripts and ESLint flat config separately: next build no longer lints. Dynamic or side-effectful values require assistance.',
+    },
     {
       id: 'image-priority',
       summary: 'next/image priority is deprecated in favor of explicit loading/preload choices',
@@ -141,19 +177,19 @@ export const nextPack = definePack({
     {
       id: 'config-conventions',
       summary:
-        'Review next.config.js/mjs/ts: experimental.turbo becomes turbopack; reactCompiler moves to top level; turbo minify/treeShaking/sourceMaps map to experimental.turbopackMinify/turbopackModuleFragments/turbopackSourceMaps; memoryLimit/turbopackMemoryLimit are removed. Pack discovery is limited to usage files and cannot guarantee untyped config coverage.',
+        'Review next.config.js/mjs/ts: experimental.turbo becomes turbopack; reactCompiler moves to top level; turbo minify/treeShaking/sourceMaps map to experimental.turbopackMinify/turbopackModuleFragments/turbopackSourceMaps; memoryLimit/turbopackMemoryLimit are removed. Config files are inventoried independently of imports; options without a safe rewrite remain explicit review decisions.',
       reported: ['decision'],
     },
     {
-      id: 'middleware-proxy',
+      id: 'middleware-runtime',
       summary:
-        'middleware is deprecated in favor of proxy (including named export and NextMiddleware/MiddlewareConfig types). proxy is Node-only; retain middleware when Edge is required. Review skipMiddlewareUrlNormalize and experimental middlewarePrefetch/middlewareClientMaxBodySize/externalMiddlewareRewritesResolve renames. Pack edits cannot rename files atomically.',
+        'middleware is deprecated in favor of proxy (including named export and NextMiddleware/MiddlewareConfig types). proxy is Node-only; retain middleware when Edge is required. Review skipMiddlewareUrlNormalize and experimental middlewarePrefetch/middlewareClientMaxBodySize/externalMiddlewareRewritesResolve renames. Simple exported functions are renamed transactionally; explicit runtimes and ambiguous exports require review.',
       reported: ['decision'],
     },
     {
-      id: 'lint-removal',
+      id: 'lint-tooling',
       summary:
-        'next lint and next.config eslint are removed; next build no longer lints. Migrate scripts and ESLint config explicitly; eslint-config-next uses flat config. The pack cannot create a coordinated config/script migration.',
+        'next lint and next.config eslint are removed; next build no longer lints. Migrate scripts and ESLint config explicitly; eslint-config-next uses flat config. The obsolete static eslint block is removed mechanically; script and ESLint migrations remain assisted.',
       reported: ['decision'],
     },
     {
@@ -194,5 +230,5 @@ export const nextPack = definePack({
     },
   ],
   instructions:
-    'Sources read 2026-10-13; see RESEARCH.md. Migrate only supported reported sites. Preserve values, control flow, caching freshness, router boundaries and secret visibility. Never cast to any, suppress diagnostics, run an unpinned codemod, or enable experimental behavior to get a clean compile. Review behavior decisions and run the actual application build before publication. Candidate status does not authorize a verified Next upgrade PR.',
+    'Sources read 2026-10-13; see RESEARCH.md. Migrate only supported reported sites. Preserve values, control flow, caching freshness, router boundaries and secret visibility. Never cast to any, suppress diagnostics, run an unpinned codemod, or enable experimental behavior to get a clean compile. Review behavior decisions and run the actual application build before publication. A verified pack score does not replace the required consumer build or unresolved runtime decisions.',
 });
