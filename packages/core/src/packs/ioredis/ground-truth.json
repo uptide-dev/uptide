@@ -1,0 +1,108 @@
+{
+  "$comment": "Ground truth for the ioredis pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own merged ioredis 5 to 6 upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth on 2026-10-14 and read by hand before any pack test run: the repository's own TypeScript with ioredis 6.0.0 linked (no new diagnostic in any of the five), and the lines the upgrade changed for ioredis. Anchor rule, fixed before scoring and applied to every repository: one site per client construction the upgrade changed, at the first changed line of code of the run that contains it; a second construction in the same run starts its own site; edits that only serve that construction (a moved import, a widened constructor type) belong to it; pure insertions (an option added to an unchanged call), comments, and other packages' changes (@sentry/node, mermaid, vitest) are not sites. Unrelated packages bumped in the same commit or branch are not listed under `with`: they share no dependency edge with ioredis. RESEARCH.md has the evidence for each entry and the repositories screened out.",
+  "package": "ioredis",
+  "repos": [
+    {
+      "repo": "ferni-ai/voiceai",
+      "commit": "c59ed0982f96e23d2b2f5728711da5b55e07483a",
+      "migration": "https://github.com/ferni-ai/voiceai/commit/c6838d5ecdc0bd319c706621b2bfc9d058a2dda0",
+      "from": "5.8.2",
+      "to": "6.0.0",
+      "why": "pins protocol: 2 at every client construction to keep RESP2 after the upgrade (PR #703); the same commit bumps @sentry/node 10 to 11, whose changes are not scored",
+      "findings": [
+        {
+          "file": "src/memory/storage/redis-cache/redis-cache.ts",
+          "line": 98,
+          "rule": "client-defaults",
+          "note": "url branch rebuilt with protocol: 2; the run starts at the removed let declaration"
+        },
+        {
+          "file": "src/memory/storage/redis-cache/redis-cache.ts",
+          "line": 108,
+          "rule": "client-defaults",
+          "note": "host/port construction, same run, its own client"
+        },
+        {
+          "file": "src/services/workflows/jobs/redis-job-queue.ts",
+          "line": 89,
+          "rule": "client-defaults",
+          "note": "url branch rebuilt with protocol: 2"
+        },
+        {
+          "file": "src/services/workflows/jobs/redis-job-queue.ts",
+          "line": 98,
+          "rule": "client-defaults",
+          "note": "host/port construction, same run, its own client"
+        },
+        {
+          "file": "src/memory/vectors/embedding-cache.ts",
+          "line": 134,
+          "rule": "client-defaults",
+          "note": "construction through a module name hidden from bundlers; the constructor type widened at :126 serves it"
+        }
+      ]
+    },
+    {
+      "repo": "syzygyhack/open-foundry",
+      "commit": "73910018b5e8119cf4db99a81ff145726451aa3b",
+      "migration": "https://github.com/syzygyhack/open-foundry/commit/a466e0d364c2e2dd0fae8bbcf30ef9de25978b18",
+      "from": "5.10.1",
+      "to": "6.0.0",
+      "why": "rate-limiter client with enableOfflineQueue: false keeps RESP2 (protocol: 2) for Redis-compatible proxies; the dynamic-import constructor is retyped so the option is checked",
+      "findings": [
+        {
+          "file": "packages/api/src/server.ts",
+          "line": 136,
+          "rule": "client-defaults",
+          "note": "constructor acquisition rewritten; protocol: 2 inserted into the call at :138"
+        }
+      ]
+    },
+    {
+      "repo": "simondietschi/dokunc",
+      "commit": "83681ed0ccc527fa1dd5c802f554f26a5eac575c",
+      "migration": "https://github.com/simondietschi/dokunc/commit/c47539089296efdb02a3093bb650185b4861f297",
+      "from": "5.11.1",
+      "to": "6.0.0",
+      "why": "merged in PR #15 (03ae5da): bump bb72cd7 extends the credential-redaction test to HELLO 3 AUTH; c475390 restores the v5 retryStrategy at the collab client after measuring 10-15 s command stalls; @hocuspocus/extension-redis keeps its own ioredis 5.6.1",
+      "findings": [
+        {
+          "file": "apps/collab/src/server.ts",
+          "line": 108,
+          "rule": "client-defaults",
+          "note": "construction moved to createRedisClient with the v5 retryStrategy; the import removed at :9 serves it"
+        },
+        {
+          "file": "apps/web/src/lib/log.test.ts",
+          "line": 20,
+          "rule": "handshake-auth",
+          "note": "the fake ioredis error now takes the command, to cover hello [3, AUTH, user, password]"
+        },
+        {
+          "file": "apps/web/src/lib/log.test.ts",
+          "line": 28,
+          "rule": "handshake-auth",
+          "note": "the redaction assertion runs for hello and auth"
+        }
+      ]
+    },
+    {
+      "repo": "safe-global/safe-client-gateway",
+      "commit": "14bd05b98bf41df509de0bfee8bc662cb9d95d1e",
+      "migration": "https://github.com/safe-global/safe-client-gateway/commit/80135d22e8006fec71e7da270efdff65ec092c89",
+      "from": "5.11.1",
+      "to": "6.0.0",
+      "why": "manifest-only upgrade (PR #3409) of a Yarn Berry service that already runs bullmq 6: no source change, no compiler diagnostic",
+      "findings": []
+    },
+    {
+      "repo": "kazumadev619-dev/FishingConditionsApp",
+      "commit": "8ba3f0d24bc709169b79df11daa87307df32e77c",
+      "migration": "https://github.com/kazumadev619-dev/FishingConditionsApp/commit/cdecc03c3c04d0e4f08351ceef6b10df6f1bfd81",
+      "from": "5.11.1",
+      "to": "6.0.0",
+      "why": "npm upgrade merged in PR #235 (ebf69b5) that removes the stale @types/ioredis stub and keeps its own retryStrategy: no source change, no compiler diagnostic",
+      "findings": []
+    }
+  ]
+}

@@ -4,6 +4,8 @@
 import { aiPack } from './ai/index.js';
 import aiVerification from './ai/verification.json' with { type: 'json' };
 import type { PackVerification, RegisteredPack } from './contract.js';
+import { ioredisPack } from './ioredis/index.js';
+import ioredisVerification from './ioredis/verification.json' with { type: 'json' };
 import { lucideReactPack } from './lucide-react/index.js';
 import lucideReactVerification from './lucide-react/verification.json' with { type: 'json' };
 import { nextPack } from './next/index.js';
@@ -27,6 +29,7 @@ import zodVerification from './zod/verification.json' with { type: 'json' };
 
 export const REGISTRY: readonly RegisteredPack[] = [
   { dir: 'ai', pack: aiPack, verification: aiVerification as PackVerification },
+  { dir: 'ioredis', pack: ioredisPack, verification: ioredisVerification as PackVerification },
   {
     dir: 'lucide-react',
     pack: lucideReactPack,
