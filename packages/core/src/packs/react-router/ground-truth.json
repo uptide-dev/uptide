@@ -1,0 +1,193 @@
+{
+  "$comment": "Ground truth for the react-router pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own React Router 6 to 7 upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth and read by hand before the pack was scored: the diagnostics the repository's TypeScript reports with react-router and react-router-dom at the upgrade's version linked in and not without them (Phoenix removed react-router-dom in the same commit; it is linked at the same version as react-router, which re-exports it, so the compiler sees the v7 API either way), and the lines the upgrade commit changed for react-router. One site per construct that the upgrade needed to change: an import line from react-router-dom that moved to react-router is a site; an existing react-router import line touched only to merge a moved name into it is not (it compiles unchanged at 7). Left out on purpose, because React Router 7 does not require them: Phoenix's `useLoaderData() as T` to `useLoaderData<typeof loader>()` rewrites with tiny-invariant checks and the lines that follow from them (v7 still compiles the casts: useLoaderData returns any), its vite.config.mts @ts-expect-error comments, and its vite/vitest bumps; wire-webapp's new types/reactRouter.d.ts (an insertion). Phoenix's src/pages/projects/ProjectsPage.tsx:16 still imports react-router-dom after its upgrade, so it is not an expected site.",
+  "package": "react-router",
+  "repos": [
+    {
+      "repo": "Arize-ai/phoenix",
+      "commit": "4d6c1dfb01e9406cf769efab14f0350ea2d0a0f8",
+      "migration": "https://github.com/Arize-ai/phoenix/commit/3e9dc43bcc686e8ff3d57a028a9fcc15f3935490",
+      "directory": "app",
+      "from": "6.25.1",
+      "to": "7.4.0",
+      "why": "Arize Phoenix web app (app/, pnpm): a data router with createBrowserRouter and loaders on React 18, react-router and react-router-dom both declared; the upgrade moves every react-router-dom import to react-router and RouterProvider to react-router/dom (with moduleResolution bundler), and drops react-router-dom",
+      "findings": [
+        {
+          "file": "src/Routes.tsx",
+          "line": 2,
+          "rule": "dom-entry-imports",
+          "note": "RouterProvider moves to react-router/dom; the same commit sets moduleResolution bundler so that it resolves"
+        },
+        {
+          "file": "src/Routes.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/components/Link.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/components/auth/CreateAPIKeyDialog.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/components/button/LinkButton.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/components/nav/Navbar.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/ModelRoot.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/auth/LoginPage.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/auth/ResetPasswordWithTokenPage.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/dataset/datasetLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/examples/examplesLoader.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/experiment/ExperimentComparePage.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/experiment/ExperimentRunFilterConditionField.tsx",
+          "line": 7,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/experiment/experimentCompareLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/experiments/experimentsLoader.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/home/homeLoader.ts",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/playground/Playground.tsx",
+          "line": 4,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/playground/PlaygroundDatasetExamplesTable.tsx",
+          "line": 20,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/playground/PlaygroundDatasetPicker.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/playground/PlaygroundExamplePage.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/project/projectLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/PromptVersionsList.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/promptLoader.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/promptPlaygroundLoader.tsx",
+          "line": 1,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/promptVersionLoader.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/promptVersionsLoader.tsx",
+          "line": 5,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompts/PromptsTable.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompts/promptsLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/trace/TraceDetails.tsx",
+          "line": 4,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/trace/sessionLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        }
+      ]
+    },
+    {
+      "repo": "wireapp/wire-webapp",
+      "commit": "aa5da8830b0d116c9605a44d85ef9d720660f282",
+      "migration": "https://github.com/wireapp/wire-webapp/pull/22299",
+      "from": "6.30.6",
+      "to": "7.18.0",
+      "with": {
+        "react-router-dom": "7.18.0"
+      },
+      "why": "Wire web app (Yarn 4 Nx monorepo, react-router and react-router-dom declared in apps/webapp, TypeScript 6.0.3): the upgrade moves both packages to 7.18.0 together, keeps react-router-dom imports, removes the v6 future prop from the test router, and narrows a jest moduleNameMapper that redirected react-router paths (its react-router-dom import moves came in a later pull request, #22481, not scored here)",
+      "findings": [
+        {
+          "file": "apps/webapp/jest.config.ts",
+          "line": 66,
+          "rule": "generic",
+          "note": "'^react(.*)$' also mapped react-router and react-router-dom onto node_modules paths, bypassing v7's exports map; narrowed to react and react/*"
+        },
+        {
+          "file": "apps/webapp/src/script/auth/util/test/testUtil.tsx",
+          "line": 110,
+          "rule": "future-prop",
+          "note": "TS2322: <HashRouter as Router future={{ v7_relativeSplatPath, v7_startTransition }}>; the upgrade drops the prop"
+        }
+      ]
+    }
+  ]
+}
