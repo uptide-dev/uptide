@@ -26,7 +26,7 @@ export function renderRegistry(entries: readonly RegistryEntry[]): string {
       ],
     ]),
   ];
-  imports.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  imports.sort(([a], [b]) => byPath(a, b));
   const rows = sorted.map((e) => {
     const row = `  { dir: '${e.dir}', pack: ${e.name}, verification: ${verificationName(e)} as PackVerification },`;
     // Past biome's line width (100) the entry is written the way biome wraps it.
@@ -50,6 +50,16 @@ export function renderRegistry(entries: readonly RegistryEntry[]): string {
     '];',
     '',
   ].join('\n');
+}
+
+/** Segment by segment, as biome compares them: `./react/` before `./react-router/`. */
+function byPath(a: string, b: string): number {
+  const [x, y] = [a.split('/'), b.split('/')];
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const [p, q] = [x[i] as string, y[i] as string];
+    if (p !== q) return p < q ? -1 : 1;
+  }
+  return x.length - y.length;
 }
 
 function verificationName(e: RegistryEntry): string {
