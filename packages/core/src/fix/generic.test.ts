@@ -503,6 +503,47 @@ describe('fix with companions', () => {
     );
   }, 20000);
 
+  it('installs what the target requires with it, and names why apart from its companions', async () => {
+    const { root, report, services, fixer, installs } = withBrush();
+    const lead = report.packages[0] as CheckReport['packages'][number];
+    lead.companions = [
+      {
+        name: 'brush',
+        from: '1.0.0',
+        to: '1.4.0',
+        reason: 'paint 2.0.0 requires brush ^1.4.0',
+        required: true,
+      },
+    ];
+    const result = await fix({ cwd: root, only: 'paint', fixer: fixer(0.01) }, services);
+    // The install scope is the lead and the required move, one install.
+    expect(installs[0]).toMatchObject({ also: [{ name: 'brush', version: '1.4.0' }] });
+    const body = prBody(result);
+    expect(body).toContain(
+      'Moved because the new version requires it:\n\n- `brush` 1.0.0 → 1.4.0 (moved because paint 2.0.0 requires brush ^1.4.0)',
+    );
+    expect(body).not.toContain('Upgraded with paint');
+  }, 20000);
+
+  it('names a required move it will not make, a new major, as a blocker in the PR body', async () => {
+    const { root, report, services, fixer, installs } = withBrush();
+    const lead = report.packages[0] as CheckReport['packages'][number];
+    delete lead.companions;
+    lead.companionBlockers = [
+      'paint 2.0.0 needs brush ^2.0.0; installed 1.0.0, and only a new major satisfies it (brush 2.0.0)',
+    ];
+    const result = await fix({ cwd: root, only: 'paint', fixer: fixer(0.01) }, services);
+    expect(installs[0]?.also).toBeUndefined();
+    expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies.brush).toBe(
+      '1.0.0',
+    );
+    const body = prBody(result);
+    expect(body).toContain(
+      'Blocked: a required move only a new major makes, which Uptide never makes:\n\n- paint 2.0.0 needs brush ^2.0.0; installed 1.0.0, and only a new major satisfies it (brush 2.0.0)',
+    );
+    expect(body).toContain('a required move is blocked');
+  }, 20000);
+
   it('changes nothing when a companion has no version that agrees', async () => {
     const { root, services, fixer, installs } = withBrush([
       'brush 1.0.0 has no release that agrees with paint 2.0.0',

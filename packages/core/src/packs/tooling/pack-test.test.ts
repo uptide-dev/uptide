@@ -5,7 +5,7 @@ import type { CheckReport, Finding } from '../../domain/report.js';
 import { aiPack } from '../ai/index.js';
 import type { PackVerification } from '../contract.js';
 import { registeredPacks } from '../index.js';
-import { predictedSites, testPack } from './pack-test.js';
+import { companionOutcome, predictedSites, testPack } from './pack-test.js';
 
 const root = fileURLToPath(new URL('../../../../../', import.meta.url));
 const verification = JSON.parse(
@@ -131,4 +131,32 @@ it('scores an anchored finding at its anchor; the call sites listed as evidence 
   expect(predictedSites(report, aiPack).map((s) => `${s.file}:${s.line} ${s.rule}`)).toEqual([
     'packages/lib/hook.ts:6 tool-context',
   ]);
+});
+
+it('counts a required move as moved, and names the blocker that keeps a package behind', () => {
+  // batch-ai moved zod with openai; guardrails moved @openai/agents and zod across their majors.
+  const own = [
+    {
+      companions: [
+        {
+          name: 'zod',
+          from: '3.24.2',
+          to: '3.25.0',
+          reason: 'openai 7.4.0 requires zod ^3.25 || ^4.0',
+          required: true as const,
+        },
+      ],
+    },
+  ] as unknown as CheckReport['packages'];
+  expect(companionOutcome(own, { zod: '4.4.3' })).toEqual({ companions: own[0]?.companions });
+  const blocker =
+    '@openai/agents 0.1.11 depends on openai ^5.20.2; only a new major accepts openai 7.9.0 (@openai/agents 0.15.0, which needs zod ^4.0.0; installed 3.25.76)';
+  const blocked = [{ companionBlockers: [blocker] }] as unknown as CheckReport['packages'];
+  expect(companionOutcome(blocked, { '@openai/agents': '0.17.2', zod: '4.5.4' })).toEqual({
+    blockers: [blocker],
+    leftBehind: [
+      `@openai/agents: the upgrade moved it to 0.17.2, check leaves it (blocked: ${blocker})`,
+      `zod: the upgrade moved it to 4.5.4, check leaves it (blocked: ${blocker})`,
+    ],
+  });
 });
