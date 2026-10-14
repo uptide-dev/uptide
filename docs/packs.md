@@ -223,7 +223,9 @@ versions it chose (from its `package.json` at the upgrade commit). `pack test` p
 `check` moves with the package there and fails when it would leave one of them behind, or
 cannot move one consistently: a pack whose `fix` produces an install the real upgrade never
 had is not verified. Versions may differ (check picks the release that agrees with `to`);
-the names may not.
+the names may not. A package the target requires counts as moved at the lowest release of its
+major that satisfies it (batch-ai's zod 3.24.2 → 3.25.0, where its upgrade chose 4.4.3); one
+only a new major satisfies is a blocker, printed with its range, and stays left behind.
 
 `fixture` entries (`"fixture": "fixtures/repos/storefront"`) are repositories in this tree.
 They are scored like the others and never count toward `verified`.

@@ -153,9 +153,14 @@ export interface PackageReport {
    * What moves with the package `check` was asked about (`check/companions.ts`): its group at
    * the versions that agree with its target, each with why; `fix` upgrades them together.
    */
-  companions?: { name: string; from: string; to: string; reason: string }[];
+  companions?: { name: string; from: string; to: string; reason: string; required?: true }[];
   /** Members of that group with no release that agrees with the target. */
   companionConflicts?: string[];
+  /**
+   * Moves the target requires that only a new major makes, never made (`check/required.ts`):
+   * `openai 7.9.0 needs zod ^4.0.0; installed 3.25.76, and only a new major satisfies it (zod 4.0.0)`.
+   */
+  companionBlockers?: string[];
   /**
    * Packages of the same scope that stay where they are, released on their own or outside the
    * pack's release group: `@sentry/vite-plugin stays at 5.4.0 (...)`. Never a conflict.

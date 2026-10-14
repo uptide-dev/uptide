@@ -53,6 +53,8 @@ export interface RepoScore {
   stays?: string[];
   /** Packages the real upgrade moved (`with`) that `check` would leave behind, or cannot move consistently. */
   leftBehind?: string[];
+  /** Required moves `check` will not make, each only a new major (`check/required.ts`). */
+  blockers?: string[];
   predicted: ScoredSite[];
   expected: ScoredSite[];
   /** Predicted sites no expected finding has, at the line level. */
@@ -218,28 +220,49 @@ async function scoreRepo(
     if (installed.length > 0 && !installed.includes(entry.from))
       base.installedMismatch = `the lockfile has ${installed.join(', ')}, the ground truth says ${entry.from}`;
     const own = report.packages.filter((p) => p.name === pack.name);
-    const companions = [
-      ...new Map(own.flatMap((p) => p.companions ?? []).map((c) => [c.name, c])).values(),
-    ].sort((a, b) => a.name.localeCompare(b.name));
-    const stays = [...new Set(own.flatMap((p) => p.companionStays ?? []))].sort();
-    const leftBehind = [
-      ...new Set(own.flatMap((p) => p.companionConflicts ?? [])),
-      ...Object.entries(entry.with ?? {})
-        .filter(([name]) => !companions.some((c) => c.name === name))
-        .map(([name, version]) => `${name}: the upgrade moved it to ${version}, check leaves it`),
-    ];
     const predicted = predictedSites(report, pack);
     return {
       ...base,
-      ...(companions.length ? { companions } : {}),
-      ...(stays.length ? { stays } : {}),
-      ...(leftBehind.length ? { leftBehind } : {}),
+      ...companionOutcome(own, entry.with),
       predicted,
       ...scoreSites(predicted, expected),
     };
   } catch (err) {
     return { ...base, error: (err as Error).message };
   }
+}
+
+/**
+ * What `check` moves with the package in one repository, against what its real upgrade moved
+ * (`with`): a package the upgrade moved that `check` does not is left behind, and says why
+ * when a blocker names it (a required move only a new major makes).
+ */
+export function companionOutcome(
+  own: CheckReport['packages'],
+  moved: Record<string, string> = {},
+): Pick<RepoScore, 'companions' | 'stays' | 'leftBehind' | 'blockers'> {
+  const companions = [
+    ...new Map(own.flatMap((p) => p.companions ?? []).map((c) => [c.name, c])).values(),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+  const stays = [...new Set(own.flatMap((p) => p.companionStays ?? []))].sort();
+  const blockers = [...new Set(own.flatMap((p) => p.companionBlockers ?? []))].sort();
+  const names = (blocker: string, name: string) =>
+    new RegExp(`(^|[ (])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} `).test(blocker);
+  const leftBehind = [
+    ...new Set(own.flatMap((p) => p.companionConflicts ?? [])),
+    ...Object.entries(moved)
+      .filter(([name]) => !companions.some((c) => c.name === name))
+      .map(([name, version]) => {
+        const blocker = blockers.find((b) => names(b, name));
+        return `${name}: the upgrade moved it to ${version}, check leaves it${blocker ? ` (blocked: ${blocker})` : ''}`;
+      }),
+  ];
+  return {
+    ...(companions.length ? { companions } : {}),
+    ...(stays.length ? { stays } : {}),
+    ...(blockers.length ? { blockers } : {}),
+    ...(leftBehind.length ? { leftBehind } : {}),
+  };
 }
 
 export interface PackTestOptions extends EnsureOptions {

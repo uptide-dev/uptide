@@ -326,10 +326,19 @@ function sectionLines(row: Row, colors: Colors): string[] {
     );
   }
   // What moves with it: one install, at versions that agree, the way `fix` upgrades it.
-  const companions = row.p.companions ?? [];
+  const companions = (row.p.companions ?? []).filter((c) => !c.required);
   if (companions.length > 0)
     lines.push(
       `  ${colors.cyan('↑')} upgrades with ${companions.map((c) => `${c.name} ${c.from} → ${c.to}`).join(', ')}   ${colors.dim(companions.map((c) => c.reason).join('; '))}`,
+    );
+  // Not released with it: the planned versions require them, within their majors.
+  for (const c of (row.p.companions ?? []).filter((c) => c.required))
+    lines.push(
+      `  ${colors.cyan('↑')} moves ${c.name} ${c.from} → ${c.to}   ${colors.dim(`moved because ${c.reason}`)}`,
+    );
+  for (const blocker of row.p.companionBlockers ?? [])
+    lines.push(
+      `  ${colors.red('✗')} blocked: ${blocker}   ${colors.dim('a new major, never made by Uptide')}`,
     );
   for (const conflict of row.p.companionConflicts ?? [])
     lines.push(`  ${colors.red('✗')} ${conflict}: no consistent upgrade`);
