@@ -27,8 +27,8 @@ it('groups and caps a large Stripe changelog, linking the omitted range', () => 
   expect(body.length).toBeLessThanOrEqual(PR_BODY_BUDGET);
   expect(body).not.toContain('account change');
   for (const resource of ['customer', 'invoice', 'subscription']) {
-    expect(body).toContain(`${resource} · 30 changes`);
-    expect(body.match(new RegExp(`\\[${resource} change`, 'g'))).toHaveLength(5);
+    expect(body).toContain(`${resource} · 22 changes`);
+    expect(body.match(new RegExp(`\\[${resource} change`, 'g'))).toHaveLength(13);
   }
   expect(body).toContain("[Stripe's changelog](https://docs.stripe.com/changelog)");
   expect(body.match(/\[Stripe's changelog\]/g)).toHaveLength(1);
@@ -63,6 +63,7 @@ it('caps the total across resources and discloses unrecognized legacy entries', 
               ),
             ),
             '- Legacy entry with an unknown format',
+            '- Legacy evidenced entry — evidence: `src/billing.ts:18` (field `Stripe.Subscription#current_period_end`)',
           ],
         },
       ],
@@ -71,10 +72,10 @@ it('caps the total across resources and discloses unrecognized legacy entries', 
   );
   expect(section.lists?.flatMap((l) => l.items)).toHaveLength(20);
   expect(section.lists?.every((l) => l.items.length <= 5)).toBe(true);
-  expect(section.lines.join('\n')).toContain(
-    '10 resource changes and 1 other changelog entries omitted',
-  );
-  expect(section.lines.join('\n')).toContain('report.json');
+  expect(section.summary).toContain('10 resource changes and 1 other changelog entries omitted');
+  expect(section.summary).toContain('report.json');
+  expect(section.lines.join('\n')).toContain('Legacy evidenced entry — evidence:');
+  expect(section.lists?.flatMap((l) => l.items).join('\n')).not.toContain(' — evidence:');
 });
 
 it('trims low-priority material before verification and retains diffs with many sites in any pack', () => {
@@ -131,4 +132,39 @@ it('trims transitive lists before verification, including notices and expanded c
   expect(body).toContain('PASS billing scenario 0');
   expect(body).toContain(`${UPTIDE_COMMAND} verify`);
   balanced(body);
+});
+
+it('keeps every evidenced Stripe entry above details and uncapped under budget pressure', () => {
+  const report = largeStripeReport();
+  const evidence =
+    report.reviewSections?.[0]?.lines.filter((line) => line.includes(' — evidence: ')) ?? [];
+  expect(evidence).toHaveLength(24); // Exceeds both resource and total caps.
+  for (const budget of [PR_BODY_BUDGET, 16_000]) {
+    const body = renderMigration(report, 'full', budget);
+    expect(body.length).toBeLessThanOrEqual(budget);
+    expect(body).toContain('24 changes with evidence in your code');
+    let depth = 0;
+    const visible: string[] = [];
+    for (const line of body.split('\n')) {
+      depth += (line.match(/<details>/g) ?? []).length;
+      if (depth === 0) visible.push(line);
+      depth -= (line.match(/<\/details>/g) ?? []).length;
+    }
+    for (const entry of evidence) {
+      expect(visible).toContain(entry);
+      expect(body.indexOf(entry)).toBeLessThan(body.indexOf('### What changed'));
+      expect(body.split(entry)).toHaveLength(2);
+    }
+    balanced(body);
+    if (budget === 16_000) {
+      expect(body).toContain('Showing 0 of 66');
+      expect(body).toContain('66 resource changes and 330 other changelog entries omitted');
+      expect(body).toContain('### Decisions for you');
+      expect(body).toContain('### Worth a look');
+      expect(body.match(/```diff/g)).toHaveLength(2);
+      expect(body).toContain('PASS billing scenario 0');
+      expect(body).toContain('report.json');
+      expect(body).toMatchSnapshot();
+    }
+  }
 });

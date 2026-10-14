@@ -10,22 +10,23 @@ export function largeStripeReport(): FixReport {
     from: '2024-12-18.acacia',
     to: '2026-09-30.clover',
     total: 420,
-    relevant: 0,
-    breaking: 30,
+    relevant: 24,
+    breaking: 24,
     resources: { total: 90, breaking: 30, names },
   };
   const items = Array.from({ length: 420 }, (_, i) => {
     const resource = i < 90 ? names[i % 3] : 'account';
-    return `- 2026-09-30.clover: [${resource} change ${i}: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/${resource}-${i}.md) — ${i < 30 ? 'breaking' : 'non-breaking'}; ${i < 90 ? 'Billing' : 'Connect'}`;
+    return `- 2026-09-30.clover: [${resource} change ${i}: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/${resource}-${i}.md) — ${i < 30 ? 'breaking' : 'non-breaking'}; ${i < 90 ? 'Billing' : 'Connect'}${i < 24 ? ` — evidence: \`src/billing-${i}.ts:${i + 1}\` (field \`Stripe.Subscription#current_period_end\`)` : ''}`;
   });
   report.reviewSections = [
     {
       title: 'Stripe API changelog',
-      lines: ['0 of 420 affect your code; 90 change resources the code uses.'],
+      lines: ['24 changes with evidence in your code', '', ...items.slice(0, 24)],
       lists: [
         {
-          summary: '90 changes to resources you use (30 breaking): subscription, customer, invoice',
-          items: items.slice(0, 90),
+          summary:
+            '66 other changes to resources you use (6 breaking): subscription, customer, invoice',
+          items: items.slice(24, 90),
           more: '- … {n} resource changes omitted.',
         },
         {

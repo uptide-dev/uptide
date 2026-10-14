@@ -83,8 +83,9 @@ space before additional file/attempt history, changelog lists and transitive cha
 notices name the trimmed material and point to the retained `report.json`. Actions job summaries
 also show verification results. The unabridged migration report retains the full text.
 
-Stripe descriptions show only changes to used resources (or concrete recorded code evidence),
-grouped by resource: up to five entries per resource and twenty overall, with evidenced and
-breaking entries first. Other entries are behind one Stripe changelog link naming the recorded
-API version range. If required evidence alone exceeds the budget, rendering refuses rather
+Stripe descriptions keep every change with concrete code evidence visible above “What changed”,
+without a cap. Other changes to resources you use have no code evidence: they are collapsed,
+grouped by resource and capped at five per resource and twenty overall, with breaking entries
+first. One line counts what is shown and omitted and points to the full list in `report.json`.
+A Stripe changelog link names the recorded API version range. If required evidence alone exceeds the budget, rendering refuses rather
 than silently removing a decision or representative diff; narrow the migration before publishing.

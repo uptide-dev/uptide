@@ -3,7 +3,7 @@
 exports[`groups and caps a large Stripe changelog, linking the omitted range 1`] = `
 "## Upgrade stripe 14.25.0 → 22.6.2
 
-**Review required before merging.** The code was migrated to stripe 22. Types compile; runtime behavior needs review. 420 API changes, none affect your code, 30 breaking for surfaces you do not use between 2024-12-18.acacia and 2026-09-30.clover.
+**Review required before merging.** The code was migrated to stripe 22. Types compile; runtime behavior needs review. 24 of 420 API changes affect your code · 90 touch resources you use (30 breaking) between 2024-12-18.acacia and 2026-09-30.clover.
 
 | | |
 |---|---|
@@ -11,8 +11,70 @@ exports[`groups and caps a large Stripe changelog, linking the omitted range 1`]
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
-| **Behavior** | ✅ 420 API changes, none affect your code, 30 breaking for surfaces you do not use |
+| **Behavior** | ⚠️ 24 of 420 API changes affect your code · 90 touch resources you use (30 breaking) |
 | **Tests** | ✅ 1 workspace passed |
+
+### Stripe API changelog
+
+**24 changes with evidence in your code**
+
+- 2026-09-30.clover: [subscription change 0: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-0.md) — breaking; Billing — evidence: \`src/billing-0.ts:1\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 1: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-1.md) — breaking; Billing — evidence: \`src/billing-1.ts:2\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 2: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-2.md) — breaking; Billing — evidence: \`src/billing-2.ts:3\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 3: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-3.md) — breaking; Billing — evidence: \`src/billing-3.ts:4\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 4: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-4.md) — breaking; Billing — evidence: \`src/billing-4.ts:5\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 5: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-5.md) — breaking; Billing — evidence: \`src/billing-5.ts:6\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 6: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-6.md) — breaking; Billing — evidence: \`src/billing-6.ts:7\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 7: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-7.md) — breaking; Billing — evidence: \`src/billing-7.ts:8\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 8: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-8.md) — breaking; Billing — evidence: \`src/billing-8.ts:9\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 9: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-9.md) — breaking; Billing — evidence: \`src/billing-9.ts:10\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 10: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-10.md) — breaking; Billing — evidence: \`src/billing-10.ts:11\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 11: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-11.md) — breaking; Billing — evidence: \`src/billing-11.ts:12\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 12: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-12.md) — breaking; Billing — evidence: \`src/billing-12.ts:13\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 13: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-13.md) — breaking; Billing — evidence: \`src/billing-13.ts:14\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 14: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-14.md) — breaking; Billing — evidence: \`src/billing-14.ts:15\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 15: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-15.md) — breaking; Billing — evidence: \`src/billing-15.ts:16\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 16: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-16.md) — breaking; Billing — evidence: \`src/billing-16.ts:17\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 17: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-17.md) — breaking; Billing — evidence: \`src/billing-17.ts:18\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 18: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-18.md) — breaking; Billing — evidence: \`src/billing-18.ts:19\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 19: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-19.md) — breaking; Billing — evidence: \`src/billing-19.ts:20\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 20: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-20.md) — breaking; Billing — evidence: \`src/billing-20.ts:21\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 21: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-21.md) — breaking; Billing — evidence: \`src/billing-21.ts:22\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 22: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-22.md) — breaking; Billing — evidence: \`src/billing-22.ts:23\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 23: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-23.md) — breaking; Billing — evidence: \`src/billing-23.ts:24\` (field \`Stripe.Subscription#current_period_end\`)
+
+[Stripe's changelog](https://docs.stripe.com/changelog), 2024-12-18.acacia → 2026-09-30.clover.
+
+<details><summary>Other changes to resources you use (no code evidence)</summary>
+
+Showing 15 of 66 other changes to resources you use, grouped by resource; 51 resource changes and 330 other changelog entries omitted. Full list in report.json.
+
+**customer · 22 changes (2 breaking)**
+
+- 2026-09-30.clover: [customer change 25: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-25.md) — breaking; Billing
+- 2026-09-30.clover: [customer change 28: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-28.md) — breaking; Billing
+- 2026-09-30.clover: [customer change 31: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-31.md) — non-breaking; Billing
+- 2026-09-30.clover: [customer change 34: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-34.md) — non-breaking; Billing
+- 2026-09-30.clover: [customer change 37: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-37.md) — non-breaking; Billing
+
+**invoice · 22 changes (2 breaking)**
+
+- 2026-09-30.clover: [invoice change 26: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-26.md) — breaking; Billing
+- 2026-09-30.clover: [invoice change 29: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-29.md) — breaking; Billing
+- 2026-09-30.clover: [invoice change 32: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-32.md) — non-breaking; Billing
+- 2026-09-30.clover: [invoice change 35: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-35.md) — non-breaking; Billing
+- 2026-09-30.clover: [invoice change 38: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-38.md) — non-breaking; Billing
+
+**subscription · 22 changes (2 breaking)**
+
+- 2026-09-30.clover: [subscription change 24: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-24.md) — breaking; Billing
+- 2026-09-30.clover: [subscription change 27: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-27.md) — breaking; Billing
+- 2026-09-30.clover: [subscription change 30: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-30.md) — non-breaking; Billing
+- 2026-09-30.clover: [subscription change 33: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-33.md) — non-breaking; Billing
+- 2026-09-30.clover: [subscription change 36: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-36.md) — non-breaking; Billing
+
+
+</details>
 
 ### What changed
 
@@ -237,44 +299,202 @@ PASS billing scenario 54: in
 - SDK 14.25.0 → 22.6.2. API pin 2023-10-16 → 2026-08-26.dahlia. SDK releases pin an API date; the date can also change within a major.
 - Changing apiVersion can change response shapes and webhook payloads. It is never a mechanical fix.
 
-**Stripe API changelog**
+</details>
 
-90 changes touch resources used by this code. Showing up to 15, grouped by resource (up to 5 per resource, 20 total); evidenced entries first, then breaking changes.
-75 resource changes and 330 other changelog entries omitted. Full text is retained in report.json.
+<details><summary>Run details</summary>
+
+Uptide version not retained · claude-sonnet-4-6 · 6.5k/2.2k tokens · $0.05 · 1 min
+
+Uptide commit: \`not retained\`
+Branch: \`uptide/stripe-22.6.2\`
+
+</details>
+"
+`;
+
+exports[`keeps every evidenced Stripe entry above details and uncapped under budget pressure 1`] = `
+"## Upgrade stripe 14.25.0 → 22.6.2
+
+**Review required before merging.** The code was migrated to stripe 22. Types compile; runtime behavior needs review. 24 of 420 API changes affect your code · 90 touch resources you use (30 breaking) between 2024-12-18.acacia and 2026-09-30.clover.
+
+| | |
+|---|---|
+| **Verified by** | ✅ type-check · build not required (pack-verified migration) · ✅ tests (1 run) |
+| **Risk** | High: behavior changes |
+| **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
+| **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
+| **Behavior** | ⚠️ 24 of 420 API changes affect your code · 90 touch resources you use (30 breaking) |
+| **Tests** | ✅ 1 workspace passed |
+
+### Stripe API changelog
+
+**24 changes with evidence in your code**
+
+- 2026-09-30.clover: [subscription change 0: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-0.md) — breaking; Billing — evidence: \`src/billing-0.ts:1\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 1: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-1.md) — breaking; Billing — evidence: \`src/billing-1.ts:2\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 2: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-2.md) — breaking; Billing — evidence: \`src/billing-2.ts:3\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 3: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-3.md) — breaking; Billing — evidence: \`src/billing-3.ts:4\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 4: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-4.md) — breaking; Billing — evidence: \`src/billing-4.ts:5\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 5: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-5.md) — breaking; Billing — evidence: \`src/billing-5.ts:6\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 6: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-6.md) — breaking; Billing — evidence: \`src/billing-6.ts:7\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 7: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-7.md) — breaking; Billing — evidence: \`src/billing-7.ts:8\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 8: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-8.md) — breaking; Billing — evidence: \`src/billing-8.ts:9\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 9: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-9.md) — breaking; Billing — evidence: \`src/billing-9.ts:10\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 10: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-10.md) — breaking; Billing — evidence: \`src/billing-10.ts:11\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 11: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-11.md) — breaking; Billing — evidence: \`src/billing-11.ts:12\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 12: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-12.md) — breaking; Billing — evidence: \`src/billing-12.ts:13\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 13: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-13.md) — breaking; Billing — evidence: \`src/billing-13.ts:14\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 14: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-14.md) — breaking; Billing — evidence: \`src/billing-14.ts:15\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 15: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-15.md) — breaking; Billing — evidence: \`src/billing-15.ts:16\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 16: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-16.md) — breaking; Billing — evidence: \`src/billing-16.ts:17\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 17: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-17.md) — breaking; Billing — evidence: \`src/billing-17.ts:18\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 18: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-18.md) — breaking; Billing — evidence: \`src/billing-18.ts:19\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 19: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-19.md) — breaking; Billing — evidence: \`src/billing-19.ts:20\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 20: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-20.md) — breaking; Billing — evidence: \`src/billing-20.ts:21\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 21: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-21.md) — breaking; Billing — evidence: \`src/billing-21.ts:22\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 22: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-22.md) — breaking; Billing — evidence: \`src/billing-22.ts:23\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 23: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-23.md) — breaking; Billing — evidence: \`src/billing-23.ts:24\` (field \`Stripe.Subscription#current_period_end\`)
+
 [Stripe's changelog](https://docs.stripe.com/changelog), 2024-12-18.acacia → 2026-09-30.clover.
 
-<details>
-<summary>customer · 30 changes (10 breaking)</summary>
+<details><summary>Other changes to resources you use (no code evidence)</summary>
 
-- 2026-09-30.clover: [customer change 1: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-1.md) — breaking; Billing
-- 2026-09-30.clover: [customer change 10: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-10.md) — breaking; Billing
-- 2026-09-30.clover: [customer change 13: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-13.md) — breaking; Billing
-- 2026-09-30.clover: [customer change 16: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-16.md) — breaking; Billing
-- 2026-09-30.clover: [customer change 19: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-19.md) — breaking; Billing
+Showing 0 of 66 other changes to resources you use, grouped by resource; 66 resource changes and 330 other changelog entries omitted. Full list in report.json.
 
 </details>
 
-<details>
-<summary>invoice · 30 changes (10 breaking)</summary>
+### What changed
 
-- 2026-09-30.clover: [invoice change 11: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-11.md) — breaking; Billing
-- 2026-09-30.clover: [invoice change 14: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-14.md) — breaking; Billing
-- 2026-09-30.clover: [invoice change 17: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-17.md) — breaking; Billing
-- 2026-09-30.clover: [invoice change 2: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-2.md) — breaking; Billing
-- 2026-09-30.clover: [invoice change 20: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-20.md) — breaking; Billing
+**1. Stripe API version** · 2 sites · by the agent (LLM)
+API literals now match the target SDK; types compile, but response and webhook compatibility needs review.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index 9f1cd8e..a3b1536 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -6,7 +6,7 @@ function subscriptionPeriodEnd(s: Stripe.Subscription): number {
+ }
+ 
+ export const version: Stripe.LatestApiVersion = '2026-08-26.dahlia';
+-const stripe = new Stripe('sk_test_fixture', { apiVersion: '2023-10-16' });
++const stripe = new Stripe('sk_test_fixture', { apiVersion: '2026-08-26.dahlia' });
+ 
+ export async function checkout(customer: string) {
+   return stripe.checkout.sessions.create({
+\`\`\`
+
+_Diff and reasoning: file list and additional attempts omitted to fit the PR body budget. Full text is retained in report.json; see the job summary for verification results when run in Actions._
 
 </details>
 
-<details>
-<summary>subscription · 30 changes (10 breaking)</summary>
+**2. Subscription billing period moved to items** · 2 sites · by the agent (LLM)
+One shared helper takes the item that ends last and returns start and end from that same item (undefined with no items), preserving the single-item values; multi-item and no-item behavior needs your decision.
+<details><summary>Diff and reasoning</summary>
 
-- 2026-09-30.clover: [subscription change 0: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-0.md) — breaking; Billing
-- 2026-09-30.clover: [subscription change 12: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-12.md) — breaking; Billing
-- 2026-09-30.clover: [subscription change 15: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-15.md) — breaking; Billing
-- 2026-09-30.clover: [subscription change 18: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-18.md) — breaking; Billing
-- 2026-09-30.clover: [subscription change 21: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-21.md) — breaking; Billing
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index f60fe68..a19c39f 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -26,7 +26,7 @@ export async function subscription(id: string) {
+ export function webhook(payload: Buffer, signature: string, secret: string) {
+   const event = stripe.webhooks.constructEvent(payload, signature, secret);
+   if (event.type === 'customer.subscription.updated') {
+-    return event.data.object.current_period_end;
++    return subscriptionPeriodEnd(event.data.object);
+   }
+   return null;
+ }
+\`\`\`
+
+_Diff and reasoning: file list and additional attempts omitted to fit the PR body budget. Full text is retained in report.json; see the job summary for verification results when run in Actions._
 
 </details>
+
+### Worth a look
+
+- Runtime behavior was not checked; smoke-test billing and webhook responses against the target API version.
+
+### Decisions for you
+
+- Confirm the latest-ending item is the desired billing rule: items ending \`[100, 200]\` → that item's \`{ start, end }\`; a single item is unchanged.
+- Confirm what no items means (Stripe never returns that): the webhook keeps fetching the full subscription, API routes throw "subscription has no items". Check pagination: only returned \`items.data\` are considered.
+- Coordinate the API-version rollout with dashboard webhook endpoints and other services.
+
+<details><summary>Verification details</summary>
+
+Type errors: baseline 0; target 4; after 0; 0 new. Verification: PASS.
+
+| Workspace | Baseline tests | Target tests |
+|---|---|---|
+| . | missing | passed |
+
+**Tests: .**
+\`\`\`text
+PASS billing scenario 0: invoice and subscription response compatibility verified
+PASS billing scenario 1: invoice and subscription response compatibility verified
+PASS billing scenario 2: invoice and subscription response compatibility verified
+PASS billing scenario 3: invoice and subscription response compatibility verified
+PASS billing scenario 4: invoice and subscription response compatibility verified
+PASS billing scenario 5: invoice and subscription response compatibility verified
+PASS billing scenario 6: invoice and subscription response compatibility verified
+PASS billing scenario 7: invoice and subscription response compatibility verified
+PASS billing scenario 8: invoice and subscription response compatibility verified
+PASS billing scenario 9: invoice and subscription response compatibility verified
+PASS billing scenario 10: invoice and subscription response compatibility verified
+PASS billing scenario 11: invoice and subscription response compatibility verified
+PASS billing scenario 12: invoice and subscription response compatibility verified
+PASS billing scenario 13: invoice and subscription response compatibility verified
+PASS billing scenario 14: invoice and subscription response compatibility verified
+PASS billing scenario 15: invoice and subscription response compatibility verified
+PASS billing scenario 16: invoice and subscription response compatibility verified
+PASS billing scenario 17: invoice and subscription response compatibility verified
+PASS billing scenario 18: invoice and subscription response compatibility verified
+PASS billing scenario 19: invoice and subscription response compatibility verified
+PASS billing scenario 20: invoice and subscription response compatibility verified
+PASS billing scenario 21: invoice and subscription response compatibility verified
+PASS billing scenario 22: invoice and subscription response compatibility verified
+PASS billing scenario 23: invoice and subscription response compatibility verified
+PASS billing scenario 24: invoice and subscription response compatibility verified
+PASS billing scenario 25: invoice and subscription response compatibility verified
+PASS billing scenario 26: invoice and subscription response compatibility verified
+PASS billing scenario 27: invoice and subscription response compatibility verified
+PASS billing scenario 28: invoice and subscription response compatibility verified
+PASS billing scenario 29: invoice and subscription response compatibility verified
+PASS billing scenario 30: invoice and subscription response compatibility verified
+PASS billing scenario 31: invoice and subscription response compatibility verified
+PASS billing scenario 32: invoice and subscription response compatibility verified
+PASS billing scenario 33: invoice and subscription response compatibility verified
+PASS billing scenario 34: invoice and subscription response compatibility verified
+PASS billing scenario 35: invoice and subscription response compatibility verified
+PASS billing scenario 36: invoice and subscription response compatibility verified
+PASS billing scenario 37: invoice and subscription response compatibility verified
+PASS billing scenario 38: invoice and subscription response compatibility verified
+PASS billing scenario 39: invoice and subscription response compatibility verified
+PASS billing scenario 40: invoice and subscription response compatibility verified
+PASS billing scenario 41: invoice and subscription response compatibility verified
+PASS billing scenario 42: invoice and subscription response compatibility verified
+PASS billing scenario 43: invoice and subscription response compatibility verified
+PASS billing scenario 44: invoice and subscription response compatibility verified
+PASS billing scenario 45: invoice and subscription response compatibility verified
+PASS billing scenario 46: invoice and subscription response compatibility verified
+PASS billing scenario 47: invoice and subscription response compatibility verified
+PASS billing scenario 48: invoice and subscription response compatibility verified
+PASS billing scenario 49: invoice and subscription response compatibility verified
+PASS billing scenario 50: invoice and subscription response compatibility verified
+PASS billing scenario 51: invoice and subscription response compatibility verified
+PASS billing scenario 52: invoice and subscription response compatibility verified
+PASS billing scenario 53: invoice and subscription response compatibility verified
+PASS billing scenario 54: in
+… output truncated; full output is retained in report.json.
+\`\`\`
+
+**Run notes**
+
+- SDK 14.25.0 → 22.6.2. API pin 2023-10-16 → 2026-08-26.dahlia. SDK releases pin an API date; the date can also change within a major.
+- Changing apiVersion can change response shapes and webhook payloads. It is never a mechanical fix.
 
 </details>
 

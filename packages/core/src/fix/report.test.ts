@@ -41,7 +41,7 @@ for (const name of ['storefront-zod', 'stripe'])
       expect(prBody(report)).toMatchSnapshot();
       expect(formatFix(report)).toMatchSnapshot();
     });
-    it('keeps paths, reasoning, probes and run metadata collapsed', () => {
+    it('keeps reasoning, probes and run metadata collapsed, except review evidence', () => {
       const report = fixture(name),
         body = prBody(report),
         top = visible(body);
@@ -50,8 +50,10 @@ for (const name of ['storefront-zod', 'stripe'])
       expect(top).toMatch(
         /^\| \*\*Verified by\*\* \|.* · build not required \(pack-verified migration\) · /m,
       );
-      // A decision names the file it is about; everything else above the fold stays path-free.
-      expect(top.replace(/### Decisions for you\n[\s\S]*?(?=\n### |$)/, '')).not.toMatch(
+      // Decisions and concrete changelog evidence name the code they concern.
+      expect(
+        top.replace(/### (?:Decisions for you|Stripe API changelog)\n[\s\S]*?(?=\n### |$)/g, ''),
+      ).not.toMatch(
         /packages\/|src\/|seed|methodology|tokens|claude|Diagnostic|earlier accepted edit/,
       );
       expect(body).toContain('<details><summary>Verification details</summary>');
@@ -87,7 +89,8 @@ it('groups stripe API literals and period-end accesses, with actionable business
   expect(body).toContain('### Decisions for you');
   expect(visible(body)).toContain("items ending `[100, 200]` → that item's `{ start, end }`");
   expect(visible(body)).toContain('what no items means');
-  expect(visible(body)).not.toContain('Stripe API changelog');
+  expect(visible(body)).toContain('1 change with evidence in your code');
+  expect(visible(body)).toContain('evidence: `src/billing.ts:18`');
 });
 function ruleOnly(): FixReport {
   const report = fixture('storefront-zod');
@@ -768,7 +771,7 @@ it("keeps a PR description under GitHub's limit: what matters first, the rest co
   expect(body).toContain('### Decisions for you');
   expect(body).toContain('evidence: `ui/src/webhook.ts:44`');
   // The list of resource changes starts with breaking entries and says what it left out.
-  const list = body.slice(body.indexOf('changes touch resources used by this code'));
+  const list = body.slice(body.indexOf('Other changes to resources you use (no code evidence)'));
   const firstNonBreaking = list.indexOf('— non-breaking;');
   expect(list.slice(0, firstNonBreaking)).toContain('— breaking;');
   expect(body).toMatch(

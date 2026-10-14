@@ -763,6 +763,34 @@ export function renderMigration(
       '',
     );
   lines.push(...summaryRows(report), '');
+  if (mode === 'full' && budget !== undefined && report.package === 'stripe') {
+    for (const stored of report.reviewSections ?? []) {
+      if (stored.title !== 'Stripe API changelog') continue;
+      const section = stripeChangelog(withLists(stored, report), report);
+      // Evidence stays visible and rank zero; only resource overlap can yield to the budget.
+      lines.push('### Stripe API changelog', '', ...section.lines, '');
+      const label = 'Other changes to resources you use (no code evidence)';
+      lines.push(
+        {
+          kind: 'text',
+          rank: 6,
+          text: collapse(label, [
+            section.summary,
+            '',
+            ...(section.lists ?? []).flatMap((list) => [
+              `**${list.summary}**`,
+              '',
+              ...list.items,
+              '',
+            ]),
+          ]).join('\n'),
+          alt: collapse(label, [section.omitted]).join('\n'),
+        },
+        '',
+      );
+    }
+  }
+
   if (report.lockfile?.peerReresolved?.length) {
     lines.push(
       '',
@@ -1199,11 +1227,8 @@ function verificationDetails(report: FixReport, bounded: boolean): (string | Pie
   for (const stored of report.reviewSections ?? []) {
     // Decisions are rendered once, in their own section above.
     if (stored.title === 'Decisions for you') continue;
-    const normalized = withLists(stored, report);
-    const section =
-      bounded && report.package === 'stripe' && stored.title === 'Stripe API changelog'
-        ? stripeChangelog(normalized, report)
-        : normalized;
+    if (bounded && report.package === 'stripe' && stored.title === 'Stripe API changelog') continue;
+    const section = withLists(stored, report);
     lines.push('', `**${section.title}**`, '', ...section.lines);
     // Long lists (a provider's changelog) give way from their end, in the order given.
     (section.lists ?? []).forEach((list) => {
