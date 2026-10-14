@@ -1163,6 +1163,9 @@ async function companionPlans(
         installed: [...installed.values()],
         manifests: (name) => manifests(name),
         lockstep: (packsOf(opts).find((p) => p.name === lead)?.companions ?? []).map((c) => c.name),
+        releaseGroup: packsOf(opts)
+          .find((p) => p.name === lead)
+          ?.releaseGroup?.map((c) => c.name),
       });
       if (plan.companions.length > 0 || plan.conflicts.length > 0 || plan.peerConflicts.length > 0)
         plans[lead] = plan;

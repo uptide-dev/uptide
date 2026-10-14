@@ -13,6 +13,8 @@ import { afterAll, expect, it, vi } from 'vitest';
 import radix from '../check/__fixtures__/radix-companions.json' with { type: 'json' };
 import { compatiblePeerVersion } from '../check/companions.js';
 import type { PackageFetcher } from '../domain/io.js';
+import { definePack } from '../packs/contract.js';
+import { zodPack } from '../packs/zod/index.js';
 import { isolatedFix } from './isolate.js';
 import type { ManagerKind } from './managers/manager.js';
 import {
@@ -556,4 +558,63 @@ it('rejects a leader downgrade before check or install even without peer depende
   expect(check).not.toHaveBeenCalled();
   expect(install).not.toHaveBeenCalled();
   expect(git(root, 'status', '--porcelain')).toBe('');
+});
+
+it('plans declared release members with no peer or dependency edges before fix', async () => {
+  const { root, services } = fixture('npm');
+  writeFileSync(
+    join(root, 'node_modules/plugin/package.json'),
+    JSON.stringify({ name: 'plugin', version: '1.0.0' }),
+  );
+  services.manifests.mockImplementation(
+    async (name): ReturnType<NonNullable<PackageFetcher['manifests']>> =>
+      name === 'zod' ? { '4.6.5': {} } : { '1.0.0': {}, '4.6.5': {} },
+  );
+  const pack = definePack({
+    meta: { package: 'zod', from: '^3', to: '^4', sources: [], maintainer: 'test' },
+    rules: [],
+    behavior: [],
+    instructions: '',
+    releaseGroup: [{ name: 'plugin', source: 'https://example.com/releases' }],
+  });
+  const plan = await peerPreflight(
+    { cwd: root, only: 'zod', target: '4.6.5', pack, fixer: null },
+    services,
+  );
+  expect(plan?.companions).toEqual([
+    expect.objectContaining({ name: 'plugin', from: '1.0.0', to: '4.6.5' }),
+  ]);
+});
+
+it('fix installs a declared release member even when the installed peer already accepts the target', async () => {
+  const { root, services } = fixture('pnpm');
+  writeFileSync(
+    join(root, 'node_modules/plugin/package.json'),
+    JSON.stringify({ name: 'plugin', version: '1.0.0', peerDependencies: { zod: '>=3' } }),
+  );
+  services.manifests.mockImplementation(
+    async (): ReturnType<NonNullable<PackageFetcher['manifests']>> => ({
+      '1.0.0': {},
+      '4.6.5': {},
+    }),
+  );
+  const pack = {
+    ...zodPack,
+    releaseGroup: [{ name: 'plugin', source: 'https://example.com/releases' }],
+  };
+  const install = vi.fn(services.install);
+  await fix(
+    { cwd: root, only: 'zod', target: '4.6.5', pack, fixer: null },
+    { ...services, install },
+  );
+  expect(install).toHaveBeenCalledWith(
+    root,
+    expect.objectContaining({ also: [{ name: 'plugin', version: '4.6.5' }] }),
+  );
+  expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies.plugin).toBe(
+    '^4',
+  );
+  expect(
+    JSON.parse(readFileSync(join(root, 'node_modules/plugin/package.json'), 'utf8')).version,
+  ).toBe('4.6.5');
 });

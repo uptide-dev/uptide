@@ -19,7 +19,7 @@ const inRange = (version: string, range: string): boolean => {
 };
 
 /** Why two outdated packages upgrade together. */
-type Link = 'family' | 'peer link' | `shared ${string}`;
+type Link = 'release group' | 'family' | 'peer link' | `shared ${string}`;
 
 /**
  * Packages that upgrade together, and why:
@@ -35,6 +35,7 @@ export function dependencyGroups(
   packages: ListedDependency[],
   metadata: Map<string, Manifest[]>,
   targets: Map<string, Manifest> = new Map(),
+  releaseGroups: ReadonlyMap<string, readonly string[]> = new Map(),
 ): ListGroup[] {
   const names = [...new Set(packages.map((p) => p.name))];
   const parent = new Map(names.map((name) => [name, name]));
@@ -51,6 +52,10 @@ export function dependencyGroups(
   };
   const share = (a: ListedDependency, b: ListedDependency): boolean =>
     a.workspaces.some((w) => b.workspaces.includes(w));
+  for (const p of packages)
+    for (const other of packages)
+      if (releaseGroups.get(p.name)?.includes(other.name) && share(p, other))
+        link(p.name, other.name, 'release group');
   for (const [i, p] of packages.entries()) {
     for (const other of packages.slice(i + 1)) {
       const family = familyOf(p.name);
@@ -128,6 +133,7 @@ export function dependencyGroups(
         !familyOf(name) && !members.some((m) => peersOf(m.name).includes(name));
       const lead = [...members].sort(
         (a, b) =>
+          Number(releaseGroups.has(b.name)) - Number(releaseGroups.has(a.name)) ||
           degree(b.name) - degree(a.name) ||
           Number(hub(b.name)) - Number(hub(a.name)) ||
           peersInGroup(b.name) - peersInGroup(a.name) ||

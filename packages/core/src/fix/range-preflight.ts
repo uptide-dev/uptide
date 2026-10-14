@@ -47,7 +47,9 @@ export async function rangePreflight(
     installed: [...installed.values()],
     manifests,
     lockstep: pack?.companions?.map((c) => c.name) ?? [],
+    releaseGroup: pack?.releaseGroup?.map((c) => c.name),
   });
+  if (plan.conflicts.length) throw new Error(plan.conflicts.join('; '));
   validateVersionRanges(root, plan.companions, read);
   return target;
 }

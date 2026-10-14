@@ -114,3 +114,17 @@ it('names a mixed group after its hub on a tie, even when a family member is use
     { id: 'ai', name: 'ai + @ai-sdk/*', lead: 'ai', reason: 'shared @ai-sdk/provider' },
   ]);
 });
+
+it('reports a declared release group without dependency edges and keeps unrelated workspaces separate', () => {
+  const unrelated = { ...pkg('@next/mdx'), workspaces: ['other'] };
+  const groups = dependencyGroups(
+    [pkg('next'), pkg('eslint-config-next'), unrelated],
+    new Map(),
+    new Map(),
+    new Map([['next', ['eslint-config-next', '@next/mdx']]]),
+  );
+  expect(groups).toHaveLength(1);
+  expect(groups[0]?.lead).toBe('next');
+  expect(groups[0]?.reason).toBe('release group');
+  expect(groups[0]?.members.map((p) => p.name)).toEqual(['eslint-config-next', 'next']);
+});

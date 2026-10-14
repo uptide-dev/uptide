@@ -307,6 +307,7 @@ export interface PackSpec {
   /** Packages that always move with the package, each with its official source (`MigrationPack.companions`). */
   companions?: readonly PackCompanion[];
   requiresBuild?: boolean;
+  releaseGroup?: readonly PackCompanion[];
 }
 
 /**
@@ -324,6 +325,7 @@ export function definePack(spec: PackSpec): Pack {
     instructions: spec.instructions,
     ...(spec.companions ? { companions: spec.companions } : {}),
     ...(spec.requiresBuild ? { requiresBuild: true } : {}),
+    ...(spec.releaseGroup ? { releaseGroup: spec.releaseGroup } : {}),
     defaultTarget: spec.defaultTarget ?? '',
     supports: (from, to) => satisfies(from, spec.meta.from) && satisfies(to, spec.meta.to),
     transform(text, finding, context) {

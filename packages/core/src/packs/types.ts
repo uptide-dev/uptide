@@ -116,6 +116,8 @@ export interface MigrationPack {
   readonly companions?: readonly PackCompanion[];
   /** Build-time contracts must pass before a migrated repository can be published. */
   readonly requiresBuild?: boolean;
+  /** Installed lockstep releases move even without a manifest edge or incompatible peer. */
+  readonly releaseGroup?: readonly PackCompanion[];
   readonly defaultTarget: string;
   readonly rules: readonly MigrationRule[];
   supports(from: string, to: string): boolean;

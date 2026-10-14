@@ -323,3 +323,22 @@ A missing, failed, or timed-out build blocks publication; its result appears in 
 PR's **Verified by** row. Reverification reruns the required build. Existing packs
 without this declaration retain their current behavior. Next 16 requires this gate
 because custom webpack configuration can fail with the default Turbopack build.
+
+### Release groups
+
+Use `releaseGroup` for packages published in lockstep with the pack's lead. Like
+`companions`, each entry has `name` and an official HTTPS `source`. Unlike ordinary
+companions, installed release-group members move even when they have no dependency
+edge or their installed peer range already accepts the target. Check, fix preflight,
+and pack verification use the same planner; list reports the group with `movesWith`.
+Members must be visible in the lead's workspace.
+
+The planner selects the lead's exact target version when published. If that version
+is absent, it selects the newest stable release whose published dependency/peer
+ranges explicitly accept the lead target. Without that evidence, or when the exact
+release rejects the lead, planning reports a conflict rather than leaving the member
+behind. Undeclared packages retain existing companion behavior.
+
+For Next, the declared members are `eslint-config-next`, `@next/eslint-plugin-next`,
+`@next/bundle-analyzer`, `@next/mdx`, and `@next/third-parties`; declare only installed
+members of this release family, not independently versioned React packages.
