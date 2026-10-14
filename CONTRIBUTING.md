@@ -139,7 +139,9 @@ open a **Pack request** issue, and say you are writing it.
    pnpm uptide pack test <package> --write  # records the status in verification.json
    ```
    Every false positive among breaking findings fails it. Fix the rule, not the ground truth.
-   A false negative is a site to cover or a known gap to say in the pull request.
+   A false negative is a site to cover or a known gap to say in the pull request. A site
+   expected under a behavior note scores at the note's `severity`, and behavior-note sites
+   get their own precision and recall: a missed "needs a look" is not a missed break.
 7. **Smoke-test locally** without editing `verification.json`:
    ```sh
    pnpm uptide check <package> --allow-candidate --cwd /path/to/local-fixture

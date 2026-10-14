@@ -186,8 +186,10 @@ export {
   type PackStatus,
   type PackVerification,
   type RegisteredPack,
+  rateLabel,
   replaceAtSite,
   VERIFIED_MIN_REPOS,
+  type VerificationTally,
 } from './packs/contract.js';
 export { activePacks, packStatus, registeredPacks } from './packs/index.js';
 export { leadName, leadNames, packLeading } from './packs/leads.js';

@@ -3,7 +3,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { UptideError } from '../../errors.js';
 import { minVersion } from '../../fetch/range.js';
-import { type GroundTruth, type PackVerification, truthDigest } from '../contract.js';
+import {
+  type GroundTruth,
+  type PackVerification,
+  truthDigest,
+  verificationTally,
+} from '../contract.js';
 import { packsDir } from './pack-test.js';
 import { packConstant, packDir, parseRegistry, renderRegistry } from './registry-file.js';
 
@@ -148,11 +153,19 @@ export function scaffoldPack(options: ScaffoldOptions): ScaffoldResult {
     }).status === 0;
   // What `pack test` records for a pack with no ground-truth repository yet, tied to the
   // ground-truth file as formatted: the first run finds it current.
+  const nothing = {
+    precision: 1,
+    recall: 1,
+    truePositives: 0,
+    falsePositives: 0,
+    falseNegatives: 0,
+  };
   const verification: PackVerification = {
     status: 'candidate',
     truth: truthDigest(readFileSync(join(home, 'ground-truth.json'), 'utf8')),
     repos: 0,
-    breaking: { precision: 1, recall: 1, falsePositives: 0 },
+    breaking: verificationTally(nothing),
+    behavior: verificationTally(nothing),
   };
   const verificationFile = join(home, 'verification.json');
   writeFileSync(verificationFile, `${JSON.stringify(verification, null, 2)}\n`);

@@ -157,7 +157,39 @@ export interface PackVerification {
   truth: string;
   /** Public repositories in the ground truth (fixtures excluded). */
   repos: number;
-  breaking: { precision: number; recall: number; falsePositives: number };
+  breaking: VerificationTally;
+  /** Sites of behavior notes, whatever their severity. Absent from records written before it. */
+  behavior?: VerificationTally;
+}
+
+/**
+ * Precision and recall as recorded. A ratio with nothing to measure reads 1; the counts, absent
+ * from records written before they were kept, tell that apart from a perfect score.
+ */
+export interface VerificationTally {
+  precision: number;
+  recall: number;
+  falsePositives: number;
+  truePositives?: number;
+  falseNegatives?: number;
+}
+
+/** A run's tally as `verification.json` records it. */
+export function verificationTally(t: Required<VerificationTally>): Required<VerificationTally> {
+  return {
+    precision: Number(t.precision.toFixed(4)),
+    recall: Number(t.recall.toFixed(4)),
+    falsePositives: t.falsePositives,
+    truePositives: t.truePositives,
+    falseNegatives: t.falseNegatives,
+  };
+}
+
+/** A precision or recall for people: `n/a` when nothing was predicted, or nothing expected. */
+export function rateLabel(tally: VerificationTally, rate: 'precision' | 'recall'): string {
+  const missed = rate === 'precision' ? tally.falsePositives : tally.falseNegatives;
+  if (tally.truePositives === 0 && missed === 0) return 'n/a';
+  return `${Math.round(tally[rate] * 100)}%`;
 }
 
 /**
