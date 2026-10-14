@@ -22,6 +22,8 @@ export interface UptideConfig {
   executor: Executor;
   /** Days; only when the repository sets no release-age policy. Unset: no minimum. */
   minReleaseAgeDays?: number;
+  /** How a migration is verified. */
+  verify?: { build?: string };
 }
 
 /** `schedule: manual`: the workflow runs only when started by hand (Actions tab, dashboard). */
@@ -129,6 +131,20 @@ export const UPTIDE_CONFIG_SCHEMA = {
       type: 'number',
       minimum: 0,
       maximum: 365,
+    },
+    verify: {
+      description: 'How Uptide verifies a migration with the repository’s own scripts.',
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        build: {
+          description:
+            'The package.json script a migration pack’s required build runs, by name (`build-ci`): one that builds without a database or secrets. Unset: `build:ci`, then `build-ci`, then `build`.',
+          type: 'string',
+          pattern: '^[A-Za-z0-9][A-Za-z0-9:._-]*$',
+          maxLength: 100,
+        },
+      },
     },
   },
 } as const;

@@ -545,7 +545,7 @@ export function verifiedBy(report: FixReport): string {
     : !v.build.length || v.build.some((b) => b.status === 'missing')
       ? '⚠️ build not run: no build script'
       : v.build.some((b) => failing(b.status))
-        ? '❌ build'
+        ? `❌ build${buildCauseText(v.build)}`
         : '✅ build';
   const ran = v.tests.filter((t) => t.status !== 'missing');
   const tests = !ran.length
@@ -1001,6 +1001,12 @@ export function renderMigration(
     ),
   );
 }
+/** ` (needs DATABASE_URL; set verify.build)` when every failed build stopped before the framework's build. */
+function buildCauseText(build: NonNullable<FixReport['verification']['build']>): string {
+  const failed = build.filter((b) => b.status === 'failed' || b.status === 'timeout');
+  const causes = [...new Set(failed.map((b) => b.cause))];
+  return causes.length === 1 && causes[0] ? ` (build ${causes[0]}; set verify.build)` : '';
+}
 function verificationDetails(report: FixReport): (string | Piece)[] {
   const v = report.verification;
   const bs = schemas(report);
@@ -1012,8 +1018,8 @@ function verificationDetails(report: FixReport): (string | Piece)[] {
           '',
           ...v.build.map((b) =>
             b.command
-              ? `Build after the bump in \`${b.workspace}\`: \`${b.command}\` — ${b.status === 'timeout' ? 'timed out' : b.status}`
-              : `Build after the bump in \`${b.workspace}\`: no build script`,
+              ? `Build after the bump in \`${b.workspace}\`${b.script ? ` (\`${b.script}\` script)` : ''}: \`${b.command}\` — ${b.status === 'timeout' ? 'timed out' : b.status}${b.cause ? `: the build ${b.cause} before the framework build started. Set \`verify.build\` in uptide.yml to a script that builds without it (\`build-ci\`).` : ''}`
+              : `Build after the bump in \`${b.workspace}\`: ${b.output === 'no build script' ? 'no build script' : b.output}`,
           ),
         ]
       : []),

@@ -21,7 +21,7 @@ import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
 import { assist } from './assisted.js';
 import { baselineHealth } from './baseline.js';
 import { behaviorCheck } from './behavior.js';
-import { buildWorkspaces } from './build.js';
+import { buildWorkspaces, configuredBuildScript } from './build.js';
 import { fileTransaction } from './file-transaction.js';
 import { type Generated, generateClients } from './generate.js';
 import { assertManagerAvailable } from './managers/availability.js';
@@ -111,6 +111,8 @@ export interface FixOptions {
    * worst-case cost. Unfinished sites stay manual. Default: 1 USD for every package.
    */
   maxCostUsd?: number;
+  /** The package.json script a required build runs (`verify.build`); default: the clone's uptide.yml, else build:ci, build-ci, build. */
+  buildScript?: string;
   /**
    * `sdk` runs assisted fixes in one Claude Agent SDK session per package.
    * Default for authenticated Anthropic runs without a supplied fixer; otherwise `patch`.
@@ -694,7 +696,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const beforeBuild = needsBuild ? git(root, 'status', '--porcelain', '--untracked-files=all') : '';
   const build = needsBuild
     ? await verify(`build (${names(workspaces)})`, () =>
-        (services.build ?? buildWorkspaces)(root, workspaces),
+        (services.build ?? buildWorkspaces)(
+          root,
+          workspaces,
+          undefined,
+          options.buildScript ?? configuredBuildScript(root),
+        ),
       )
     : [];
   // What the build wrote and git does not ignore is not part of the migration. Files left

@@ -1033,6 +1033,9 @@ ${PRIVACY}`,
                     provider: selection.provider,
                     model: selection.model,
                     ...(maxCost !== undefined ? { maxCostUsd: maxCost } : {}),
+                    ...(loaded?.config.verify?.build
+                      ? { buildScript: loaded.config.verify.build }
+                      : {}),
                     ...(agent ? { agent: agent as 'patch' | 'sdk' } : {}),
                     withServices: flags.withServices,
                     ...(flags.keepTemp || flags.keep || flags.debug ? { keep: true } : {}),
@@ -1140,6 +1143,7 @@ ${EXIT_CODES('the branch verifies: no new type errors, tests and lint pass', 've
         act(flags, async ({ progress, cwd }) => {
           if (!engine.verify) throw new CliError('verify is not available in this build of uptide');
           const verify = engine.verify;
+          const buildScript = settings(cwd, undefined)?.config.verify?.build;
           const report = await progress.phase(
             'Verification of the migration branch',
             () =>
@@ -1148,6 +1152,7 @@ ${EXIT_CODES('the branch verifies: no new type errors, tests and lint pass', 've
                   cwd,
                   ...(flags.branch ? { branch: flags.branch } : {}),
                   ...(flags.withServices ? { withServices: true } : {}),
+                  ...(buildScript ? { buildScript } : {}),
                   ...(flags.push ? { push: true } : {}),
                   ...(flags.keepTemp || flags.keep || flags.debug ? { keep: true } : {}),
                   ...(flags.yes ? { yes: true } : {}),

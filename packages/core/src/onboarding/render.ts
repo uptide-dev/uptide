@@ -170,6 +170,11 @@ maxCost: ${config.maxCost}
 # How assisted fixes are applied: auto (SDK for Anthropic when installed, patch otherwise), patch (one edit per call site),
 # or sdk (a Claude Agent SDK session).
 executor: ${config.executor}
+
+# A migration pack that needs your build (Next.js) runs one package.json script: this one,
+# else build:ci, then build-ci, then build. Name a script that builds without a database or
+# secrets when build needs them (prisma db push, migrations).
+${config.verify?.build ? `verify:\n  build: ${config.verify.build}` : '# verify:\n#   build: build-ci'}
 ${
   config.minReleaseAgeDays === undefined
     ? ''
