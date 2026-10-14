@@ -1,0 +1,38 @@
+# Uptide settings, read by the Uptide workflow and by the uptide CLI.
+# Reference: https://github.com/uptide-dev/uptide/blob/main/docs/config.md
+# yaml-language-server: $schema=https://raw.githubusercontent.com/uptide-dev/uptide/main/schema/uptide.v1.json
+
+# Format of this file. Only 1 exists.
+version: 1
+
+# Which dependencies Uptide looks at, as npm package name globs ("@types/*", "eslint-*").
+packages:
+  # Only these. Empty: every dependency.
+  allow: []
+  # Never these, even when allow matches them.
+  deny: []
+
+# When the workflow runs: cron, in UTC, or manual to start runs only by hand. The workflow
+# file holds a copy of this line; after changing it, run `npx uptide init --force`.
+schedule: '56 6 * * 1'
+
+# No new pull request is opened while this many Uptide pull requests are open.
+# Uptide pull requests are always drafts.
+maxOpenPrs: 3
+
+llm:
+  # Who receives the code around call sites no rule covers, with this repository's own key
+  # (secret ANTHROPIC_API_KEY). The Uptide workflow does not run without that key.
+  provider: anthropic
+
+# LLM budget in USD; the SDK may overshoot by one turn.
+maxCost: 1
+
+# How assisted fixes are applied: auto (SDK for Anthropic when installed, patch otherwise), patch (one edit per call site),
+# or sdk (a Claude Agent SDK session).
+executor: auto
+
+# Uptide never targets a release younger than this many days, when the repository sets no
+# release-age policy of its own (npm min-release-age, pnpm minimumReleaseAge, Yarn
+# npmMinimalAgeGate); a policy the repository sets wins.
+minReleaseAgeDays: 7
