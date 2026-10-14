@@ -4,7 +4,15 @@ import type { Finding } from '../../domain/report.js';
 import { packDecisions } from '../decisions.js';
 import { runFixtures } from '../tooling/fixtures.js';
 import type { PackContext } from '../types.js';
-import { domImportSites, moveDomImport } from './detect.js';
+import {
+  domImportSites,
+  formMethodSites,
+  futureOptionSites,
+  moveDomImport,
+  moveDomServerImport,
+  removeFutureOption,
+  uppercaseFormMethod,
+} from './detect.js';
 import { reactRouterPack } from './index.js';
 
 it('react-router: every fixture rewrites and detects exactly its marked sites', () => {
@@ -104,5 +112,38 @@ describe('behavior notes are scoped by the router setup', () => {
     expect(text).toContain('`.nvmrc` pins Node 18.20.4');
     expect(text).toContain('`package.json` declares react-router-dom');
     expect(text).toContain('`package.json` declares it');
+  });
+});
+
+describe('rewrites kept assisted until ground truth exercises them', () => {
+  // Not wired into the pack: no public upgrade in the ground truth has such a site yet
+  // (RESEARCH.md). The agent gets the guide; these stay correct for when one does.
+  it.each(['dom-server-entry', 'form-method-case', 'future-option'])('%s has no rewrite', (id) => {
+    expect(reactRouterPack.rules.find((r) => r.id === id)?.rewrite).toBeUndefined();
+  });
+
+  it('moves react-router-dom/server to react-router', () => {
+    const code = "import { StaticRouter } from 'react-router-dom/server';\n";
+    expect(moveDomServerImport(code, site(1, 30)).text).toBe(
+      "import { StaticRouter } from 'react-router';\n",
+    );
+  });
+
+  it('removes the v6 future option, and the options argument it leaves empty', () => {
+    const code =
+      "import { createBrowserRouter } from 'react-router-dom';\nexport const r = createBrowserRouter([], { future: { v7_relativeSplatPath: true } });\n";
+    const [at] = futureOptionSites(code);
+    expect(removeFutureOption(code, site(at?.line ?? 0, at?.column ?? 0)).text).toContain(
+      'createBrowserRouter([]);',
+    );
+  });
+
+  it('uppercases the method compared with formMethod', () => {
+    const code =
+      "import { useNavigation } from 'react-router-dom';\nexport const f = (n: ReturnType<typeof useNavigation>) => n.formMethod === 'post';\n";
+    const [at] = formMethodSites(code);
+    expect(uppercaseFormMethod(code, site(at?.line ?? 0, at?.column ?? 0)).text).toContain(
+      "n.formMethod === 'POST'",
+    );
   });
 });

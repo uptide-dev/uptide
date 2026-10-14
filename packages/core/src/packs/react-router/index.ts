@@ -7,11 +7,8 @@ import {
   formMethodSites,
   futureOptionSites,
   moveDomImport,
-  moveDomServerImport,
   removedCallSites,
-  removeFutureOption,
   removeFutureProp,
-  uppercaseFormMethod,
 } from './detect.js';
 
 /**
@@ -67,6 +64,14 @@ export const reactRouterPack = definePack({
       source: `${repo}/${v7}/packages/react-router-dom/CHANGELOG.md`,
     },
   ],
+  // What most v6 applications declare instead: it installs react-router at its own version.
+  // `check react-router-dom` is this pack, and `fix` declares react-router beside it.
+  alternateLeads: [
+    {
+      name: 'react-router-dom',
+      source: `${repo}/${v7}/docs/upgrading/v6.md`,
+    },
+  ],
   inventory: [
     'package.json',
     '{.nvmrc,.node-version}',
@@ -107,9 +112,8 @@ export const reactRouterPack = definePack({
       symbols: /^TS2307$/,
       message: /react-router-dom\/server/,
       detect: domServerSites,
-      rewrite: moveDomServerImport,
       guide:
-        'react-router-dom 7 exports only its main entry, so "react-router-dom/server" no longer resolves even when react-router-dom is kept. StaticRouter, StaticRouterProvider, createStaticHandler, createStaticRouter and their types are exported by "react-router".',
+        'react-router-dom 7 exports only its main entry, so "react-router-dom/server" no longer resolves even when react-router-dom is kept. StaticRouter, StaticRouterProvider, createStaticHandler, createStaticRouter and their types are exported by "react-router": change the module specifier to "react-router" and nothing else.',
     },
     {
       id: 'future-prop',
@@ -130,9 +134,8 @@ export const reactRouterPack = definePack({
       kinds: [],
       symbols: /$^/,
       detect: futureOptionSites,
-      rewrite: removeFutureOption,
       guide:
-        'v7 types `future` as an empty interface: the v6 keys still compile, do nothing, and become errors in 8.4. Remove them; keep any other option.',
+        'v7 types `future` as an empty interface: the v6 keys still compile, do nothing, and become errors in 8.4. Remove the `future` property (and the options argument when it held nothing else); keep any other option.',
     },
     {
       id: 'fallback-element',
@@ -193,7 +196,6 @@ export const reactRouterPack = definePack({
       message:
         /"(?:get|post|put|patch|delete)"[\s\S]*"(?:GET|POST|PUT|PATCH|DELETE)"|"(?:GET|POST|PUT|PATCH|DELETE)"[\s\S]*"(?:get|post|put|patch|delete)"/,
       detect: formMethodSites,
-      rewrite: uppercaseFormMethod,
       guide:
         'Compare `formMethod` with the uppercase method ("POST"). A value typed `FormMethod` that is assigned a lowercase literal takes the uppercase one. `<Form method="post">` and `submit({ method: "post" })` still accept lowercase: leave them.',
     },
