@@ -1,0 +1,5 @@
+{
+  "$comment": "Public repositories at the commit before they upgraded lucide-react from >=0 <1 to >=1 <2, and every finding the pack must report there. See docs/packs.md, \"Ground truth\".",
+  "package": "lucide-react",
+  "repos": []
+}
