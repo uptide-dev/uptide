@@ -111,8 +111,10 @@ leading its group, and the merged entry keeps every companion.
 What the planned versions require is planned after the group (`src/check/required.ts`). A
 package the target, or any package the plan moves, declares as a peer or dependency at a range
 the installed copy does not satisfy (openai 7 peers on `zod ^3.25 || ^4.0`; zod 3.24.2 is
-installed) moves to the lowest release of its line that satisfies it: zod 3.25.0. So does a
-direct dependency whose own dependency range rejects a planned version. A line is what a caret
+installed) moves to the lowest release of its line that satisfies it: zod 3.25.0. A range the
+installed host already broke (react 19.2.0 under `@ai-sdk/react` 3's `^19.2.1`) is not this
+upgrade's and stays. A direct dependency whose own dependency range rejects the lead's target
+moves the same way. A line is what a caret
 range of the installed version reaches: one major, one minor for 0.x. Each is a companion
 marked `required`, shown apart from the group ("moved because openai 7.4.0 requires zod
 ^3.25 || ^4.0"), and `fix` installs it with the rest. A move only a new major makes is never

@@ -60,8 +60,9 @@ const visibleFrom = (dep: InstalledDependency, host: InstalledDependency): boole
 /**
  * What the planned versions require of the rest of the install, beyond their release group
  * (`companions.ts`): a package the lead's target, or any package the plan moves, declares as a
- * peer or dependency at a range the installed copy does not satisfy; and a direct dependency
- * whose own dependency range rejects a planned version. Each moves to the lowest release of its
+ * peer or dependency at a range the installed copy does not satisfy, when the installed host
+ * accepted it; and a direct dependency whose own dependency range rejects the lead's target.
+ * Each moves to the lowest release of its
  * line that agrees. One that only a new major satisfies is never moved: a peer or a dependent
  * is a blocker, with the exact range; a plain dependency gets its own nested copy, so the
  * repository's stays.
@@ -118,6 +119,13 @@ export async function requiredMoves(input: {
             (d) => d.name === name && open(d) && visibleFrom(d, lead),
           );
           if (!dep || accepts(range, dep.version)) continue;
+          // Broken already by the installed host (morphic's react 19.2.0 under @ai-sdk/react 3's
+          // `~19.1.2 || ^19.2.1`): the repository lives with it today, so it is not this upgrade's.
+          const today = input.installed.find((d) => d.name === host && visibleFrom(d, lead));
+          const before = (peer ? today?.manifest.peerDependencies : today?.manifest.dependencies)?.[
+            name
+          ];
+          if (semverRange(before) && !accepts(before, dep.version)) continue;
           const versions = await input.manifests(name);
           const candidates = newer(versions, dep.version).filter((v) => accepts(range, v));
           const within = candidates.find((v) => sameLine(dep.version, v));
@@ -131,10 +139,12 @@ export async function requiredMoves(input: {
         }
       }
     }
-    // A direct dependency whose own dependency range rejects a planned version.
+    // A direct dependency whose own dependency range rejects the lead's target: the package
+    // the user asked to move, which that dependency would keep a second copy of.
     for (const dep of input.installed) {
       if (!open(dep) || !dep.workspaces.some((w) => lead.workspaces.includes(w))) continue;
-      for (const [host, at] of [...decided]) {
+      for (const [host, at] of [[lead.name, decided.get(lead.name)]] as const) {
+        if (!at) continue;
         const range = dep.manifest.dependencies?.[host];
         if (!semverRange(range) || accepts(range, at.version)) continue;
         const versions = await input.manifests(dep.name);

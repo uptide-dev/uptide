@@ -34,6 +34,7 @@ const zod: Versions = {
   '3.24.2': {},
   '3.25.0-canary.20250504T221648': {},
   '3.25.0': {},
+  '3.25.40': {},
   '3.25.76': {},
   '4.0.0': {},
   '4.4.3': {},
@@ -227,7 +228,7 @@ describe('what the target requires', () => {
       ...guardrails,
       '@openai/agents': {
         ...agents,
-        '0.1.12': { dependencies: { openai: '^7.0.0' }, peerDependencies: { zod: '^3.25.40' } },
+        '0.1.12': { dependencies: { openai: '^7.0.0' }, peerDependencies: { zod: '^3.25.60' } },
       },
     };
     const plan = await companionsOf({
@@ -236,7 +237,7 @@ describe('what the target requires', () => {
       installed: [
         at(registry, 'openai', '4.104.0'),
         at(registry, '@openai/agents', '0.1.11'),
-        at(registry, 'zod', '3.25.0'),
+        at(registry, 'zod', '3.25.40'),
       ],
       manifests: registryOf(registry),
     });
@@ -250,9 +251,9 @@ describe('what the target requires', () => {
       },
       {
         name: 'zod',
-        from: '3.25.0',
+        from: '3.25.40',
         to: '3.25.76',
-        reason: '@openai/agents 0.1.12 requires zod ^3.25.40',
+        reason: '@openai/agents 0.1.12 requires zod ^3.25.60',
         required: true,
       },
     ]);
@@ -305,5 +306,35 @@ describe('what the target requires', () => {
         required: true,
       },
     ]);
+  });
+
+  it('leaves a requirement the install already breaks today, and what depends on it (miurla/morphic)', async () => {
+    // @ai-sdk/react 3.0.182 already peers on react ~19.1.2 || ^19.2.1 and react 19.2.0 is
+    // installed: the upgrade does not introduce that, so react stays, and so does
+    // @supabase/auth-ui-react, whose react ^18.2.0 rejects 19.x before and after.
+    const peers = { react: '^18 || ~19.0.1 || ~19.1.2 || ^19.2.1' };
+    const registry: Record<string, Versions> = {
+      ai: { '6.0.180': {}, '7.0.66': {} },
+      '@ai-sdk/react': {
+        '3.0.182': { dependencies: { ai: '6.0.180' }, peerDependencies: peers },
+        '4.0.69': { dependencies: { ai: '7.0.66' }, peerDependencies: peers },
+      },
+      react: { '19.2.0': {}, '19.2.1': {} },
+      '@supabase/auth-ui-react': { '0.4.7': { dependencies: { react: '^18.2.0' } } },
+    };
+    const plan = await companionsOf({
+      name: 'ai',
+      target: '7.0.66',
+      installed: [
+        at(registry, 'ai', '6.0.180'),
+        at(registry, '@ai-sdk/react', '3.0.182'),
+        at(registry, 'react', '19.2.0'),
+        at(registry, '@supabase/auth-ui-react', '0.4.7'),
+      ],
+      manifests: registryOf(registry),
+      releaseGroup: ['@ai-sdk/react'],
+    });
+    expect(plan.companions.map((c) => `${c.name} ${c.to}`)).toEqual(['@ai-sdk/react 4.0.69']);
+    expect(plan.blockers ?? []).toEqual([]);
   });
 });
