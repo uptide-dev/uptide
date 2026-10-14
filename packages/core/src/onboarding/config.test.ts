@@ -46,6 +46,19 @@ executor: sdk
     });
   });
 
+  it('reads verify.build, a package.json script name, and rejects a command', () => {
+    expect(parse('version: 1\nverify:\n  build: build-ci\n')).toMatchObject({
+      verify: { build: 'build-ci' },
+    });
+    expect(parse('version: 1\nverify:\n  build: "build:ci"\n').verify?.build).toBe('build:ci');
+    expect(problems('version: 1\nverify:\n  build: "next build"\n')).toContain(
+      'line 3: verify.build',
+    );
+    expect(problems('version: 1\nverify:\n  command: x\n')).toContain(
+      'command is not a setting here',
+    );
+  });
+
   it('names every problem with its line, in one error', () => {
     const message = problems(`version: 1
 maxOpenPrs: three
@@ -64,7 +77,7 @@ maxCost: 0
 
   it('rejects unknown settings, saying which exist', () => {
     expect(problems('version: 1\nschedul: "1 2 * * 1"\n')).toContain(
-      'line 2: schedul is not a setting here (known: version, packages, schedule, maxOpenPrs, llm, maxCost, executor, minReleaseAgeDays)',
+      'line 2: schedul is not a setting here (known: version, packages, schedule, maxOpenPrs, llm, maxCost, executor, minReleaseAgeDays, verify)',
     );
     expect(problems('version: 1\npackages:\n  only: [zod]\n')).toContain(
       'packages.only is not a setting',

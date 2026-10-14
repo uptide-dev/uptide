@@ -7,7 +7,7 @@ import { packDecisions } from '../packs/decisions.js';
 import { activePack } from '../packs/index.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { uptideVersionInfo } from '../version.js';
-import { buildWorkspaces } from './build.js';
+import { buildWorkspaces, configuredBuildScript } from './build.js';
 import { git } from './process.js';
 import { prBody } from './report.js';
 import { confirmServices } from './run.js';
@@ -34,6 +34,8 @@ export interface ReverifyOptions {
   /** Also run tests that need services; `yes` confirms the printed services and targets. */
   withServices?: boolean;
   yes?: boolean;
+  /** The package.json script a required build runs (`verify.build`); default: the clone's uptide.yml. */
+  buildScript?: string;
 }
 export interface ReverifyServices {
   build?: typeof buildWorkspaces;
@@ -127,7 +129,12 @@ export async function reverify(
   });
   const buildRequired = report.verification.buildRequired || pack.requiresBuild === true;
   const build = buildRequired
-    ? await (services.build ?? buildWorkspaces)(root, workspaces)
+    ? await (services.build ?? buildWorkspaces)(
+        root,
+        workspaces,
+        undefined,
+        options.buildScript ?? configuredBuildScript(root),
+      )
     : report.verification.build;
   assertInstalledVersions(root, moves);
   const left = git(root, 'status', '--porcelain', '--untracked-files=all')

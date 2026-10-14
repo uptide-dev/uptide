@@ -32,6 +32,12 @@ maxCost: 1
 # or sdk (a Claude Agent SDK session).
 executor: auto
 
+# A migration pack that needs your build (Next.js) runs one package.json script: this one,
+# else build:ci, then build-ci, then build. Name a script that builds without a database or
+# secrets when build needs them (prisma db push, migrations).
+# verify:
+#   build: build-ci
+
 # Uptide never targets a release younger than this many days, when the repository sets no
 # release-age policy of its own (npm min-release-age, pnpm minimumReleaseAge, Yarn
 # npmMinimalAgeGate); a policy the repository sets wins.

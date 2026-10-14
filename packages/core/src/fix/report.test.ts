@@ -987,3 +987,23 @@ it('renders scoped declarative behavior decisions in the PR body', async () => {
   expect(section).not.toContain('image defaults');
   expect(section).not.toContain('cacheComponents');
 });
+it('says why a required build failed when it stopped before the framework build', () => {
+  const report = ruleOnly();
+  report.verification.buildRequired = true;
+  report.verification.build = [
+    {
+      workspace: '.',
+      status: 'failed',
+      script: 'build',
+      command: 'prisma generate && prisma db push && next build',
+      output: 'error: Environment variable not found: DATABASE_URL.',
+      cause: 'needs DATABASE_URL',
+    },
+  ];
+  expect(visible(prBody(report))).toContain(
+    '❌ build (build needs DATABASE_URL; set verify.build)',
+  );
+  expect(prBody(report)).toContain(
+    'the build needs DATABASE_URL before the framework build started. Set `verify.build` in uptide.yml',
+  );
+});

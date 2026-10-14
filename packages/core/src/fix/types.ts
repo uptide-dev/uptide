@@ -111,6 +111,13 @@ export interface BuildResult {
   status: 'passed' | 'failed' | 'missing' | 'timeout';
   /** What ran, from the workspace's directory. Absent when there was no build script. */
   command?: string;
+  /** The package.json script that ran (`build-ci`), chosen by `verify.build` or the defaults. */
+  script?: string;
+  /**
+   * Why it failed before the framework's own build started, when the output says so:
+   * `needs DATABASE_URL`, `needs a database`. The fix is a script that builds without it.
+   */
+  cause?: string;
   /** The end of what it printed, or why nothing ran. */
   output: string;
 }

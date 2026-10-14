@@ -22,7 +22,7 @@ it.each(['passed', 'failed', 'missing'] as const)(
       { workspace: '.', status, output: status, command: 'next build' },
     ]);
     const result = await fix({ cwd: root, only: 'zod', pack, fixer: null }, { ...services, build });
-    expect(build).toHaveBeenCalledWith(root, ['.']);
+    expect(build).toHaveBeenCalledWith(root, ['.'], undefined, undefined);
     expect(result.verification.passed).toBe(status === 'passed');
     expect(result.verification.build?.[0]?.status).toBe(status);
     expect(prBody(result)).toContain(
@@ -34,6 +34,27 @@ it.each(['passed', 'failed', 'missing'] as const)(
       );
   },
 );
+
+it('runs the build script verify.build names, from the option or the repository’s uptide.yml', async () => {
+  const named = zodFixture(scratch);
+  const build = vi.fn(async () => [{ workspace: '.', status: 'passed' as const, output: '' }]);
+  await fix(
+    { cwd: named.root, only: 'zod', pack, fixer: null, buildScript: 'build:docker' },
+    { ...named.services, build },
+  );
+  expect(build).toHaveBeenCalledWith(named.root, ['.'], undefined, 'build:docker');
+
+  const configured = zodFixture(scratch);
+  writeFileSync(join(configured.root, 'uptide.yml'), 'version: 1\nverify:\n  build: build-ci\n');
+  git(configured.root, 'add', 'uptide.yml');
+  git(configured.root, 'commit', '-m', 'uptide settings');
+  const fromFile = vi.fn(async () => [{ workspace: '.', status: 'passed' as const, output: '' }]);
+  await fix(
+    { cwd: configured.root, only: 'zod', pack, fixer: null },
+    { ...configured.services, build: fromFile },
+  );
+  expect(fromFile).toHaveBeenCalledWith(configured.root, ['.'], undefined, 'build-ci');
+});
 
 it('executes required builds in the test environment without inherited secrets', async () => {
   const { root, services } = zodFixture(scratch);

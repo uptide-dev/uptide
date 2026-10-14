@@ -24,6 +24,8 @@ llm:
 maxCost: 1
 executor: auto
 # minReleaseAgeDays: 7   # optional; see Release age
+# verify:
+#   build: build-ci      # optional; see Required builds
 ```
 
 Only `version` is required. Every other field has the default shown in the table.
@@ -39,9 +41,39 @@ Only `version` is required. Every other field has the default shown in the table
 | `maxCost` | USD, more than 0, at most 100 | `1` | LLM budget; the SDK may overshoot by one turn. |
 | `executor` | `auto`, `patch`, `sdk` | `auto` | With `auto`, SDK for Anthropic when it is installed, patch otherwise. `patch` or `sdk` explicitly selects the executor. |
 | `minReleaseAgeDays` | days, 0 to 365 | none | Uptide never targets a release younger than this, when the repository sets no release-age policy of its own. Days, unlike pnpm's minutes. See [Release age](#release-age). |
+| `verify.build` | a package.json script name | none | The script a migration pack's required build runs. Unset: `build:ci`, then `build-ci`, then `build`. See [Required builds](#required-builds). |
 
 There is no `draft` setting: Uptide pull requests are always drafts. A file that sets it is
 rejected rather than ignored.
+
+## Required builds
+
+Some migration packs need the repository's own build to pass before a migration is published
+(Next.js: `next.config.js` and the bundler wiring are outside the type-check). Uptide runs one
+package.json script for it, per workspace (the workspace's, else the root's): `verify.build`
+when it is set, else the first of `build:ci`, `build-ci` and `build` that exists.
+
+A `build` that needs a database or secrets (`prisma db push`, migrations, a `DATABASE_URL`)
+fails in Uptide's clone before the framework's build starts. Uptide says so in the pull request
+and the report (`build needs DATABASE_URL; set verify.build`) instead of a bare "build failed".
+Point `verify.build` at a script that builds without them:
+
+```json
+{
+  "scripts": {
+    "build": "prisma generate && prisma db push && next build",
+    "build-ci": "prisma generate && next build"
+  }
+}
+```
+
+```yaml
+verify:
+  build: build-ci
+```
+
+A `verify.build` that names a script the repository does not have is reported as a missing
+build, which keeps the migration from being published.
 
 ## Globs
 
