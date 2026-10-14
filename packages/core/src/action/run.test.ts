@@ -652,3 +652,46 @@ describe('the Uptide Action run', () => {
     expect(calls[0]?.args).not.toContain('--config');
   });
 });
+
+it.each(['list', 'check', 'fix'])(
+  'rejects candidate opt-in in the Action runner (%s), never forwarding it',
+  async (mode) => {
+    const { s, calls, published } = services({ list: listReport([]) });
+    const report = await runAction(inputs('/does-not-exist', { mode, allowCandidate: true }), s);
+    expect(report.error).toContain('--allow-candidate is not available in the Uptide Action');
+    expect(reportProblems(report)).toEqual([]);
+    expect(calls).toEqual([]);
+    expect(published).toEqual([]);
+  },
+);
+
+it('never publishes a candidate accidentally returned by the engine and keeps the v1 schema', async () => {
+  const fixed = storefrontFix();
+  fixed.packWarning = 'candidate pack, not verified';
+  fixed.verification.passed = true;
+  const { s, published, calls } = services({
+    list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+    fix: () => fixRun(fixed),
+  });
+  const report = await runAction(inputs(workspace()), s);
+  expect(published).toEqual([]);
+  expect(calls.every((c) => !c.args.includes('--allow-candidate'))).toBe(true);
+  expect(report.upgrades[0]?.error).toBe('candidate pack, not verified');
+  expect(reportProblems(report)).toEqual([]);
+});
+
+it('preserves the candidate check banner in the existing v1 error field', async () => {
+  const checked = storefrontCheck() as CheckReport;
+  const first = checked.packages[0];
+  if (!first) throw new Error('missing fixture');
+  first.packWarning = 'candidate pack, not verified';
+  const { s } = services({
+    list: listReport([dep(first.name, first.installed, first.target)]),
+    check: checked,
+  });
+  const report = await runAction(inputs(workspace(), { mode: 'check' }), s);
+  expect(report.upgrades.find((u) => u.package === first.name)?.error).toBe(
+    'candidate pack, not verified',
+  );
+  expect(reportProblems(report)).toEqual([]);
+});

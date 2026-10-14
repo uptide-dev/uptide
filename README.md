@@ -153,8 +153,8 @@ The full statement and the isolation model: [privacy](docs/privacy.md) and [SECU
 
 ## Contributing
 
-Setup, the rules that do not bend, how to write a migration pack and how to sign off:
-[CONTRIBUTING.md](CONTRIBUTING.md). Security problems go through [SECURITY.md](SECURITY.md).
+[CONTRIBUTING.md](CONTRIBUTING.md) covers setup, safety, pack authoring and sign-off. Smoke-test packs with `check --allow-candidate` or `fix --allow-candidate`: reports say “candidate pack, not verified”.
+The flag is local only: the Action, `--pr` and `--yes` reject it. Security problems: [SECURITY.md](SECURITY.md).
 
 ## License
 

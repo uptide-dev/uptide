@@ -386,3 +386,14 @@ it('reports a tree mismatch even when a successful run also came from a dirty bu
   ).rejects.toMatchObject({ code: 'VERIFIED_TREE_MISMATCH' });
   expect(m.calls.some((call) => call[0] === 'gh' || call.includes('push'))).toBe(false);
 });
+
+it.each([false, true])(
+  'refuses publication of a stored candidate run, including --yes=%s',
+  async (yes) => {
+    const m = mock();
+    await expect(
+      publish({ ...report, packWarning: 'candidate pack, not verified' }, yes, m.io),
+    ).rejects.toThrow('candidate pack, not verified');
+    expect(m.calls.some((c) => c[0] === 'gh' || c.includes('push'))).toBe(false);
+  },
+);

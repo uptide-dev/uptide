@@ -22,6 +22,7 @@ export function publicationBlockers(
   tool: { uptideDirty: boolean } = uptideVersionInfo(),
 ): string[] {
   const blockers: string[] = [];
+  if (report.packWarning) blockers.push(report.packWarning);
   if (report.exportError) blockers.push(`export failed: ${report.exportError}`);
   const v = report.verification;
   if (v.buildRequired && (!v.build?.length || v.build.some((b) => b.status !== 'passed')))

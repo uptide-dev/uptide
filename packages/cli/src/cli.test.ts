@@ -895,3 +895,37 @@ it('exits 1 when pr refuses a tree that was not verified', async () => {
   expect(await run(['pr', '--branch', 'uptide/zod-4.6.5', '--yes'], io, engine)).toBe(1);
   expect(io.stderr()).toContain('nothing pushed');
 });
+
+it.each([['--pr'], ['--yes'], ['--pr', '--yes']])(
+  'refuses --allow-candidate with publication flags %j before the engine',
+  async (...flags) => {
+    const engine = fakeEngine();
+    const io = memoryIo({ cwd: '/does-not-exist' });
+    expect(await run(['fix', 'zod', '--allow-candidate', ...flags], io, engine)).toBe(2);
+    expect(io.stderr()).toContain('--allow-candidate cannot be used with --pr or --yes');
+    expect(engine.calls).toEqual([]);
+  },
+);
+
+it('forwards the local candidate opt-in for check and fix', async () => {
+  const engine = fakeEngine();
+  await run(['check', 'zod', '--allow-candidate'], memoryIo({ cwd: npmRepo() }), engine);
+  await run(
+    ['fix', 'zod', '--allow-candidate', '--no-llm'],
+    memoryIo({ cwd: pnpmGitRepo() }),
+    engine,
+  );
+  expect(engine.calls).toHaveLength(2);
+  expect(engine.calls).toEqual([
+    expect.objectContaining({ allowCandidate: true }),
+    expect.objectContaining({ allowCandidate: true }),
+  ]);
+});
+
+it.each(['check', 'fix'])('rejects --allow-candidate in GitHub Actions for %s', async (command) => {
+  const engine = fakeEngine();
+  const io = memoryIo({ cwd: '/does-not-exist', env: { GITHUB_ACTIONS: 'true' } });
+  expect(await run([command, 'zod', '--allow-candidate'], io, engine)).toBe(2);
+  expect(io.stderr()).toContain('--allow-candidate is not available in the Uptide Action');
+  expect(engine.calls).toEqual([]);
+});

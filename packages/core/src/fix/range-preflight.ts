@@ -30,7 +30,7 @@ export async function rangePreflight(
   };
   const { installed, names } = fixDependencies(root, read);
   const fetcher = createNpmFetcher({ config: loadRegistryConfig({ cwd: root }) });
-  const pack = options.pack ?? activePack(options.only);
+  const pack = options.pack ?? activePack(options.only, options.allowCandidate);
   const { version: target } = await resolveTarget(
     pack ?? { name: options.only, defaultTarget: '' },
     options.target,

@@ -315,6 +315,7 @@ export function migrationRisk(report: FixReport): {
     return { level: 'Low', reason: 'no behaviour change: the explicit pin equals the SDK default' };
   const g = groups(report);
   const high = [
+    ...(report.packWarning ? [report.packWarning] : []),
     ...(report.peerConflicts?.length ? ['peer compatibility is not verified'] : []),
     ...(report.sites.some((s) => s.outcome === 'manual') ? ['manual sites left'] : []),
     ...(!report.verification.passed ||
@@ -525,8 +526,9 @@ export function apiChangeSummary(c: NonNullable<FixReport['apiChanges']>): strin
 export function verifiedBy(report: FixReport): string {
   if (report.verificationPending) return '⚠️ nothing yet: verification pending';
   const v = report.verification;
-  const pack =
-    report.mode === 'pin' || !report.tier
+  const pack = report.packWarning
+    ? [`⚠️ ${report.packWarning}`]
+    : report.mode === 'pin' || !report.tier
       ? []
       : report.tier === 'verified'
         ? [`✅ the ${report.package} migration pack`]
@@ -541,7 +543,9 @@ export function verifiedBy(report: FixReport): string {
   const build = !v.build
     ? report.tier === 'generic' || v.buildRequired
       ? '⚠️ build not run'
-      : 'build not required (pack-verified migration)'
+      : report.packWarning
+        ? 'build not required by this candidate pack'
+        : 'build not required (pack-verified migration)'
     : !v.build.length || v.build.some((b) => b.status === 'missing')
       ? '⚠️ build not run: no build script'
       : v.build.some((b) => failing(b.status))
@@ -678,6 +682,7 @@ export function renderMigration(
     report.mode === 'pin'
       ? [`## Pin the Stripe API version to ${report.apiVersion}`, '']
       : [`## Upgrade ${report.package} ${from} → ${report.target}`, ''];
+  if (report.packWarning) lines.push(`> ⚠️ ${report.packWarning}`, '');
   // Broken before the upgrade: said first, so no reader takes the comparison for proof.
   const unhealthy = baselineHeadline(baselineHealthOf(report));
   if (mode === 'full' && unhealthy && !report.verificationPending)
@@ -981,7 +986,7 @@ export function renderMigration(
       `Branch: \`${report.branch}\``,
       ...(report.tier
         ? [
-            `Tier: ${report.tier} (${report.tier === 'verified' ? 'a migration pack covers this upgrade' : 'no migration pack: nothing analyzed the upgrade; only the checks under Verified by vouch for it'})`,
+            `Tier: ${report.packWarning ? 'candidate' : report.tier} (${report.tier === 'verified' ? 'a migration pack covers this upgrade' : 'no migration pack: nothing analyzed the upgrade; only the checks under Verified by vouch for it'})`,
           ]
         : []),
       ...(report.verifiedAt

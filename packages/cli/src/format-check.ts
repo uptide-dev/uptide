@@ -483,6 +483,8 @@ export function formatCheck(report: CheckReport, opts: FormatCheckOptions = {}):
     lines.push(terminalHeader('check', opts.header, opts.color ?? true), '');
   }
   const rows = checkRows(report, colors);
+  for (const p of report.packages)
+    if (p.packWarning) lines.push(colors.yellow(`${p.name}: ${p.packWarning}`), '');
   if (opts.details) {
     lines.push(formatCheckDetails(report, { color: opts.color, all: opts.all }).trimEnd(), '');
   } else {
@@ -503,7 +505,10 @@ export function formatCheck(report: CheckReport, opts: FormatCheckOptions = {}):
             text: move(row),
             tone: row.bump.startsWith('major') ? ('yellow' as const) : ('dim' as const),
           },
-          { text: row.p.tier === 'verified' ? 'verified' : '', tone: 'green' as const },
+          {
+            text: row.p.packWarning ? 'candidate' : row.p.tier === 'verified' ? 'verified' : '',
+            tone: 'green' as const,
+          },
           { text: row.verdict.replace(COLOR, '') },
           { text: row.by, tone: 'dim' as const },
         ]),

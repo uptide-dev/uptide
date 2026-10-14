@@ -22,9 +22,11 @@ export type CheckRequest = Pick<
   | 'allDeps'
   | 'workspaceConcurrency'
   | 'maxTimeMs'
+  | 'allowCandidate'
 > & { checkResults?: CheckReport };
 
 export interface FixRequest {
+  allowCandidate?: boolean;
   provider?: string;
   model?: string;
   cwd: string;

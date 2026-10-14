@@ -239,9 +239,10 @@ export async function run(
   const withAlternates = async (
     repo: Repo,
     deps: Awaited<ReturnType<typeof locateDependencies>>,
+    allowCandidate = false,
   ): Promise<Awaited<ReturnType<typeof locateDependencies>>> => {
     const alternates = (name: string) =>
-      (packLeading(name, activePacks())?.alternateLeads ?? []).map((a) => a.name);
+      (packLeading(name, activePacks(allowCandidate))?.alternateLeads ?? []).map((a) => a.name);
     const wanted = deps.filter((d) => d.workspaces.length === 0).flatMap((d) => alternates(d.name));
     if (!wanted.length) return deps;
     const found = await locateDependencies(repo, engine, wanted);
@@ -258,6 +259,7 @@ export async function run(
     repo: Repo,
     only: string[] | undefined,
     progress: Progress,
+    allowCandidate = false,
   ): Promise<unknown> =>
     progress.phase(
       'Dependencies',
@@ -270,7 +272,7 @@ export async function run(
         if (only) {
           // Asked for by name and absent is an error, not an empty answer, unless a pack's
           // alternate lead is declared instead (`react-router-dom` for `react-router`).
-          const present = await withAlternates(repo, deps);
+          const present = await withAlternates(repo, deps, allowCandidate);
           const absent = present.filter((d) => d.workspaces.length === 0).map((d) => d.name);
           if (absent.length > 0) throw notADependency(repo, absent);
           requireInstalled(repo, present);
@@ -453,6 +455,7 @@ ${PRIVACY}`,
   shared(
     program
       .command('check [packages...]')
+      .option('--allow-candidate', 'use registered candidate packs for local smoke tests only')
       .description('Which of your call sites an upgrade breaks, and what fixing them costs')
       .option('--only <packages>', 'deprecated alias for positional package names')
       .option('--group <name>', 'check every member of a group shown by uptide list')
@@ -504,6 +507,7 @@ ${EXIT_CODES(
         flags: Shared & {
           only?: string;
           group?: string;
+          allowCandidate?: boolean;
           target?: string[];
           html?: string | true;
           open?: boolean;
@@ -520,6 +524,8 @@ ${EXIT_CODES(
         act(
           flags,
           async ({ ui, progress, cwd }) => {
+            if (flags.allowCandidate && io.env.GITHUB_ACTIONS === 'true')
+              throw new CliError('--allow-candidate is not available in the Uptide Action');
             if (flags.open && !flags.html) throw new CliError('--open requires --html');
             const started = io.now();
             const quiet = !flags.verbose;
@@ -527,7 +533,7 @@ ${EXIT_CODES(
             // An alternate lead's name (`react-router-dom`) asks for its pack's lead.
             const only = requested.includes('all')
               ? requested
-              : leadNames(requested, activePacks());
+              : leadNames(requested, activePacks(flags.allowCandidate));
             if ((!flags.group && only.length === 0) || only.includes('all'))
               throw new CliError(
                 'check requires one or more package names. Start with uptide list.',
@@ -582,7 +588,7 @@ ${EXIT_CODES(
             // Named after what was asked for; an alternate lead's target is its lead's.
             const targets = Object.fromEntries(
               Object.entries(parseTargets(flags.target, [...new Set([...requested, ...only])])).map(
-                ([name, version]) => [leadName(name, activePacks()), version],
+                ([name, version]) => [leadName(name, activePacks(flags.allowCandidate)), version],
               ),
             );
             const htmlReport = async (report: CheckReport): Promise<void> => {
@@ -628,7 +634,7 @@ ${EXIT_CODES(
             };
             // Without a terminal there is no live line: say what started, then how long it took.
             if (quiet && !ui.interactive) io.err(`uptide check · ${repoLine(headerOf(repo, 0))}\n`);
-            await requireDependencies(repo, only, progress);
+            await requireDependencies(repo, only, progress, flags.allowCandidate);
             const report = await progress.phase(
               only
                 ? `Analysis of ${only.join(', ')}`
@@ -644,6 +650,7 @@ ${EXIT_CODES(
                       compile: flags.compile ?? true,
                       runtime: flags.runtime ?? true,
                       allDeps: flags.allDeps,
+                      ...(flags.allowCandidate ? { allowCandidate: true } : {}),
                       ...(flags.workspaces
                         ? { workspaceConcurrency: Number(flags.workspaces) }
                         : {}),
@@ -855,6 +862,10 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
         ).choices(['patch', 'sdk']),
       )
       .option('--debug', 'keep the temporary clone and print every phase (--keep-temp --verbose)')
+      .option(
+        '--allow-candidate',
+        'use registered candidate packs locally; never with --pr or --yes',
+      )
       .option('--pr', 'open a draft PR after verification passes; requires --yes')
       .option(
         '--base <branch>',
@@ -907,6 +918,7 @@ ${PRIVACY}`,
           only?: string;
           target?: string;
           allowPeer?: string[];
+          allowCandidate?: boolean;
           includeDeprecated?: boolean;
           pinCurrentApi?: boolean;
           llm?: boolean;
@@ -930,6 +942,10 @@ ${PRIVACY}`,
           flags,
           async ({ ui, progress, cwd }) => {
             const started = io.now();
+            if (flags.allowCandidate && (flags.pr || flags.yes))
+              throw new CliError('--allow-candidate cannot be used with --pr or --yes');
+            if (flags.allowCandidate && io.env.GITHUB_ACTIONS === 'true')
+              throw new CliError('--allow-candidate is not available in the Uptide Action');
             const quiet = !flags.verbose && !flags.debug;
             const loaded = settings(cwd, flags.config);
             if (packageName && flags.only && packageName !== flags.only)
@@ -946,7 +962,7 @@ ${PRIVACY}`,
             namedOutside(loaded, [requested]);
             // An alternate lead's name (`react-router-dom`) fixes its pack's lead, and a target
             // named after the alternate is the lead's.
-            const only = leadName(requested, activePacks());
+            const only = leadName(requested, activePacks(flags.allowCandidate));
             const target =
               only === requested
                 ? flags.target
@@ -967,7 +983,7 @@ ${PRIVACY}`,
               });
             // No pack, so no rule: without the agent there is nothing this command can do,
             // and it says so before it touches anything.
-            const hasPack = activePacks().some((pack) => pack.name === only);
+            const hasPack = activePacks(flags.allowCandidate).some((pack) => pack.name === only);
             if (!hasPack && (!llmOn || !selection.available)) throw noAgentForGeneric(only, !llmOn);
             if (flags.pinCurrentApi && only !== 'stripe')
               throw new CliError('--pin-current-api applies to stripe only', {
@@ -993,6 +1009,7 @@ ${PRIVACY}`,
                 const deps = await withAlternates(
                   found,
                   await locateDependencies(found, engine, [only]),
+                  flags.allowCandidate,
                 );
                 if (deps.every((d) => d.workspaces.length === 0))
                   throw notADependency(found, [requested]);
@@ -1071,6 +1088,7 @@ ${PRIVACY}`,
                     only,
                     target: target,
                     includeDeprecated: flags.includeDeprecated,
+                    ...(flags.allowCandidate ? { allowCandidate: true } : {}),
                     ...(peers.length ? { also: peers } : {}),
                     ...(flags.allowPeer?.length ? { allowPeer: flags.allowPeer } : {}),
                     ...(flags.pinCurrentApi ? { pinCurrentApi: true } : {}),

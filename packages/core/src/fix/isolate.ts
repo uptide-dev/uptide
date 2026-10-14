@@ -18,7 +18,7 @@ import { isMainThread } from 'node:worker_threads';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import { UptideError } from '../errors.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
-import { activePack } from '../packs/index.js';
+import { activePack, assertCandidateLocal } from '../packs/index.js';
 import { uptideVersionInfo } from '../version.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
 import { peerPreflight } from './peer-preflight.js';
@@ -530,6 +530,7 @@ export async function isolatedFix(
   options: FixOptions & PreflightOptions & { keep?: boolean },
   services?: FixServices,
 ): Promise<FixReport> {
+  assertCandidateLocal(options);
   const selected = selectLlm(options.cwd, options);
   if (
     options.maxCostUsd !== undefined &&
@@ -538,7 +539,7 @@ export async function isolatedFix(
     throw new Error('--max-cost must be a positive finite amount in USD');
   if (
     !options.fixer &&
-    !activePack(options.only) &&
+    !activePack(options.only, options.allowCandidate) &&
     !options.pack?.rules.length &&
     (options.fixer === null || !selected.available)
   )

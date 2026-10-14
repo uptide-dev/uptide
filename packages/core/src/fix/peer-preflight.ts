@@ -114,7 +114,7 @@ export async function peerPreflight(
 ): Promise<PeerPlan | undefined> {
   if (options.pinCurrentApi) return;
   const { installed } = fixDependencies(options.cwd, read);
-  const pack = options.pack ?? activePack(options.only);
+  const pack = options.pack ?? activePack(options.only, options.allowCandidate);
   const deps = [
     ...installed.values(),
     ...standInDependencies(options.cwd, pack, [...installed.values()]),

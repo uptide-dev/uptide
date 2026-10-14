@@ -13,7 +13,19 @@ vi.mock('@uptide/core', async (original) => {
     releaseGroup: [{ name: 'router-dom', source }],
     alternateLeads: [{ name: 'router-dom', source }],
   });
-  return { ...core, activePacks: () => [...core.activePacks(), router] };
+  const candidate = {
+    ...router,
+    name: 'candidate-router',
+    alternateLeads: [{ name: 'candidate-dom', source }],
+  };
+  return {
+    ...core,
+    activePacks: (allowCandidate = false) => [
+      ...core.activePacks(allowCandidate),
+      router,
+      ...(allowCandidate ? [candidate] : []),
+    ],
+  };
 });
 
 /** Declares `router-dom` only, as most React Router 6 applications declare `react-router-dom`. */
@@ -57,3 +69,33 @@ describe('a pack lead asked for, or declared, through its alternate lead', () =>
     expect(io.stderr()).toContain('router is not a dependency');
   });
 });
+
+it.each(['check', 'fix'])(
+  'candidate alternate leads pass dependency preflight for %s',
+  async (command) => {
+    const e = fakeEngine({
+      installed: async () => new Map([['candidate-dom', '1.0.0']]),
+      declared: async () => new Map([['candidate-dom', '^1.0.0']]),
+    });
+    const cwd = pnpmGitRepo({
+      'package.json': JSON.stringify({
+        name: 'shop',
+        packageManager: 'pnpm@10.17.1',
+        dependencies: { 'candidate-dom': '^1.0.0' },
+      }),
+      'node_modules/candidate-dom/package.json': '{"name":"candidate-dom","version":"1.0.0"}',
+    });
+    const io = memoryIo({ cwd });
+    expect(
+      await run(
+        [command, 'candidate-dom', '--allow-candidate', ...(command === 'fix' ? ['--no-llm'] : [])],
+        io,
+        e,
+      ),
+    ).toBe(0);
+    expect(e.calls[0]).toMatchObject({
+      allowCandidate: true,
+      only: command === 'check' ? ['candidate-router'] : 'candidate-router',
+    });
+  },
+);

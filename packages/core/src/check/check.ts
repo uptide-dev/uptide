@@ -33,7 +33,7 @@ import { heldBackText } from '../fetch/release-age.js';
 import { planPackage } from '../fix/plan.js';
 import { scanImports } from '../list/scan.js';
 import { packFixability } from '../packs/fixability.js';
-import { activePacks } from '../packs/index.js';
+import { activePacks, CANDIDATE_WARNING, candidatePack } from '../packs/index.js';
 import { packInventory } from '../packs/inventory.js';
 import { leadName, leadNames } from '../packs/leads.js';
 import type { MigrationPack } from '../packs/types.js';
@@ -69,13 +69,15 @@ import { compareVersions, majorsBehind, parseVersion } from './version.js';
 
 /**
  * Packs `check` can plan with; the same ones `fix` runs: the verified packs, unless the caller
- * names its own (`uptide pack test` scores a candidate with it).
+ * opts in to registered candidates locally or names its own (`uptide pack test`).
  */
-function packsOf(opts: Pick<CheckOptions, 'packs'>): readonly MigrationPack[] {
-  return opts.packs ?? activePacks();
+function packsOf(opts: Pick<CheckOptions, 'packs' | 'allowCandidate'>): readonly MigrationPack[] {
+  return opts.packs ?? activePacks(opts.allowCandidate);
 }
 
 export interface CheckOptions {
+  /** Local smoke tests: opt in to registered, recorded candidate packs. */
+  allowCandidate?: boolean;
   onProgress?: ProgressListener;
   cwd: string;
   adapter?: LanguageAdapter;
@@ -679,6 +681,7 @@ export function mergeAcrossWorkspaces(
         p.unanalyzed.map((u) => ({ ...u, file: prefixed(p, u.file) })),
       ),
       notes: [...new Set(list.flatMap((p) => p.notes))],
+      ...(list.some((p) => p.packWarning) ? { packWarning: CANDIDATE_WARNING } : {}),
       ...(list.find((p) => p.skipReason)?.skipReason
         ? { skipReason: list.find((p) => p.skipReason)?.skipReason }
         : {}),
@@ -2278,6 +2281,14 @@ async function checkGroup(
       status = 'no-types';
     const report = base(status);
     report.tier = tier;
+    if (
+      candidatePack(
+        packsOf(ctx.opts).find(
+          (p) => p.name === name && p.supports(report.installed, report.target),
+        ),
+      )
+    )
+      report.packWarning = CANDIDATE_WARNING;
     const viaTypes = prepared.filter((p) => p.types);
     if (viaTypes.length > 0) {
       report.typesVia = viaTypes

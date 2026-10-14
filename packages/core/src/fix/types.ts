@@ -198,6 +198,8 @@ export interface Fixer {
   fix(input: FixRequest, remainingUsd?: number): Promise<FixResponse>;
 }
 export interface FixReport {
+  /** A local candidate smoke run; never eligible for publication. */
+  packWarning?: 'candidate pack, not verified';
   peerConflicts?: PeerBlockerGroup[];
   /** From the check `fix` ran: importing files the memory cap left out, per workspace. */
   importersNotAnalyzed?: ImportersNotAnalyzed[];
