@@ -1,5 +1,11 @@
 # uptide
 
+## 0.12.1
+
+### Patch Changes
+
+- [#125](https://github.com/uptide-dev/uptide/pull/125) [`609781b`](https://github.com/uptide-dev/uptide/commit/609781bc3c3670c282792a9126709ccc89170b4b) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `uptide init` pins the Uptide Action of v0.12.0
+
 ## 0.12.0
 
 ### Minor Changes
