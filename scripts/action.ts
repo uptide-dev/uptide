@@ -17,6 +17,17 @@ import { PublishFailure, runAction } from '../packages/core/src/action/run.ts';
 import { assertSafeReport } from '../packages/core/src/run-report/safe.ts';
 import { renderSummary } from '../packages/core/src/run-report/summary.ts';
 
+// No opt-in channel in the Action, even if an input or invocation is added later.
+if (
+  process.argv
+    .slice(2)
+    .some((arg) => arg === '--allow-candidate' || arg.startsWith('--allow-candidate=')) ||
+  ['UPTIDE_ALLOW_CANDIDATE', 'INPUT_ALLOW-CANDIDATE', 'INPUT_ALLOW_CANDIDATE'].some(
+    (key) => process.env[key] !== undefined,
+  )
+)
+  throw new Error('--allow-candidate is not available in the Uptide Action');
+
 const env = { ...process.env };
 const apiKey = env.UPTIDE_ANTHROPIC_API_KEY?.trim() || undefined;
 // Read once; from here on no environment, ours or a child's, carries it.

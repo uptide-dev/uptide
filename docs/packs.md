@@ -269,8 +269,12 @@ false positive among its breaking findings there (precision 100%), with at least
 breaking finding predicted. Anything else is a **candidate**:
 
 - it ships in the tree, and `pack test` scores it;
-- `check`, `list` and `fix` treat the dependency as generic: no `verified` label, the
+- by default, `check`, `list` and `fix` treat the dependency as generic: no `verified` label, the
   generic tier's evidence rule, the agent alone in `fix`.
+- local `check --allow-candidate` and `fix --allow-candidate` opt in only to registered packs
+  with an explicit candidate record. Reports and the PR body preview say **candidate pack,
+  not verified**. The Action, `--pr` and `--yes` reject this flag; stored candidate runs
+  cannot be published. Never edit `verification.json` just to smoke-test a pack.
 
 The CLI reads the status from `verification.json`, which `pack test --write` writes and
 which records the digest of the ground-truth file it was measured against. CI runs
@@ -280,7 +284,7 @@ record no longer matches the evidence, so the label cannot outlive what supports
 ## The registry, the queue, CI
 
 - `packages/core/src/packs/registry.ts` is generated: `pack new` renders it again with the
-  new entry. Every pack in it is scored by CI; only verified ones are used by the CLI.
+  new entry. Every pack in it is scored by CI; only verified ones are used by default.
 - `packs/queue.json` ranks the next packages worth a pack (`pnpm packs:queue`) by direct use
   × log2(1 + breaking changes). Direct use is how many sample repositories
   (`fixtures/corpus.json` and the pinned public applications in

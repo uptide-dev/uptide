@@ -296,3 +296,12 @@ root are ever removed.
 
 **0** migration verified: no new type errors, tests pass; **1** verification failed or sites
 remain for manual work; **2** uptide could not answer. See [concepts](../concepts.md#exit-codes).
+
+### Candidate pack smoke tests
+
+`--allow-candidate` opts in to registered packs whose verification record says `candidate`.
+The output and report carry “candidate pack, not verified”; verified packs are unchanged,
+and unregistered or blocked packs keep their normal behavior. This flag is for local pack
+development only: the Action rejects it, and `fix` refuses it with `--pr` or `--yes`.
+The generated PR body is a local preview; a stored candidate run cannot be published.
+See [Write a pack](../../CONTRIBUTING.md#write-a-pack).

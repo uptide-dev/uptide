@@ -25,6 +25,8 @@ import { type EngineRun, parseJson } from './engine.js';
 import { type CommitIdentity, FALLBACK_IDENTITY, pullNumber } from './github.js';
 
 export interface ActionInputs {
+  /** Rejected, never forwarded; candidates are local CLI smoke tests only. */
+  allowCandidate?: boolean;
   /** The repository's checkout (`GITHUB_WORKSPACE`). */
   workspace: string;
   /** `config`: the settings file, relative to the workspace. */
@@ -212,6 +214,11 @@ export async function runAction(
     llmKey: apiKey ? 'present' : 'missing',
     ...(error ? { error: sentence(error) } : {}),
   });
+  if (
+    inputs.allowCandidate ||
+    [inputs.mode, inputs.package, inputs.config].some((v) => v?.includes('--allow-candidate'))
+  )
+    return report('--allow-candidate is not available in the Uptide Action');
   // The key before anything else, in every mode: without the LLM, Uptide's answers are worse,
   // and no run beats a poor one. Nothing is read, listed, checked or fixed.
   if (!apiKey) return report(LLM_KEY_MISSING);
@@ -389,7 +396,12 @@ export async function runAction(
     let pr: { number: number; url: string } | null = null;
     let error: string | undefined;
     // `uptide pr` refuses these too; asking it would only turn the reason into a failure.
-    if (fixed.verification.passed && !fixed.exportError && !noPackBlockers(fixed).length) {
+    if (
+      !fixed.packWarning &&
+      fixed.verification.passed &&
+      !fixed.exportError &&
+      !noPackBlockers(fixed).length
+    ) {
       try {
         const url = await services.publish(fixed.branch, await services.token(), author);
         const number = pullNumber(url);

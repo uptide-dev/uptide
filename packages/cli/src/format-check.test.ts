@@ -639,3 +639,13 @@ it('says which importing files the memory cap left out, per workspace, in the su
   expect(details).toContain('  apps/web/src/sdk.ts');
   expect(formatCheck(storefront, shown)).not.toContain('memory cap');
 });
+
+it.each([false, true])('shows the candidate banner in check output (details=%s)', (details) => {
+  const report = structuredClone(storefront);
+  const first = report.packages[0];
+  if (!first) throw new Error('missing fixture package');
+  first.packWarning = 'candidate pack, not verified';
+  expect(formatCheck(report, { ...shown, details })).toContain(
+    `${first.name}: candidate pack, not verified`,
+  );
+});

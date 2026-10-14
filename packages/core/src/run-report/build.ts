@@ -209,6 +209,7 @@ export function fromChecked(pkg: PackageReport, durationMs = 0): Upgrade {
     status: failed ? 'failed' : upToDate ? 'up_to_date' : 'available',
     ...blank(durationMs),
     breaking: breakingSites(pkg.findings ?? []),
+    ...(pkg.packWarning ? { error: pkg.packWarning } : {}),
     ...(!failed && !upToDate && ANALYZED.has(pkg.status) && analysisOf(pkg.tier)
       ? { analysis: analysisOf(pkg.tier) }
       : {}),
@@ -231,7 +232,8 @@ export function fromFix(
 ): Upgrade {
   const unanalyzed = outcome.pr ? [] : noPackBlockers(report);
   const major = unanalyzed.length > 0 && isMajorUpgrade(report.from, report.target);
-  const failure = major ? undefined : (outcome.error ?? verificationFailure(report));
+  const failure =
+    report.packWarning ?? (major ? undefined : (outcome.error ?? verificationFailure(report)));
   const notOpened = major
     ? NO_PACK_YET
     : !failure && unanalyzed.length

@@ -47,6 +47,10 @@ export function engineEnv(
 export function engineFromBuild(actionPath: string): RunEngine {
   return (args, env) =>
     new Promise((resolve, reject) => {
+      if (args.some((arg) => arg === '--allow-candidate' || arg.startsWith('--allow-candidate='))) {
+        reject(new Error('--allow-candidate is not available in the Uptide Action'));
+        return;
+      }
       const child = spawn(
         process.execPath,
         [join(actionPath, 'packages/cli/dist/index.js'), ...args],

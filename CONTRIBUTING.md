@@ -140,7 +140,16 @@ open a **Pack request** issue, and say you are writing it.
    ```
    Every false positive among breaking findings fails it. Fix the rule, not the ground truth.
    A false negative is a site to cover or a known gap to say in the pull request.
-7. **Open the pull request** with the pack template (`?template=pack.md`), with the
+7. **Smoke-test locally** without editing `verification.json`:
+   ```sh
+   pnpm uptide check <package> --allow-candidate --cwd /path/to/local-fixture
+   pnpm uptide fix <package> --allow-candidate --no-llm --cwd /path/to/local-fixture
+   ```
+   Only registered packs with a recorded `candidate` status qualify. The output, stored
+   report and PR body preview say **candidate pack, not verified**. The Action rejects this
+   flag, as do `--pr` and `--yes`; candidate runs cannot be published later with `uptide pr`.
+   Verified packs behave as usual. Do not mark a pack verified to smoke-test it.
+8. **Open the pull request** with the pack template (`?template=pack.md`), with the
    `pack test` output pasted in, and a changeset.
 
 `pnpm uptide` runs the CLI from source, so nothing needs building while you work.

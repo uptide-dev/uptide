@@ -117,6 +117,8 @@ export interface PlanGroup {
 }
 
 export interface PackageReport {
+  /** A local candidate smoke run; never eligible for publication. */
+  packWarning?: 'candidate pack, not verified';
   skipReason?: ErrorCode;
   /**
    * Set when the newest release is younger than the repository's release-age policy: why the

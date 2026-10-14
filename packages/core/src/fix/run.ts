@@ -13,7 +13,13 @@ import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { DEFAULT_MAX_COST_USD, providerFixer } from '../llm/fixer.js';
 import { decisionInventory, packDecisions } from '../packs/decisions.js';
 import { genericPack } from '../packs/generic.js';
-import { activePack, activePacks } from '../packs/index.js';
+import {
+  activePack,
+  activePacks,
+  assertCandidateLocal,
+  CANDIDATE_WARNING,
+  candidatePack,
+} from '../packs/index.js';
 import { leadName } from '../packs/leads.js';
 import { payloadApiVersions, stripeUsageContext } from '../packs/stripe/relevance.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
@@ -76,6 +82,8 @@ import {
 } from './versions.js';
 
 export interface FixOptions {
+  /** Use registered candidates locally; incompatible with publication. */
+  allowCandidate?: boolean;
   onProgress?: ProgressListener;
   cwd: string;
   provider?: string;
@@ -203,8 +211,12 @@ export async function fix(
   services: FixServices = defaults,
 ): Promise<FixReport> {
   try {
+    assertCandidateLocal(options);
     // Asked for by an alternate lead's name (`react-router-dom`), the pack's lead is fixed.
-    const only = leadName(options.only, options.pack ? [options.pack] : activePacks());
+    const only = leadName(
+      options.only,
+      options.pack ? [options.pack] : activePacks(options.allowCandidate),
+    );
     return await fixPackage(only === options.only ? options : { ...options, only }, services);
   } catch (err) {
     resetSharedState();
@@ -238,7 +250,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     );
   if (sdkAgent && !selection.available && !services.agentRunner)
     throw new UptideError('NO_FIXER', '--agent sdk needs ANTHROPIC_API_KEY');
-  let pack = options.pack ?? activePack(options.only) ?? genericPack(options.only);
+  let pack =
+    options.pack ?? activePack(options.only, options.allowCandidate) ?? genericPack(options.only);
   if (pack.name !== options.only) throw new Error(`no migration pack for ${options.only}`);
   const fixer = options.fixer === null ? undefined : (options.fixer ?? providerFixer(selection));
   // Without a pack every edit is the agent's: no agent, nothing this command can do.
@@ -294,6 +307,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     targets: { [pack.name]: target },
     runtime: false,
     plan: false,
+    ...(options.allowCandidate ? { allowCandidate: true } : {}),
     workspaceConcurrency: 1,
   });
   const packages = report.packages.filter(
@@ -538,7 +552,11 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ...(result.applied ? { diff: editDiff(original, result.text) } : {}),
       ...(editedFiles ? { editedFiles } : {}),
     };
-    site.rule = result.rule ?? changeRule({ package: pack.name }, site);
+    site.rule =
+      finding.rule ??
+      result.rule ??
+      pack.ruleOf?.(finding) ??
+      changeRule({ package: pack.name }, site);
     sites.push(site);
   }
   options.onProgress?.({
@@ -733,6 +751,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     repo: root,
     package: pack.name,
     tier: generic ? 'generic' : 'verified',
+    ...(candidatePack(pack) ? { packWarning: CANDIDATE_WARNING } : {}),
     from: initialContext.from,
     target,
     targetSource: resolved.source,
