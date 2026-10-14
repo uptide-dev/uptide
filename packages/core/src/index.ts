@@ -215,6 +215,14 @@ export {
   type PinnedRepo,
   truthCacheDir,
 } from './packs/tooling/truth.js';
+export {
+  type ChangedLine,
+  diffLines,
+  enclosingLiteral,
+  type InsertedLine,
+  type InsertionAnchor,
+  insertionAnchors,
+} from './packs/tooling/truth-diff.js';
 export type { MigrationPack, MigrationRule } from './packs/types.js';
 export { zodPack } from './packs/zod/index.js';
 export { type PlanOptions, type PlanServices, upgradePlan } from './plan/gather.js';

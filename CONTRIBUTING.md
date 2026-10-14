@@ -132,7 +132,9 @@ open a **Pack request** issue, and say you are writing it.
    Add `--also <package>@<version>` for each package the upgrade commit moved together with
    it (its lockfile has the versions).
    Read each site, drop what is not about the package, and give each its rule (`generic`
-   when no rule of the pack covers it). (15 minutes)
+   when no rule of the pack covers it). An option the upgrade only added inside an existing
+   call is drafted under `anchors`, at the call's start line; keep it like any other site.
+   (15 minutes)
 6. **Score it.**
    ```sh
    pnpm uptide pack test <package>          # fetches the repositories once, scripts off
