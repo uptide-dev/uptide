@@ -240,7 +240,9 @@ export interface FixReport {
     newErrors: FixDiagnostic[];
     baselineTests: TestResult[];
     tests: TestResult[];
-    /** The repository's build after the bump; run only when no pack covers the upgrade. */
+    /** The pack requires a successful build, including on later verification runs. */
+    buildRequired?: boolean;
+    /** The repository's build after the bump; required by a pack or the generic path. */
     build?: BuildResult[];
     /** Lint of the edited files with the repository's own tools; a new failure fails verification. */
     lint?: LintResult[];

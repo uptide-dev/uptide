@@ -314,6 +314,16 @@ arguments).
 The "Verified packs" table in the README is generated from each pack's `verification.json`
 and ground truth by `pnpm docs:packs`; CI fails when it is stale.
 
+### Required builds
+
+Declare `requiresBuild: true` when the upgrade changes contracts only the consumer's
+build can check. Fix runs each affected workspace's build script (falling back to the
+root script) after migration, using the same credential-filtered environment as tests.
+A missing, failed, or timed-out build blocks publication; its result appears in the
+PR's **Verified by** row. Reverification reruns the required build. Existing packs
+without this declaration retain their current behavior. Next 16 requires this gate
+because custom webpack configuration can fail with the default Turbopack build.
+
 ### Release groups
 
 Use `releaseGroup` for packages published in lockstep with the pack's lead. Like
