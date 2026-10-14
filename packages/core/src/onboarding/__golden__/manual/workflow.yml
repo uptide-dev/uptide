@@ -46,7 +46,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       # Reads uptide.yml, runs Uptide, opens draft pull requests and uploads the results JSON.
-      - uses: uptide-dev/uptide@e27dd6bbf8d97d9ce0c106d50fea58dd32de66c9 # v0.11.0
+      - uses: uptide-dev/uptide@6f67430a62365c626a3d0a5dac7dbec429127c77 # v0.11.2
         with:
           config: uptide.yml
           mode: ${{ inputs.mode || 'fix' }}
