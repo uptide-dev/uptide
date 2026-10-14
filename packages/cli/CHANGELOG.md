@@ -1,5 +1,21 @@
 # uptide
 
+## 0.12.0
+
+### Minor Changes
+
+- [#114](https://github.com/uptide-dev/uptide/pull/114) [`ac2755f`](https://github.com/uptide-dev/uptide/commit/ac2755fd80d0ca16ebc83f06b7f8b7a37be9fc66) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Add a verified Next.js 15 to 16 migration pack with source-backed rules, lockstep release-group companions, required consumer builds, scoped config/convention discovery, and transactional middleware-to-proxy edits. Verify against two unchanged public upgrade baselines and document remaining generated-type, deprecation and runtime coverage limits.
+
+### Patch Changes
+
+- [#124](https://github.com/uptide-dev/uptide/pull/124) [`01553c7`](https://github.com/uptide-dev/uptide/commit/01553c76a8fad9d56a202ec90179205002da6e58) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Retain accepted agent patches and show migration choices in PR decisions. Merge paired compiler and pack findings, bound repeated test output, and scope Next platform minimum warnings to missing or insufficient versions.
+
+- [#123](https://github.com/uptide-dev/uptide/pull/123) [`079f496`](https://github.com/uptide-dev/uptide/commit/079f496202a00e7553400d4b7b9bdeca8876fc2b) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Allow pnpm peer-suffix and non-resolution lockfile metadata changes during upgrades. Continue checking each unrelated package and importer specifier/resolved version, with named diagnostics for importer changes. npm and Yarn scope checks are unchanged.
+
+- [#123](https://github.com/uptide-dev/uptide/pull/123) [`079f496`](https://github.com/uptide-dev/uptide/commit/079f496202a00e7553400d4b7b9bdeca8876fc2b) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Render applicable behavior notes under “Decisions for you” when a migration pack has no custom decision hook. Next 16 decisions now cite repository configuration, scripts, runtime declarations and missing parallel-route fallbacks instead of generic migration notes.
+
+- [#121](https://github.com/uptide-dev/uptide/pull/121) [`3da4978`](https://github.com/uptide-dev/uptide/commit/3da49784dd6dd29594a40a374f0d55072874e0eb) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `uptide init` pins the Uptide Action of v0.11.2
+
 ## 0.11.2
 
 ### Patch Changes
