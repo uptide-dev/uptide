@@ -1,4 +1,5 @@
-// Maintained excerpts/paraphrases of https://zod.dev/v4/changelog, checked 2026-10-01.
+// Maintained excerpts/paraphrases of https://zod.dev/v4/changelog, checked 2026-10-01
+// (errorMembers, with https://zod.dev/error-formatting: 2026-10-14).
 // Runtime never downloads migration instructions.
 export const zodGuide = {
   record:
@@ -8,6 +9,8 @@ export const zodGuide = {
   formats:
     'String formats moved to top-level factories. email, uuid, url and base64 are on z; datetime is on z.iso. Keep validation options and subsequent chain operations. message is deprecated in favor of error.',
   ip: 'The combined string.ip validator was removed. Use z.ipv4() or z.ipv6() when the intended family is known; use z.union([z.ipv4(), z.ipv6()]) when the previous validator accepted both families. These are top-level factories, not z.string() methods. Preserve options and error text.',
+  errorMembers:
+    'ZodError.formErrors and ZodError.errors were removed in Zod 4 and read undefined. formErrors was identical to flatten(): use z.flattenError(error), which returns the same { formErrors, fieldErrors } object (flatten() is deprecated). errors was an alias of issues: use error.issues. Keep the returned shape and the control flow; do not cast to hide the change.',
   generics:
     'ZodType now takes Output and Input, defaulting to unknown. The definition type parameter is gone. Remove reliance on ZodTypeDef without weakening the input/output contract. SafeParse success contains data; failure contains error. Narrow on success before accessing either. Preserve validation and type safety; do not cast to any to hide diagnostics.',
 };

@@ -14,6 +14,12 @@ import { satisfies } from '../../fetch/range.js';
 import { onReset } from '../../shared-state.js';
 import { type Pack, type PackMeta, ruleFor } from '../contract.js';
 import type { PackContext, TransformResult } from '../types.js';
+import {
+  errorMemberFindings,
+  errorMemberSites,
+  RULE,
+  rewriteErrorMembers,
+} from './error-members.js';
 import { zodGuide } from './guide.js';
 import { defaultMessageSites } from './messages.js';
 
@@ -300,6 +306,7 @@ const meta: PackMeta = {
   sources: [
     { title: 'Zod 4 migration guide', url: 'https://zod.dev/v4/changelog' },
     { title: 'Zod 4 release notes', url: 'https://zod.dev/v4' },
+    { title: 'Zod 4 error formatting', url: 'https://zod.dev/error-formatting' },
   ],
   maintainer: 'uptide-dev',
 };
@@ -350,6 +357,18 @@ export const zodPack: Pack = {
       guide: zodGuide.ip,
     },
     {
+      id: RULE,
+      summary:
+        'ZodError#formErrors and #errors were removed; read off an untyped catch binding, the compiler cannot see it',
+      severity: 'breaking',
+      // Only its own sites: a typed read is the compiler's finding, under the rules above.
+      kinds: [],
+      symbols: /$^/,
+      guide: zodGuide.errorMembers,
+      detect: (text, file) => errorMemberSites(text, file),
+      rewrite: (text, finding) => rewriteErrorMembers(text, finding),
+    },
+    {
       id: 'types',
       summary: 'ZodType generics and ZodTypeDef changed; type-level code is migrated by the agent',
       severity: 'breaking',
@@ -370,6 +389,8 @@ export const zodPack: Pack = {
   instructions: zodGuide.generics,
   transform,
   guide: (f) => ruleFor(zodPack.rules, f)?.guide ?? zodGuide.generics,
+  runtimeFindings: ({ root, workspace, from, to, usages, read }) =>
+    errorMemberFindings({ root, workspace, from, to, usages, read, rewrite: rewriteErrorMembers }),
   scanContext: (root, workspaces) => ({ defaultMessages: defaultMessageSites(root, workspaces) }),
   testFollowUps({ root, failing, context, output }) {
     const edits = [];
