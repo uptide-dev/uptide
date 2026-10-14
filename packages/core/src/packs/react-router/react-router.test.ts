@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { Finding } from '../../domain/report.js';
@@ -11,6 +12,7 @@ import {
   moveDomImport,
   moveDomServerImport,
   removeFutureOption,
+  removeFutureProp,
   uppercaseFormMethod,
 } from './detect.js';
 import { reactRouterPack } from './index.js';
@@ -118,9 +120,12 @@ describe('behavior notes are scoped by the router setup', () => {
 describe('rewrites kept assisted until ground truth exercises them', () => {
   // Not wired into the pack: no public upgrade in the ground truth has such a site yet
   // (RESEARCH.md). The agent gets the guide; these stay correct for when one does.
-  it.each(['dom-server-entry', 'form-method-case', 'future-option'])('%s has no rewrite', (id) => {
-    expect(reactRouterPack.rules.find((r) => r.id === id)?.rewrite).toBeUndefined();
-  });
+  it.each(['dom-server-entry', 'form-method-case', 'future-option', 'future-prop'])(
+    '%s has no rewrite',
+    (id) => {
+      expect(reactRouterPack.rules.find((r) => r.id === id)?.rewrite).toBeUndefined();
+    },
+  );
 
   it('moves react-router-dom/server to react-router', () => {
     const code = "import { StaticRouter } from 'react-router-dom/server';\n";
@@ -136,6 +141,32 @@ describe('rewrites kept assisted until ground truth exercises them', () => {
     expect(removeFutureOption(code, site(at?.line ?? 0, at?.column ?? 0)).text).toContain(
       'createBrowserRouter([]);',
     );
+  });
+
+  it('removes an inline v6 future prop, and declines one it cannot prove unused', () => {
+    // The future-prop fixture's sites: its markers say which the edit must take and which decline.
+    const code = readFileSync(new URL('fixtures/future-prop/before.ts', import.meta.url), 'utf8');
+    const lines = code.split('\n');
+    const sites = lines.flatMap((text, i) => {
+      const marker = /@uptide future-prop( keep)? at:(\w+)/.exec(text);
+      return marker?.[2]
+        ? [{ line: i + 1, column: text.indexOf(`<${marker[2]}`) + 2, keep: !!marker[1] }]
+        : [];
+    });
+    expect(sites.map((s) => s.keep)).toEqual([false, false, true, true, false, true]);
+    let text = code;
+    for (const s of [...sites].reverse()) {
+      const out = removeFutureProp(text, site(s.line, s.column));
+      expect(out.applied).toBe(!s.keep);
+      text = out.text;
+    }
+    expect(text).toContain('<RouterProvider router={router} />; // @uptide');
+    expect(text).toContain('<BrowserRouter // @uptide');
+    expect(text).not.toContain('v7_relativeSplatPath: false');
+    expect(text).toContain('<Router>x</Router>; // @uptide');
+    expect(text).toContain('future={flags}');
+    expect(text).toContain('future={{ v7_startTransition: Boolean(flags) }}');
+    expect(text).toContain('<Panel future={{ v7_startTransition: true }} />');
   });
 
   it('uppercases the method compared with formMethod', () => {

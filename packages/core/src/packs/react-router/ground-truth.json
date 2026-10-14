@@ -1,5 +1,5 @@
 {
-  "$comment": "Ground truth for the react-router pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own React Router 6 to 7 upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth and read by hand before the pack was scored: the diagnostics the repository's TypeScript reports with react-router and react-router-dom at the upgrade's version linked in and not without them (Phoenix removed react-router-dom in the same commit; it is linked at the same version as react-router, which re-exports it, so the compiler sees the v7 API either way), and the lines the upgrade commit changed for react-router. One site per construct that the upgrade needed to change: an import line from react-router-dom that moved to react-router is a site; an existing react-router import line touched only to merge a moved name into it is not (it compiles unchanged at 7). Left out on purpose, because React Router 7 does not require them: Phoenix's `useLoaderData() as T` to `useLoaderData<typeof loader>()` rewrites with tiny-invariant checks and the lines that follow from them (v7 still compiles the casts: useLoaderData returns any), its vite.config.mts @ts-expect-error comments, and its vite/vitest bumps; wire-webapp's new types/reactRouter.d.ts (an insertion). Phoenix's src/pages/projects/ProjectsPage.tsx:16 still imports react-router-dom after its upgrade, so it is not an expected site. Lago (PR #4287) is drafted the same way, with react-router-dom linked at 7.18.3 (react-router is not declared there; it is analyzed through react-router-dom). Kept from Lago, decided before scoring: every compiler site, each a separate construct (four typed future props, FutureConfig, eight generatePath null params, the TS1192 default import); the two createElement(..., { future }) calls of src/test-utils/routerFutureMock.ts, which the upgrade deletes and packs:truth does not list because the file is gone at the upgrade commit; and the two test assertions v7 behavior makes fail (generatePath escaping, Link href normalization), as generic. Left out of Lago: renamed test titles and added assertions, the jest-setup-early.ts filter for a v7_startTransition warning v7 never emits, the Cypress flow edits (navigation by click instead of visitApp, extra waits), the callers of the deleted mock helper and imports of the deleted flags, the wallet refactor's removed `as string` casts that still compile, and four TS7006 diagnostics in src/pages/InvoiceOverview.tsx that the draft reports and the upgrade never touched (an artifact of the linked environment, as docs/packs.md's next RESEARCH notes for ambient React types). OpenMetadata (PR #31641) likewise, from its UI project directory: the two future props are the compiler's sites although the upgrade left them (its tests are not type-checked in CI); sixteen TS2322 diagnostics at src/pages/EntityVersionPage/EntityVersionPage.component.tsx are left out because they are not new: a scripts-off install of react-router-dom 7.18.1 and the repository's own tsc show the same sixteen errors at the parent (a forwardRef HOC types those props as `object`); only their text changes, `backHandler: () => void` becoming `() => void | Promise<void>` with v7's navigate, which is why the draft, keyed on the message, listed them. The parent's tsc reports 1481 errors in all, mostly an unbuilt workspace package (@openmetadata/ui-core-components); Lago's parent likewise reports 188 for its unbuilt lago-design-system. Both are kept: the compiler evidence is the difference between parent and target.",
+  "$comment": "Ground truth for the react-router pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own React Router 6 to 7 upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth and read by hand before the pack was scored: the diagnostics the repository's TypeScript reports with react-router and react-router-dom at the upgrade's version linked in and not without them (Phoenix removed react-router-dom in the same commit; it is linked at the same version as react-router, which re-exports it, so the compiler sees the v7 API either way), and the lines the upgrade commit changed for react-router. One site per construct that the upgrade needed to change: an import line from react-router-dom that moved to react-router is a site; an existing react-router import line touched only to merge a moved name into it is not (it compiles unchanged at 7). Left out on purpose, because React Router 7 does not require them: Phoenix's `useLoaderData() as T` to `useLoaderData<typeof loader>()` rewrites with tiny-invariant checks and the lines that follow from them (v7 still compiles the casts: useLoaderData returns any), its vite.config.mts @ts-expect-error comments, and its vite/vitest bumps. Phoenix's src/pages/projects/ProjectsPage.tsx:16 still imports react-router-dom after its upgrade, so it is not an expected site. Lago (PR #4287) is drafted the same way, with react-router-dom linked at 7.18.3 (react-router is not declared there; it is analyzed through react-router-dom). Kept from Lago, decided before scoring: every compiler site, each a separate construct (four typed future props, FutureConfig, eight generatePath null params, the TS1192 default import); the two createElement(..., { future }) calls of src/test-utils/routerFutureMock.ts, which the upgrade deletes and packs:truth does not list because the file is gone at the upgrade commit; and the two test assertions v7 behavior makes fail (generatePath escaping, Link href normalization), as generic. Left out of Lago: renamed test titles and added assertions, the jest-setup-early.ts filter for a v7_startTransition warning v7 never emits, the Cypress flow edits (navigation by click instead of visitApp, extra waits), the callers of the deleted mock helper and imports of the deleted flags, the wallet refactor's removed `as string` casts that still compile, and four TS7006 diagnostics in src/pages/InvoiceOverview.tsx that the draft reports and the upgrade never touched (an artifact of the linked environment, as docs/packs.md's next RESEARCH notes for ambient React types). A parent is kept only if its own project compile passes (the repository's type-check script and tsconfig, not a bare tsc), or if every error it reports comes from an unbuilt workspace package the upgrade does not touch, shown by building that package and compiling again (RESEARCH.md, \"Parents that do not type-check\"). Phoenix's app/ compiles clean. Lago's scripts/check-types.js reports 188 errors, all from importing lago-design-system before it is built; with that package's declarations emitted as its own build does, the parent and the upgrade commit both compile clean, and the parent's code against the upgrade's dependencies reports exactly the fourteen compiler sites below. wire-webapp (PR #22299) and OpenMetadata (PR #31641) were drafted and are left out under that rule: wire's tsconfig.type-check.json reports 1979 errors at the parent, including a gitignored generated module (src/script/components/icon.tsx) that no workspace build produces and five in testUtil.tsx, a file the upgrade edits; OpenMetadata's tsc:check reports 1481, including unrelated ones (unused locals, spread arguments) and one in AppRoot.tsx, a file the upgrade edits.",
   "package": "react-router",
   "repos": [
     {
@@ -165,31 +165,6 @@
       ]
     },
     {
-      "repo": "wireapp/wire-webapp",
-      "commit": "aa5da8830b0d116c9605a44d85ef9d720660f282",
-      "migration": "https://github.com/wireapp/wire-webapp/pull/22299",
-      "from": "6.30.6",
-      "to": "7.18.0",
-      "with": {
-        "react-router-dom": "7.18.0"
-      },
-      "why": "Wire web app (Yarn 4 Nx monorepo, react-router and react-router-dom declared in apps/webapp, TypeScript 6.0.3): the upgrade moves both packages to 7.18.0 together, keeps react-router-dom imports, removes the v6 future prop from the test router, and narrows a jest moduleNameMapper that redirected react-router paths (its react-router-dom import moves came in a later pull request, #22481, not scored here)",
-      "findings": [
-        {
-          "file": "apps/webapp/jest.config.ts",
-          "line": 66,
-          "rule": "generic",
-          "note": "'^react(.*)$' also mapped react-router and react-router-dom onto node_modules paths, bypassing v7's exports map; narrowed to react and react/*"
-        },
-        {
-          "file": "apps/webapp/src/script/auth/util/test/testUtil.tsx",
-          "line": 110,
-          "rule": "future-prop",
-          "note": "TS2322: <HashRouter as Router future={{ v7_relativeSplatPath, v7_startTransition }}>; the upgrade drops the prop"
-        }
-      ]
-    },
-    {
       "repo": "getlago/lago-front",
       "commit": "84aa05d535edc326a4d104923e4e7293d1be6646",
       "migration": "https://github.com/getlago/lago-front/commit/6055a5a3c8076522235fe2da452a209e99af8541",
@@ -307,38 +282,6 @@
           "line": 14,
           "rule": "future-prop",
           "note": "createElement(actual.MemoryRouter, { future, ...props }), likewise"
-        }
-      ]
-    },
-    {
-      "repo": "open-metadata/OpenMetadata",
-      "commit": "2956f71c3532e2b90fee027c56213c5bdec7b960",
-      "migration": "https://github.com/open-metadata/OpenMetadata/pull/31641",
-      "directory": "openmetadata-ui/src/main/resources/ui",
-      "from": "6.30.4",
-      "to": "7.18.1",
-      "with": {
-        "react-router-dom": "7.18.1"
-      },
-      "why": "OpenMetadata web UI (Yarn classic, TypeScript 5.9.3, React 18): declares only react-router-dom; a focused upgrade that keeps react-router-dom, opts Playwright runs out of router transitions, and leaves two test MemoryRouters with the v6 future prop, which its compiler rejects at 7.18.1",
-      "findings": [
-        {
-          "file": "src/AppRoot.tsx",
-          "line": 88,
-          "rule": "generic",
-          "note": "<BrowserRouter useTransitions={!isPlaywrightEnv()}>: opting out of v7's startTransition updates for end-to-end runs (a behavior change, no compiler error)"
-        },
-        {
-          "file": "src/components/Database/Profiler/DataObservability/TabFilters/TabFilters.test.tsx",
-          "line": 266,
-          "rule": "future-prop",
-          "note": "TS2322: <MemoryRouter future={{ v7_relativeSplatPath, v7_startTransition }}>, left by the upgrade"
-        },
-        {
-          "file": "src/components/common/CustomPropertyTable/PropertyValue.test.tsx",
-          "line": 111,
-          "rule": "future-prop",
-          "note": "TS2322: <MemoryRouter future={{ v7_relativeSplatPath, v7_startTransition }}>, left by the upgrade"
         }
       ]
     }

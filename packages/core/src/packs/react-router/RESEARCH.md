@@ -67,7 +67,7 @@ edit is safe but that no ground-truth repository exercises yet stays **A** until
 | `react-router-dom` folded into `react-router`; v7 `react-router-dom` re-exports it, v8 removes it | no (on 7) | M `dom-imports` (deprecated): the module specifier only; declined when a test mocks `react-router-dom` by name (jest/vi mock, requireActual/importActual, `__mocks__/react-router-dom`), since the mock would stop applying | guide "Upgrade to v7", root CHANGELOG 7.0.0 |
 | `RouterProvider`/`HydratedRouter` for DOM apps come from `react-router/dom` (wired to `flushSync`); the main entry's is for non-DOM code and tests | no | A `dom-entry-imports` (deprecated): also namespace and `export *` imports of `react-router-dom`. Not mechanical: `react-router/dom` needs `moduleResolution` bundler/node16/nodenext (Phoenix changed its tsconfig in the same commit) | guide, CHANGELOG 7.0.0 (#11851) |
 | `react-router-dom/server` removed from the exports map (even with `react-router-dom` 7); its 7 names are in `react-router` | TS2307 | *A, rewrite ready* `dom-server-entry`: the specifier only | exports map of `react-router-dom@7`; not in the guide |
-| `future` prop removed from BrowserRouter, HashRouter, (unstable_)HistoryRouter, MemoryRouter, Router, StaticRouter, RouterProvider | TS2322 | M `future-prop`: an inline object of `v7_*` boolean literals only, the router resolved through its import (aliases included); a variable (Lago's shared `ROUTER_FUTURE_FLAGS`) or computed value is left to the agent, who removes what only fed it | CHANGELOG 7.0.0 (flag removals) |
+| `future` prop removed from BrowserRouter, HashRouter, (unstable_)HistoryRouter, MemoryRouter, Router, StaticRouter, RouterProvider | TS2322 | *A, rewrite ready* `future-prop`: the edit removes an inline object of `v7_*` boolean literals only, the router resolved through its import (aliases included); a variable (Lago's shared `ROUTER_FUTURE_FLAGS`) or computed value would stay with the agent, who removes what only fed it. Not wired: the final truth's only sites (Lago's) pass a variable | CHANGELOG 7.0.0 (flag removals) |
 | The same prop passed through untyped props (`createElement(actual.BrowserRouter, { future, ...props })` in a jest mock) | no: the props are untyped | A `future-prop-untyped` (deprecated): syntactic detect of `createElement` on a router (imported, aliased or `x.BrowserRouter`) with a `future` key; v7 ignores the prop, so the site compiles and does nothing (Lago's own comment says so) | CHANGELOG 7.0.0 |
 | `future` option of createBrowserRouter/HashRouter/MemoryRouter/StaticRouter/StaticHandler | no: v7 types it `{}` (TS2353 only from 8.4) | *A, rewrite ready* `future-option` (deprecated): inline v6 flag literals only; the options argument goes when it held only `future` | CHANGELOG 7.0.0, 8.4.0 |
 | `json` / `JsonFunction` removed | TS2305 at the import; calls through the failed import are `any` | A `removed-json`: the import from the compiler, each call from syntax (`detect`, binding-aware, shadowed locals excluded). Options: return the value, `data(value, init)`, or `Response.json` | guide "json/defer", CHANGELOG 7.0.0 (#12146) |
@@ -100,11 +100,11 @@ both, and no rule edits route definitions.
   `react-router`. It is `deprecated` (v7 still works with `react-router-dom`), so `fix` applies it
   with `--include-deprecated`. The release group keeps both packages at the same exact version,
   so a file that still imports `react-router-dom` shares the router context with one that moved.
-- `future-prop` removes only v6 flag literals, which v7 ignores whatever their value; the
-  behavior change they stood for is reported by the flag notes. A leading comment on the
-  property declines the edit. Exercised by wire-webapp and OpenMetadata (inline objects); Lago's
-  four sites pass a variable and stay with the agent.
-- Rewrites ready but not wired until ground truth exercises them: `dom-server-entry` (the
+- Rewrites ready but not wired until ground truth exercises them: `future-prop` (removes only
+  v6 flag literals, which v7 ignores whatever their value, the behavior they stood for being in
+  the flag notes; a leading comment on the property declines it). The two inline-literal
+  upgrades seen, wire-webapp and OpenMetadata, are out of the truth under the parent rule below,
+  and Lago's four sites pass a variable. Also `dom-server-entry` (the
   specifier), `future-option` (the same literal-only removal as `future-prop`),
   `form-method-case` (uppercase the literal compared with a `.formMethod` read: v7 never produces
   lowercase). Their detection runs; `react-router.test.ts` keeps each edit tested.
@@ -122,8 +122,9 @@ only `react-router-dom`, so `check react-router` and `check react-router-dom` bo
 there, analyzing `react-router` at the version `react-router-dom` installs (hoisted, or beside it
 in a pnpm store), and `fix` declares `react-router` at the target beside it before moving both.
 `react-router-dom` is moved, not removed: v7 keeps it as a re-export and code still imports it;
-removal belongs to the 7 → 8 upgrade (`dom-package` says so). Every scored upgrade moved it with
-the lead (wire-webapp, Lago and OpenMetadata to the same version; Phoenix removed it). `@types/react-router-dom` is a v5-era stub nothing at v6 needs and is not
+removal belongs to the 7 → 8 upgrade (`dom-package` says so). Every upgrade drafted moved it with
+the lead (Lago, and the excluded wire-webapp and OpenMetadata, to the same version; Phoenix
+removed it). `@types/react-router-dom` is a v5-era stub nothing at v6 needs and is not
 declared. `@react-router/*` packages are framework-mode tooling with no 6.x release, so no v6
 repository has one installed: nothing to declare. `requiresBuild` is not set: the changes the
 compiler cannot see are runtime behavior (flags), not build contracts; the one build-visible
@@ -131,44 +132,54 @@ change, `react-router/dom` under `moduleResolution: node`, is a type error tsc r
 
 ## Independent ground truth
 
-All four repositories are public, at the parent of a merged upgrade. Installs use their
-lockfiles with scripts off. Expectations were drafted with `pnpm packs:truth` (repository
-TypeScript, target linked) and the upgrade diff, then reviewed by hand before the pack was
-scored against them; no expected finding was changed after scoring. `ground-truth.json`'s
-`$comment` records every inclusion and exclusion.
+**Final truth: Arize-ai/phoenix and getlago/lago-front.** Both are public, at the parent of a
+merged upgrade; installs use their lockfiles with scripts off. Expectations were drafted with
+`pnpm packs:truth` (repository TypeScript, target linked) and the upgrade diff, then reviewed by
+hand before the pack was scored against them; no expected finding was changed after scoring.
+`ground-truth.json`'s `$comment` records every inclusion and exclusion.
 
 | Repository | Declares | Parent | Upgrade | Versions | Expected |
 | --- | --- | --- | --- | --- | --- |
 | [Arize-ai/phoenix](https://github.com/Arize-ai/phoenix/pull/6896) (`app/`, pnpm, TS 5.4.5) | both | `4d6c1dfb01e9406cf769efab14f0350ea2d0a0f8` | `3e9dc43bcc686e8ff3d57a028a9fcc15f3935490` | 6.25.1 → 7.4.0 | 29 `dom-imports`, 1 `dom-entry-imports` (no compiler diagnostic) |
-| [wireapp/wire-webapp](https://github.com/wireapp/wire-webapp/pull/22299) (Yarn 4 monorepo, TS 6.0.3) | both | `aa5da8830b0d116c9605a44d85ef9d720660f282` | `b8afb4fca86b1b015778af6aa707daff4b8ae916` | 6.30.6 → 7.18.0 | 1 `future-prop`, 1 `generic` (jest `moduleNameMapper`) |
 | [getlago/lago-front](https://github.com/getlago/lago-front/commit/6055a5a3c8076522235fe2da452a209e99af8541) (pnpm, TS 6.0.3) | react-router-dom only | `84aa05d535edc326a4d104923e4e7293d1be6646` | `6055a5a3c8076522235fe2da452a209e99af8541` | 6.30.6 → 7.18.3 | 6 `future-prop` (4 typed, 2 untyped in a deleted jest mock), 8 `generate-path-params`, 1 `removed-exports` (`FutureConfig`), 3 `generic` (TS1192 default import; two test assertions v7 behavior breaks) |
-| [open-metadata/OpenMetadata](https://github.com/open-metadata/OpenMetadata/pull/31641) (UI directory, Yarn classic, TS 5.9.3) | react-router-dom only | `2956f71c3532e2b90fee027c56213c5bdec7b960` | `5ab32e5c78f05a24321a667189a174e1e537a9e9` | 6.30.4 → 7.18.1 | 2 `future-prop` (left by the upgrade; the compiler rejects them), 1 `generic` (`useTransitions` opt-out) |
 
-Lago and OpenMetadata are the usual v6 setup, which only the alternate lead makes analyzable;
-together they hold 21 of the 23 expectations under breaking rules. Exclusions, decided before scoring:
+Lago is the usual v6 setup, which only the alternate lead makes analyzable, and holds every
+expectation under a breaking rule. Exclusions within the two, decided before scoring:
 
 - Phoenix's `useLoaderData() as T` → `useLoaderData<typeof loader>()` refactor (v7 compiles the
   casts), its vite changes; merged imports where an existing `react-router` line only absorbed a
-  moved name (the moved `react-router-dom` line is the site); wire's new `reactRouter.d.ts`.
+  moved name (the moved `react-router-dom` line is the site).
 - Lago: renamed test titles and added assertions, a jest filter for a warning v7 no longer emits,
   Cypress flow edits, callers of the deleted mock helper and imports of the deleted flags, wallet
   `as string` casts the refactor removed though they compile, and four TS7006 in
   `InvoiceOverview.tsx` the draft reported and the upgrade never touched (linked-environment
   React types, as in the Next pack's RESEARCH).
-- OpenMetadata: sixteen TS2322 in `EntityVersionPage.component.tsx`. Checked with a real
-  scripts-off install of `react-router-dom@7.18.1` and the repository's own `tsc`: the same
-  sixteen errors exist at the parent; only their text changes (`backHandler: () => void` becomes
-  `() => void | Promise<void>` with v7's navigate). Keyed on the message, the draft listed them.
-  `check` did the same and reported one as a breaking site; #135 (stacked under this PR) makes
-  the compile signal treat an error at the same file, code and position as pre-existing.
 
-Lago's (188) and OpenMetadata's (1481) parents do not pass a bare `tsc`: each has an unbuilt
-workspace package (`lago-design-system`, `@openmetadata/ui-core-components`) and its cascade.
-Both are kept and judged the same way: the compiler evidence is the difference between parent
-and target, read site by site.
+### Parents that do not type-check
 
-Wire's lockfile is at the monorepo root and the ground-truth installer runs in `directory`, so
-wire is scored from the root (react-router is declared in `apps/webapp` only).
+One rule, applied to every drafted repository before scoring: run the parent's **own project
+compile** (its type-check script and tsconfig, not a bare `tsc`). A parent whose compile passes
+is kept. A parent whose compile fails is excluded, as the Next pack excluded its broken parents,
+unless every error comes from an unbuilt workspace package that the upgrade does not touch; that
+is shown by building the package as the repository's own build does and compiling again, and
+the repository is kept with a note saying so.
+
+| Repository | Project compile at the parent | Errors | Outcome |
+| --- | --- | ---: | --- |
+| Arize-ai/phoenix | `tsc --noEmit` in `app/` (its `typecheck` script) | 0 | **kept** |
+| getlago/lago-front | `node scripts/check-types.js` (`tsc --noEmit --incremental`, root `tsconfig.json`) | 188 | **kept, confined**: every error is in a file importing `lago-design-system`, whose `dist/types` is not built at a fresh install (TS2307 and its cascade; 0 elsewhere). The package is not part of the upgrade. With its declarations emitted as its build does (`tsc --build tsconfig.build.json` in `packages/design-system`), the parent compiles with 0 errors, the upgrade commit with 0, and the parent's code against the upgrade's dependencies reports exactly the 14 compiler sites in the truth (same files, lines and codes, none missing, none extra). Five files the upgrade edits carry design-system errors while it is unbuilt; that changes no expectation |
+| wireapp/wire-webapp ([#22299](https://github.com/wireapp/wire-webapp/pull/22299), 6.30.6 → 7.18.0) | `tsc --project apps/webapp/tsconfig.type-check.json --noEmit` (its Nx `type-check` target) | 1979 | **excluded**: besides eight unbuilt workspace libraries (`@wireapp/api-client` 846, `react-ui-kit` 316, …), 140 errors come from `Components/icon`, a gitignored module generated by `bin/generate_react_icons.ts`, not a workspace package; and `testUtil.tsx`, which the upgrade edits, has 5 errors |
+| open-metadata/OpenMetadata ([#31641](https://github.com/open-metadata/OpenMetadata/pull/31641), 6.30.4 → 7.18.1) | `yarn tsc:check` (`tsc --noEmit`, the UI directory's tsconfig) | 1481 | **excluded**: beyond the unbuilt `@openmetadata/ui-core-components`, it reports errors unrelated to any package build (TS6133 unused locals, TS2556 spread arguments, `ThreadType` TS2322), and `AppRoot.tsx`, which the upgrade edits, has a TS2307 |
+
+Both excluded repositories were drafted and reviewed before the rule was set; their review
+still informs the pack (below) but they are not scored. OpenMetadata's sixteen TS2322 in
+`EntityVersionPage.component.tsx` were checked with a real scripts-off install of
+`react-router-dom@7.18.1` and the repository's own `tsc`: the same sixteen exist at the parent and
+only their text changes (`backHandler: () => void` becomes `() => void | Promise<void>` with v7's
+navigate). Keyed on the message, the draft listed them as new and `check` reported one as a
+breaking site; that is fixed in the engine by #141 (stacked under this PR): an error at the same
+file, code and position whose chain of messages is unchanged once the type expressions it
+prints are masked is pre-existing; a chain naming another member there is still reported.
 
 ### Screened out
 
@@ -188,23 +199,38 @@ wire is scored from the root (react-router is declared in `apps/webapp` only).
 
 ## Measured `pack test`
 
-`pnpm uptide pack test react-router --write`: **verified** (2 public repositories, 0 breaking
-false positives).
+`pnpm uptide pack test react-router --write` on the final truth (Phoenix and Lago):
+**verified** (2 public repositories, 0 breaking false positives, fixtures 9 cases and 29 sites
+passing).
 
 | Rule / scoring group | Precision | Recall | TP | FP | FN |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| dom-imports | 58% | 100% | 29 | 21 | 0 |
-| dom-entry-imports | 50% | 100% | 1 | 1 | 0 |
-| future-prop | 100% | 100% | 1 | 0 | 0 |
-| generic | n/a | 0% | 0 | 0 | 1 |
-| Overall sites | 58% | 97% | 31 | 22 | 1 |
-| Breaking sites | 100% | 50% | 1 | 0 | 1 |
+| dom-entry-imports | 100% | 100% | 1 | 0 | 0 |
+| dom-imports | 8% | 100% | 29 | 336 | 0 |
+| future-prop | 100% | 67% | 4 | 0 | 2 |
+| future-prop-untyped | 0% | n/a | 0 | 2 | 0 |
+| generate-path-params | 100% | 100% | 8 | 0 | 0 |
+| generic | 100% | 33% | 1 | 0 | 2 |
+| removed-exports | 100% | 100% | 1 | 0 | 0 |
+| Overall sites | 12% | 96% | 46 | 336 | 2 |
+| Breaking sites | 100% | 88% | 14 | 0 | 2 |
 
-False positives are all `deprecated` import moves: wire's version-bump PR kept its
-`react-router-dom` imports (it moved them two PRs later, #22481), and Phoenix forgot one. The
-false negative is wire's jest `moduleNameMapper`, a test-runner configuration change no rule
-covers. The other rules have no public site in this pair and are covered by fixtures and unit
-tests only.
+- The 336 `dom-imports` false positives are `deprecated` import moves the upgrades did not make:
+  Lago's commit kept all 335 of its `react-router-dom` imports (v7 still serves them), and
+  Phoenix kept one (`ProjectsPage.tsx:16`). The rule is right that they can move, and the truth
+  is right that the upgrade did not need them; `fix` applies the move only with
+  `--include-deprecated`.
+- The two `future-prop` misses are Lago's `routerFutureMock.ts:12` and `:14`, found but filed
+  under `future-prop-untyped` (deprecated: v7 ignores a prop passed through untyped
+  `createElement`), so they also count as the two `future-prop-untyped` false positives. The truth
+  files them as `future-prop` because the upgrade deleted them for the same reason; the pack
+  keeps them `deprecated` since nothing fails to compile or run there.
+- The two `generic` misses are test assertions v7 behavior changes (`generatePath` escaping in
+  `utils.test.tsx:348`, Link href normalization in `Link.test.tsx:94`): runtime behavior with no
+  compiler site and no syntax to match (engine limit 7 below).
+- Every other rule has no site in the final truth and is covered by fixtures and unit tests only.
+  The compile-signal fix (#141) changes nothing here: scored without it, the final truth gives
+  the same findings (it only mattered for OpenMetadata, now excluded).
 
 ## What the engine could not express
 
@@ -217,7 +243,11 @@ tests only.
    `packs:truth`/`with`; it was linked at the target version instead, which is the install `fix`
    would produce. `packs:truth` also leaves out the lines of a file the upgrade deleted (Lago's
    `routerFutureMock.ts`), and keys new diagnostics on their message, so an error the upgrade
-   only rewords is listed as new (OpenMetadata).
+   only rewords is listed as new (OpenMetadata); `check` did the same until #141.
+8. **A parent whose own compile needs a build step** (Lago's design system) is scored unbuilt:
+   the ground-truth installer runs scripts off and builds nothing, so errors from the unbuilt
+   package are in both the baseline and the target and cancel out. Lago's built-world check
+   above shows they hide no expectation there; a repository where they did would be excluded.
 4. **Fixtures cannot mark a detected site whose rewrite declines** (`keep` means neither), so
    movable and non-movable `react-router-dom` imports are two rules, and so are typed and untyped
    `future` props.

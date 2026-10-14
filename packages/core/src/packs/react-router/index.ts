@@ -8,7 +8,6 @@ import {
   futureOptionSites,
   moveDomImport,
   removedCallSites,
-  removeFutureProp,
   untypedFuturePropSites,
 } from './detect.js';
 
@@ -124,7 +123,6 @@ export const reactRouterPack = definePack({
       symbols:
         /(?:^TS2322$|(?:^|:)(?:BrowserRouter|HashRouter|MemoryRouter|Router|StaticRouter|RouterProvider|(?:unstable_)?HistoryRouter)$)/,
       message: /Property 'future' does not exist/,
-      rewrite: removeFutureProp,
       guide:
         'Remove the `future` prop: every v6 flag it set is v7 behavior, and the prop no longer exists. A flag set to false or left out changes behavior now; the behavior notes say which. When the prop is a variable, remove the variable too if nothing else reads it.',
     },

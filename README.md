@@ -60,7 +60,7 @@ verified with two or more public repositories and no false positive. The contrac
 | `lucide-react` | 0.x → 1.x | 100% | 100% | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
 | `next` | 15.x → 16.x | 100% | 85% | sambecker/exif-photo-blog, stoczec/wortkarte | verified |
 | `react` | 18.x → 19.x | 100% | 69% | excalidraw/excalidraw, tldraw/tldraw | verified |
-| `react-router` | 6.x → 7.x | 100% | 50% | Arize-ai/phoenix, wireapp/wire-webapp | verified |
+| `react-router` | 6.x → 7.x | 100% | 88% | Arize-ai/phoenix, getlago/lago-front | verified |
 | `@sentry/browser` | 10.x → 11.x | 100% | 100% | Automancer-Ltd/automancer-site, sbomify/sbomify | verified |
 | `@sentry/nextjs` | 10.x → 11.x | 100% | 100% | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `@sentry/react` | 10.x → 11.x | 100% | 100% | owine/youth-activity-scheduler, successible/cleanslate | verified |
