@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { UptideError } from '../errors.js';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { FALLBACK_IDENTITY } from '../action/github.js';
+import { type ErrorCode, UptideError } from '../errors.js';
 import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
 import { noPackBlockers } from './no-pack.js';
 import { command, git } from './process.js';
@@ -65,12 +66,40 @@ export function publicationBlockers(
   return blockers;
 }
 
+/**
+ * Publishing stopped after the plan. `reason` is one short sentence Uptide composed, never
+ * git's or GitHub's output: it is what the Action's job summary and run report say.
+ */
+export class PublishError extends UptideError {
+  constructor(
+    code: ErrorCode,
+    readonly reason: string,
+    message: string,
+  ) {
+    super(code, message);
+  }
+}
+
+/**
+ * The sentence for the report when `uptide pr` stopped: a `PublishError`'s own, or the one
+ * for a branch whose tree is not the verified one. Undefined for anything else, which the
+ * caller reports without a reason rather than with words Uptide did not compose.
+ */
+export function publicationFailureReason(error: unknown): string | undefined {
+  if (error instanceof PublishError) return error.reason;
+  if (error instanceof UptideError && error.code === 'VERIFIED_TREE_MISMATCH')
+    return 'the branch no longer holds the verified tree';
+  return undefined;
+}
+
 interface PublishIO {
   git: typeof git;
   command: typeof command;
   print: (text: string) => void;
   /** The PR description as stored; the file by default. */
   readBody?: (file: string) => string;
+  /** Writes the description back when publishing adds to it; the file by default. */
+  writeBody?: (file: string, body: string) => void;
 }
 /** GitHub's own limit for a PR body. */
 export const GITHUB_BODY_LIMIT = 65_536;
@@ -88,6 +117,161 @@ function remoteBranchHead(
   }
 }
 const defaults: PublishIO = { git, command, print: console.log };
+
+/** How many numbered alternatives (`<branch>-2` …) are tried before giving up. */
+const MAX_SUFFIX = 20;
+/** A GitHub App's bot user, with the noreply address GitHub gives it. */
+const APP_BOT = /^(\d+)\+([a-z0-9-]+\[bot\])@users\.noreply\.github\.com$/;
+const identityKey = (name: string, email: string): string => `${name}\u0000${email}`;
+/**
+ * Who counts as Uptide when deciding whether a branch on origin may be overwritten: the legacy
+ * `uptide[bot]`, and the App's bot when it authored this run's own commits (the Action commits
+ * as it). A person's identity never counts, not even the one running Uptide locally: a commit
+ * someone made by hand on an Uptide branch is theirs.
+ */
+function uptideAuthors(
+  cwd: string,
+  head: string,
+  against: string | undefined,
+  io: Pick<PublishIO, 'git'>,
+): Set<string> {
+  const authors = new Set([identityKey(FALLBACK_IDENTITY.name, FALLBACK_IDENTITY.email)]);
+  let own = '';
+  try {
+    own = io.git(
+      cwd,
+      'log',
+      '--format=%an%x00%ae',
+      ...(against ? [head, '--not', against] : ['-1', head]),
+    );
+  } catch {}
+  for (const line of own.split('\n')) {
+    const [name = '', email = ''] = line.split('\u0000');
+    if (APP_BOT.exec(email)?.[2] === name) authors.add(identityKey(name, email));
+  }
+  return authors;
+}
+/**
+ * The authors of the commits `origin` has at `remoteHead` beyond `base` that are not Uptide's,
+ * by name, as GitHub compares them: a checkout (the Action's is shallow) may not hold the
+ * history between. Undefined when that cannot be read, or GitHub lists only part of it: such
+ * a branch is treated as someone else's.
+ */
+async function otherAuthors(
+  cwd: string,
+  repository: string,
+  base: string,
+  remoteHead: string,
+  uptide: Set<string>,
+  io: Pick<PublishIO, 'command'>,
+): Promise<string[] | undefined> {
+  const compared = await io.command(cwd, 'gh', [
+    'api',
+    `repos/${repository}/compare/${encodeURIComponent(base)}...${remoteHead}`,
+  ]);
+  if (compared.code) return undefined;
+  try {
+    const { total_commits: total, commits } = JSON.parse(compared.output) as {
+      total_commits?: number;
+      commits?: { commit?: { author?: { name?: string; email?: string } } }[];
+    };
+    if (!Array.isArray(commits) || total !== commits.length) return undefined;
+    const others = new Set<string>();
+    for (const { commit } of commits) {
+      const { name = '', email = '' } = commit?.author ?? {};
+      if (!uptide.has(identityKey(name, email))) others.add(name || email || 'unknown');
+    }
+    return [...others];
+  } catch {
+    return undefined;
+  }
+}
+interface OpenPr {
+  number: number;
+  url: string;
+}
+/** The open PR whose head is `branch`; undefined when there is none, or the answer is unreadable. */
+async function openPullRequest(
+  cwd: string,
+  nameWithOwner: string,
+  branch: string,
+  io: Pick<PublishIO, 'command'>,
+): Promise<OpenPr | undefined> {
+  const existing = await io.command(cwd, 'gh', [
+    'pr',
+    'list',
+    '--repo',
+    nameWithOwner,
+    '--head',
+    branch,
+    '--state',
+    'open',
+    '--json',
+    'number,url',
+  ]);
+  try {
+    // An answer that cannot be read means no PR is known: one is created, as before.
+    if (!existing.code) return (JSON.parse(existing.output.trim() || '[]') as OpenPr[])[0];
+  } catch {}
+  return undefined;
+}
+/** Where the verified commit goes on origin, and what is there now. */
+interface BranchChoice {
+  branch: string;
+  /** What origin has on the branch: the lease a forced push is checked against. */
+  remoteHead?: string;
+  open?: OpenPr;
+  /** The branch named after the run, when it was left alone, and whose commits it holds. */
+  passedOver?: { branch: string; authors: string[] };
+}
+/**
+ * The branch to publish on. A closed PR does not delete its branch, so `uptide/<pkg>-<version>`
+ * may already be on origin. It is reused when it is free, already at the verified commit, or
+ * holds only Uptide's commits beyond the base (an open Uptide PR is then updated, else a new
+ * one opened); a branch with anyone else's commit is never overwritten, and the next free
+ * `<branch>-<n>` is used instead, by the same rules.
+ */
+async function chooseBranch(
+  cwd: string,
+  repos: { own: string; target: string; base: string },
+  branch: string,
+  head: string,
+  against: string | undefined,
+  io: Pick<PublishIO, 'git' | 'command'>,
+): Promise<BranchChoice> {
+  let uptide: Set<string> | undefined;
+  let passedOver: BranchChoice['passedOver'];
+  for (let n = 1; n <= MAX_SUFFIX; n++) {
+    const candidate = n === 1 ? branch : `${branch}-${n}`;
+    const remoteHead = remoteBranchHead(cwd, candidate, io);
+    const choice = (more: Omit<BranchChoice, 'branch' | 'passedOver'> = {}): BranchChoice => ({
+      branch: candidate,
+      ...more,
+      ...(passedOver ? { passedOver } : {}),
+    });
+    if (!remoteHead) return choice();
+    const open = await openPullRequest(cwd, repos.target, candidate, io);
+    const ours = { remoteHead, ...(open ? { open } : {}) };
+    if (remoteHead === head) return choice(ours);
+    uptide ??= uptideAuthors(cwd, head, against, io);
+    const others = await otherAuthors(cwd, repos.own, repos.base, remoteHead, uptide, io);
+    if (others && !others.length) return choice(ours);
+    passedOver ??= { branch: candidate, authors: others ?? [] };
+  }
+  throw new PublishError(
+    'PUBLICATION_FAILED',
+    'the branch exists with commits from someone else, and so do its numbered alternatives',
+    `${branch} and ${branch}-2 to ${branch}-${MAX_SUFFIX} all exist on origin with commits from someone else; nothing was pushed`,
+  );
+}
+/** One sentence for a refused push, from git's own words; never the words themselves. */
+function pushFailure(output: string): string {
+  if (/stale info|fetch first|non-fast-forward/.test(output))
+    return 'the branch on GitHub changed while it was being published';
+  if (/protected branch|GH006|GH013/.test(output)) return 'a rule on GitHub protects the branch';
+  if (/\b403\b|denied|not allowed/i.test(output)) return 'the token may not push to the repository';
+  return 'GitHub refused the push';
+}
 export interface PublishTarget {
   /** `owner/name` the PR will be opened on. */
   nameWithOwner: string;
@@ -271,8 +455,9 @@ export async function publish(
     // A stored run: the branch must still be the verified commit.
     const at = io.git(cwd, 'rev-parse', branch);
     if (report.head && at !== report.head)
-      throw new UptideError(
+      throw new PublishError(
         'RUN_STALE',
+        'the branch moved after it was verified',
         `${branch} is at ${at.slice(0, 12)}, not the verified ${report.head.slice(0, 12)}; run \`${UPTIDE_COMMAND} verify --branch ${branch}\` first`,
       );
   } else if (io.git(cwd, 'branch', '--show-current') !== branch)
@@ -287,10 +472,6 @@ export async function publish(
   if (!defaultBranchRef?.name || !nameWithOwner)
     throw new Error('target repository has no default branch');
   const base = report.prBase ?? defaultBranchRef.name;
-  const headRef =
-    own.nameWithOwner && own.nameWithOwner !== nameWithOwner
-      ? `${own.nameWithOwner.split('/')[0]}:${branch}`
-      : branch;
   // Against the remote's base when it is fetched, else the local branch of that name.
   const against = [`origin/${base}`, base].find((ref) => {
     try {
@@ -310,11 +491,15 @@ export async function publish(
   // The description is checked before anything is pushed: GitHub refuses a longer one, and a
   // refusal after the push leaves a branch with no PR.
   const body = (io.readBody ?? ((file: string) => readFileSync(file, 'utf8')))(report.prBody);
-  if (body.length > GITHUB_BODY_LIMIT)
-    throw new UptideError(
-      'PUBLICATION_REFUSED',
-      `the PR description is ${body.length.toLocaleString('en-US')} characters; GitHub accepts ${GITHUB_BODY_LIMIT.toLocaleString('en-US')}. Nothing was pushed. \`${UPTIDE_COMMAND} pr --branch ${branch}\` renders it again within the limit`,
-    );
+  const assertFits = (text: string): void => {
+    if (text.length > GITHUB_BODY_LIMIT)
+      throw new PublishError(
+        'PUBLICATION_REFUSED',
+        'the description is longer than GitHub accepts',
+        `the PR description is ${text.length.toLocaleString('en-US')} characters; GitHub accepts ${GITHUB_BODY_LIMIT.toLocaleString('en-US')}. Nothing was pushed. \`${UPTIDE_COMMAND} pr --branch ${branch}\` renders it again within the limit`,
+      );
+  };
+  assertFits(body);
   if (!yes) throw new Error('publication requires --yes; nothing pushed');
   if (io.git(cwd, 'rev-parse', branch) !== head)
     throw new Error('HEAD changed after publication planning');
@@ -325,37 +510,61 @@ export async function publish(
     io.print(
       `Warning: the \`uptide\` label could not be ${labelled.step} (${firstLine(labelled.output)}); opening the PR without it.`,
     );
+  const onOrigin = await chooseBranch(
+    cwd,
+    { own: own.nameWithOwner ?? nameWithOwner, target: nameWithOwner, base },
+    branch,
+    head,
+    against,
+    io,
+  );
+  if (onOrigin.passedOver) {
+    const { branch: left, authors } = onOrigin.passedOver;
+    const whose = authors.length
+      ? `commits from someone else (${authors.join(', ')})`
+      : 'commits Uptide could not attribute';
+    io.print(
+      `${left} exists on origin with ${whose}; it is left as it is. Publishing on ${onOrigin.branch}.`,
+    );
+    // Said in the PR itself, so a reviewer looking for the usual branch knows where this went.
+    const noted = `> Published on \`${onOrigin.branch}\`: \`${left}\` already exists with ${whose}, and Uptide never overwrites them.\n\n${body}`;
+    assertFits(noted);
+    (io.writeBody ?? ((file: string, text: string) => writeFileSync(file, text)))(
+      report.prBody,
+      noted,
+    );
+  }
+  const published = onOrigin.branch;
   // Idempotent: a branch already on the remote at the verified commit is not pushed again.
-  const remoteHead = remoteBranchHead(cwd, branch, io);
-  if (remoteHead === head)
-    io.print(`${branch} is already on origin at ${head.slice(0, 12)}; not pushed again.`);
+  if (onOrigin.remoteHead === head)
+    io.print(`${published} is already on origin at ${head.slice(0, 12)}; not pushed again.`);
   else {
     assertVerifiedTree(cwd, report, io.git);
     if (io.git(cwd, 'rev-parse', branch) !== head)
       throw new Error('HEAD changed after publication planning');
-    io.git(cwd, 'push', '--set-upstream', 'origin', `${head}:refs/heads/${branch}`);
+    if (onOrigin.remoteHead)
+      io.print(
+        `${published} is on origin at ${onOrigin.remoteHead.slice(0, 12)} with Uptide's commits only; replacing it with the verified ${head.slice(0, 12)}.`,
+      );
+    try {
+      io.git(
+        cwd,
+        'push',
+        '--set-upstream',
+        // Only over what was just read: a commit pushed since is never lost.
+        ...(onOrigin.remoteHead
+          ? [`--force-with-lease=refs/heads/${published}:${onOrigin.remoteHead}`]
+          : []),
+        'origin',
+        `${head}:refs/heads/${published}`,
+      );
+    } catch (error) {
+      const output = error instanceof Error ? error.message : String(error);
+      throw new PublishError('PUBLICATION_FAILED', pushFailure(output), output);
+    }
   }
   // ...and a PR already open for the branch gets this description instead of a second PR.
-  const existing = await io.command(cwd, 'gh', [
-    'pr',
-    'list',
-    '--repo',
-    nameWithOwner,
-    '--head',
-    branch,
-    '--state',
-    'open',
-    '--json',
-    'number,url',
-  ]);
-  let open: { number: number; url: string } | undefined;
-  try {
-    // An answer that cannot be read means no PR is known: one is created, as before.
-    if (!existing.code)
-      open = (JSON.parse(existing.output.trim() || '[]') as { number: number; url: string }[])[0];
-  } catch {
-    open = undefined;
-  }
+  const open = onOrigin.open;
   if (open) {
     let edited = await io.command(cwd, 'gh', [
       'pr',
@@ -378,8 +587,12 @@ export async function publish(
         '--silent',
       ]);
     if (edited.code)
-      throw new Error(`cannot update the description of ${open.url}: ${edited.output}`);
-    io.print(`A pull request is already open for ${branch}: its description was updated.`);
+      throw new PublishError(
+        'PUBLICATION_FAILED',
+        'the open pull request could not be updated',
+        `cannot update the description of ${open.url}: ${edited.output}`,
+      );
+    io.print(`A pull request is already open for ${published}: its description was updated.`);
     return open.url;
   }
   const create = (label: boolean) =>
@@ -399,7 +612,9 @@ export async function publish(
       '--body-file',
       report.prBody,
       '--head',
-      headRef,
+      own.nameWithOwner && own.nameWithOwner !== nameWithOwner
+        ? `${own.nameWithOwner.split('/')[0]}:${published}`
+        : published,
     ]);
   let result = await create(labelled.ok);
   if (result.code && labelled.ok && /label/i.test(result.output)) {
@@ -409,8 +624,18 @@ export async function publish(
     );
     result = await create(false);
   }
-  if (result.code) throw new Error(`gh pr create failed: ${result.output}`);
+  if (result.code)
+    throw new PublishError(
+      'PUBLICATION_FAILED',
+      'GitHub did not open the pull request',
+      `gh pr create failed: ${result.output}`,
+    );
   const url = result.output.match(/https:\/\/[^\s]+\/pull\/\d+/g)?.at(-1);
-  if (!url) throw new Error(`gh did not return a pull request URL: ${result.output}`);
+  if (!url)
+    throw new PublishError(
+      'PUBLICATION_FAILED',
+      'GitHub did not return a pull request',
+      `gh did not return a pull request URL: ${result.output}`,
+    );
   return url;
 }

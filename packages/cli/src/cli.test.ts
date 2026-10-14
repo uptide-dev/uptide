@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type FixReport, PeerPreflightError, UptideError } from '@uptide/core';
+import { type FixReport, PeerPreflightError, PublishError, UptideError } from '@uptide/core';
 import { describe, expect, it } from 'vitest';
 import { run } from './cli.js';
 import {
@@ -862,6 +862,24 @@ it('exits 1 when verified work was not exported and never offers pr', async () =
   expect(io.stdout()).toContain('Export failed:');
   expect(io.stdout()).toContain('NOT exported');
   expect(io.stdout() + io.stderr()).not.toMatch(/verification passed|uptide pr/);
+});
+
+it('pr --json: a publication that fails says why, for the Action to report', async () => {
+  const io = memoryIo({ cwd: pnpmGitRepo() });
+  const engine = fakeEngine({
+    pr: async () => {
+      throw new PublishError(
+        'PUBLICATION_FAILED',
+        'GitHub refused the push',
+        'Command failed: git push\nremote: something only the job log needs',
+      );
+    },
+  });
+  expect(await run(['pr', '--branch', 'uptide/zod-4.6.5', '--yes', '--json'], io, engine)).toBe(2);
+  expect(JSON.parse(io.stdout())).toEqual({
+    error: { code: 'PUBLICATION_FAILED', reason: 'GitHub refused the push' },
+  });
+  expect(io.stderr()).toContain('something only the job log needs');
 });
 
 it('exits 1 when pr refuses a tree that was not verified', async () => {

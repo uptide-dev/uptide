@@ -23,6 +23,24 @@ never its parent unless `--repo` names it. New pull requests are drafts by defau
 remains accepted. Nothing is pushed without `--yes`; `fix --pr --yes` does the same at the end
 of a migration.
 
+Closing a pull request does not delete its branch, so the branch may already be on GitHub.
+When it is:
+
+- at the verified commit already: nothing is pushed;
+- with an open pull request and only Uptide's commits beyond the base (the Uptide App's
+  bot, or the legacy `uptide[bot]`): the branch is replaced with the verified commit
+  (`--force-with-lease`, against what was just read) and that pull request's description is
+  updated, instead of opening a second one;
+- with no open pull request and only Uptide's commits: the branch is replaced the same way
+  and a new pull request is opened;
+- with any commit by someone else, or commits that cannot be read: it is never overwritten.
+  The verified commit goes to the next free `<branch>-2`, `-3`, … (by the same rules) and
+  the pull request description says so at the top.
+
+A commit made with your own git identity counts as someone else's, even on a branch Uptide
+created. When publication fails in the Action, the job summary and run report name the
+reason (for example, "the branch on GitHub changed while it was being published").
+
 A missing or mismatched verified tree refuses publication with exit 1 before any push. Runs
 created before tree hashes were recorded need `uptide verify` first. An export failure keeps
 the verified clone; restore that work before publishing instead of pushing the older local branch.

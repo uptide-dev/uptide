@@ -56,10 +56,27 @@ export interface ActionServices {
   /** The App's bot, resolved with the installation token; undefined when it cannot be. */
   commitIdentity?(token: string): Promise<CommitIdentity | undefined>;
   openUptideBranches(token: string): Promise<string[]>;
-  /** `uptide pr --branch <branch> --yes --json` with the token; the PR URL. */
+  /**
+   * `uptide pr --branch <branch> --yes --json` with the token; the PR URL. Throws
+   * `PublishFailure` when `uptide pr` named why it did not publish.
+   */
   publish(branch: string, token: string, identity?: CommitIdentity): Promise<string>;
   now(): number;
   log(line: string): void;
+}
+
+/**
+ * `uptide pr` refused or failed and said why: `reason` is the one sentence it composed for
+ * the report (`PublishError` in fix/publish.ts), never git's or GitHub's output.
+ */
+export class PublishFailure extends Error {
+  override readonly name = 'PublishFailure';
+  constructor(
+    readonly reason: string,
+    message = `uptide pr did not publish: ${reason}`,
+  ) {
+    super(message);
+  }
 }
 
 /** The report's error when the run has no Anthropic key: its code, then what to do. */
@@ -381,11 +398,16 @@ export async function runAction(
           slots--;
         } else error = 'publishing did not return a pull request';
       } catch (err) {
-        error = `verified, but the pull request could not be opened${
-          err instanceof Error && err.name === 'ActionAuthError'
-            ? `: ${err.message}`
-            : '; the job log has the reason'
-        }`;
+        // A reason from another process is held to the report's shape like any sentence.
+        error = sentence(
+          `verified, but the pull request could not be opened${
+            err instanceof Error && err.name === 'ActionAuthError'
+              ? `: ${err.message}`
+              : err instanceof PublishFailure
+                ? `: ${err.reason}`
+                : '; the job log has the reason'
+          }`,
+        );
       }
     }
     upgrades.push(
