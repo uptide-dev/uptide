@@ -333,6 +333,7 @@ function sectionLines(row: Row, colors: Colors): string[] {
     );
   for (const conflict of row.p.companionConflicts ?? [])
     lines.push(`  ${colors.red('✗')} ${conflict}: no consistent upgrade`);
+  for (const stay of row.p.companionStays ?? []) lines.push(`  ${colors.dim(`· ${stay}`)}`);
   // Left in place, as the repository's own upgrade may leave it: possible impact, never breaking.
   for (const conflict of row.p.peerConflicts ?? [])
     lines.push(
