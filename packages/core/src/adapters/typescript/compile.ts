@@ -42,8 +42,10 @@ import { resolvePackageDir } from './usages.js';
  * here", not "because `items[].quantity` was removed".
  *
  * Both checks always run. Only diagnostics present in the overlay and absent from the
- * baseline count (matched on file, code and message; positions are not part of the key),
- * so a repository with pre-existing errors still gets the upgrade's errors. The overlay
+ * baseline count (matched on file, code and message, so a moved line still matches; or on
+ * file, code, position and the same chain of messages up to the types it prints, so an error
+ * the upgrade only rewords still matches), so a repository with pre-existing errors still gets the upgrade's
+ * errors. The overlay
  * is skipped only when the baseline is structurally broken: an invalid tsconfig, or most
  * files failing to resolve their imports.
  *
@@ -102,6 +104,39 @@ export function readableMessage(message: string): string {
 function keyOf(d: ts.Diagnostic, repoDir: string): string {
   const file = relative(repoDir, d.file?.fileName ?? '');
   return `${file}|${d.code}|${messageOf(d).replace(/\s+/g, ' ').trim()}`;
+}
+
+/**
+ * Every message of the chain, in order, with each type the compiler prints masked: what the
+ * error says about the code, without how it spells the types on the way. A quoted plain name
+ * (a property, a parameter, a named type) is kept, so the chain still says which member fails;
+ * a printed type expression (`'{ a: string; }'`, `'() => void'`) is what an upgrade rewords.
+ */
+function shapeOf(d: ts.Diagnostic): string {
+  const parts: string[] = [];
+  const walk = (chain: string | ts.DiagnosticMessageChain): void => {
+    const text = typeof chain === 'string' ? chain : chain.messageText;
+    parts.push(
+      text.replace(/'([^']*)'/g, (quoted, inner: string) =>
+        /^[\w$.#"-]+$/.test(inner) ? quoted : "'…'",
+      ),
+    );
+    if (typeof chain !== 'string') for (const next of chain.next ?? []) walk(next);
+  };
+  walk(d.messageText);
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * The same error at the same place: both programs check the same source text, so a position
+ * names one construct, and the same chain of messages with only printed types differing is the
+ * same complaint about it. An error the upgrade only rewords (a widened type in the elaborated
+ * assignment) was there before the upgrade, and the upgrade did not break that line. A chain
+ * that names another member, or another reason, at the same place is a different error, and is
+ * reported.
+ */
+function placeOf(d: ts.Diagnostic, repoDir: string): string {
+  return `${relative(repoDir, d.file?.fileName ?? '')}|${d.code}|${d.start ?? -1}|${shapeOf(d)}`;
 }
 
 function toDiagnostic(d: ts.Diagnostic, file: ts.SourceFile, repoDir: string): CompileDiagnostic {
@@ -879,6 +914,7 @@ export async function compileAgainstTargets(
     };
   }
   const known = new Set(baseline.map((d) => keyOf(d, repo.dir)));
+  const knownPlaces = new Set(baseline.map((d) => placeOf(d, repo.dir)));
   const overlay = mkdtempSync(join(tmpdir(), 'uptide-overlay-'));
   const deps = newLinks();
   // Group members are already linked; nothing may fetch another version of them.
@@ -899,7 +935,12 @@ export async function compileAgainstTargets(
       const overlaid = program.getSourceFile(file.fileName);
       if (!overlaid) continue;
       for (const d of program.getSemanticDiagnostics(overlaid)) {
-        if (isRepoError(d, repo.dir) && !known.has(keyOf(d, repo.dir))) fresh.push({ d, overlaid });
+        if (
+          isRepoError(d, repo.dir) &&
+          !known.has(keyOf(d, repo.dir)) &&
+          !knownPlaces.has(placeOf(d, repo.dir))
+        )
+          fresh.push({ d, overlaid });
       }
     }
     // Causes are traced once every new diagnostic is known: a declaration that fails itself is a cause.
