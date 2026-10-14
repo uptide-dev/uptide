@@ -373,6 +373,32 @@ export function removeFutureProp(text: string, finding: Pick<Finding, 'usage'>):
   };
 }
 
+/**
+ * `createElement(actual.BrowserRouter, { future: FLAGS, ...props })`: a router given v6 flags
+ * through untyped props (a jest mock of react-router-dom, a wrapper). The compiler sees nothing,
+ * and v7 ignores the prop. The site is the call.
+ */
+export function untypedFuturePropSites(text: string): SourceSite[] {
+  if (!text.includes('createElement') || !text.includes('future')) return [];
+  const source = parse(text);
+  const bound = routerBindings(source, [...ROUTERS]);
+  return source.getDescendantsOfKind(SyntaxKind.CallExpression).flatMap((call) => {
+    const callee = call.getExpression();
+    const name = Node.isPropertyAccessExpression(callee) ? callee.getName() : callee.getText();
+    if (name !== 'createElement') return [];
+    const [component, props] = call.getArguments();
+    const router = !component
+      ? undefined
+      : Node.isPropertyAccessExpression(component)
+        ? component.getName()
+        : (bound.get(component.getText()) ?? undefined);
+    if (!router || !ROUTERS.has(router) || !props || !Node.isObjectLiteralExpression(props))
+      return [];
+    const future = props.getProperty('future');
+    return future ? [siteAt(source, call, router)] : [];
+  });
+}
+
 const METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 const EQUALITY = new Set([
   SyntaxKind.EqualsEqualsEqualsToken,

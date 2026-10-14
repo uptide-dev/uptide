@@ -9,6 +9,7 @@ import {
   moveDomImport,
   removedCallSites,
   removeFutureProp,
+  untypedFuturePropSites,
 } from './detect.js';
 
 /**
@@ -128,6 +129,17 @@ export const reactRouterPack = definePack({
         'Remove the `future` prop: every v6 flag it set is v7 behavior, and the prop no longer exists. A flag set to false or left out changes behavior now; the behavior notes say which. When the prop is a variable, remove the variable too if nothing else reads it.',
     },
     {
+      id: 'future-prop-untyped',
+      summary:
+        'a router given the v6 `future` prop through untyped props (`createElement`, a jest mock): v7 ignores it',
+      severity: 'deprecated',
+      kinds: [],
+      symbols: /$^/,
+      detect: untypedFuturePropSites,
+      guide:
+        'The compiler cannot see a `future` prop passed through untyped props (`createElement(actual.BrowserRouter, { future, ...props })` in a jest mock of react-router-dom). v7 ignores it, so it keeps compiling and does nothing: remove it, and the mock or helper that exists only to inject it, keeping every other prop.',
+    },
+    {
       id: 'future-option',
       summary: 'the `future` option of a router factory holds v6 flags that v7 ignores',
       severity: 'deprecated',
@@ -198,6 +210,18 @@ export const reactRouterPack = definePack({
       detect: formMethodSites,
       guide:
         'Compare `formMethod` with the uppercase method ("POST"). A value typed `FormMethod` that is assigned a lowercase literal takes the uppercase one. `<Form method="post">` and `submit({ method: "post" })` still accept lowercase: leave them.',
+    },
+    {
+      id: 'generate-path-params',
+      summary:
+        '`generatePath` requires a string for each required `:param` (7.14.2): `null` no longer type-checks',
+      severity: 'breaking',
+      kinds: ['signature', 'type', 'required'],
+      symbols: /(?:(?:^|:)generatePath$|^TS2322$)/,
+      // The compiler reports the param's line with no word of generatePath: what it says there.
+      message: /(?:^$|null' is not assignable to type 'string')/,
+      guide:
+        'Since 7.14.2 a required `:param` of `generatePath` takes a string; `null` (which threw at runtime) is rejected, an optional `:param?` may be omitted, and extra keys are allowed. Choose per call, and report the choice in decisions: return or render nothing before building the path while the value is missing; make the segment optional (`:id?`) only if the route really is; or pass the value once it is proven present. Never add a non-null assertion, `as string` or an empty-string fallback that builds a wrong URL.',
     },
     {
       id: 'stabilized-options',
