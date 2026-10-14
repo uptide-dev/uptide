@@ -2,8 +2,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
+import { manySitesReport } from './__fixtures__/large-reports.js';
 import { retainedDiffs, updatePrBody } from './pr-body.js';
-import { prBody } from './report.js';
+import { PR_BODY_BUDGET, prBody } from './report.js';
 import type { FixReport } from './types.js';
 
 const temp = mkdtempSync(join(tmpdir(), 'uptide-body-test-'));
@@ -70,6 +71,32 @@ it('defaults to .uptide/report.json and updates only the PR body through a body 
     ['gh', 'pr', 'edit', '82'],
   ]);
   expect(m.calls.flat().join(' ')).not.toMatch(/push|commit|merge|reviewer|title/);
+});
+
+it('applies the same budget to a stored many-site preview and the submitted body', async () => {
+  const m = mock();
+  Object.assign(m.report, manySitesReport());
+  writeFileSync(m.run, JSON.stringify(m.report));
+  const preview = await updatePrBody({ cwd: temp, pr: '82', run: m.run, preview: true }, m.io);
+  expect(preview.body.length).toBeLessThanOrEqual(PR_BODY_BUDGET);
+  expect(preview.body.match(/```diff/g)).toHaveLength(2);
+  expect(preview.body).toContain('PASS billing scenario 0');
+  const updated = await updatePrBody({ cwd: temp, pr: '82', run: m.run }, m.io);
+  expect(m.sent()).toBe(preview.body);
+  expect(updated.body).toBe(preview.body);
+  expect(readFileSync(m.run, 'utf8')).toBe(JSON.stringify(m.report));
+});
+
+it('refuses oversized required evidence before editing a PR and leaves the stored run intact', async () => {
+  const m = mock();
+  m.report.decisions = ['- Owner decision. '.repeat(PR_BODY_BUDGET)];
+  writeFileSync(m.run, JSON.stringify(m.report));
+  await expect(updatePrBody({ cwd: temp, pr: '82', run: m.run }, m.io)).rejects.toThrow(
+    'Required migration evidence',
+  );
+  expect(m.sent()).toBe('');
+  expect(m.calls.flat()).not.toContain('edit');
+  expect(readFileSync(m.run, 'utf8')).toBe(JSON.stringify(m.report));
 });
 it('falls back to the REST endpoint when gh pr edit trips over retired classic projects', async () => {
   const m = mock();

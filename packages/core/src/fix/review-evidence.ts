@@ -77,7 +77,11 @@ export function testOutput(output: string): string {
   });
   const bounded = collapsed.slice(0, 65).join('\n').slice(0, 4500).trim();
   const omitted = collapsed.length > 65 || collapsed.join('\n').length > 4500;
-  return [bounded, ...(omitted ? ['… output truncated.'] : []), ...new Set(summary)]
+  return [
+    bounded,
+    ...(omitted ? ['… output truncated; full output is retained in report.json.'] : []),
+    ...new Set(summary),
+  ]
     .filter(Boolean)
     .join('\n');
 }

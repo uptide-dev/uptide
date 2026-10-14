@@ -21,7 +21,8 @@ export type Piece =
 export const must = (text: string): Piece => ({ kind: 'text', text, rank: 0 });
 
 export function fitPieces(pieces: Piece[], budget?: number): string {
-  if (budget === undefined) return pieces.map((p) => full(p)).join('\n');
+  const complete = pieces.map((p) => full(p)).join('\n');
+  if (budget === undefined || complete.length <= budget) return complete;
   // What each piece contributes at minimum: a text's alt, a list's "all hidden" line.
   const floor = (p: Piece): string =>
     p.kind === 'text'
@@ -32,7 +33,13 @@ export function fitPieces(pieces: Piece[], budget?: number): string {
         ? p.more.replace('{n}', String(p.items.length))
         : '';
   const chosen = pieces.map(floor);
-  let size = chosen.reduce((n, text) => n + text.length + 1, 0);
+  let size = chosen.reduce((n, text) => n + text.length, 0) + Math.max(0, chosen.length - 1);
+  // Arbitrarily large required evidence cannot fit a finite field. Refuse instead of
+  // silently deleting decisions/diffs or handing GitHub an oversized description.
+  if (size > budget)
+    throw new Error(
+      'Required migration evidence exceeds the PR body budget; review the full report.json and narrow the migration before publishing.',
+    );
   const order = pieces
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.rank > 0)

@@ -41,7 +41,7 @@ Everything else: [getting started](docs/getting-started.md).
   where a rule cannot, each kept only if its compiler error disappears and no new one
   appears, and a report that says what was verified and what was not. Accepted agent edits
   include a representative diff and affected files; choices from migration guides appear
-  under **Decisions for you** with their reasoning and alternatives.
+  under **Decisions for you** with their reasoning and alternatives. Large PR descriptions [trim changelog detail before review evidence](docs/commands/pr.md#uptide-pr-body).
 - Runs locally, no account. Code leaves your machine only for assisted fixes, with your own
   API key, and `--no-llm` turns that off.
 

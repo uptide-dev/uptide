@@ -748,6 +748,7 @@ it("keeps a PR description under GitHub's limit: what matters first, the rest co
     ],
   };
   report.reviewSections = stripePack.reviewSections?.(context, ['subscription-period']);
+  report.packContext = context;
   // A long test log, the kind a real suite prints.
   report.verification.tests = [
     {
@@ -767,11 +768,11 @@ it("keeps a PR description under GitHub's limit: what matters first, the rest co
   expect(body).toContain('### Decisions for you');
   expect(body).toContain('evidence: `ui/src/webhook.ts:44`');
   // The list of resource changes starts with breaking entries and says what it left out.
-  const list = body.slice(body.indexOf('changes to resources you use'));
+  const list = body.slice(body.indexOf('changes touch resources used by this code'));
   const firstNonBreaking = list.indexOf('— non-breaking;');
   expect(list.slice(0, firstNonBreaking)).toContain('— breaking;');
   expect(body).toMatch(
-    /- … \d+ more not shown here: \[Stripe's changelog\]\(https:\/\/docs\.stripe\.com\/changelog\), 2023-10-16 → 2026-09-30\.endive\./,
+    /\[Stripe's changelog\]\(https:\/\/docs\.stripe\.com\/changelog\), 2023-10-16 → 2026-09-30\.endive\./,
   );
   expect(body).toContain('ok line (repeated 4000 times)');
   // A description is read on GitHub: it never points at a file on the author's machine.
