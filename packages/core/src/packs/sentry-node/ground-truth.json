@@ -1,0 +1,65 @@
+{
+  "$comment": "Expectations drafted with `pnpm packs:truth` (each repository's own TypeScript, target linked; and the old side of its own upgrade commit) and reviewed by hand on 2026-10-14, before the pack was scored. Pure insertions (dataCollection, enableOpenTelemetrySetup, traceLifecycle blocks the repositories added to keep v10 behavior) are decisions, not sites. Edits that only exist to feed another change (a removed import, an async keyword no longer needed) belong to that change's site. See ../sentry/RESEARCH.md.",
+  "package": "@sentry/node",
+  "repos": [
+    {
+      "repo": "TryGhost/ActivityPub",
+      "commit": "f8a8233219f927b39a41418c7cce0f2fa4867b67",
+      "migration": "https://github.com/TryGhost/ActivityPub/pull/2215",
+      "from": "10.75.3",
+      "to": "11.0.0",
+      "why": "Node service (Hono, Fedify) with custom OpenTelemetry span processors and httpIntegration instrumentation hooks. Upgrade 807b0642141a2b4b3f5b5cac1b86c37bfcdae3e6. The repository's TypeScript is 7.0.2 (no JavaScript API); compiled with this checkout's 5.9.3. instrumentation.ts:1-9, :15, :25-38 and app.ts:229 only fed the span processors removed at :47; the TS7006 at :52 and :77 are downstream of :51.",
+      "findings": [
+        {
+          "file": "src/instrumentation.ts",
+          "line": 47,
+          "rule": "opentelemetry-setup",
+          "note": "TS2353 openTelemetrySpanProcessors; the dev-only Jaeger exporter is dropped and enableOpenTelemetrySetup: true added (setup 2)."
+        },
+        {
+          "file": "src/instrumentation.ts",
+          "line": 51,
+          "rule": "http-integration-options",
+          "note": "TS2353 instrumentation; the incoming-only requestHook becomes onSpanCreated, applyCustomAttributesOnSpan is dropped, and the legacy http.method/http.url/http.target attributes go with it."
+        },
+        {
+          "file": "src/app.ts",
+          "line": 697,
+          "rule": "generic",
+          "note": "Removes Sentry.getActiveSpan()?.updateName(...) in the Hono middleware: v10 overrode it with the route name, v11 honors it and would rename every request span. Runtime span-name behavior, no compiler diagnostic."
+        }
+      ]
+    },
+    {
+      "repo": "frog-pond/ccc-server",
+      "commit": "75fdc083bbf719c5c577b4c3068528776bea6fa3",
+      "migration": "https://github.com/frog-pond/ccc-server/pull/1129",
+      "from": "10.75.3",
+      "to": "11.2.0",
+      "with": {
+        "@sentry/profiling-node": "11.2.0"
+      },
+      "why": "Koa server with profiling. Merge 4c5a951262aed39ae0aaa24372d5182f93e4bcc0 moves @sentry/node and @sentry/profiling-node together. TS2561 at profilesSampleRate (which hides the enableLogs excess property in the same literal) and TS6385 at setupKoaErrorHandler.",
+      "findings": [
+        {
+          "file": "source/ccc-server/index.ts",
+          "line": 29,
+          "rule": "profiling-options",
+          "note": "TS2561 profilesSampleRate → profileSessionSampleRate (profileLifecycle: 'trace' was already set)."
+        },
+        {
+          "file": "source/ccc-server/index.ts",
+          "line": 35,
+          "rule": "enable-logs",
+          "note": "enableLogs: true removed with its comment line (34, not a site)."
+        },
+        {
+          "file": "source/ccc-server/server.ts",
+          "line": 134,
+          "rule": "error-handlers",
+          "note": "TS6385 setupKoaErrorHandler is deprecated; the call is removed (Koa errors are captured automatically)."
+        }
+      ]
+    }
+  ]
+}

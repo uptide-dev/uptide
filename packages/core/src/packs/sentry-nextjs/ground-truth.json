@@ -1,0 +1,85 @@
+{
+  "$comment": "Expectations drafted with `pnpm packs:truth` (each repository's own TypeScript, target linked; and the old side of its own upgrade commit) and reviewed by hand on 2026-10-14, before the pack was scored. Pure insertions (the dataCollection blocks each repository added to keep v10's restrictive collection) are the data-collection decision, not sites; a line changed only to gain a trailing comma for such an insertion is part of it. Supporting import edits and file moves made in the same commit are not Sentry sites. See ../sentry/RESEARCH.md.",
+  "package": "@sentry/nextjs",
+  "repos": [
+    {
+      "repo": "cohstats/coh3-stats",
+      "commit": "5b9c60bd6575ed4a4bcd8d2bb71529766675a7e6",
+      "migration": "https://github.com/cohstats/coh3-stats/pull/1015",
+      "from": "10.75.3",
+      "to": "11.1.0",
+      "why": "App with a CommonJS next.config.js: no compiler diagnostic at the target (the config is not in the TypeScript program), both sites are config-only. Merge 1bb5bbb6d50c04252a6417ae2a04911f0dd7989f; its second commit moves sentry.*.config.ts into src/sentry (instrumentation.ts:5 and :9 change only for that move: not Sentry sites).",
+      "findings": [
+        {
+          "file": "next.config.js",
+          "line": 6,
+          "rule": "with-sentry-config-import",
+          "note": "require(\"@sentry/nextjs\") becomes require(\"@sentry/nextjs/config\")."
+        },
+        {
+          "file": "next.config.js",
+          "line": 69,
+          "rule": "build-options",
+          "note": "disableLogger: true moves to webpack.treeshake.removeDebugLogging; the comment line above it is not a site."
+        }
+      ]
+    },
+    {
+      "repo": "xdoubleu/tools.xdoubleu.com",
+      "commit": "d3b780d42c8937af42d37072f7b0948bced39d47",
+      "migration": "https://github.com/xdoubleu/tools.xdoubleu.com/pull/1952",
+      "directory": "web",
+      "from": "10.75.3",
+      "to": "11.0.0",
+      "why": "App with next.config.ts (TS2305 at the import) and a server config that relied on ignoreTransactions, a no-op under span streaming that the compiler does not flag in an object literal. Upgrade 4bc04eeb3702508172724b0d71e68b47d008a64f. instrumentation-client.ts:8 and sentry.edge.config.ts:6 change only to add a comma before the inserted dataCollection block.",
+      "findings": [
+        {
+          "file": "next.config.ts",
+          "line": 2,
+          "rule": "with-sentry-config-import",
+          "note": "TS2305 Module '\"@sentry/nextjs\"' has no exported member 'withSentryConfig'."
+        },
+        {
+          "file": "sentry.server.config.ts",
+          "line": 10,
+          "rule": "ignore-transactions",
+          "note": "ignoreTransactions becomes ignoreSpans with the same pattern."
+        }
+      ]
+    },
+    {
+      "repo": "maximunited/yomu",
+      "commit": "228fc3e4f7abf1850e4d03d32535e28b5173306c",
+      "migration": "https://github.com/maximunited/yomu/pull/245",
+      "from": "10.75.1",
+      "to": "11.1.0",
+      "why": "App with three Sentry.init calls passing sendDefaultPii: false (TS2353 each) and next.config.ts (TS2305). Upgrade 64d4a872621c449c054275c351e7653579b29ec3 replaces each with a restrictive dataCollection; the import edits on line 2 of each config only bring that helper in.",
+      "findings": [
+        {
+          "file": "next.config.ts",
+          "line": 2,
+          "rule": "with-sentry-config-import",
+          "note": "TS2305 Module '\"@sentry/nextjs\"' has no exported member 'withSentryConfig'."
+        },
+        {
+          "file": "sentry.edge.config.ts",
+          "line": 11,
+          "rule": "send-default-pii",
+          "note": "TS2353 sendDefaultPii; replaced by a restrictive dataCollection."
+        },
+        {
+          "file": "sentry.server.config.ts",
+          "line": 11,
+          "rule": "send-default-pii",
+          "note": "TS2353 sendDefaultPii; replaced by a restrictive dataCollection."
+        },
+        {
+          "file": "src/instrumentation-client.ts",
+          "line": 14,
+          "rule": "send-default-pii",
+          "note": "TS2353 sendDefaultPii; replaced by a restrictive dataCollection."
+        }
+      ]
+    }
+  ]
+}

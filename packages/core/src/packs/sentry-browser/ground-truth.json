@@ -1,0 +1,44 @@
+{
+  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. Pure insertions (dataCollection blocks, beforeSendLog) are the decisions each repository made, not sites; comment lines that changed with an option are part of that option's site. See ../sentry/RESEARCH.md.",
+  "package": "@sentry/browser",
+  "repos": [
+    {
+      "repo": "Automancer-Ltd/automancer-site",
+      "commit": "ea78c738e8de80efbb796b506fbc81bb4f649f70",
+      "migration": "https://github.com/Automancer-Ltd/automancer-site/pull/63",
+      "from": "10.75.2",
+      "to": "11.4.0",
+      "why": "Astro site with one Sentry.init passing sendDefaultPii: false and enableLogs: false. Upgrade a6ccab10af9897de8844d1b6ecf17154faf5de9e keeps v10 privacy with an explicit dataCollection and replaces enableLogs: false with beforeSendLog: () => null. TS2353 reports only the first excess property of the literal, so enableLogs has no diagnostic.",
+      "findings": [
+        {
+          "file": "src/scripts/sentry.ts",
+          "line": 17,
+          "rule": "send-default-pii",
+          "note": "TS2353 sendDefaultPii; the comment line 16 above it changed with it."
+        },
+        {
+          "file": "src/scripts/sentry.ts",
+          "line": 24,
+          "rule": "enable-logs",
+          "note": "enableLogs: false (lines 20-23 are its comment); replaced by beforeSendLog: () => null."
+        }
+      ]
+    },
+    {
+      "repo": "sbomify/sbomify",
+      "commit": "4c2be20126779d91d629b9478c6a0aff0239abfe",
+      "migration": "https://github.com/sbomify/sbomify/pull/1771",
+      "from": "10.75.2",
+      "to": "11.0.0",
+      "why": "Django app with a Vite/TypeScript frontend; its root tsconfig.json has files: [] and project references, so the truth helper compiled nothing and the site comes from the upgrade commit alone. Merge f0716c561da6818e065ad49050ea076401df0741 (other dependency bumps in it are not Sentry's).",
+      "findings": [
+        {
+          "file": "sbomify/apps/core/js/sentry.ts",
+          "line": 22,
+          "rule": "send-default-pii",
+          "note": "sendDefaultPii: true replaced by dataCollection: { userInfo: true }."
+        }
+      ]
+    }
+  ]
+}
