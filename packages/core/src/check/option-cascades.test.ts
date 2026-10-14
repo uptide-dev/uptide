@@ -38,7 +38,7 @@ const at = (
       path: `TS${code}`,
       kind: 'type',
       severity: 'breaking',
-      source: 'compiler',
+      source: 'types',
       confidence: 1,
     },
     usage: {
