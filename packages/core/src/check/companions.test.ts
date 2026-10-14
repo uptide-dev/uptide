@@ -375,3 +375,154 @@ it('never lowers a planned companion across installed versions, registry order, 
     }
   }
 });
+
+/**
+ * A scope that mixes the lockstep SDK with packages released on their own, as two public
+ * Sentry 10 → 11 upgrades had it: frog-pond/ccc-server (@sentry/node with @sentry/profiling-node
+ * and the old @sentry/utils 8) and owine/youth-activity-scheduler (@sentry/react with
+ * @sentry/vite-plugin 5). Neither upgrade moved the independent package.
+ */
+describe('a scope with packages released on their own', () => {
+  const sentry: Record<string, Versions> = {
+    '@sentry/core': { '8.55.2': {}, '10.75.3': {}, '11.0.0': {}, '11.2.0': {} },
+    '@sentry/node': {
+      '10.75.3': { dependencies: { '@sentry/core': '10.75.3' } },
+      '11.2.0': { dependencies: { '@sentry/core': '11.2.0' } },
+    },
+    '@sentry/profiling-node': {
+      '10.75.3': { dependencies: { '@sentry/core': '10.75.3', '@sentry/node': '10.75.3' } },
+      '11.2.0': { dependencies: { '@sentry/core': '11.2.0', '@sentry/node': '11.2.0' } },
+    },
+    '@sentry/utils': { '8.55.2': { dependencies: { '@sentry/core': '8.55.2' } } },
+    '@sentry/react': {
+      '10.75.3': { dependencies: { '@sentry/browser': '10.75.3' } },
+      '11.0.0': { dependencies: { '@sentry/browser': '11.0.0' } },
+    },
+    '@sentry/browser': { '10.75.3': {}, '11.0.0': {} },
+    '@sentry/replay': { '10.75.3': {}, '11.0.0': {} },
+    '@sentry/types': { '10.75.3': {} },
+    '@sentry/vite-plugin': {
+      '5.4.0': { dependencies: { '@sentry/bundler-plugins': '^10.64.0' } },
+      '5.4.1': { dependencies: { '@sentry/bundler-plugins': '^10.76.0' } },
+    },
+    '@sentry/cli': { '2.58.5': {}, '3.8.0': {} },
+  };
+  const of = async (name: string) => sentry[name] ?? {};
+  const pkg = (name: string, version: string): InstalledDependency => ({
+    name,
+    version,
+    manifest: { name, version, ...sentry[name]?.[version] },
+    workspaces: ['.'],
+  });
+  const ccc = [
+    pkg('@sentry/node', '10.75.3'),
+    pkg('@sentry/profiling-node', '10.75.3'),
+    pkg('@sentry/utils', '8.55.2'),
+  ];
+  const scheduler = [
+    pkg('@sentry/react', '10.75.3'),
+    pkg('@sentry/vite-plugin', '5.4.0'),
+    pkg('@sentry/cli', '2.58.5'),
+  ];
+
+  it.each([
+    ['without a pack', undefined],
+    ['with a declared release group', ['@sentry/profiling-node', '@sentry/core', '@sentry/react']],
+  ])(
+    'ccc-server %s: moves profiling-node, leaves @sentry/utils 8 where it is',
+    async (_, group) => {
+      const plan = await companionsOf({
+        name: '@sentry/node',
+        target: '11.2.0',
+        installed: ccc,
+        manifests: of,
+        ...(group ? { releaseGroup: group } : {}),
+      });
+      expect(plan.conflicts).toEqual([]);
+      expect(plan.companions.map((c) => `${c.name} ${c.to}`)).toEqual([
+        '@sentry/profiling-node 11.2.0',
+      ]);
+      expect(plan.stays).toEqual([expect.stringMatching(/^@sentry\/utils stays at 8\.55\.2 \(/)]);
+    },
+  );
+
+  it.each([
+    ['without a pack', undefined],
+    ['with a declared release group', ['@sentry/browser', '@sentry/core']],
+  ])('youth-activity-scheduler %s: vite-plugin and cli stay, nothing blocks', async (_, group) => {
+    const plan = await companionsOf({
+      name: '@sentry/react',
+      target: '11.0.0',
+      installed: scheduler,
+      manifests: of,
+      ...(group ? { releaseGroup: group } : {}),
+    });
+    expect(plan.conflicts).toEqual([]);
+    expect(plan.companions).toEqual([]);
+    expect(plan.stays).toEqual([
+      expect.stringMatching(/^@sentry\/cli stays at 2\.58\.5 \(/),
+      expect.stringMatching(/^@sentry\/vite-plugin stays at 5\.4\.0 \(/),
+    ]);
+  });
+
+  it('without a pack, moves a same-scope package at the lead version that has a release at the target', async () => {
+    const plan = await companionsOf({
+      name: '@sentry/react',
+      target: '11.0.0',
+      installed: [pkg('@sentry/react', '10.75.3'), pkg('@sentry/replay', '10.75.3')],
+      manifests: of,
+    });
+    expect(plan.companions).toEqual([
+      expect.objectContaining({ name: '@sentry/replay', from: '10.75.3', to: '11.0.0' }),
+    ]);
+  });
+
+  it('a same-version package with no release at the target stays rather than failing the plan', async () => {
+    const plan = await companionsOf({
+      name: '@sentry/react',
+      target: '11.0.0',
+      installed: [pkg('@sentry/react', '10.75.3'), pkg('@sentry/types', '10.75.3')],
+      manifests: of,
+    });
+    expect(plan.conflicts).toEqual([]);
+    expect(plan.stays).toEqual([
+      '@sentry/types stays at 10.75.3 (no release agrees with @sentry/react 11.0.0)',
+    ]);
+  });
+
+  it('a declared member with no agreeing release is still a conflict', async () => {
+    const plan = await companionsOf({
+      name: '@sentry/react',
+      target: '11.0.0',
+      installed: [pkg('@sentry/react', '10.75.3'), pkg('@sentry/types', '10.75.3')],
+      manifests: of,
+      releaseGroup: ['@sentry/types'],
+    });
+    expect(plan.conflicts).toEqual([
+      '@sentry/types 10.75.3 has no release that agrees with @sentry/react 11.0.0',
+    ]);
+  });
+});
+
+it('names only packages of the lead’s own scope as staying', async () => {
+  const plan = await companionsOf({
+    name: '@sentry/react',
+    target: '11.0.0',
+    installed: [
+      { name: '@sentry/react', version: '10.75.3', manifest: {}, workspaces: ['.'] },
+      { name: '@sentry/cli', version: '2.58.5', manifest: {}, workspaces: ['.'] },
+      {
+        name: '@tanstack/router-vite-plugin',
+        version: '1.167.42',
+        manifest: {},
+        workspaces: ['.'],
+      },
+    ],
+    manifests: async (name): Promise<Record<string, object>> =>
+      name === '@sentry/react' ? { '11.0.0': {} } : {},
+    releaseGroup: ['@sentry/browser'],
+  });
+  expect(plan.stays).toEqual([
+    '@sentry/cli stays at 2.58.5 (not in the release group of @sentry/react)',
+  ]);
+});

@@ -155,6 +155,11 @@ export interface PackageReport {
   /** Members of that group with no release that agrees with the target. */
   companionConflicts?: string[];
   /**
+   * Packages of the same scope that stay where they are, released on their own or outside the
+   * pack's release group: `@sentry/vite-plugin stays at 5.4.0 (...)`. Never a conflict.
+   */
+  companionStays?: string[];
+  /**
    * Packages left in place because their installed peer range rejects the target and nothing
    * moves them with it: `next-mdx-remote-client 1.1.2 declares react >= 18.3.0 < 19.0.0`.
    * Possible impact; never compiled at another version, never counted as breaking.

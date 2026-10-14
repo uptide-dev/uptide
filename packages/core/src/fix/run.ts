@@ -329,6 +329,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   }
   // What moves with it (check/companions.ts): one install at versions that agree, or none.
   const conflicts = [...new Set(packages.flatMap((p) => p.companionConflicts ?? []))];
+  const stays = [...new Set(packages.flatMap((p) => p.companionStays ?? []))].sort();
   if (conflicts.length > 0)
     throw new UptideError(
       'INCONSISTENT_UPGRADE',
@@ -725,6 +726,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     targetSource: resolved.source,
     ...(resolved.releaseAge ? { releaseAge: resolved.releaseAge } : {}),
     ...(companions.length ? { companions } : {}),
+    ...(stays.length ? { companionStays: stays } : {}),
     ...(peerPlan?.conflicts.length ? { peerConflicts: groupPeerBlockers(peerPlan.conflicts) } : {}),
     ...(report.importersNotAnalyzed?.length
       ? { importersNotAnalyzed: report.importersNotAnalyzed }

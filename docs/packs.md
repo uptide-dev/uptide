@@ -364,7 +364,15 @@ The planner selects the lead's exact target version when published. If that vers
 is absent, it selects the newest stable release whose published dependency/peer
 ranges explicitly accept the lead target. Without that evidence, or when the exact
 release rejects the lead, planning reports a conflict rather than leaving the member
-behind. Undeclared packages retain existing companion behavior.
+behind.
+
+A declared release group also bounds the lead's scope: an installed package of the same scope
+that is not in the group (`@sentry/vite-plugin` 5.x next to `@sentry/react` 10.x) is not a
+member and stays where it is. Without a pack, a package of the lead's scope moves only when
+something relates it to the group (a pin, a peer, a release at the lead's target version);
+one that nothing relates stays at its version. Either way `check`, the pull request and
+`pack test` name it (`@sentry/vite-plugin stays at 5.4.0 (…)`), and it never makes the plan
+fail: only a member the group needs and no release agrees with is a conflict.
 
 For Next, the declared members are `eslint-config-next`, `@next/eslint-plugin-next`,
 `@next/bundle-analyzer`, `@next/mdx`, and `@next/third-parties`; declare only installed

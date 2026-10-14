@@ -1,0 +1,101 @@
+{
+  "$comment": "Expected findings drafted with pnpm packs:truth (each repository's own TypeScript 5.9.3, scripts off) and its merged upgrade commit, reviewed by hand before the pack was scored. One site per change: the import line with the compiler's TS2305, and each non-consecutive JSX use the upgrade commit changed. Renames of names 1.x still exports (SFPCA: Trash2, HelpCircle, CheckCircle, XCircle, Loader2, all aliases at 1.47.0 with no deprecation) are optional and not sites. cubicsteak/keep is a negative control with no expected site. See RESEARCH.md.",
+  "package": "lucide-react",
+  "repos": [
+    {
+      "repo": "tradeblocks-org/tradeblocks",
+      "commit": "918c0dadccacec7e0533ea1a208f252562ac711f",
+      "migration": "https://github.com/tradeblocks-org/tradeblocks/pull/530",
+      "from": "0.577.0",
+      "to": "1.52.0",
+      "why": "Next.js application, one package, npm. Upgrade df0669aa473bd825ca47a3e7d1e9a6df875313b2 replaces the removed Github brand icon with @tabler/icons-react's IconBrandGithub; the compiler reports the import only.",
+      "findings": [
+        {
+          "file": "components/sidebar-footer-legal.tsx",
+          "line": 3,
+          "rule": "brand-icons-removed",
+          "note": "TS2305 Github; the upgrade imports IconBrandGithub from @tabler/icons-react instead."
+        },
+        {
+          "file": "components/sidebar-footer-legal.tsx",
+          "line": 96,
+          "rule": "brand-icons-removed",
+          "note": "<Github> becomes <IconBrandGithub>; no compiler error of its own."
+        },
+        {
+          "file": "components/sidebar-footer-legal.tsx",
+          "line": 164,
+          "rule": "brand-icons-removed",
+          "note": "<Github> becomes <IconBrandGithub>; no compiler error of its own."
+        }
+      ]
+    },
+    {
+      "repo": "spizeck/SFPCA",
+      "commit": "7f5b9dcb8985260e7b9ab345be971b392bd129a5",
+      "migration": "https://github.com/spizeck/SFPCA/commit/e0e06ada6ed4e4b6d501b7882d74f9622dedc678",
+      "from": "0.563.0",
+      "to": "1.47.0",
+      "why": "Next.js application, one package, npm. Upgrade e0e06ada6ed4e4b6d501b7882d74f9622dedc678 (PR #163, \"migrate lucide-react to v1\") replaces Facebook, Instagram and Twitter with local Simple Icons components; the compiler reports the two imports.",
+      "findings": [
+        {
+          "file": "src/components/contact/contact-page.tsx",
+          "line": 7,
+          "rule": "brand-icons-removed",
+          "note": "TS2305 Facebook, Instagram, Twitter."
+        },
+        {
+          "file": "src/components/contact/contact-page.tsx",
+          "line": 221,
+          "rule": "brand-icons-removed",
+          "note": "<Facebook> becomes <FacebookIcon> from ui/brand-icons."
+        },
+        {
+          "file": "src/components/contact/contact-page.tsx",
+          "line": 232,
+          "rule": "brand-icons-removed",
+          "note": "<Instagram> becomes <InstagramIcon>."
+        },
+        {
+          "file": "src/components/contact/contact-page.tsx",
+          "line": 243,
+          "rule": "brand-icons-removed",
+          "note": "<Twitter> becomes <TwitterIcon>."
+        },
+        {
+          "file": "src/components/homepage/footer.tsx",
+          "line": 2,
+          "rule": "brand-icons-removed",
+          "note": "TS2305 Facebook, Instagram, Twitter."
+        },
+        {
+          "file": "src/components/homepage/footer.tsx",
+          "line": 31,
+          "rule": "brand-icons-removed",
+          "note": "<Facebook> becomes <FacebookIcon>."
+        },
+        {
+          "file": "src/components/homepage/footer.tsx",
+          "line": 42,
+          "rule": "brand-icons-removed",
+          "note": "<Instagram> becomes <InstagramIcon>."
+        },
+        {
+          "file": "src/components/homepage/footer.tsx",
+          "line": 53,
+          "rule": "brand-icons-removed",
+          "note": "<Twitter> becomes <TwitterIcon>."
+        }
+      ]
+    },
+    {
+      "repo": "cubicsteak/keep",
+      "commit": "9380d10ea22b66e4559779d7cc3afb4f209cf198",
+      "migration": "https://github.com/cubicsteak/keep/commit/cc8fb5147d1f28fc46d5a8239b1bb648975df546",
+      "from": "0.483.0",
+      "to": "1.47.0",
+      "why": "Negative control: Next.js application, one package, npm, 45 files importing lucide-react and no removed icon. Upgrade cc8fb5147d1f28fc46d5a8239b1bb648975df546 (PR #40) changes only the manifest and lockfile; the repository's TypeScript reports nothing new at 1.47.0. Every site reported here is a false positive.",
+      "findings": []
+    }
+  ]
+}

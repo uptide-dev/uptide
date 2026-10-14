@@ -165,7 +165,7 @@ See the pull request for the full output of the final run.
 | --- | ---: | --- | --- | --- | --- |
 | `@sentry/nextjs` | 3 | 100% / 100% | 100% / 100% | 8 / 0 / 0 | verified |
 | `@sentry/browser` | 2 | 100% / 100% | 100% / 100% | 3 / 0 / 0 | verified |
-| `@sentry/react` | 2 | 100% / 100% | 100% / 100% | 2 / 0 / 0 | candidate (companion conflict) |
+| `@sentry/react` | 2 | 100% / 100% | 100% / 100% | 2 / 0 / 0 | verified (after the engine change in item 1 below) |
 | `@sentry/node` | 2 | 67% / 80% | 71% / 83% | 5 / 2 / 1 | candidate |
 
 Misses and why:
@@ -184,9 +184,11 @@ Misses and why:
    records a left-behind companion and `fix` refuses the upgrade ("cannot be installed
    consistently"). Neither real upgrade moved them, and no vite-plugin release requires
    `@sentry/bundler-plugins` ^11. A pack can declare who moves (`releaseGroup`), not who stays;
-   a declared release group should bound the scope family. Until then React and Node stay
-   candidates, and a Next.js or browser repository that declares `@sentry/cli`, a bundler
-   plugin or `@sentry/utils` is refused by `fix` the same way (refused before any change).
+   a declared release group should bound the scope family. **Resolved:** a declared release
+   group now bounds the scope, and an unrelated same-scope package stays at its version
+   (reported, never a conflict). youth-activity-scheduler then plans with
+   `@sentry/vite-plugin stays at 5.4.0`, and ccc-server moves `@sentry/profiling-node` and leaves
+   `@sentry/utils` 8.55.2; React is registered and verified.
 2. **Downstream errors of a removed option.** ActivityPub's `instrumentation` option (TS2353 at
    :51) takes away the contextual type of its hooks, so the compiler adds TS7006 at :52 and :77.
    Root-cause folding (`check/root-cause.ts`) only follows errors to a repository declaration;

@@ -1007,3 +1007,14 @@ it('says why a required build failed when it stopped before the framework build'
     'the build needs DATABASE_URL before the framework build started. Set `verify.build` in uptide.yml',
   );
 });
+it('names the packages of the scope that stay where they are', () => {
+  const report = ruleOnly();
+  report.companionStays = [
+    '@sentry/vite-plugin stays at 5.4.0 (not in the release group of @sentry/react)',
+  ];
+  expect(visible(prBody(report))).toContain(
+    '- `@sentry/vite-plugin` stays at 5.4.0 (not in the release group of @sentry/react)',
+  );
+  delete report.companionStays;
+  expect(prBody(report)).not.toContain('Left where they are');
+});

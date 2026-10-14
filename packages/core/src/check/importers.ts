@@ -139,7 +139,7 @@ const specifierOf = (node: ts.Node): string | undefined =>
  * (`const base = z.object(...); export const Schema = base.extend(...)`). `default` for the
  * default export, `*` for a wholesale re-export of the package.
  */
-function packageExports(file: string, packages: ReadonlySet<string>): Set<string> {
+export function packageExports(file: string, packages: ReadonlySet<string>): Set<string> {
   const exports = new Set<string>();
   const source = parseFile(file);
   if (!source) return exports;

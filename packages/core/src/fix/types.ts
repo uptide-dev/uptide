@@ -214,6 +214,8 @@ export interface FixReport {
   from?: string;
   /** What moved with it, at the versions that agree with the target, and why (`check/companions.ts`). */
   companions?: { name: string; from: string; to: string; reason: string }[];
+  /** Packages of the same scope left where they are, and why (`check/companions.ts`). */
+  companionStays?: string[];
   /** `pin`: no upgrade; the SDK's default API version was written on every client (`--pin-current-api`). */
   mode?: 'pin';
   /** The API version the pin run wrote. */
