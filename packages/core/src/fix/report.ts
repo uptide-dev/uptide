@@ -8,11 +8,14 @@ import type { BehaviorResult } from './behavior.js';
 import { fitPieces, must, type Piece } from './budget.js';
 import { describeTransitive } from './managers/lock-guard.js';
 import { noPackBlockers } from './no-pack.js';
+import { uniqueSites } from './paired.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
+import { agentDecisionLines, testOutput } from './review-evidence.js';
 import type { FixDiagnostic, FixReport, FixSite, ReviewSection } from './types.js';
 import { missingPackages, newDiagnostics } from './verify.js';
 
 export function fixCounts(report: FixReport) {
+  report = { ...report, sites: uniqueSites(report.sites) };
   return {
     mechanical: report.sites.filter((s) => s.outcome === 'mechanical').length,
     agent: report.sites.filter((s) => s.outcome === 'agent').length,
@@ -28,7 +31,11 @@ const sentence = (s: string) => {
   const masked = text.replace(/\b(e|i)\.(g|e)\./g, '$1_$2_');
   const end = masked.match(/^.*?[.!?](?:\s|$)/)?.[0]?.length;
   const first = end === undefined ? text : text.slice(0, end).trim();
-  return first.length > 240 ? `${first.slice(0, 237)}…` : first;
+  return first.length > 240
+    ? `${first.slice(0, 237)}…`
+    : /[.!?…]$/.test(first)
+      ? first
+      : `${first}.`;
 };
 export const siteKey = (s: FixSite) =>
   `${s.finding.usage.file}:${s.finding.usage.line}:${s.finding.usage.column}`;
@@ -559,6 +566,7 @@ export function summaryCells(report: FixReport): {
   behavior: string;
   tests: string;
 } {
+  report = { ...report, sites: uniqueSites(report.sites) };
   const c = fixCounts(report),
     risk = migrationRisk(report),
     bs = schemas(report);
@@ -662,6 +670,7 @@ export function renderMigration(
   mode: 'full' | 'compact' = 'full',
   budget?: number,
 ): string {
+  report = { ...report, sites: uniqueSites(report.sites) };
   const from =
     report.from ??
     ([...new Set(report.sites.map((s) => s.finding.change.from))].join(', ') || 'unknown');
@@ -809,15 +818,17 @@ export function renderMigration(
       representative?.diff ??
       representative?.attempts?.findLast((a) => a.outcome === 'accepted')?.diff;
     const files = new Map<string, number>();
-    for (const s of g.sites)
+    for (const s of g.sites) {
       files.set(s.finding.usage.file, (files.get(s.finding.usage.file) ?? 0) + 1);
+      for (const file of s.editedFiles ?? []) if (!files.has(file)) files.set(file, 0);
+    }
     const detail = [
       ...(diff
         ? ['```diff', diff.trim(), '```']
         : ['Representative diff was not retained in this stored run.']),
       ...(d.note ? ['', d.note] : []),
       '',
-      ...[...files].map(([f, n]) => `- \`${f}\` (${n})`),
+      ...[...files].map(([f, n]) => `- \`${f}\`${n ? ` (${n})` : ' (supporting edit)'}`),
     ];
     for (const s of g.edits) {
       const attempts = s.attempts ?? [];
@@ -947,7 +958,7 @@ export function renderMigration(
     decisions.push(
       '- Coordinate the API-version rollout with dashboard webhook endpoints and other services.',
     );
-  decisions.push(...(report.decisions ?? []));
+  decisions.push(...agentDecisionLines(report), ...(report.decisions ?? []));
   if (decisions.length) lines.push('### Decisions for you', '', ...decisions, '');
   lines.push(
     '<details><summary>Verification details</summary>',
@@ -1039,7 +1050,7 @@ function verificationDetails(report: FixReport): (string | Piece)[] {
         `\`${t.workspace}\` ${when}: \`${t.fallback?.command}\` ${t.fallback?.reason === 'no-related' ? 'found no test related to the affected files' : 'failed before running a test'}, so \`${t.fallback?.ranInstead}\` ran instead and its result is the one above.`,
         droppable(
           5,
-          ['```text', t.fallback?.output || '(no output)', '```'],
+          ['```text', testOutput(t.fallback?.output || '(no output)'), '```'],
           `Related-tests output (${t.workspace}, ${when})`,
         ),
       ]),
@@ -1122,7 +1133,7 @@ function verificationDetails(report: FixReport): (string | Piece)[] {
       lines.push(
         '',
         `**Tests: ${t.workspace}**`,
-        droppable(5, ['```text', t.output, '```'], `Test output (${t.status})`),
+        droppable(5, ['```text', testOutput(t.output), '```'], `Test output (${t.status})`),
       );
   // What happened to the publish step is the terminal's news, not the description's.
   const agentEdits = report.sites.some((s) => s.outcome === 'agent');

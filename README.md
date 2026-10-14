@@ -39,7 +39,9 @@ Everything else: [getting started](docs/getting-started.md).
   found it. Everything else is listed as possible impact, never counted.
 - A migration is a pull request you can read: rule-based edits first, assisted edits only
   where a rule cannot, each kept only if its compiler error disappears and no new one
-  appears, and a report that says what was verified and what was not.
+  appears, and a report that says what was verified and what was not. Accepted agent edits
+  include a representative diff and affected files; choices from migration guides appear
+  under **Decisions for you** with their reasoning and alternatives.
 - Runs locally, no account. Code leaves your machine only for assisted fixes, with your own
   API key, and `--no-llm` turns that off.
 

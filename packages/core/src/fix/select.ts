@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import type { CheckReport, Finding } from '../domain/report.js';
+import { mergeFinding, pairedFindings } from './paired.js';
 
 /**
  * The sites `fix` works on, in the order it edits them (bottom-up per file). `check` plans
@@ -51,8 +52,11 @@ export function selectedFindings(
   }
   const unique = new Map<string, Finding>();
   for (const f of selected)
-    unique.set(`${f.usage.file}:${f.usage.line}:${f.usage.column}:${f.change.kind}`, f);
-  return [...unique.values()].sort(
+    unique.set(
+      `${f.usage.file}:${f.usage.line}:${f.usage.column}:${f.change.kind}:${f.change.source}:${f.rule ?? ''}`,
+      f,
+    );
+  return pairedFindings([...unique.values()], (f) => f, mergeFinding).sort(
     (a, b) =>
       a.usage.file.localeCompare(b.usage.file) ||
       b.usage.line - a.usage.line ||

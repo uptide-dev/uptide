@@ -154,6 +154,8 @@ export interface AgentTaskRecord {
   stop?: string;
   /** How many single-site tasks shared this task's gate. */
   batch?: number;
+  /** Accepted file diffs captured before the task's working tree can change. */
+  diffs?: Record<string, string>;
   summary?: AgentSummary;
 }
 export interface FixRequest {

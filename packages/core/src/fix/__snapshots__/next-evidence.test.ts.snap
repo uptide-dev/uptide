@@ -1,0 +1,347 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`snapshots the regenerated public exif PR body 1`] = `
+"## Upgrade next 15.5.5 → 16.0.1
+
+> ⚠️ This repository has failing tests before the upgrade (1 run); verification can only compare, not prove.
+
+**Review required before merging.** The code was migrated to next 16. Types compile; runtime behavior needs review.
+
+Upgraded with next, so the install stays consistent:
+
+- \`@next/bundle-analyzer\` 15.5.5 → 16.0.1 (@next/bundle-analyzer 16.0.1 moves with next 16.0.1 (declared release group))
+- \`@next/eslint-plugin-next\` 15.5.5 → 16.0.1 (@next/eslint-plugin-next 16.0.1 moves with next 16.0.1 (declared release group))
+- \`eslint-config-next\` 15.5.5 → 16.0.1 (eslint-config-next 16.0.1 moves with next 16.0.1 (declared release group))
+
+| | |
+|---|---|
+| **Verified by** | ✅ the next migration pack · ✅ type-check · ✅ build · ⚠️ tests already failing before the change |
+| **Risk** | High: peer compatibility is not verified |
+| **Changes** | 10 sites · 3 changed files · 0 auto-fixed · 10 fixed by the agent (LLM) |
+| **Types** | ✅ the upgrade broke 10 · Uptide left 0 |
+| **Behavior** | ⚠️ not checked |
+| **Tests** | ⚠️ the repository: 3 test files already failing before the change; nothing else ran · lint clean (eslint) |
+
+<details><summary>Moved with the upgraded packages · 70 transitive changes</summary>
+
+Inside the upgraded packages’ own dependency subtrees; every other resolution is unchanged.
+
+- \`next\` 15.5.5 → 16.0.1 replaced @next/env 15.5.5 with 16.0.1; replaced @next/swc-darwin-arm64 15.5.5 with 16.0.1; replaced @next/swc-darwin-x64 15.5.5 with 16.0.1; replaced @next/swc-linux-arm64-gnu 15.5.5 with 16.0.1; replaced @next/swc-linux-arm64-musl 15.5.5 with 16.0.1; replaced @next/swc-linux-x64-gnu 15.5.5 with 16.0.1; replaced @next/swc-linux-x64-musl 15.5.5 with 16.0.1; replaced @next/swc-win32-arm64-msvc 15.5.5 with 16.0.1; replaced @next/swc-win32-x64-msvc 15.5.5 with 16.0.1.
+- \`eslint-config-next\` 15.5.5 → 16.0.1 added @babel/code-frame 7.27.1; added @babel/compat-data 7.28.5; added @babel/core 7.28.5; added @babel/generator 7.28.5; added @babel/helper-compilation-targets 7.27.2; added @babel/helper-globals 7.28.0; added @babel/helper-module-imports 7.27.1; added @babel/helper-module-transforms 7.28.3; added @babel/helper-string-parser 7.27.1; added @babel/helper-validator-identifier 7.28.5; added @babel/helper-validator-option 7.27.1; added @babel/helpers 7.28.4; added @babel/parser 7.28.5; added @babel/template 7.27.2; added @babel/traverse 7.28.5; added @babel/types 7.28.5; added @eslint-community/eslint-utils 4.10.1; added @jridgewell/gen-mapping 0.3.13; added @jridgewell/remapping 2.3.5; added @jridgewell/resolve-uri 3.1.2; added @jridgewell/sourcemap-codec 1.5.5; added @jridgewell/trace-mapping 0.3.31; removed @rushstack/eslint-patch 1.14.1; replaced @typescript-eslint/eslint-plugin 8.46.2 with 8.71.2; replaced @typescript-eslint/parser 8.46.2 with 8.71.2; replaced @typescript-eslint/project-service 8.46.2 with 8.71.2; replaced @typescript-eslint/scope-manager 8.46.2 with 8.71.2; replaced @typescript-eslint/tsconfig-utils 8.46.2 with 8.71.2; replaced @typescript-eslint/type-utils 8.46.2 with 8.71.2; replaced @typescript-eslint/types 8.46.2 with 8.71.2; replaced @typescript-eslint/typescript-estree 8.46.2 with 8.71.2; replaced @typescript-eslint/utils 8.46.2 with 8.71.2; replaced @typescript-eslint/visitor-keys 8.46.2 with 8.71.2; added balanced-match 4.0.4; added baseline-browser-mapping 2.8.20; replaced brace-expansion 2.0.2 with 5.0.12; added browserslist 4.27.0; added caniuse-lite 1.0.30001751; added convert-source-map 2.0.0; added electron-to-chromium 1.5.240; added escalade 3.2.0; replaced eslint-plugin-react-hooks 5.2.0 with 7.1.1; added eslint-visitor-keys 5.0.1; removed fast-glob 3.3.3; added gensync 1.0.0-beta.2; added globals 16.4.0; removed graphemer 1.4.0; added hermes-estree 0.25.1; added hermes-parser 0.25.1; added jsesc 3.1.0; added json5 2.2.3; added lru-cache 5.1.1; replaced minimatch 9.0.5 with 10.2.6; added node-releases 2.0.26; added picocolors 1.1.1; replaced ts-api-utils 2.1.0 with 2.5.0; added typescript-eslint 8.71.2; added update-browserslist-db 1.1.4; added yallist 3.1.1; added zod 4.1.12; added zod-validation-error 4.0.2.
+
+</details>
+
+<details><summary>Lockfile housekeeping · 3 dedupe moves · 0 metadata-only changes</summary>
+
+Outside resolutions retain the same package name, version and integrity; execution and platform fields are unchanged.
+
+- \`@vercel/analytics@1.5.0\`: \`snapshots:@vercel/analytics@1.5.0(next@15.5.5(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)\` → \`snapshots:@vercel/analytics@1.5.0(next@16.0.1(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)\`.
+- \`@vercel/speed-insights@1.2.0\`: \`snapshots:@vercel/speed-insights@1.2.0(next@15.5.5(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)\` → \`snapshots:@vercel/speed-insights@1.2.0(next@16.0.1(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)\`.
+- \`next-auth@5.0.0-beta.29\`: \`snapshots:next-auth@5.0.0-beta.29(next@15.5.5(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)\` → \`snapshots:next-auth@5.0.0-beta.29(next@16.0.1(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)\`.
+
+</details>
+
+### What changed
+
+**1. revalidate-tag-profile** · 10 sites · by the agent (LLM)
+All 10 revalidateTag calls (nine key helpers plus the per-photo tag in revalidatePhoto) now pass a shared REVALIDATE_PROFILE = { expire: 0 } as the second argument. No new type errors.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+diff --git a/src/photo/cache.ts b/src/photo/cache.ts
+index a459c86..65bfdf6 100644
+--- a/src/photo/cache.ts
++++ b/src/photo/cache.ts
+@@ -101,32 +101,36 @@ const getPhotosCacheKeys = (options: PhotoQueryOptions = {}) => {
+   return tags;
+ };
+ 
++// Next 16 requires a profile: immediate expiration matches the
++// previous single-argument behavior and is valid in any context
++const REVALIDATE_PROFILE = { expire: 0 };
++
+ export const revalidatePhotosKey = () =>
+-  revalidateTag(KEY_PHOTOS);
++  revalidateTag(KEY_PHOTOS, REVALIDATE_PROFILE);
+ 
+ export const revalidateAlbumsKey = () =>
+-  revalidateTag(KEY_ALBUMS);
++  revalidateTag(KEY_ALBUMS, REVALIDATE_PROFILE);
+ 
+ export const revalidateTagsKey = () =>
+-  revalidateTag(KEY_TAGS);
++  revalidateTag(KEY_TAGS, REVALIDATE_PROFILE);
+ 
+ export const revalidateRecipesKey = () =>
+-  revalidateTag(KEY_RECIPES);
++  revalidateTag(KEY_RECIPES, REVALIDATE_PROFILE);
+ 
+ export const revalidateCamerasKey = () =>
+-  revalidateTag(KEY_CAMERAS);
++  revalidateTag(KEY_CAMERAS, REVALIDATE_PROFILE);
+ 
+ export const revalidateLensesKey = () =>
+-  revalidateTag(KEY_LENSES);
++  revalidateTag(KEY_LENSES, REVALIDATE_PROFILE);
+ 
+ export const revalidateFilmsKey = () =>
+-  revalidateTag(KEY_FILMS);
++  revalidateTag(KEY_FILMS, REVALIDATE_PROFILE);
+ 
+ export const revalidateFocalLengthsKey = () =>
+-  revalidateTag(KEY_FOCAL_LENGTHS);
++  revalidateTag(KEY_FOCAL_LENGTHS, REVALIDATE_PROFILE);
+ 
+ export const revalidateYearsKey = () =>
+-  revalidateTag(KEY_YEARS);
++  revalidateTag(KEY_YEARS, REVALIDATE_PROFILE);
+ 
+ export const revalidateAllKeys = () => {
+   revalidatePhotosKey();
+@@ -151,7 +155,7 @@ export const revalidateAllKeysAndPaths = () => {
+ 
+ export const revalidatePhoto = (photoId: string) => {
+   // Tags
+-  revalidateTag(photoId);
++  revalidateTag(photoId, REVALIDATE_PROFILE);
+   revalidateYearsKey();
+   revalidateCamerasKey();
+   revalidateLensesKey();
+\`\`\`
+
+- \`src/photo/cache.ts\` (10)
+
+</details>
+
+### Peer risks
+
+- next-auth 5.0.0-beta.29 declares next ^14.0.0-0 || ^15.0.0-0, which rejects 16.0.1. Not overridden; the package manager may warn. Runtime compatibility needs review.
+
+### Worth a look
+
+- Tests in \`.\` were failing before this change (\`lens.test.ts\`, \`path.test.ts\`, \`photo.test.ts\`); not caused here, but a green suite would verify more.
+
+### Decisions for you
+
+- 10 revalidateTag calls in \`src/photo/cache.ts\` now pass \`{ expire: 0 }\` (immediate expiry, as in Next 15). Next recommends [\`"max"\`](https://nextjs.org/docs/app/api-reference/functions/revalidateTag) (stale-while-revalidate) for most cases; \`updateTag\` is another option for Server Actions: confirm or change.
+- \`next.config.ts\` has \`webpack\`: next dev/build now default to Turbopack; keep --webpack or migrate the custom webpack configuration.
+- \`next.config.ts\` has \`images\`: review image defaults (TTL 14400s, sizes omit 16, qualities [75], at most 3 redirects and blocked local IPs) and localPatterns.search; preserve image security.
+- \`middleware.ts\` uses the middleware convention: proxy is Node-only; retain middleware if Edge is required and review the runtime before renaming.
+- \`package.json\` scripts.build invokes next build; \`package.json\` scripts.analyze invokes next build: next lint is removed and next build no longer lints; use an explicit ESLint command and CI lint gate.
+- No Node version found in the inventoried package.json, runtime pins or CI; verify Node >=20.9.0
+- Also review the [Next 16 upgrade guide](https://nextjs.org/docs/app/guides/upgrading/version-16) for metadata promises, browser support and target-minor changes.
+
+<details><summary>Verification details</summary>
+
+Type errors: baseline 0; target 10; after 0; 0 new. Verification: PASS.
+
+Build after the bump in \`.\`: \`next build\` — passed
+
+| Workspace | Baseline tests | Target tests |
+|---|---|---|
+| . | failed | failed |
+
+- \`.\`: jest tests under ., jest.config.ts — \`jest --passWithNoTests\` — 34 tests in 12 files passed
+
+Lint (eslint) on 1 edited file: passed — \`eslint src/photo/cache.ts\`
+
+**Tests: .**
+\`\`\`text
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: \`npm i baseline-browser-mapping@latest -D\` (repeated 11 times)
+FAIL __tests__/photo.test.ts
+  ● Test suite failed to run
+
+    Jest encountered an unexpected token
+
+    Jest failed to parse a file. This happens e.g. when your code or its dependencies use non-standard JavaScript syntax, or when Jest is not configured to support such syntax.
+
+    Out of the box Jest supports Babel, which will be used to transform your files into valid JS based on your Babel configuration.
+
+    By default "node_modules" folder is ignored by transformers.
+
+    Here's what you can do:
+     • If you are trying to use ECMAScript Modules, see https://jestjs.io/docs/ecmascript-modules for how to enable it.
+     • If you are trying to use TypeScript, see https://jestjs.io/docs/getting-started#using-typescript
+     • To have some of your "node_modules" files transformed, you can specify a custom "transformIgnorePatterns" in your config.
+     • If you need a custom transformation, specify a "transform" option in your config.
+     • If you simply want to mock your non-JS modules (e.g. binary assets) you can stub them out with the "moduleNameMapper" config option.
+
+    You'll find more details and examples of these config options in the docs:
+    https://jestjs.io/docs/configuration
+    For information about custom transformations, see:
+    https://jestjs.io/docs/code-transformation
+
+    Details:
+
+    <repo>/node_modules/.pnpm/camelcase-keys@10.0.0/node_modules/camelcase-keys/index.js:1
+    import mapObject from 'map-obj';
+    ^^^^^^
+
+    SyntaxError: Cannot use import statement outside a module
+
+      114 |   tags: string[]
+      115 |   recipeData?: FujifilmRecipe
+    > 116 |   colorData?: PhotoColorData
+          |                                                           ^
+      117 |   updateStatus?: PhotoUpdateStatus
+      118 | }
+      119 |
+
+      at Runtime.createScriptFromCode (node_modules/.pnpm/jest-runtime@30.2.0/node_modules/jest-runtime/build/index.js:1318:40)
+      at Object.<anonymous> (src/photo/index.ts:116:63)
+      at Object.<anonymous> (__tests__/photo.test.ts:5:16)
+Test Suites: 3 failed, 12 passed, 15 total
+Tests:       34 passed, 34 total
+\`\`\`
+
+**Run notes**
+
+- Next.js 16 upgrade guide (read 2026-10-13): https://nextjs.org/docs/app/guides/upgrading/version-16
+- Image priority deprecation (read 2026-10-13): https://nextjs.org/docs/app/api-reference/components/image#priority
+- Next.js 16 announcement: https://nextjs.org/blog/next-16
+- Official codemod source, pinned 16.4.0: https://github.com/vercel/next.js/tree/v16.4.0/packages/next-codemod
+- Next.js 16.0.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.0.0
+- Next.js 16.1.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.1.0
+- Next.js 16.2.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.2.0
+- Next.js 16.3.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.3.0
+- Next.js 16.4.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.4.0
+
+</details>
+
+<details><summary>Run details</summary>
+
+Uptide 0.11.2 · claude-sonnet-5-5 · 64.3k/2.3k tokens · $0.06 · 2 min
+
+Uptide commit: \`a2a0a4c045ab2e3326e346fd04487ea76591dafb\` (working-tree changes)
+Branch: \`uptide/next-16.0.1\`
+Tier: verified (a migration pack covers this upgrade)
+Verified at: 2026-10-14T03:24:45.141Z
+Verified commit: \`4e79f9f870ceae8c52d2eebaff31b1c03e8dc438\`
+Verified tree: \`fd9eef3224ab49a35cf867c4d36d947e2781fbd6\`
+
+</details>
+"
+`;
+
+exports[`snapshots the regenerated public wort PR body 1`] = `
+"## Upgrade next 15.5.27 → 16.3.8
+
+**Review required before merging.** The code was migrated to next 16. Types compile; runtime behavior needs review.
+
+Upgraded with next, so the install stays consistent:
+
+- \`eslint-config-next\` 15.5.27 → 16.3.8 (eslint-config-next 16.3.8 moves with next 16.3.8 (declared release group))
+
+| | |
+|---|---|
+| **Verified by** | ✅ the next migration pack · ✅ type-check · ✅ build · ⚠️ tests not run: none ran |
+| **Risk** | High: unverified sites |
+| **Changes** | 1 site · 3 changed files · 1 auto-fixed · 0 fixed by the agent (LLM) |
+| **Types** | ✅ the upgrade broke 0 · Uptide left 0 |
+| **Behavior** | ⚠️ not checked |
+| **Tests** | ⚠️ no tests ran: no test script or runner configuration for the repository · ❌ lint fails (eslint) |
+
+<details><summary>Moved with the upgraded packages · 198 transitive changes</summary>
+
+Inside the upgraded packages’ own dependency subtrees; every other resolution is unchanged.
+
+- \`next\` 15.5.27 → 16.3.8 added @babel/code-frame 7.29.7; added @babel/compat-data 7.29.7; added @babel/core 7.29.7; added @babel/generator 7.29.8; added @babel/helper-compilation-targets 7.29.7; added @babel/helper-globals 7.29.7; added @babel/helper-module-imports 7.29.7; added @babel/helper-module-transforms 7.29.7; added @babel/helper-string-parser 7.29.7; added @babel/helper-validator-identifier 7.29.7; added @babel/helper-validator-option 7.29.7; added @babel/helpers 7.29.10; added @babel/parser 7.29.9; added @babel/template 7.29.7; added @babel/traverse 7.29.10; added @babel/types 7.29.8; added @jridgewell/gen-mapping 0.3.5; added @jridgewell/gen-mapping 0.3.13; added @jridgewell/remapping 2.3.5; added @jridgewell/resolve-uri 3.1.2; added @jridgewell/set-array 1.2.1; added @jridgewell/sourcemap-codec 1.5.0; added @jridgewell/trace-mapping 0.3.25; added @jridgewell/trace-mapping 0.3.31; replaced @next/env 15.5.27 with 16.3.8; replaced @next/swc-darwin-arm64 15.5.27 with 16.3.8; replaced @next/swc-darwin-x64 15.5.27 with 16.3.8; replaced @next/swc-linux-arm64-gnu 15.5.27 with 16.3.8; replaced @next/swc-linux-arm64-musl 15.5.27 with 16.3.8; replaced @next/swc-linux-x64-gnu 15.5.27 with 16.3.8; replaced @next/swc-linux-x64-musl 15.5.27 with 16.3.8; replaced @next/swc-win32-arm64-msvc 15.5.27 with 16.3.8; replaced @next/swc-win32-x64-msvc 15.5.27 with 16.3.8; replaced @swc/helpers 0.5.15 with 0.5.23; added baseline-browser-mapping 2.11.28; added browserslist 4.29.3; added caniuse-lite 1.0.30001816; added convert-source-map 2.0.0; added debug 4.3.7; added electron-to-chromium 1.5.454; added escalade 3.2.0; added gensync 1.0.0-beta.2; added js-tokens 4.0.0; added jsesc 3.1.0; added json5 2.2.3; added lru-cache 5.1.1; added ms 2.1.3; added node-releases 2.0.58; replaced postcss 8.4.31 with 8.5.23; added semver 6.3.1; added update-browserslist-db 1.3.4; added yallist 3.1.1.
+- \`eslint-config-next\` 15.5.27 → 16.3.8 added @babel/code-frame 7.29.7; added @babel/compat-data 7.29.7; added @babel/core 7.29.7; added @babel/generator 7.29.8; added @babel/helper-compilation-targets 7.29.7; added @babel/helper-globals 7.29.7; added @babel/helper-module-imports 7.29.7; added @babel/helper-module-transforms 7.29.7; added @babel/helper-string-parser 7.29.7; added @babel/helper-validator-identifier 7.29.7; added @babel/helper-validator-option 7.29.7; added @babel/helpers 7.29.10; added @babel/parser 7.29.9; added @babel/template 7.29.7; added @babel/traverse 7.29.10; added @babel/types 7.29.8; added @eslint-community/eslint-utils 4.9.1; added @eslint-community/eslint-utils 4.10.1; added @eslint-community/regexpp 4.12.2; added @jridgewell/gen-mapping 0.3.5; added @jridgewell/gen-mapping 0.3.13; added @jridgewell/remapping 2.3.5; added @jridgewell/resolve-uri 3.1.2; added @jridgewell/set-array 1.2.1; added @jridgewell/sourcemap-codec 1.5.0; added @jridgewell/trace-mapping 0.3.25; added @jridgewell/trace-mapping 0.3.31; replaced @next/eslint-plugin-next 15.5.27 with 16.3.8; removed @rushstack/eslint-patch 1.10.4; replaced @typescript-eslint/eslint-plugin 8.8.1 with 8.71.2; replaced @typescript-eslint/parser 8.8.1 with 8.71.2; added @typescript-eslint/project-service 8.71.2; replaced @typescript-eslint/scope-manager 8.8.1 with 8.71.2; added @typescript-eslint/tsconfig-utils 8.71.2; replaced @typescript-eslint/type-utils 8.8.1 with 8.71.2; replaced @typescript-eslint/types 8.8.1 with 8.71.2; replaced @typescript-eslint/typescript-estree 8.8.1 with 8.71.2; replaced @typescript-eslint/utils 8.8.1 with 8.71.2; replaced @typescript-eslint/visitor-keys 8.8.1 with 8.71.2; added array-buffer-byte-length 1.0.2; added array-includes 3.2.0; replaced array.prototype.findlastindex 1.2.5 with 1.2.6; added array.prototype.flat 1.3.3; added array.prototype.flatmap 1.3.3; added arraybuffer.prototype.slice 1.0.4; added balanced-match 4.0.4; added baseline-browser-mapping 2.11.28; replaced brace-expansion 2.1.4 with 5.0.12; added browserslist 4.29.3; added call-bind 1.0.9; added call-bind-apply-helpers 1.0.2; added call-bound 1.0.4; added caniuse-lite 1.0.30001816; added convert-source-map 2.0.0; added data-view-buffer 1.0.2; added data-view-byte-length 1.0.2; added data-view-byte-offset 1.0.1; added debug 4.4.3; added dunder-proto 1.0.1; added electron-to-chromium 1.5.454; added es-abstract 1.24.2; added es-abstract-get 1.0.0; added es-define-property 1.0.1; added es-object-atoms 1.1.2; added es-set-tostringtag 2.1.0; added es-shim-unscopables 1.1.0; added es-to-primitive 1.3.4; added escalade 3.2.0; added eslint-module-utils 2.14.0; replaced eslint-plugin-import 2.31.0 with 2.32.0; replaced eslint-plugin-react-hooks 5.2.0 with 7.1.1; added eslint-visitor-keys 5.0.1; added fdir 6.5.0; added for-each 0.3.5; added function.prototype.name 1.2.0; added gensync 1.0.0-beta.2; added get-intrinsic 1.3.0; added get-proto 1.0.1; added get-symbol-description 1.1.0; added globals 16.4.0; added gopd 1.2.0; removed graphemer 1.4.0; added has-proto 1.2.0; added has-symbols 1.1.0; added hasown 2.0.4; added hermes-estree 0.25.1; added hermes-parser 0.25.1; added ignore 7.0.12; added internal-slot 1.1.0; added is-array-buffer 3.0.5; added is-bigint 1.1.0; added is-boolean-object 1.2.2; added is-core-module 2.17.0; added is-data-view 1.0.2; added is-date-object 1.1.0; added is-document.all 1.0.0; added is-finalizationregistry 1.1.1; added is-number-object 1.1.1; added is-regex 1.2.1; added is-shared-array-buffer 1.0.4; added is-string 1.1.1; added is-symbol 1.1.1; added is-typed-array 1.1.15; added is-weakref 1.1.1; added jsesc 3.1.0; added json5 2.2.3; added lru-cache 5.1.1; added math-intrinsics 1.1.0; replaced minimatch 9.0.9 with 10.2.6; added node-releases 2.0.58; added object-inspect 1.13.4; added object.assign 4.1.7; added object.values 1.2.1; added own-keys 1.0.2; added picocolors 1.1.1; added picomatch 4.0.7; added possible-typed-array-names 1.1.0; added reflect.getprototypeof 1.0.10; added regexp.prototype.flags 1.5.4; added safe-array-concat 1.1.4; added safe-push-apply 1.0.0; added safe-regex-test 1.1.0; replaced semver 7.6.3 with 7.8.5; added set-proto 1.0.0; added side-channel 1.1.1; added side-channel-list 1.0.1; added side-channel-map 1.0.1; added side-channel-weakmap 1.0.2; added stop-iteration-iterator 1.1.0; added string.prototype.trim 1.2.11; added string.prototype.trimend 1.0.10; added tinyglobby 0.2.17; replaced ts-api-utils 1.3.0 with 2.5.0; added typed-array-buffer 1.0.3; added typed-array-byte-length 1.0.3; added typed-array-byte-offset 1.0.5; added typed-array-length 1.0.8; added typescript-eslint 8.71.2; added unbox-primitive 1.1.0; added update-browserslist-db 1.3.4; added which-boxed-primitive 1.1.1; added which-builtin-type 1.2.1; added which-typed-array 1.1.24; added yallist 3.1.1; added zod 3.25.76; added zod-validation-error 4.0.2.
+
+</details>
+
+### What changed
+
+**1. lint-removal** · 1 site · auto-fixed
+remove obsolete static Next eslint config; lint tooling remains a review decision. Verification is incomplete.
+<details><summary>Example and files</summary>
+
+\`\`\`diff
+- eslint: {
+- ignoreDuringBuilds: true,
+- },
++
+\`\`\`
+
+- \`next.config.mjs\` (1)
+
+</details>
+
+### Worth a look
+
+- No tests ran. Exercise the changed code by hand before merging.
+- The repository's lint (eslint) fails on the edited files; fix it before merging (see verification details).
+- Verification is incomplete; resolve the recorded run notes before merging.
+
+### Decisions for you
+
+- \`next.config.mjs\` has \`images\`: review image defaults (TTL 14400s, sizes omit 16, qualities [75], at most 3 redirects and blocked local IPs) and localPatterns.search; preserve image security.
+- \`package.json\` scripts.build invokes next build; \`next.config.mjs\` has \`eslint\`: next lint is removed and next build no longer lints; use an explicit ESLint command and CI lint gate.
+- Also review the [Next 16 upgrade guide](https://nextjs.org/docs/app/guides/upgrading/version-16) for metadata promises, browser support and target-minor changes.
+
+<details><summary>Verification details</summary>
+
+Type errors: baseline 0; target 0; after 0; 0 new. Verification: FAIL.
+
+Build after the bump in \`.\`: \`next build\` — passed
+
+| Workspace | Baseline tests | Target tests |
+|---|---|---|
+| . | missing | missing |
+
+- \`.\`: no test script, and no vitest or jest configuration covers this workspace
+
+Lint (eslint) on 1 edited file: FAILED — \`eslint next.config.mjs\`
+\`\`\`text
+Oops! Something went wrong! :(
+
+ESLint: 9.12.0
+
+TypeError: Converting circular structure to JSON
+    --> starting at object with constructor 'Object'
+    |     property 'configs' -> object with constructor 'Object'
+    |     property 'flat/all' -> object with constructor 'Array'
+    |     ...
+    |     property 'plugins' -> object with constructor 'Object'
+    --- property '@typescript-eslint' closes the circle
+Referenced from: 
+    at JSON.stringify (<anonymous>)
+    at file://<repo>/node_modules/.pnpm/@eslint+eslintrc@3.3.7/node_modules/@eslint/eslintrc/lib/shared/config-validator.js:308:45
+    at Array.map (<anonymous>)
+    at ConfigValidator.formatErrors (file://<repo>/node_modules/.pnpm/@eslint+eslintrc@3.3.7/node_modules/@eslint/eslintrc/lib/shared/config-validator.js:299:23)
+    at ConfigValidator.validateConfigSchema (file://<repo>/node_modules/.pnpm/@eslint+eslintrc@3.3.7/node_modules/@eslint/eslintrc/lib/shared/config-validator.js:330:84)
+    at ConfigArrayFactory._normalizeConfigData (file://<repo>/node_modules/.pnpm/@eslint+eslintrc@3.3.7/node_modules/@eslint/eslintrc/lib/config-array-factory.js:676:19)
+    at ConfigArrayFactory._loadConfigData (file://<repo>/node_modules/.pnpm/@eslint+eslintrc@3.3.7/node_modules/@eslint/eslintrc/lib/config-array-factory.js:641:21)
+    at ConfigArrayFactory._loadExtendedShareableConfig (file://<repo>/node_modules/.pnpm/@eslint+eslintrc@3.3.7/node_modules/@eslint/eslintrc/lib/config-array-factory.js:946:21)
+    at ConfigArrayFactory._loadExtends (file://<repo>/node_modules/.pnpm/@eslint+eslintrc@3.3.7/node_modules/@eslint/eslintrc/lib/config-array-factory.js:814:25)
+    at ConfigArrayFactory._normalizeObjectConfigDataBody (file://<repo>/node_modules/.pnpm/@eslint+eslintrc@3.3.7/node_modules/@eslint/eslintrc/lib/config-array-factory.js:752:25)
+\`\`\`
+
+**Run notes**
+
+- Next.js 16 upgrade guide (read 2026-10-13): https://nextjs.org/docs/app/guides/upgrading/version-16
+- Image priority deprecation (read 2026-10-13): https://nextjs.org/docs/app/api-reference/components/image#priority
+- Next.js 16 announcement: https://nextjs.org/blog/next-16
+- Official codemod source, pinned 16.4.0: https://github.com/vercel/next.js/tree/v16.4.0/packages/next-codemod
+- Next.js 16.0.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.0.0
+- Next.js 16.1.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.1.0
+- Next.js 16.2.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.2.0
+- Next.js 16.3.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.3.0
+- Next.js 16.4.0 release notes (read 2026-10-13): https://github.com/vercel/next.js/releases/tag/v16.4.0
+
+</details>
+
+<details><summary>Run details</summary>
+
+Uptide 0.11.2 · claude-sonnet-5-5 · 0.0k/0.0k tokens · $0.00 · 1 min
+
+Uptide commit: \`a2a0a4c045ab2e3326e346fd04487ea76591dafb\` (working-tree changes)
+Branch: \`uptide/next-16.3.8\`
+Tier: verified (a migration pack covers this upgrade)
+Verified at: 2026-10-14T03:22:58.365Z
+Verified commit: \`d05802b0710383ed850b249292c2c8f9deaa5b08\`
+Verified tree: \`411c75b9127272438296f77b23c1f93c3067fde3\`
+
+</details>
+"
+`;
