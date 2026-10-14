@@ -55,6 +55,7 @@ verified with two or more public repositories and no false positive. The contrac
 | Package | Range | Precision | Recall | Ground-truth repositories | Status |
 | --- | --- | ---: | ---: | --- | --- |
 | `ai` | 6.x → 7.x | 100% | 82% | vercel/chatbot, miurla/morphic | verified |
+| `next` | 15.x → 16.x | 100% | 85% | sambecker/exif-photo-blog, stoczec/wortkarte | verified |
 | `react` | 18.x → 19.x | 100% | 69% | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `stripe` | 14 and newer | 100% | 90% | unkeyed/unkey, nextjs/saas-starter | verified |
 | `vitest` | 4.x → 5.x | 100% | 50% | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |

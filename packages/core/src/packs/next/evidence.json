@@ -1,0 +1,148 @@
+{
+  "readAt": "2026-10-13",
+  "method": "Independent scripts-off target installs in scratch clones; repository TypeScript, not Uptide check. Both parent tsc commands exited 0. Original packs:truth linked target drafts were rejected for ambient type resolution artifacts. See RESEARCH.md.",
+  "repos": [
+    {
+      "repo": "sambecker/exif-photo-blog",
+      "parent": "3f1a36354d203e5a28f7c2cd55eceda95a13e3bd",
+      "upgrade": "c8ea51cdd1c2604e0ad0f7f2420e7e07160a85fa",
+      "baselineTscExit": 0,
+      "targetTscExit": 2,
+      "targetInstallScripts": false,
+      "compiler": "typescript 5.9.3, the repository's",
+      "newDiagnostics": [
+        {
+          "file": "src/components/image/ImageWithFallback.tsx",
+          "line": 16,
+          "code": 6385,
+          "message": "'priority' is deprecated."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 105,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 108,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 111,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 114,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 117,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 120,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 123,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 126,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 129,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/cache.ts",
+          "line": 154,
+          "code": 2554,
+          "message": "Expected 2 arguments, but got 1."
+        },
+        {
+          "file": "src/photo/form/PhotoForm.tsx",
+          "line": 375,
+          "code": 6385,
+          "message": "'priority' is deprecated."
+        },
+        {
+          "file": "src/photo/PhotoLarge.tsx",
+          "line": 230,
+          "code": 6385,
+          "message": "'priority' is deprecated."
+        },
+        {
+          "file": "src/photo/PhotoMedium.tsx",
+          "line": 82,
+          "code": 6385,
+          "message": "'priority' is deprecated."
+        }
+      ],
+      "baselineDiagnosticCounts": {
+        "errors": 0,
+        "deprecations": 0
+      }
+    },
+    {
+      "repo": "stoczec/wortkarte",
+      "parent": "e3bd3679ae6ea60ce2a78aefebec0caa48c4febd",
+      "upgrade": "92f8a566fd5a54ac49e89fc98d1fb1de4fbd24a1",
+      "baselineTscExit": 0,
+      "targetTscExit": 0,
+      "targetInstallScripts": false,
+      "compiler": "typescript 5.9.3, the repository's",
+      "newDiagnostics": [],
+      "baselineDiagnosticCounts": {
+        "errors": 0,
+        "deprecations": 61
+      }
+    }
+  ],
+  "rejectedHelperDrafts": {
+    "exifDiagnosticCount": 56,
+    "exifMissedRevalidateTagErrors": 10,
+    "wortSpuriousDiagnostic": "src/app/contacts/page.tsx:29 TS7006"
+  },
+  "publishedPeers": {
+    "next@16.0.0": {
+      "sass": "^1.3.0",
+      "react": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0",
+      "react-dom": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0",
+      "@playwright/test": "^1.51.1",
+      "@opentelemetry/api": "^1.1.0",
+      "babel-plugin-react-compiler": "*"
+    },
+    "next@16.4.0": {
+      "sass": "^1.3.0",
+      "react": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0",
+      "react-dom": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0",
+      "@playwright/test": "^1.51.1",
+      "@opentelemetry/api": "^1.1.0",
+      "babel-plugin-react-compiler": "*"
+    },
+    "next-i18next@15.4.3": {
+      "next": ">= 12.0.0",
+      "react": ">= 17.0.2",
+      "i18next": ">= 23.7.13",
+      "react-i18next": ">= 13.5.0"
+    }
+  }
+}

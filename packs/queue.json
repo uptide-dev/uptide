@@ -242,7 +242,7 @@
       "from": ">=15 <16",
       "to": ">=16 <17",
       "why": "declared directly in 27 of 52 sample repositories, 10 of them on an older major; 75 breaking API changes, 74 distinct (59 removed or renamed, 15 change shapes) from 15.5.27 to 16.4.0; upgraded with @next/bundle-analyzer, @next/mdx, @next/third-parties, eslint-config-next (released in lockstep)",
-      "status": "todo",
+      "status": "in-progress",
       "repos": 27,
       "reposBehind": 10,
       "weeklyDownloads": 0,

@@ -17,6 +17,7 @@ A pack is a directory `packages/core/src/packs/<name>/`:
 | --- | --- |
 | `index.ts` | the pack: metadata, rules, behavior notes, agent instructions |
 | `fixtures/<case>/before.ts`, `after.ts` | code before and after the rules, with the sites marked |
+| `fixtures/<case>/filename.txt` (optional) | logical workspace-relative filename for convention-sensitive rules; defaults to the fixture path |
 | `<name>.test.ts` | runs the fixtures under `pnpm test` (scaffolded) |
 | `ground-truth.json` | real public repositories at a pinned commit, with the findings expected there |
 | `verification.json` | what `uptide pack test --write` measured; the status the CLI shows |
