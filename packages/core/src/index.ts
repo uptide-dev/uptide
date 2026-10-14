@@ -139,7 +139,13 @@ export {
 export { planPackage } from './fix/plan.js';
 export { openPr, type PrOptions } from './fix/pr.js';
 export { updatePrBody } from './fix/pr-body.js';
-export { type PublishTarget, publicationBlockers, publishTarget } from './fix/publish.js';
+export {
+  PublishError,
+  type PublishTarget,
+  publicationBlockers,
+  publicationFailureReason,
+  publishTarget,
+} from './fix/publish.js';
 export {
   fixCounts,
   formatFix,

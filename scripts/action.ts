@@ -13,7 +13,7 @@ import { engineEnv, engineFromBuild, publishEnv } from '../packages/core/src/act
 import { appBotIdentity, openUptideBranches } from '../packages/core/src/action/github.ts';
 import { installationTokens, maskWithRunner } from '../packages/core/src/action/oidc.ts';
 import { postResults } from '../packages/core/src/action/results.ts';
-import { runAction } from '../packages/core/src/action/run.ts';
+import { PublishFailure, runAction } from '../packages/core/src/action/run.ts';
 import { assertSafeReport } from '../packages/core/src/run-report/safe.ts';
 import { renderSummary } from '../packages/core/src/run-report/summary.ts';
 
@@ -74,13 +74,15 @@ const report = await runAction(
           ['pr', '--branch', branch, '--yes', '--json', '--ci', '--cwd', workspace],
           withToken,
         );
-        let url: unknown;
+        let answer: { url?: unknown; error?: { reason?: unknown } } = {};
         try {
-          url = (JSON.parse(run.stdout) as { url?: unknown }).url;
+          answer = JSON.parse(run.stdout);
         } catch {}
-        if (run.code !== 0 || typeof url !== 'string')
+        const reason = answer.error?.reason;
+        if (typeof reason === 'string') throw new PublishFailure(reason);
+        if (run.code !== 0 || typeof answer.url !== 'string')
           throw new Error(`uptide pr exited ${run.code}`);
-        return url;
+        return answer.url;
       } finally {
         cleanup();
       }

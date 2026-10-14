@@ -3,6 +3,7 @@ import { basename, relative, resolve } from 'node:path';
 import type { CheckReport, CheckResult, FixReport, LoadedConfig } from '@uptide/core';
 import {
   activePacks,
+  errorCode,
   formatFix,
   isFailure,
   loadUptideConfig,
@@ -10,6 +11,7 @@ import {
   PRICE_DATE,
   packageSelected,
   priceFor,
+  publicationFailureReason,
   registeredPacks,
   scaffoldPack,
   selectLlm,
@@ -1251,6 +1253,9 @@ ${EXIT_CODES('PR opened (or plan printed without --yes)', 'branch tree does not 
             io.err('Nothing pushed. Add --yes to push the branch and open the PR.\n');
             return EXIT.ok;
           }
+          // The Action reports this sentence; the full error still goes to stderr below.
+          const reason = publicationFailureReason(err);
+          if (flags.json && reason) emit({ error: { code: errorCode(err), reason } });
           throw err;
         }
       }),

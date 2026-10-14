@@ -15,6 +15,7 @@ import {
   type ActionServices,
   LLM_DISABLED,
   LLM_KEY_MISSING,
+  PublishFailure,
   runAction,
 } from './run.js';
 
@@ -583,6 +584,22 @@ describe('the Uptide Action run', () => {
     expect(report.upgrades[0]?.error).toBe(
       'verified, but the pull request could not be opened; the job log has the reason',
     );
+  });
+
+  it('fix: when uptide pr names why it did not publish, the report and the job summary say it', async () => {
+    const { s } = services({
+      list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+      fix: () => fixRun(storefrontFix()),
+      publish: async () => {
+        throw new PublishFailure('the branch on GitHub changed while it was being published');
+      },
+    });
+    const report = await runAction(inputs(workspace('version: 1\n')), s);
+    const error =
+      'verified, but the pull request could not be opened: the branch on GitHub changed while it was being published';
+    expect(report.upgrades[0]).toMatchObject({ status: 'failed', pr: null, error });
+    expect(reportProblems(report)).toEqual([]);
+    expect(renderSummary(report)).toContain(error);
   });
 
   it('a settings file that does not validate stops the run before anything runs', async () => {
