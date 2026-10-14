@@ -14,11 +14,18 @@ const decisions = (inventory: Record<string, string>) =>
     [],
   );
 const scoped = (inventory: Record<string, string>) =>
-  decisions(inventory).filter((line) => !line.includes('Also review'));
+  decisions({
+    'package.json': JSON.stringify({
+      engines: { node: '22' },
+      devDependencies: { typescript: '5.9.3' },
+    }),
+    ...inventory,
+  }).filter((line) => !line.includes('Also review'));
 
-it('keeps an empty/unrelated repository to a single upgrade-guide line', () => {
-  expect(scoped({ 'next.config.mjs': 'export default {}', 'package.json': '{}' })).toEqual([]);
+it('keeps an unrelated repository to scoped platform guidance and an upgrade-guide line', () => {
+  expect(scoped({ 'next.config.mjs': 'export default {}' })).toEqual([]);
   expect(decisions({})).toEqual([
+    expect.stringContaining('No Node version found'),
     expect.stringContaining('Also review the [Next 16 upgrade guide]'),
   ]);
   expect(
@@ -61,13 +68,13 @@ it('reports package scripts and platform evidence with their locations', () => {
       devDependencies: { typescript: '~5.0.0' },
     }),
     '.github/workflows/test.yml':
-      'steps:\n  - uses: actions/setup-node@v4\n    with:\n      node-version: 18',
+      'jobs:\n  test:\n    steps:\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 18',
     '.nvmrc': '18\n',
   });
   expect(lines).toHaveLength(2);
   expect(lines.join('\n')).toContain('scripts.lint');
-  expect(lines.join('\n')).toContain('engines.node="18.x"');
-  expect(lines.join('\n')).toContain('.github/workflows/test.yml:4');
+  expect(lines.join('\n')).toContain('engines.node "18.x"');
+  expect(lines.join('\n')).toContain('.github/workflows/test.yml');
   expect(lines.join('\n')).toContain('TypeScript "~5.0.0"');
 });
 it('scopes middleware and route ppr by file convention and exported declaration', () => {

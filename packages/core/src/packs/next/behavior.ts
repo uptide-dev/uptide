@@ -1,6 +1,7 @@
 import { ts } from 'ts-morph';
 import type { BehaviorNote } from '../contract.js';
 import type { PackContext } from '../types.js';
+import { platformEvidence } from './platform.js';
 
 const guide = 'https://nextjs.org/docs/app/guides/upgrading/version-16';
 const config = /(?:^|\/)next\.config\.(?:js|mjs|ts|cjs)$/;
@@ -165,35 +166,12 @@ export const nextBehavior: BehaviorNote[] = [
       return [configured, ...pages].filter(Boolean).join('; ') || false;
     },
   ),
-  note(
-    'platform-minimums',
-    'verify Node >=20.9.0 and TypeScript >=5.1.0 in CI and deployment.',
-    (c) => {
-      const hits = files(c).flatMap((f) => {
-        if (/(?:^|\/)package\.json$/.test(f.file)) {
-          const pkg = JSON.parse(f.text);
-          return [
-            pkg.engines?.node && `\`${f.file}\` engines.node=${JSON.stringify(pkg.engines.node)}`,
-            (pkg.devDependencies?.typescript ?? pkg.dependencies?.typescript) &&
-              `\`${f.file}\` declares TypeScript ${JSON.stringify(pkg.devDependencies?.typescript ?? pkg.dependencies?.typescript)}`,
-          ].filter((v): v is string => !!v);
-        }
-        if (/\.github\/workflows\/.*\.ya?ml$/.test(f.file)) {
-          return f.text
-            .split('\n')
-            .flatMap((line, i) =>
-              /^\s*node-version\s*:/.test(line)
-                ? [`\`${f.file}:${i + 1}\` sets ${line.trim()}`]
-                : [],
-            );
-        }
-        if (/(?:^|\/)(?:\.nvmrc|\.node-version)$/.test(f.file))
-          return [`\`${f.file}\` pins Node ${f.text.trim()}`];
-        return [];
-      });
-      return hits.join('; ') || false;
-    },
-  ),
+  {
+    id: 'platform-minimums',
+    summary: 'Check unsupported or unknown platform versions.',
+    reported: ['decision'],
+    applies: platformEvidence,
+  },
   note(
     'routing-build',
     'parallel route slots require a default file; choose null or notFound for missing fallbacks.',

@@ -211,6 +211,8 @@ describe('end-of-task gate', () => {
       after: [diag('src/a.ts', 5, 2304, "Cannot find name 'line3'.")],
     });
     expect(record).toMatchObject({ gate: 'accepted', fixed: 1, turns: 3, costUsd: 0.01 });
+    expect(record?.diffs?.['src/a.ts']).toContain('@@');
+    expect(sites[0]?.diff).toContain('@@');
     expect(sites[0]).toMatchObject({ outcome: 'agent', reason: 'reads the period from the item' });
     expect(git(root, 'status', '--porcelain')).toBe('');
     expect(git(root, 'log', '-1', '--format=%s')).toBe('fix(stripe): subscription-period (agent)');

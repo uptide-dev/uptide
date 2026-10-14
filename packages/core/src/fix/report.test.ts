@@ -773,9 +773,7 @@ it("keeps a PR description under GitHub's limit: what matters first, the rest co
   expect(body).toMatch(
     /- … \d+ more not shown here: \[Stripe's changelog\]\(https:\/\/docs\.stripe\.com\/changelog\), 2023-10-16 → 2026-09-30\.endive\./,
   );
-  expect(body).toContain(
-    "_Test output (passed) left out: this description is at GitHub's size limit._",
-  );
+  expect(body).toContain('ok line (repeated 4000 times)');
   // A description is read on GitHub: it never points at a file on the author's machine.
   expect(body).not.toMatch(/report\.html|stored run|\.git\//);
   // Decisions once; commands with the published dist-tag.

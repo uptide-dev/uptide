@@ -335,6 +335,7 @@ export function taskPrompt(input: {
     '',
     "Read independent files together and make related edits together. Check types and lint before running tests: check_types shows errors new since the task started and those left in the task's files; run_lint first formats the changed files; run_tests checks the task's files. Finish edits, including comments, before the final checks, and repeat tests only after further edits. These are the repository's own checks and the same judges your edits face when you finish. There is no shell, no network, no installs and no git: say in couldNotDo what would need them. Do not silence the compiler (@ts-ignore, @ts-expect-error, as any, as unknown as). Keep behaviour the same except where the upgrade changes it; where data the code relied on may now be missing, handle that explicitly rather than letting it pass silently.",
     '',
+    'For every choice between options in a rule guide, include in decisions what you chose, why, the alternatives and what the owner should confirm. Name the affected files and number of calls. Do not bury choices only in assumptions or couldNotDo.',
     'Finish with the structured summary: what you changed, the decisions you made and the assumptions behind them, and anything you could not do.',
   ].join('\n');
 }
@@ -343,6 +344,7 @@ const tail = (text: string, max: number) => (text.length > max ? `…${text.slic
 
 /** One task that ran and left a commit, waiting for its gate. */
 interface Pending {
+  start: string;
   task: AgentTask;
   run: TaskRun;
   record: AgentTaskRecord;
@@ -446,6 +448,12 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
   };
   const accept = (p: Pending) => {
     p.record.gate = 'accepted';
+    p.record.diffs = Object.fromEntries(
+      p.touched.map((file) => [
+        file,
+        git(root, 'diff', '--no-ext-diff', '--unified=3', p.start, '--', file),
+      ]),
+    );
     const left = new Set(p.after.map(unplacedKey));
     for (const s of p.task.sites) {
       const u = s.finding.usage;
@@ -463,6 +471,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       s.reason =
         p.run.summary?.changed.find((c) => c.file === u.file)?.what ?? 'migrated by the SDK agent';
       s.editedFiles = p.touched;
+      s.diff = p.record.diffs[u.file] || Object.values(p.record.diffs).filter(Boolean).join('\n');
       p.record.fixed++;
     }
   };
@@ -575,7 +584,16 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       touched.map((f) => join(root, f)),
     );
     current = input.diagnostics();
-    const pending: Pending = { task, run, record, said, before, after: current, touched };
+    const pending: Pending = {
+      start: taskStart,
+      task,
+      run,
+      record,
+      said,
+      before,
+      after: current,
+      touched,
+    };
     const verdict = await judge(taskStart, before, current, [
       ...new Set([...task.files, ...touched]),
     ]);
