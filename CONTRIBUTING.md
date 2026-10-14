@@ -156,6 +156,31 @@ open a **Pack request** issue, and say you are writing it.
 
 `pnpm uptide` runs the CLI from source, so nothing needs building while you work.
 
+## Run pack test locally
+
+`pnpm uptide pack test` installs each ground-truth repository with the package manager its
+lockfile names, scripts off. For a full run:
+
+- **Corepack for Yarn only.** Repositories that pin Yarn Berry in `packageManager` (tldraw,
+  `yarn@4.7.0`) fail under Yarn 1. Run `corepack enable yarn`, not `corepack enable`: that
+  also replaces your global pnpm with a shim, and tests that run pnpm outside this checkout
+  then try to download a pnpm of corepack's choosing.
+- **Where Yarn 4 comes from.** Corepack fetches Yarn 2 and later from repo.yarnpkg.com. Where
+  that host is blocked (a proxy, an allowlist), fetch it from npm instead:
+  `export COREPACK_NPM_REGISTRY=https://registry.npmjs.org COREPACK_ENABLE_DOWNLOAD_PROMPT=0`.
+- **Disk.** Each repository stays cached with its dependencies installed, 2 to 8 GB per pack.
+  To score every pack on a bounded disk, give each pack its own caches and delete them after:
+  ```sh
+  for p in ai zod; do   # each pack you score
+    export UPTIDE_GROUND_TRUTH_CACHE=/tmp/uptide-truth/$p UPTIDE_CACHE_DIR=/tmp/uptide-cache/$p
+    pnpm uptide pack test $p
+    rm -rf "$UPTIDE_GROUND_TRUTH_CACHE" "$UPTIDE_CACHE_DIR"
+  done
+  ```
+  Comparing two checkouts (a before and after table), score each pack in both before you
+  delete its caches. In-tree fixtures (`fixtures/repos/storefront`) are installed inside the
+  checkout itself, so run each checkout once without `--offline`.
+
 ## Rules that do not bend
 
 These are what make Uptide safe to run on someone else's code. A pull request that breaks
