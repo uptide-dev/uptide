@@ -10,6 +10,8 @@ export interface LockRecord {
 export interface LockGraph {
   records: Map<string, LockRecord>;
   metadata: unknown;
+  /** pnpm exposes named importer/catalog specifier-resolution pairs, not manager metadata. */
+  resolutionMetadata?: boolean;
   roots?: Record<string, Record<string, string | undefined>>;
   /** npm placements can disappear when a copy is hoisted to an ancestor. */
   relocate?(key: string, previous: LockGraph): string | undefined;
@@ -211,8 +213,15 @@ export function assertLockScope(
   const diff: LockDiff = { added: [], removed: [], changed: [], allowed: [...allowed].sort() };
   const housekeeping: LockHousekeeping = { deduped: [], metadata: [] };
   const unexpected = new Set<string>();
-  if (stable(before.metadata) !== stable(after.metadata))
-    unexpected.add('lockfile metadata/importers');
+  if (stable(before.metadata) !== stable(after.metadata)) {
+    if (before.resolutionMetadata && after.resolutionMetadata) {
+      const left = before.metadata as Record<string, unknown>;
+      const right = after.metadata as Record<string, unknown>;
+      for (const key of new Set([...Object.keys(left), ...Object.keys(right)]))
+        if (stable(left[key]) !== stable(right[key]))
+          unexpected.add(`${key} (${stable(left[key])} → ${stable(right[key])})`);
+    } else unexpected.add('lockfile metadata/importers');
+  }
 
   const equivalent = (a: string, b: string, seen = new Set<string>()): boolean => {
     const left = before.records.get(a),

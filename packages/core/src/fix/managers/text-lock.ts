@@ -260,6 +260,38 @@ function mergeVariants(variants: LockRecord[]): LockRecord | undefined {
   return { ...first, data, edges };
 }
 
+/** Strip only balanced registry-peer groups, preserving patch hashes and local locators. */
+function pnpmResolvedVersion(version: unknown): unknown {
+  if (
+    typeof version !== 'string' ||
+    !/^(?:(?:@[^/()]+\/)?[^@/():]+@)?\d+\.\d+\.\d+(?:[-+][\w.+-]+)?\(/.test(version)
+  )
+    return version;
+  const start = version.indexOf('(');
+  let result = version.slice(0, start);
+  let offset = start;
+  while (offset < version.length) {
+    if (version[offset] !== '(') return version;
+    let depth = 0;
+    let end = offset;
+    do {
+      if (version[end] === '(') depth++;
+      if (version[end] === ')') depth--;
+      end++;
+    } while (end < version.length && depth > 0);
+    if (depth) return version;
+    const group = version.slice(offset, end);
+    if (!/^\((?:@[^/()]+\/)?[^@/()=]+@\d+\.\d+\.\d+/.test(group)) result += group;
+    offset = end;
+  }
+  return result;
+}
+function pnpmImporterResolution(entry: unknown): unknown {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
+  const { specifier, version } = entry as { specifier?: unknown; version?: unknown };
+  return { specifier, version: pnpmResolvedVersion(version) };
+}
+
 export function pnpmGraph(raw: string, target: Targets): LockGraph {
   const lock = parseYaml(raw);
   if (!lock || typeof lock !== 'object' || Array.isArray(lock) || !lock.lockfileVersion)
@@ -268,8 +300,40 @@ export function pnpmGraph(raw: string, target: Targets): LockGraph {
     value === undefined
       ? value
       : JSON.parse(withoutTargetPeerVersion(JSON.stringify(value), target));
-  const { packages = {}, snapshots = {}, ...rest } = lock;
-  const metadata = peerless(rest);
+  const { packages = {}, snapshots = {} } = lock;
+  // pnpm's importer locators include peer environments, not extra package versions.
+  // Protect each declared specifier and resolved locator, not manager bookkeeping.
+  const metadata: Record<string, unknown> = {};
+  for (const [workspace, importer] of Object.entries(lock.importers ?? { '.': lock })) {
+    for (const section of [
+      'dependencies',
+      'devDependencies',
+      'optionalDependencies',
+      'peerDependencies',
+    ]) {
+      for (const [name, entry] of Object.entries(
+        (importer as Record<string, object>)[section] ?? {},
+      )) {
+        if (targetNames(target).includes(name)) continue;
+        metadata[`importer ${workspace} ${section}.${name}`] = pnpmImporterResolution(
+          typeof entry === 'string'
+            ? {
+                specifier: (importer as { specifiers?: Record<string, unknown> }).specifiers?.[
+                  name
+                ],
+                version: entry,
+              }
+            : entry,
+        );
+      }
+    }
+  }
+  for (const [catalog, entries] of Object.entries(lock.catalogs ?? {})) {
+    for (const [name, entry] of Object.entries(entries as object)) {
+      if (targetNames(target).includes(name)) continue;
+      metadata[`catalog ${catalog} ${name}`] = pnpmImporterResolution(entry);
+    }
+  }
   const records = new Map<string, LockRecord>();
   const locator = (name: string, version: string) =>
     /^(?:@[^/()]+\/)?[^@/()]+@/.test(version) ? version : `${name}@${version}`;
@@ -341,12 +405,5 @@ export function pnpmGraph(raw: string, target: Targets): LockGraph {
     for (const [name, key] of Object.entries(record.edges)) record.edges[name] = resolve(key);
     record.dependencies = Object.values(record.edges).filter((k): k is string => k !== undefined);
   }
-  // Importer specs and manager settings remain protected independently of package metadata.
-  if (metadata.importers)
-    for (const [name, importer] of Object.entries(metadata.importers))
-      metadata.importers[name] = withoutTarget(importer as Record<string, unknown>, target);
-  if (metadata.catalogs)
-    for (const catalog of Object.values(metadata.catalogs))
-      for (const name of targetNames(target)) delete (catalog as Record<string, unknown>)[name];
-  return { records, metadata };
+  return { records, metadata, resolutionMetadata: true };
 }
