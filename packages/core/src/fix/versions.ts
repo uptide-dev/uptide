@@ -273,6 +273,52 @@ export function bumpVersions(
   if (!workspaces.length) throw new Error(`no workspace declares ${name}`);
   return { files, workspaces, alreadyCompatible };
 }
+/**
+ * A lead the repository installs only through an alternate lead (`react-router` through
+ * `react-router-dom`) is declared beside the alternate, at the target, in the same section
+ * and range style, in each workspace that declares the alternate and not the lead: the
+ * upgrade then moves both. Nothing is written when some workspace already declares the lead.
+ * Returns the files written.
+ */
+export function declareLead(
+  root: string,
+  name: string,
+  alternates: readonly string[],
+  version: string,
+): string[] {
+  if (!alternates.length) return [];
+  const manifests = workspacePackagesOf(root).map((workspace) => {
+    const file = join(root, workspace, 'package.json');
+    const text = readFileSync(file, 'utf8');
+    return { file, text, json: JSON.parse(text) };
+  });
+  if (manifests.some(({ json }) => sections.some((s) => typeof json[s]?.[name] === 'string')))
+    return [];
+  const files: string[] = [];
+  for (const { file, text, json } of manifests) {
+    const section = (['dependencies', 'devDependencies', 'optionalDependencies'] as const).find(
+      (s) => alternates.some((a) => typeof json[s]?.[a] === 'string'),
+    );
+    if (!section) continue;
+    const alternate = alternates.find((a) => typeof json[section][a] === 'string') as string;
+    const spec: string = json[section][alternate];
+    if (/^(?:catalog|npm|workspace|link|file):/.test(spec))
+      throw new UptideError(
+        'UNSUPPORTED_VERSION_RANGE',
+        `${relative(root, file)}: ${section}.${alternate} is ${JSON.stringify(spec)}; declare ${name} ${version} beside it by hand, then rerun.`,
+      );
+    const entries = Object.entries(json[section] as Record<string, string>);
+    const keys = entries.map(([key]) => key);
+    const sorted = keys.every((key, i) => i === 0 || (keys[i - 1] as string) <= key);
+    entries.push([name, versionRange(spec, version)]);
+    if (sorted) entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    json[section] = Object.fromEntries(entries);
+    writeFileSync(file, `${JSON.stringify(json, null, text.match(/\n(\s+)"/)?.[1] ?? '  ')}\n`);
+    files.push(file);
+  }
+  return files;
+}
+
 export async function install(root: string, upgrade?: Upgrade): Promise<InstallReport | undefined> {
   if (upgrade) return isolatedUpgrade(root, upgrade);
   const pm = await assertManagerAvailable(root);

@@ -13,7 +13,8 @@ import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { DEFAULT_MAX_COST_USD, providerFixer } from '../llm/fixer.js';
 import { decisionInventory, packDecisions } from '../packs/decisions.js';
 import { genericPack } from '../packs/generic.js';
-import { activePack } from '../packs/index.js';
+import { activePack, activePacks } from '../packs/index.js';
+import { leadName } from '../packs/leads.js';
 import { payloadApiVersions, stripeUsageContext } from '../packs/stripe/relevance.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { resetSharedState } from '../shared-state.js';
@@ -68,6 +69,7 @@ import {
   assertNoDowngrades,
   assertNoPinningOverrides,
   bumpVersions,
+  declareLead,
   install,
   packageManager,
   validateVersionRanges,
@@ -201,7 +203,9 @@ export async function fix(
   services: FixServices = defaults,
 ): Promise<FixReport> {
   try {
-    return await fixPackage(options, services);
+    // Asked for by an alternate lead's name (`react-router-dom`), the pack's lead is fixed.
+    const only = leadName(options.only, options.pack ? [options.pack] : activePacks());
+    return await fixPackage(only === options.only ? options : { ...options, only }, services);
   } catch (err) {
     resetSharedState();
     throw err;
@@ -408,6 +412,13 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const baselineLint = await (services.lint ?? lintFiles)(root, affected);
   const baseHead = git(root, 'rev-parse', 'HEAD');
   git(root, 'switch', '-c', branch);
+  // A workspace that reaches the lead only through an alternate lead declares it now.
+  const declaredLead = declareLead(
+    root,
+    pack.name,
+    (pack.alternateLeads ?? []).map((a) => a.name),
+    target,
+  );
   const bumps = [
     bumpVersions(root, pack.name, target),
     ...companions.map((c) => bumpVersions(root, c.name, c.to)),
@@ -415,6 +426,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const bump = {
     files: [
       ...new Set([
+        ...declaredLead,
         ...bumps.flatMap((b) => b.files),
         ...writePeerOverrides(root, peerPlan?.conflicts ?? []),
       ]),

@@ -377,3 +377,29 @@ fail: only a member the group needs and no release agrees with is a conflict.
 For Next, the declared members are `eslint-config-next`, `@next/eslint-plugin-next`,
 `@next/bundle-analyzer`, `@next/mdx`, and `@next/third-parties`; declare only installed
 members of this release family, not independently versioned React packages.
+
+### Alternate leads
+
+Some packages are mostly installed through another one that re-exports them: most React
+Router 6 applications declare `react-router-dom`, which depends on `react-router` at its own
+exact version. `alternateLeads` names such packages, each with an official HTTPS `source`
+(`pack test` validates them like companions):
+
+```ts
+releaseGroup: [{ name: 'react-router-dom', source }],
+alternateLeads: [{ name: 'react-router-dom', source }],
+```
+
+- Asked for by an alternate's name, `check` and `fix` use the pack and report under its lead
+  (`uptide check react-router-dom` is `uptide check react-router`); a `--target` named after
+  the alternate is the lead's.
+- In a workspace that declares the alternate and not the lead, the lead is analyzed at the
+  version installed through the alternate (hoisted, or beside the alternate in a pnpm store)
+  and reported as undeclared, `via` the alternate, with a note that `fix` declares it.
+- `fix` then declares the lead next to the alternate, at the target, in the same manifest
+  section and range style (`^6.30.1` gives `^7.18.4`), before the upgrade; the alternate moves
+  as the release group says. A catalog, alias or workspace reference to the alternate is
+  refused with what to write by hand. Removing the alternate is left to a later upgrade that
+  requires it, once nothing imports it.
+- Only packages asked for by name are re-attributed; a pack of the alternate's own name wins
+  over one that names it as an alternate.

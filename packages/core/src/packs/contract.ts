@@ -311,6 +311,7 @@ export interface PackSpec {
   inventory?: readonly string[];
   requiresBuild?: boolean;
   releaseGroup?: readonly PackCompanion[];
+  alternateLeads?: readonly PackCompanion[];
 }
 
 /**
@@ -330,6 +331,7 @@ export function definePack(spec: PackSpec): Pack {
     ...(spec.inventory ? { inventory: spec.inventory } : {}),
     ...(spec.requiresBuild ? { requiresBuild: true } : {}),
     ...(spec.releaseGroup ? { releaseGroup: spec.releaseGroup } : {}),
+    ...(spec.alternateLeads ? { alternateLeads: spec.alternateLeads } : {}),
     defaultTarget: spec.defaultTarget ?? '',
     supports: (from, to) => satisfies(from, spec.meta.from) && satisfies(to, spec.meta.to),
     transform(text, finding, context) {

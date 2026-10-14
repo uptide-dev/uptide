@@ -132,6 +132,14 @@ export interface MigrationPack {
   readonly requiresBuild?: boolean;
   /** Installed lockstep releases move even without a manifest edge or incompatible peer. */
   readonly releaseGroup?: readonly PackCompanion[];
+  /**
+   * Packages a repository may declare instead of this one, which install it as their own
+   * dependency (`react-router-dom` for `react-router`). Asked for by either name, `check` and
+   * `fix` use this pack; in a workspace that declares only an alternate, the lead is analyzed
+   * at the version installed through it, and `fix` declares the lead at the target beside it.
+   * Each carries the official `source` that says the alternate stands for the lead.
+   */
+  readonly alternateLeads?: readonly PackCompanion[];
   readonly defaultTarget: string;
   readonly rules: readonly MigrationRule[];
   supports(from: string, to: string): boolean;
