@@ -114,6 +114,8 @@ export interface MigrationPack {
    * need no entry.
    */
   readonly companions?: readonly PackCompanion[];
+  /** Installed lockstep releases move even without a manifest edge or incompatible peer. */
+  readonly releaseGroup?: readonly PackCompanion[];
   readonly defaultTarget: string;
   readonly rules: readonly MigrationRule[];
   supports(from: string, to: string): boolean;

@@ -121,6 +121,7 @@ export async function peerPreflight(
     !deps.some((d) =>
       Object.keys(d.manifest.peerDependencies ?? {}).some((name) => installedNames.has(name)),
     ) &&
+    !pack?.releaseGroup?.some((c) => installedNames.has(c.name)) &&
     !options.also?.length &&
     !options.allowPeer?.length
   )
@@ -153,7 +154,9 @@ export async function peerPreflight(
     installed: deps,
     manifests,
     lockstep: pack?.companions?.map((c) => c.name) ?? [],
+    releaseGroup: pack?.releaseGroup?.map((c) => c.name),
   });
+  if (plan.conflicts.length) throw new Error(plan.conflicts.join('; '));
   const base = new Map<string, Companion>([
     [
       options.only,
@@ -236,7 +239,9 @@ export async function peerPreflight(
       installed: deps,
       manifests,
       lockstep: activePack(peer.name)?.companions?.map((c) => c.name) ?? [],
+      releaseGroup: activePack(peer.name)?.releaseGroup?.map((c) => c.name),
     });
+    if (linked.conflicts.length) throw new Error(linked.conflicts.join('; '));
     for (const c of linked.companions) if (!moves.has(c.name)) moves.set(c.name, c);
   };
   const resolveExtras = async (extras: Set<string>) => {

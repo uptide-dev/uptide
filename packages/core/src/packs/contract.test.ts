@@ -225,6 +225,11 @@ describe('definePack', () => {
     const companions = [{ name: 'toy-plugin', source: 'https://example.com/toy/changelog' }];
     const named = definePack({ meta: pack.meta, rules: [], instructions: 'x', companions });
     expect(named.companions).toEqual(companions);
+    expect(pack.releaseGroup).toBeUndefined();
+    expect(
+      definePack({ meta: pack.meta, rules: [], instructions: 'x', releaseGroup: companions })
+        .releaseGroup,
+    ).toEqual(companions);
   });
 
   it('rewrites only the reported occurrence, within the supported versions', () => {

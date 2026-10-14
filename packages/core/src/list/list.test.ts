@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, expect, it, vi } from 'vitest';
+import * as packs from '../packs/index.js';
+import { zodPack } from '../packs/zod/index.js';
 import { listDependencies } from './list.js';
 import { scanImports } from './scan.js';
 
@@ -402,4 +404,23 @@ it('flags majors that drift across workspaces, and keeps an imported compiler as
     classification: 'tooling',
     usage: { files: 1 },
   });
+});
+
+it('reports movesWith for declared members without a manifest relationship', async () => {
+  const cwd = fixture();
+  const spy = vi
+    .spyOn(packs, 'activePacks')
+    .mockReturnValue([
+      { ...zodPack, releaseGroup: [{ name: 'tool', source: 'https://example.com/releases' }] },
+    ]);
+  try {
+    const result = await listDependencies({
+      cwd,
+      fetcher: { resolve: async () => '4.6.5', metadata: async () => ({}) },
+    });
+    expect(result.packages.find((p) => p.name === 'zod')?.signals?.movesWith).toContain('tool');
+    expect(result.packages.find((p) => p.name === 'tool')?.signals?.movesWith).toContain('zod');
+  } finally {
+    spy.mockRestore();
+  }
 });
