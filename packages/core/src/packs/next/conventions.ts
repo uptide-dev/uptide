@@ -23,6 +23,48 @@ export function middlewareSites(text: string, file: string): SourceSite[] {
     .find((f) => f.isExported() && (f.getName() === 'middleware' || f.isDefaultExport()));
   return fn ? [site(fn)] : [];
 }
+/** Only a directly exported, unreferenced const config with a literal Node runtime.
+ * Reject spreads/computed keys and mutations rather than guessing which runtime wins.
+ */
+function nodeRuntime(source: ReturnType<typeof parse>) {
+  const config = source.getVariableDeclaration('config');
+  const statement = config?.getVariableStatement();
+  if (!config || !statement?.isExported() || statement.getDeclarationKind() !== 'const') return;
+  const name = config.getNameNode();
+  if (
+    !Node.isIdentifier(name) ||
+    name.findReferencesAsNodes().length ||
+    source.getVariableDeclaration('runtime')
+  )
+    return;
+  let value = config.getInitializer();
+  while (
+    value &&
+    (Node.isAsExpression(value) ||
+      Node.isSatisfiesExpression(value) ||
+      Node.isParenthesizedExpression(value))
+  )
+    value = value.getExpression();
+  if (!value || !Node.isObjectLiteralExpression(value)) return;
+  const properties = value.getProperties();
+  if (
+    properties.some(
+      (p) => !Node.isPropertyAssignment(p) || Node.isComputedPropertyName(p.getNameNode()),
+    )
+  )
+    return;
+  const runtimes = properties
+    .filter(Node.isPropertyAssignment)
+    .filter((p) => ['runtime', "'runtime'", '"runtime"'].includes(p.getName()));
+  if (runtimes.length !== 1) return;
+  const runtime = runtimes[0];
+  const initializer = runtime?.getInitializer();
+  return initializer &&
+    Node.isStringLiteral(initializer) &&
+    initializer.getLiteralValue() === 'nodejs'
+    ? runtime
+    : undefined;
+}
 export function renameMiddleware(text: string, finding: Finding): TransformResult {
   const decline = {
     text,
@@ -35,22 +77,32 @@ export function renameMiddleware(text: string, finding: Finding): TransformResul
     .getFunctions()
     .find((f) => f.isExported() && (f.getName() === 'middleware' || f.isDefaultExport()));
   if (!fn || site(fn).line !== finding.usage.line) return decline;
+  if (!nodeRuntime(source))
+    return {
+      text,
+      applied: false,
+      reason:
+        'middleware runs on Edge by default; proxy is Node-only. Keep middleware or migrate after choosing the runtime',
+    };
   if (
     source
       .getDescendantsOfKind(SyntaxKind.Identifier)
-      .some((n) => ['runtime', 'proxy', 'NextMiddleware', 'MiddlewareConfig'].includes(n.getText()))
-  )
-    return decline;
-  if (
-    source
-      .getDescendantsOfKind(SyntaxKind.PropertyAssignment)
-      .some((p) => ['runtime', "'runtime'", '"runtime"'].includes(p.getName()))
+      .some((n) => ['proxy', 'NextMiddleware', 'MiddlewareConfig'].includes(n.getText()))
   )
     return decline;
   if (source.getExportDeclarations().length) return decline;
   if (fn.getName()) fn.rename('proxy');
+  // Proxy is Node-only and disallows runtime configuration. Remove the proven literal
+  // alongside the rename, preserving matcher settings and comments.
+  const runtime = nodeRuntime(source);
+  if (!runtime) return decline;
+  const followingComma = runtime.getNextSiblingIfKind(SyntaxKind.CommaToken);
+  const precedingComma = runtime.getPreviousSiblingIfKind(SyntaxKind.CommaToken);
+  const start = !followingComma && precedingComma ? precedingComma.getStart() : runtime.getStart();
+  const end = followingComma?.getEnd() ?? runtime.getEnd();
+  const renamed = source.getFullText();
   return {
-    text: source.getFullText(),
+    text: renamed.slice(0, start) + renamed.slice(end),
     applied: true,
     reason: 'rename exported middleware and convention file together',
     edits: [

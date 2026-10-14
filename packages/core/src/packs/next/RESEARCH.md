@@ -228,7 +228,7 @@ eslint-config-next from 15.5.27 to **16.3.8**. No `with` expectations changed.
 
 Config and convention detection uses the new scoped inventory, independently of imports.
 Middleware rename keeps the **old path** as its finding anchor and returns a transactional
-rename together with the scope-aware function edit. Explicit runtime declarations, middleware
+rename together with the scope-aware function edit only for explicit static `config.runtime: 'nodejs'` (removing that option for proxy); default Edge, explicit Edge and dynamic runtimes are declined. Middleware
 type imports and ambiguous exports remain assisted. Existing proxy destination collisions
 are rejected by the transaction engine. The removed static eslint block is found in ESM and
 CommonJS configs; executable values, computed keys and wrappers are not silently removed.

@@ -37,21 +37,21 @@ it.each(['middleware.ts', 'src/middleware.js'])(
   (file) => {
     const { sites, result } = migrate(
       file,
-      'export default function middleware() { return middleware; }\n',
+      "export const config = { runtime: 'nodejs', matcher: '/admin' };\nexport default function middleware() { return middleware; }\n",
       'middleware-proxy',
     );
     expect(sites).toHaveLength(1);
     expect(sites[0]?.usage.file).toBe(file);
     expect(result).toMatchObject({
       applied: true,
-      text: 'export default function proxy() { return proxy; }\n',
+      text: "export const config = {  matcher: '/admin' };\nexport default function proxy() { return proxy; }\n",
       edits: [{ kind: 'rename', file, to: file.replace('middleware.', 'proxy.') }],
     });
   },
 );
 it.each([
   "export const runtime = 'edge';",
-  "export const config = { runtime: 'nodejs' };",
+
   "export const config = { 'runtime': 'edge' };",
   'const proxy = 1;',
   "export { other } from './other';",
@@ -60,6 +60,48 @@ it.each([
     migrate('middleware.ts', `${prefix}\nexport function middleware() {}`, 'middleware-proxy')
       .result?.applied,
   ).toBe(false);
+});
+it.each([
+  '',
+  "export const config = { runtime: 'edge' };",
+  'export const config = { runtime: chooseRuntime() };',
+  "export const config = { runtime: 'nodejs', ...other };",
+  "export const config = { runtime: 'nodejs', [key]: 'edge' };",
+  "const config = { runtime: 'nodejs' };",
+  "export const config = { runtime: 'nodejs' }; config.runtime = 'edge';",
+])('keeps the deprecated finding without changing runtime: %s', (prefix) => {
+  const text = `${prefix}\nexport function middleware() {}`;
+  const { sites, result } = migrate('middleware.ts', text, 'middleware-proxy');
+  expect(sites).toHaveLength(1);
+  expect(sites[0]?.severity).toBe('deprecated');
+  expect(result).toEqual({
+    text,
+    applied: false,
+    reason:
+      'middleware runs on Edge by default; proxy is Node-only. Keep middleware or migrate after choosing the runtime',
+  });
+});
+it.each([
+  "export const config = { 'runtime': 'nodejs' };",
+  'export const config = { runtime: "nodejs" } as const;',
+  "export const config = ({ runtime: 'nodejs' } satisfies Config);",
+])('accepts equivalent static Node configuration: %s', (prefix) => {
+  const { result } = migrate(
+    'middleware.ts',
+    `${prefix}\nexport function middleware() {}`,
+    'middleware-proxy',
+  );
+  expect(result?.applied).toBe(true);
+  expect(result?.text).toContain('function proxy()');
+  expect(result?.text).not.toContain('nodejs');
+  expect(result?.edits).toEqual([{ kind: 'rename', file: 'middleware.ts', to: 'proxy.ts' }]);
+});
+it('does not reject an unrelated runtime local in explicit Node middleware', () => {
+  const text =
+    "export const config = { runtime: 'nodejs' };\nexport function middleware() { const runtime = 'local'; return runtime; }";
+  const { result } = migrate('middleware.ts', text, 'middleware-proxy');
+  expect(result?.applied).toBe(true);
+  expect(result?.text).toContain("const runtime = 'local'; return runtime;");
 });
 it.each(['next.config.js', 'next.config.mjs', 'next.config.ts', 'next.config.cjs'])(
   'removes only exported static eslint in %s',
