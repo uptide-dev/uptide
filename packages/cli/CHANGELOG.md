@@ -1,5 +1,21 @@
 # uptide
 
+## 0.11.2
+
+### Patch Changes
+
+- [#118](https://github.com/uptide-dev/uptide/pull/118) [`40b3c1f`](https://github.com/uptide-dev/uptide/commit/40b3c1f3d06f46bda4432056373898b014fa7f7e) Thanks [@lucasbraum](https://github.com/lucasbraum)! - The onboarding generator (`uptide/onboarding`, the "Add Uptide" pull request) writes
+  `minReleaseAgeDays` to `uptide.yml`, with a comment, when the settings set it. Before, the
+  setting was kept in the returned config but left out of the file.
+
+- [#117](https://github.com/uptide-dev/uptide/pull/117) [`d1e7388`](https://github.com/uptide-dev/uptide/commit/d1e7388baccd115beb0845024b519ca8193c3ef4) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Let packs inspect declared config and convention files without imports and apply verified multi-file create, delete, write and rename transactions.
+
+- [#116](https://github.com/uptide-dev/uptide/pull/116) [`4419673`](https://github.com/uptide-dev/uptide/commit/4419673a640909f5cf119cd9c3513c0fa07a316f) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Allow migration packs to require a successful repository build before publication, including subsequent verification runs.
+
+- [#120](https://github.com/uptide-dev/uptide/pull/120) [`b7e0f42`](https://github.com/uptide-dev/uptide/commit/b7e0f42cb917544431fa0b1bc6eccc8b79129bdf) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `uptide pr` (and `fix --pr`) publishes when the migration branch is already on GitHub, as it is after a pull request was closed without merging. A branch holding only Uptide's commits is replaced with `--force-with-lease`, and an open Uptide pull request on it is updated instead of a second one being opened. A branch with anyone else's commit is never overwritten: the run goes to the next free `<branch>-2`, `-3`, … and the pull request says so. When publication fails in the Action, the job summary and run report name the reason.
+
+- [#115](https://github.com/uptide-dev/uptide/pull/115) [`17cb9a2`](https://github.com/uptide-dev/uptide/commit/17cb9a21528bc387f379d0f8d938749229ddd843) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Support explicit pack release groups so installed lockstep companions move with their lead even without dependency edges or incompatible peers.
+
 ## 0.11.1
 
 ### Patch Changes
