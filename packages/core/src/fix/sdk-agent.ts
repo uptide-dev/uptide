@@ -5,6 +5,7 @@ import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { ts } from 'ts-morph';
 import type { ProgressListener } from '../domain/progress.js';
 import { modelCapabilities } from '../llm/capabilities.js';
+import { packDecisions } from '../packs/decisions.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { git } from './process.js';
 import { commit, safeFile } from './settle.js';
@@ -288,7 +289,7 @@ export function taskPrompt(input: {
     ...s.lines,
     ...(s.lists ?? []).flatMap((l) => [l.summary, ...l.items.map((i) => `  - ${i}`)]),
   ]);
-  const decisions = pack.decisions?.(context, ruleIds) ?? [];
+  const decisions = packDecisions(pack, context, ruleIds) ?? [];
   const site = (s: FixSite) => {
     const u = s.finding.usage;
     const c = s.finding.change;

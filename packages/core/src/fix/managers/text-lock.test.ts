@@ -369,3 +369,156 @@ describe('pnpm: a package installed once per target version (band-sdk shape)', (
     expect(() => assertLockScope(graph, pnpmGraph(outside, 'zod'), 'zod')).toThrow('outside zod');
   });
 });
+
+describe('pnpm Next release-group peer bookkeeping', () => {
+  const names = ['next', 'eslint-config-next'];
+  const lock = (next: string, suffix: string, other = '1.0.0') => `lockfileVersion: '9.0'
+settings:
+  autoInstallPeers: true
+importers:
+  .:
+    dependencies:
+      next: {specifier: ${next}, version: ${next}}
+      other: {specifier: ^1, version: ${other}}
+    devDependencies:
+      eslint-config-next: {specifier: ${next}, version: ${next}}
+      eslint: {specifier: ^9.12.0, version: '9.12.0${suffix}'}
+packages:
+  next@${next}: {}
+  eslint-config-next@${next}: {}
+  eslint@9.12.0: {resolution: {integrity: sha512-eslint}}
+  jiti@1.21.7: {}
+  supports-color@7.2.0: {}
+  other@${other}: {}
+snapshots:
+  next@${next}: {}
+  eslint-config-next@${next}: {}
+  'eslint@9.12.0${suffix}':
+    dependencies:
+      jiti: 1.21.7
+  jiti@1.21.7: {}
+  supports-color@7.2.0: {}
+  other@${other}: {}
+`;
+  const originalGraph = () =>
+    pnpmGraph(lock('15.5.27', '(jiti@1.21.7)(supports-color@7.2.0)'), names);
+  const upgradedLock = () => lock('16.3.8', '(jiti@1.21.7)');
+
+  it('accepts peer-suffix-only changes and non-resolution lockfile/importer metadata', () => {
+    const text = upgradedLock()
+      .replace(
+        'autoInstallPeers: true',
+        'autoInstallPeers: false\n  excludeLinksFromLockfile: false',
+      )
+      .replace('  .:\n', '  .:\n    dependenciesMeta: {other: {injected: false}}\n');
+    expect(() => assertLockScope(originalGraph(), pnpmGraph(text, names), names)).not.toThrow();
+  });
+  it('still refuses and names an unrelated resolved version bump', () => {
+    expect(() =>
+      assertLockScope(
+        originalGraph(),
+        pnpmGraph(lock('16.3.8', '(jiti@1.21.7)', '2.0.0'), names),
+        names,
+      ),
+    ).toThrow(/other.*1\.0\.0.*2\.0\.0/s);
+  });
+  it('still refuses and names a removed unrelated package', () => {
+    const text = upgradedLock()
+      .replaceAll('  other@1.0.0: {}\n', '')
+      .replace('      other: {specifier: ^1, version: 1.0.0}\n', '');
+    expect(() => assertLockScope(originalGraph(), pnpmGraph(text, names), names)).toThrow(
+      'packages:other@1.0.0 (removed, was 1.0.0)',
+    );
+  });
+  it('still refuses an added unrelated package', () => {
+    const text = upgradedLock()
+      .replace('packages:\n', 'packages:\n  surprise@1.0.0: {}\n')
+      .replace('snapshots:\n', 'snapshots:\n  surprise@1.0.0: {}\n');
+    expect(() => assertLockScope(originalGraph(), pnpmGraph(text, names), names)).toThrow(
+      'packages:surprise@1.0.0 (added at 1.0.0)',
+    );
+  });
+  it('protects each importer resolution even when both versions remain installed', () => {
+    const text = upgradedLock()
+      .replace('packages:\n', 'packages:\n  other@2.0.0: {}\n')
+      .replace('snapshots:\n', 'snapshots:\n  other@2.0.0: {}\n');
+    expect(() =>
+      assertLockScope(
+        pnpmGraph(text, names),
+        pnpmGraph(
+          text.replace(
+            'other: {specifier: ^1, version: 1.0.0}',
+            'other: {specifier: ^1, version: 2.0.0}',
+          ),
+          names,
+        ),
+        names,
+      ),
+    ).toThrow('importer . dependencies.other');
+  });
+  it('protects unrelated importer specifiers independently of versions', () => {
+    expect(() =>
+      assertLockScope(
+        originalGraph(),
+        pnpmGraph(upgradedLock().replace('specifier: ^1,', 'specifier: ~1,'), names),
+        names,
+      ),
+    ).toThrow('importer . dependencies.other');
+  });
+  it('does not confuse an alias changing package name at the same version with a peer suffix', () => {
+    const text = upgradedLock().replace(
+      'other: {specifier: ^1, version: 1.0.0}',
+      'other: {specifier: npm:first@1, version: first@1.0.0}',
+    );
+    expect(() =>
+      assertLockScope(
+        pnpmGraph(text, names),
+        pnpmGraph(text.replace('version: first@1.0.0', 'version: second@1.0.0'), names),
+        names,
+      ),
+    ).toThrow('importer . dependencies.other');
+  });
+});
+
+it('protects legacy root importer versions and specifiers', () => {
+  const text = `lockfileVersion: '6.0'
+specifiers:
+  other: ^1
+dependencies:
+  other: 1.0.0(peer@1.0.0)
+packages:
+  /other@1.0.0: {}
+  /other@2.0.0: {}
+`;
+  const graph = pnpmGraph(text, 'next');
+  expect(() =>
+    assertLockScope(graph, pnpmGraph(text.replace('(peer@1.0.0)', ''), 'next'), 'next'),
+  ).not.toThrow();
+  expect(() =>
+    assertLockScope(graph, pnpmGraph(text.replace('other: 1.0.0', 'other: 2.0.0'), 'next'), 'next'),
+  ).toThrow('importer . dependencies.other');
+  expect(() =>
+    assertLockScope(graph, pnpmGraph(text.replace('other: ^1', 'other: ^2'), 'next'), 'next'),
+  ).toThrow('importer . dependencies.other');
+});
+
+it.each(['file:../local(one)', 'link:../local(one)', '1.0.0(patch_hash=one)'])(
+  'preserves non-peer locator identity: %s',
+  (version) => {
+    const text = `lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      other: {specifier: '*', version: '${version}'}
+packages: {}
+snapshots: {}
+`;
+    expect(() =>
+      assertLockScope(
+        pnpmGraph(text, 'next'),
+        pnpmGraph(text.replaceAll('one', 'two'), 'next'),
+        'next',
+      ),
+    ).toThrow('importer . dependencies.other');
+  },
+);

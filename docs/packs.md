@@ -140,6 +140,14 @@ site is reported is part of the contract (`reported`):
 - `test-follow-up`: an assertion is updated only after the migrated code made that test
   fail, and the test then has to pass (zod's reworded default messages).
 
+For packs without a custom `decisions()` hook, the engine renders their `decision` notes.
+An optional `applies(context)` scopes a note: return `false` to omit it, `true` to use its
+summary, or a string naming what was found and where. Without `applies`, the summary is
+shown. `context.inventory` contains `{ file, text }` for the pack's declared inventory,
+snapshotted before edits, with repository-relative paths (including package.json and
+configuration contents when declared). An explicit `decisions()` hook owns the section,
+even when it returns an empty list. Decision notes are not repeated as generic run notes.
+
 A note found by `detect` is scored by `pack test` like a rule.
 
 ### Agent instructions

@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import type { ProgressListener } from '../domain/progress.js';
 import { UptideError } from '../errors.js';
+import { packDecisions } from '../packs/decisions.js';
 import { activePack } from '../packs/index.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { uptideVersionInfo } from '../version.js';
@@ -142,7 +143,7 @@ export async function reverify(
   const decisions = [
     ...new Set([
       ...(report.decisions ?? []),
-      ...(pack.decisions?.(context, rules, followed) ?? []),
+      ...(packDecisions(pack, context, rules, followed) ?? []),
     ]),
   ];
   const result: FixReport = {

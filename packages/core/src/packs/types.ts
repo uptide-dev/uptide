@@ -1,6 +1,7 @@
 import type { ChangeKind } from '../domain/change.js';
 import type { Finding } from '../domain/report.js';
 import type { Usage } from '../domain/usage.js';
+import type { BehaviorNote } from './contract.js';
 
 export interface MigrationEvidence {
   path: string;
@@ -27,6 +28,8 @@ export interface SharedHelper {
   imports?: Record<string, string>;
 }
 export interface PackContext {
+  /** Pre-edit inventory, with repository-relative paths and file contents. */
+  inventory?: { file: string; text: string }[];
   from: string;
   to: string;
   includeDeprecated: boolean;
@@ -113,6 +116,7 @@ export interface PackCompanion {
 }
 
 export interface MigrationPack {
+  readonly behavior?: readonly BehaviorNote[];
   readonly name: string;
   /**
    * Packages that always move with this one, even when the installed version of each already

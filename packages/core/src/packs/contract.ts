@@ -85,6 +85,8 @@ export interface BehaviorNote {
   id: string;
   summary: string;
   reported: readonly ('finding' | 'decision' | 'test-follow-up')[];
+  /** With `decision`: false hides it; a string supplies a repository-specific line. Omitted means show summary. */
+  applies?(context: PackContext): boolean | string;
   /** With `finding`: the sites, from a file that uses the package. */
   detect?(text: string, file: string): SourceSite[];
   /** With `finding`: whether a site breaks at the target, or only needs a look. */
@@ -351,7 +353,7 @@ export function definePack(spec: PackSpec): Pack {
       return [rule?.guide, spec.instructions].filter(Boolean).join('\n');
     },
     reviewNotes: () => [
-      ...behavior.map((b) => `${b.summary}`),
+      ...behavior.filter((b) => !b.reported.includes('decision')).map((b) => b.summary),
       ...spec.meta.sources.map((s) => `${s.title}: ${s.url}`),
     ],
     runtimeFindings({ workspace, from, to, usages, files: inventory = [], read }) {

@@ -1323,3 +1323,33 @@ it.each(['before', 'during'])('verify refuses a stale companion %s tests', async
   if (when === 'before') expect(tests).not.toHaveBeenCalled();
   else expect(tests).toHaveBeenCalled();
 });
+
+it('carries pre-edit inventory decisions through fix, PR rendering and reverify', async () => {
+  const { root, services } = fixture();
+  writeFileSync(join(root, 'next.config.mjs'), 'export default { webpack() {} }');
+  git(root, 'add', 'next.config.mjs');
+  git(root, 'commit', '-m', 'config evidence');
+  const pack = {
+    ...zodPack,
+    decisions: undefined,
+    inventory: ['next.config.mjs'],
+    behavior: [
+      {
+        id: 'config',
+        summary: 'Review config',
+        reported: ['decision'] as const,
+        applies: (context: import('../packs/types.js').PackContext) =>
+          context.inventory?.some((f) => f.file === 'next.config.mjs' && f.text.includes('webpack'))
+            ? 'next.config.mjs has custom webpack: review Turbopack'
+            : false,
+      },
+    ],
+  };
+  const result = await fix({ cwd: root, only: 'zod', pack }, services);
+  expect(result.decisions).toEqual(['- next.config.mjs has custom webpack: review Turbopack']);
+  expect(readFileSync(result.prBody, 'utf8')).toContain(
+    '### Decisions for you\n\n- next.config.mjs has custom webpack',
+  );
+  const refreshed = await reverify({ cwd: root, pack }, services);
+  expect(refreshed.decisions).toEqual(result.decisions);
+}, 15000);
