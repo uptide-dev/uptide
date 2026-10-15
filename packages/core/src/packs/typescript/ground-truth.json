@@ -1,5 +1,5 @@
 {
-  "$comment": "typescript 5 to 6. Expected findings drafted with pnpm packs:truth (the target compiler on every project of the TypeScript project scope, tsconfig*.json and references; redrafted 2026-10-15 after UPT-49 widened the compile from tsconfig.json alone, and the upgrade commit) on 2026-10-14 and fixed before the first scoring run. Compiler code diagnostics are expected under generic; a deprecated option is expected where it is set, not at the extending config the compiler names. RESEARCH.md says how each kind of site was assigned.",
+  "$comment": "typescript 5 to 6. Expected findings drafted with pnpm packs:truth (the target compiler on every tsconfig.json, and the upgrade commit) on 2026-10-14 and fixed before the first scoring run. Compiler code diagnostics are expected under generic; a deprecated option is expected where it is set, not at the extending config the compiler names. RESEARCH.md says how each kind of site was assigned.",
   "package": "typescript",
   "repos": [
     {
@@ -2810,78 +2810,8 @@
       "migration": "https://github.com/shogo82148/typescript-action/pull/487",
       "from": "5.9.3",
       "to": "6.0.3",
-      "why": "rootDir default: outDir ./dist from include [\"src\"] fails with TS5011, rootDir \"./src\" added; types [] default: setTimeout unresolved, types added in tsconfig.json and tsconfig.eslint.json; the same types default fails the jest globals in __tests__, type-checked through tsconfig.eslint.json (jest.config.js runs ts-jest with it), where the upgrade added types [\"jest\", \"node\"]",
+      "why": "rootDir default: outDir ./dist from include [\"src\"] fails with TS5011, rootDir \"./src\" added; types [] default: setTimeout unresolved, types added in tsconfig.json and tsconfig.eslint.json",
       "findings": [
-        {
-          "file": "__tests__/main.test.ts",
-          "line": 20,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/main.test.ts",
-          "line": 21,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/main.test.ts",
-          "line": 29,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/main.test.ts",
-          "line": 33,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/main.test.ts",
-          "line": 37,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/main.test.ts",
-          "line": 41,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/main.test.ts",
-          "line": 45,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/main.test.ts",
-          "line": 55,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/wait.test.ts",
-          "line": 6,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/wait.test.ts",
-          "line": 7,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/wait.test.ts",
-          "line": 10,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/wait.test.ts",
-          "line": 12,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/wait.test.ts",
-          "line": 15,
-          "rule": "generic"
-        },
-        {
-          "file": "__tests__/wait.test.ts",
-          "line": 22,
-          "rule": "generic"
-        },
         {
           "file": "src/wait.ts",
           "line": 13,
