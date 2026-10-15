@@ -200,16 +200,27 @@ export function describeTransitive(change: TransitiveChange): string {
       ? `removed ${change.name} ${change.from}`
       : `added ${change.name} ${change.to}`;
 }
-/** Union authorized subtrees, then protect every outside dependent's actual resolution. */
+/**
+ * Union authorized subtrees, then protect every outside dependent's actual resolution.
+ * `removed` names the `@types` stubs the plan takes out (`check/removed.ts`): an importer's
+ * edge to one may disappear, and so may an entry only it reached; nothing about it may be
+ * added or changed. Build both graphs with them among the targets, so the importers'
+ * declarations of them are not compared.
+ */
 export function assertLockScope(
   before: LockGraph,
   after: LockGraph,
   target: Targets,
   extraRoots: readonly string[] = [],
+  removed: readonly string[] = [],
 ): LockDiff {
   const names = targetNames(target);
   const originalScope = lockScope(before, after, target);
   const allowed = lockScope(before, after, target, extraRoots);
+  const dropped = closure(
+    before,
+    [...before.records].filter(([, r]) => removed.includes(r.name)).map(([k]) => k),
+  );
   const diff: LockDiff = { added: [], removed: [], changed: [], allowed: [...allowed].sort() };
   const housekeeping: LockHousekeeping = { deduped: [], metadata: [] };
   const unexpected = new Set<string>();
@@ -239,7 +250,8 @@ export function assertLockScope(
     declared = false,
   ): boolean =>
     [...new Set([...Object.keys(left), ...Object.keys(right)])].every((name) => {
-      if (!Object.hasOwn(left, name) || !Object.hasOwn(right, name)) return false;
+      if (!Object.hasOwn(left, name) || !Object.hasOwn(right, name))
+        return declared && removed.includes(name) && !Object.hasOwn(right, name);
       const a = left[name],
         b = right[name];
       if (a === undefined || b === undefined) return a === b;
@@ -287,6 +299,8 @@ export function assertLockScope(
     if (changed)
       diff[a === undefined ? 'added' : b === undefined ? 'removed' : 'changed'].push(key);
     if (allowed.has(key)) continue;
+    // What only a removed stub reached goes with it; an outside dependent's edge to it still compares.
+    if (b === undefined && dropped.has(key)) continue;
     const other = a
       ? counterpart(key, before, after)
       : (counterpart(key, after, before, true) ?? relocated.get(key));

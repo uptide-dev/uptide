@@ -316,6 +316,55 @@ it('reads and caches peer/bin metadata without tarballs, including caches from o
   expect(existsSync(tarballCachePath(cacheDir, 'demo', '1.0.0'))).toBe(false);
 });
 
+it.each([
+  ['a types field (ioredis 5)', { types: './built/index.d.ts' }, true],
+  ['a typings field', { typings: 'index.d.ts' }, true],
+  [
+    'a types export only',
+    { exports: { '.': { types: './types/index.d.ts', default: './index.js' } } },
+    true,
+  ],
+  ['no types (ioredis 4)', { main: 'built/index.js' }, false],
+])('says whether a version ships its own types: %s', async (_, fields, ownTypes) => {
+  const fetchFn = vi.fn(
+    async () =>
+      new Response(
+        JSON.stringify({ name: 'demo', version: '1.0.0', ...fields, dist: { tarball: 'x' } }),
+      ),
+  );
+  const fetcher = createNpmFetcher({
+    cacheDir: mkdtempSync(join(tmpdir(), 'uptide-types-')),
+    config,
+    fetch: fetchFn as typeof fetch,
+  });
+  expect((await fetcher.metadata?.('demo', '1.0.0'))?.ownTypes).toBe(ownTypes || undefined);
+});
+
+it("keeps npm's deprecation message in every version's manifest (a @types stub)", async () => {
+  const deprecated = 'This is a stub types definition. ioredis provides its own type definitions';
+  const fetchFn = vi.fn(
+    async () =>
+      new Response(
+        JSON.stringify({
+          name: '@types/ioredis',
+          versions: {
+            '4.28.10': { dependencies: { '@types/node': '*' } },
+            '5.0.0': { dependencies: { ioredis: '*' }, deprecated },
+          },
+        }),
+      ),
+  );
+  const fetcher = createNpmFetcher({
+    cacheDir: mkdtempSync(join(tmpdir(), 'uptide-deprecated-')),
+    config,
+    fetch: fetchFn as typeof fetch,
+  });
+  expect(await fetcher.manifests?.('@types/ioredis')).toEqual({
+    '4.28.10': { dependencies: { '@types/node': '*' } },
+    '5.0.0': { dependencies: { ioredis: '*' }, deprecated },
+  });
+});
+
 it.each<RegistryConfig & { publicRegistry: boolean }>([
   { registry: 'https://registry.npmjs.org', scoped: {}, tokens: {}, publicRegistry: true },
   {

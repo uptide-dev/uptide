@@ -162,6 +162,11 @@ export interface PackageReport {
    */
   companionBlockers?: string[];
   /**
+   * `@types` stubs removed instead of upgraded (`check/removed.ts`): npm deprecates the release
+   * the upgrade would reach, and the package ships its own types. `ioredis 5 ships its own types`.
+   */
+  companionRemovals?: { name: string; from: string; reason: string }[];
+  /**
    * Packages of the same scope that stay where they are, released on their own or outside the
    * pack's release group: `@sentry/vite-plugin stays at 5.4.0 (...)`. Never a conflict.
    */

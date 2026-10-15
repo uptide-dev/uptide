@@ -544,6 +544,35 @@ describe('fix with companions', () => {
     expect(body).toContain('a required move is blocked');
   }, 20000);
 
+  it('removes a deprecated @types stub in the same install, and names it apart', async () => {
+    const { root, report, services, fixer, installs } = withBrush();
+    const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    manifest.devDependencies = { '@types/paint': '^1.0.0' };
+    writeFileSync(join(root, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+    git(root, 'commit', '-am', 'types');
+    const lead = report.packages[0] as CheckReport['packages'][number];
+    delete lead.companions;
+    lead.companionRemovals = [
+      { name: '@types/paint', from: '1.0.0', reason: 'paint 2 ships its own types' },
+    ];
+    const result = await fix({ cwd: root, only: 'paint', fixer: fixer(0.01) }, services);
+    // One install: the lead moves, the stub goes, and the scope guard is told so.
+    expect(installs).toHaveLength(1);
+    expect(installs[0]).toMatchObject({ name: 'paint', remove: ['@types/paint'] });
+    expect(installs[0]?.also).toBeUndefined();
+    expect(installs[0]?.workspaces).toEqual(['.']);
+    const after = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    expect(after.devDependencies).toEqual({});
+    expect(after.dependencies.brush).toBe('1.0.0');
+    expect(git(root, 'log', '--format=%s', '-n', '1', 'HEAD~1')).toBe(
+      'chore: upgrade paint to 2.0.0, remove @types/paint',
+    );
+    expect(result.companionRemovals).toEqual(lead.companionRemovals);
+    const body = prBody(result);
+    expect(body).toContain('Removed:\n\n- `@types/paint`, paint 2 ships its own types');
+    expect(body).not.toContain('Upgraded with paint');
+  }, 20000);
+
   it('changes nothing when a companion has no version that agrees', async () => {
     const { root, services, fixer, installs } = withBrush([
       'brush 1.0.0 has no release that agrees with paint 2.0.0',

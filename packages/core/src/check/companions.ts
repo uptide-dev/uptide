@@ -2,6 +2,7 @@ import { satisfies } from '../fetch/range.js';
 import type { Manifest } from '../list/evidence.js';
 import { dependencyGroups } from '../list/groups.js';
 import type { ListedDependency } from '../list/list.js';
+import { type Removal, stubRemovals } from './removed.js';
 import { requiredMoves } from './required.js';
 import { typedPackageOf, typesReleaseFor } from './types-release.js';
 import { compareVersions, parseVersion } from './version.js';
@@ -48,11 +49,19 @@ export interface CompanionPlan {
    * needs zod ^4.0.0; installed 3.25.76, and only a new major satisfies it (zod 4.0.0)`.
    */
   blockers?: string[];
+  /**
+   * `@types` stubs removed instead of upgraded (`removed.ts`): `@types/ioredis`, `ioredis 5
+   * ships its own types`. Never among `companions`.
+   */
+  removals?: Removal[];
   /** The group as `list` names it (`@ai-sdk family, shared @ai-sdk/provider-utils`). */
   reason?: string;
 }
 
-type Manifests = Record<string, Pick<Manifest, 'dependencies' | 'peerDependencies'>>;
+type Manifests = Record<
+  string,
+  Pick<Manifest, 'dependencies' | 'peerDependencies'> & { deprecated?: string }
+>;
 
 const EXACT = /^\d+\.\d+\.\d+(?:-[\w.]+)?$/;
 const scopeOf = (name: string): string | undefined =>
@@ -239,15 +248,31 @@ interface CompanionInput {
   releaseGroup?: readonly string[];
   /** Targets already planned before an explicitly requested peer upgrade. */
   peerTargets?: Record<string, string>;
+  /**
+   * Whether a version declares its own types, from its full manifest. Without it no `@types`
+   * stub is removed (`removed.ts`): it is upgraded as before.
+   */
+  ownTypes?: (name: string, version: string) => Promise<boolean>;
 }
 
 /**
  * What moves with `name@target` in a repository, from its installed dependencies and the
  * registry's manifests of every version (`manifests`, one cached packument per package): its
- * release group, then what the planned versions require of the rest (`required.ts`).
+ * release group, less the `@types` stubs it removes instead (`removed.ts`), then what the
+ * planned versions require of the rest (`required.ts`).
  */
 export async function companionsOf(input: CompanionInput): Promise<CompanionPlan> {
-  const plan = await releaseGroupOf(input);
+  let plan = await releaseGroupOf(input);
+  if (input.ownTypes) {
+    const { companions, removals } = await stubRemovals({
+      lead: input.name,
+      target: input.target,
+      companions: plan.companions,
+      manifests: input.manifests,
+      ownTypes: input.ownTypes,
+    });
+    if (removals.length) plan = { ...plan, companions, removals };
+  }
   const lead = input.installed.find((d) => d.name === input.name);
   const targetManifest = lead && (await input.manifests(input.name))[input.target];
   if (!lead || !targetManifest) return plan;
@@ -259,7 +284,10 @@ export async function companionsOf(input: CompanionInput): Promise<CompanionPlan
     installed: input.installed,
     manifests: input.manifests,
     planned: plan.companions,
-    reported: new Set([...plan.conflicts, ...plan.peerConflicts, ...(plan.stays ?? [])].map(first)),
+    reported: new Set([
+      ...[...plan.conflicts, ...plan.peerConflicts, ...(plan.stays ?? [])].map(first),
+      ...(plan.removals ?? []).map((r) => r.name),
+    ]),
   });
   if (!required.moves.length && !required.blockers.length) return plan;
   return {

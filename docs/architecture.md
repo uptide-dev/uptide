@@ -124,6 +124,18 @@ in `check`, the PR body and `pack test`; a plain dependency gets its own nested 
 install scope guard allows exactly these moves: an importer's declared dependency changes only
 when the plan names it, even where npm resolves it as a moved package's peer.
 
+A `@types` package the group would move to a deprecated stub is removed instead
+(`src/check/removed.ts`), before what the planned versions require is planned. Once a package
+ships its own types, DefinitelyTyped publishes a last release that only depends on it, and npm
+marks it deprecated (`@types/ioredis` 5.0.0, `@types/stripe` 8.0.417). Both must hold: npm's
+`deprecated` field on the release the plan would reach, and the package's target manifest
+declaring its own types (`types`, `typings` or a `types` export). Either alone keeps the
+upgrade. The removal is a `companionRemovals` entry ("`@types/ioredis`, ioredis 5 ships its own
+types"), never a companion, shown in `check` and in the PR body's "Removed:" section. `fix`
+takes it out of every workspace that installs it (a peer declaration stays) in the same single
+install, and the scope guard allows exactly that: an importer's edge to it may go, and so may
+what only it reached; nothing about it may be added or changed.
+
 ### One dependency, one decision
 
 A dependency at the same installed version and target in several workspaces is one entry
@@ -211,7 +223,9 @@ noted as a warning of its own), the target is the @types release of the target's
 them for the runtime specifier (a baseline overlay when the baseline differs from what is
 installed), and findings are reported under the runtime package labeled "types via
 @types/<name> a → b". Identical releases skip the compile: the compiler has nothing to
-judge. The runtime manifests still feed the module-format check. A curated list of
+judge. When the plan removes the `@types` stub, the target side is the package's own
+declarations at its target ("@types/ioredis 4.28.10 → ioredis 5.4.1's own types"), not the
+stub, which declares nothing. The runtime manifests still feed the module-format check. A curated list of
 runtime-only changes (`src/check/runtime-changes.ts`: express 5 routing syntax, `app.del`,
 `req.param`, `res.send(status)`) is matched syntactically on the files that use the package
 and reported as `unverified`, labeled "runtime change, not visible in types".

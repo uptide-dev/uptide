@@ -6,6 +6,7 @@ import {
   compatiblePeerVersion,
   peerConflictOf,
 } from '../check/companions.js';
+import { ownTypesFrom } from '../check/removed.js';
 import { parseVersion } from '../check/version.js';
 import type { PackageFetcher } from '../domain/io.js';
 import { UptideError } from '../errors.js';
@@ -133,6 +134,9 @@ export async function peerPreflight(
   const fetcher = createNpmFetcher({ config: loadRegistryConfig({ cwd: options.cwd }) });
   const fetch = services?.manifests ?? fetcher.manifests;
   if (!fetch) throw new Error('Registry manifests are required to plan peers');
+  // Injected manifests come with their own metadata or none: never the network beside them.
+  const metadata = services?.manifests ? services.metadata : fetcher.metadata;
+  const ownTypes = metadata ? { ownTypes: ownTypesFrom(metadata) } : {};
   const cache = new Map<string, ReturnType<Manifests>>();
   const manifests: Manifests = (name) => {
     let pending = cache.get(name);
@@ -159,6 +163,7 @@ export async function peerPreflight(
     manifests,
     lockstep: pack?.companions?.map((c) => c.name) ?? [],
     releaseGroup: pack?.releaseGroup?.map((c) => c.name),
+    ...ownTypes,
   });
   if (plan.conflicts.length) throw new Error(plan.conflicts.join('; '));
   const base = new Map<string, Companion>([
@@ -244,6 +249,7 @@ export async function peerPreflight(
       manifests,
       lockstep: activePack(peer.name)?.companions?.map((c) => c.name) ?? [],
       releaseGroup: activePack(peer.name)?.releaseGroup?.map((c) => c.name),
+      ...ownTypes,
     });
     if (linked.conflicts.length) throw new Error(linked.conflicts.join('; '));
     for (const c of linked.companions) if (!moves.has(c.name)) moves.set(c.name, c);

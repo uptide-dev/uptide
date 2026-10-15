@@ -78,6 +78,7 @@ import {
   declareLead,
   install,
   packageManager,
+  removeDeclarations,
   validateVersionRanges,
 } from './versions.js';
 
@@ -157,6 +158,8 @@ export interface FixServices {
   resolve?(name: string, tag: string): Promise<string>;
   /** Registry manifests for companion range preflight, before cloning. */
   manifests?: PackageFetcher['manifests'];
+  /** Full manifests, for whether a version ships its own types (`check/removed.ts`). */
+  metadata?: PackageFetcher['metadata'];
   /** `--agent sdk` sessions; the Claude Agent SDK by default. */
   agentRunner?: TaskRunner;
   /** Whether the optional SDK peer can be imported; decides the default executor. */
@@ -350,6 +353,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const stays = [...new Set(packages.flatMap((p) => p.companionStays ?? []))].sort();
   // A required move only a new major makes is never made: the PR says so instead.
   const blockers = [...new Set(packages.flatMap((p) => p.companionBlockers ?? []))].sort();
+  // A `@types` stub the new version makes redundant goes, in the same install (check/removed.ts).
+  const removals = [
+    ...new Map(packages.flatMap((p) => p.companionRemovals ?? []).map((r) => [r.name, r])).values(),
+  ].sort((a, b) => a.name.localeCompare(b.name));
   if (conflicts.length > 0)
     throw new UptideError(
       'INCONSISTENT_UPGRADE',
@@ -438,6 +445,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const bumps = [
     bumpVersions(root, pack.name, target),
     ...companions.map((c) => bumpVersions(root, c.name, c.to)),
+    ...removals.map((r) => removeDeclarations(root, r.name)),
   ];
   const bump = {
     files: [
@@ -472,14 +480,17 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         ...(companions.length
           ? { also: companions.map((c) => ({ name: c.name, version: c.to })) }
           : {}),
+        ...(removals.length ? { remove: removals.map((r) => r.name) } : {}),
       }),
   );
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const moved = companions.map((c) => `${c.name} ${c.to}`).join(', ');
-  commit(root, `chore: upgrade ${pack.name} to ${target}${moved ? ` with ${moved}` : ''}`, [
-    ...bump.files,
-    join(root, packageManager(root).lockfile),
-  ]);
+  const dropped = removals.map((r) => r.name).join(', ');
+  commit(
+    root,
+    `chore: upgrade ${pack.name} to ${target}${moved ? ` with ${moved}` : ''}${dropped ? `, remove ${dropped}` : ''}`,
+    [...bump.files, join(root, packageManager(root).lockfile)],
+  );
   // The install replaced node_modules, and what was generated into it with them.
   if (generated.length)
     await verify('generate', () => (services.generate ?? generateClients)(root, workspaces));
@@ -761,6 +772,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ...(companions.length ? { companions } : {}),
     ...(stays.length ? { companionStays: stays } : {}),
     ...(blockers.length ? { companionBlockers: blockers } : {}),
+    ...(removals.length ? { companionRemovals: removals } : {}),
     ...(peerPlan?.conflicts.length ? { peerConflicts: groupPeerBlockers(peerPlan.conflicts) } : {}),
     ...(report.importersNotAnalyzed?.length
       ? { importersNotAnalyzed: report.importersNotAnalyzed }

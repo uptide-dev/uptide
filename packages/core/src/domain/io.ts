@@ -18,15 +18,20 @@ export interface PackageFetcher {
     dependencies?: Record<string, string>;
     peerDependencies?: Record<string, string>;
     bin?: string | Record<string, string>;
+    /** Whether the version declares its own types (`types`, `typings` or a `types` export). */
+    ownTypes?: boolean;
   }>;
   versions?(name: string): Promise<string[]>;
   /** Every published version's dependencies and peers. Optional: without it no companion moves with a package. */
-  manifests?(
-    name: string,
-  ): Promise<
+  manifests?(name: string): Promise<
     Record<
       string,
-      { dependencies?: Record<string, string>; peerDependencies?: Record<string, string> }
+      {
+        dependencies?: Record<string, string>;
+        peerDependencies?: Record<string, string>;
+        /** npm's deprecation message, when the version has one. */
+        deprecated?: string;
+      }
     >
   >;
   /** Why the last `resolve(name, 'latest')` answered an older version: the release-age policy. */

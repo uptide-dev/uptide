@@ -23,11 +23,11 @@ npx uptide fix zod                         # migrate on a new branch, verified; 
 npx uptide pr --branch uptide/zod-4.6.5    # prints the plan; add --yes to push and open a draft PR
 ```
 
-`npx uptide` with no command shows where zod and stripe stand: installed, latest, majors
-behind. `fix` preserves workspace and companion ranges that already accept the target,
-reports them as **already compatible**, and widens rejecting peer ranges without dropping
-existing alternatives. What the target requires moves within its major, else is a blocker.
-Lockfile, target and companions must match the planned versions, or `fix` and `verify` fail.
+`npx uptide` with no command shows where zod and stripe stand: installed, latest, majors behind. `fix`
+preserves workspace and companion ranges that already accept the target, reports them as **already
+compatible**, and widens rejecting peer ranges without dropping existing alternatives. What the target
+requires moves within its major, else is a blocker; a deprecated `@types` stub is removed, not
+upgraded. Lockfile, target and companions must match the planned versions, or `fix` and `verify` fail.
 Everything else: [getting started](docs/getting-started.md).
 
 ## Why Uptide
