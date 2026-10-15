@@ -42,6 +42,13 @@ export interface Tally {
   recall: number;
 }
 
+export interface RepoTiming {
+  fetchMs: number;
+  installMs: number;
+  checkMs: number;
+  peakRssMb: number;
+}
+
 export interface RepoScore {
   label: string;
   repo?: string;
@@ -65,6 +72,11 @@ export interface RepoScore {
   repoChoice?: string[];
   /** Required moves `check` will not make, each only a new major (`check/required.ts`). */
   blockers?: string[];
+  /**
+   * Wall time of each step in milliseconds (0 when the cache already had it), and this
+   * process's peak resident memory in MB once the repository is checked.
+   */
+  timing?: RepoTiming;
   predicted: ScoredSite[];
   expected: ScoredSite[];
   /** Predicted sites no expected finding has, at the line level. */
@@ -299,19 +311,28 @@ async function scoreRepo(
     falseNegatives: [],
     wrongRule: [],
   };
+  const timing: RepoTiming = { fetchMs: 0, installMs: 0, checkMs: 0, peakRssMb: 0 };
+  const since = (start: number) => Math.round(performance.now() - start);
   try {
-    const dir = entry.fixture
-      ? await ensureFixture(root, entry.fixture, options)
-      : await ensureRepo(
-          {
-            repo: entry.repo as string,
-            commit: entry.commit as string,
-            ...(entry.directory ? { directory: entry.directory } : {}),
-          },
-          options,
-        );
+    let start = performance.now();
+    let dir: string;
+    if (entry.fixture) dir = await ensureFixture(root, entry.fixture, options);
+    else {
+      const pinned = {
+        repo: entry.repo as string,
+        commit: entry.commit as string,
+        ...(entry.directory ? { directory: entry.directory } : {}),
+      };
+      // Fetched first, without installing, so the two are timed apart.
+      await ensureRepo(pinned, { ...options, install: false });
+      timing.fetchMs = since(start);
+      start = performance.now();
+      dir = await ensureRepo(pinned, options);
+    }
+    timing.installMs = since(start);
     const project = entry.directory ? join(dir, entry.directory) : dir;
     options.log?.(`checking ${pack.name} ${entry.from} → ${entry.to} in ${label(entry)}`);
+    start = performance.now();
     const report = await check({
       cwd: project,
       only: [pack.name],
@@ -320,6 +341,9 @@ async function scoreRepo(
       // In this thread, with the pack under test: no worker loads the bundled registry.
       cache: createFsSurfaceCache(),
     });
+    timing.checkMs = since(start);
+    timing.peakRssMb = Math.round(process.resourceUsage().maxRSS / 1024);
+    base.timing = timing;
     const installed = [
       ...new Set(report.packages.filter((p) => p.name === pack.name).map((p) => p.installed)),
     ];
@@ -334,7 +358,7 @@ async function scoreRepo(
       ...scoreSites(predicted, expected),
     };
   } catch (err) {
-    return { ...base, error: (err as Error).message };
+    return { ...base, timing, error: (err as Error).message };
   }
 }
 

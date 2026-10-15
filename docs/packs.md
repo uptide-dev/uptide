@@ -366,8 +366,11 @@ what supports it.
   than 10 breaking changes, an official codemod that covers the whole upgrade, and the packs
   that exist. A package no diff measures enters only when its guide lists API changes,
   marked "not measured". A partial codemod is named and counts 0.9.
-- The **Packs** workflow (`.github/workflows/packs.yml`) runs `uptide pack test --json` for
-  every pack with the ground-truth cache restored, on pull requests that touch packs.
+- The **Packs** workflow (`.github/workflows/packs.yml`) runs `uptide pack test --json` in one
+  job per pack, in parallel, each with its own cache of installed ground-truth repositories
+  (saved on main). A pull request that changes only pack directories runs just those packs. Each
+  job's summary times every repository (fetch, install, check) with peak memory; `Pack test`
+  gathers them, slowest first, and fails when any pack job did.
 
 ## The `uptide pack` command
 
