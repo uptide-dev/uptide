@@ -442,6 +442,23 @@
         "total": 65,
         "distinct": 65
       }
+    },
+    {
+      "package": "typescript",
+      "members": ["typescript"],
+      "from": ">=5 <6",
+      "to": ">=6 <7",
+      "why": "requested in UPT-56: declared in every repository of the 2026-10-14 OSS sample scan, most on 5.x; the compiler itself, so no type diff measures it: the 6.0 release notes (https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html) deprecate baseUrl, moduleResolution node and classic, target ES5, module amd/umd/system/none, outFile, downlevelIteration, esModuleInterop and alwaysStrict false, module-keyword namespaces and import assertions, and change the strict, types, rootDir, module, target and noUncheckedSideEffectImports defaults; not measured",
+      "status": "candidate"
+    },
+    {
+      "package": "typescript",
+      "members": ["typescript"],
+      "from": ">=6 <7",
+      "to": ">=7 <8",
+      "why": "split 2026-10-14 from the 5 to 6 entry above: 6.0 deprecates what 7.0 removes (Announcing TypeScript 7.0, 2026-07-08, https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/), so a 5.x repository goes through 6 first; 7.0 also makes stableTypeOrdering permanent, changes template literal inference on Unicode code points and drops JSDoc Closure-style function types; not measured",
+      "status": "blocked",
+      "blockedReason": "TypeScript 7.0 ships no JavaScript compiler API (typescript@7.0.2 exports only lib/version.cjs; the announcement says a new API comes with 7.1), so `check` cannot compute the target's diagnostics: compileCompilerUpgrade reports the compile as not done and only tsconfig findings would remain. Retry when typescript 7.x exposes a programmatic API check can load, or when check can run the target's tsc binary on the repository without executing repository code."
     }
   ]
 }

@@ -26,6 +26,8 @@ import { sentryReactPack } from './sentry-react/index.js';
 import sentryReactVerification from './sentry-react/verification.json' with { type: 'json' };
 import { stripePack } from './stripe/index.js';
 import stripeVerification from './stripe/verification.json' with { type: 'json' };
+import { typescriptPack } from './typescript/index.js';
+import typescriptVerification from './typescript/verification.json' with { type: 'json' };
 import { vitestPack } from './vitest/index.js';
 import vitestVerification from './vitest/verification.json' with { type: 'json' };
 import { zodPack } from './zod/index.js';
@@ -64,6 +66,11 @@ export const REGISTRY: readonly RegisteredPack[] = [
     verification: sentryReactVerification as PackVerification,
   },
   { dir: 'stripe', pack: stripePack, verification: stripeVerification as PackVerification },
+  {
+    dir: 'typescript',
+    pack: typescriptPack,
+    verification: typescriptVerification as PackVerification,
+  },
   { dir: 'vitest', pack: vitestPack, verification: vitestVerification as PackVerification },
   { dir: 'zod', pack: zodPack, verification: zodVerification as PackVerification },
 ];
