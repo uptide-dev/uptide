@@ -50,9 +50,11 @@ describe('defaults a tsconfig leaves unset', () => {
       'tsconfig.base.json: types is [] (every @types package was included): list the ones the code uses; noUncheckedSideEffectImports is on: `import "./x.css"` needs a declaration',
     ]);
   });
-  it('is a decision for the owner, never a finding', () => {
+  it('is a decision for the owner, and a finding only where the compiler errors fold into it', () => {
     const note = typescriptPack.behavior.find((b) => b.id === 'changed-defaults');
-    expect(note?.reported).toEqual(['decision']);
+    expect(note?.reported).toEqual(['finding', 'decision']);
+    expect(note?.severity).toBe('deprecated');
+    expect(note?.detect).toBeUndefined();
     const decision = note?.applies?.({
       from: '5.9.3',
       to: '6.0.3',

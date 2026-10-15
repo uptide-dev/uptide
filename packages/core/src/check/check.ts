@@ -477,6 +477,13 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
           }
         },
       );
+      // Errors the pack knows one edit elsewhere resolves (the typescript pack's `types` default).
+      if (pack.foldFindings)
+        report.findings = pack.foldFindings({
+          root: opts.cwd,
+          workspace: report.workspace,
+          findings: report.findings,
+        });
     }
   const order = new Map(workspaces.map((w, i) => [w, i]));
   const packages = mergeAcrossWorkspaces(

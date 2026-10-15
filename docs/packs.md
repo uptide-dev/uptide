@@ -135,7 +135,12 @@ site is reported is part of the contract (`reported`):
 
 - `finding`: `check` lists the site as the pack's own finding (evidence `pack`), found by
   the note's `detect`; `fix` never edits it unasked. Example: a Stripe client created
-  without `apiVersion`, whose API version the SDK bump changes at runtime.
+  without `apiVersion`, whose API version the SDK bump changes at runtime. A pack may
+  instead create the note's findings with `foldFindings`, which runs once the pack's
+  findings are claimed and folds compiler errors that one edit elsewhere resolves into a
+  finding at that edit, as their evidence. The typescript pack folds the "Cannot find
+  name" errors of the 6.0 `types: []` default into one at the tsconfig that leaves
+  `types` unset.
 - `decision`: the pull request lists it under "Decisions for you", with the files and lines.
 - `test-follow-up`: an assertion is updated only after the migrated code made that test
   fail, and the test then has to pass (zod's reworded default messages).

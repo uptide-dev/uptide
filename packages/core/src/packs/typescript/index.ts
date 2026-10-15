@@ -7,6 +7,7 @@ import {
   rootDirSites,
   unsetDefaults,
 } from './detect.js';
+import { foldTypesDefault } from './fold.js';
 
 /**
  * typescript >=5 <6 → >=6 <7. The upgraded package is the compiler: what breaks is the
@@ -38,6 +39,7 @@ export const typescriptPack = definePack({
   },
   inventory: ['{tsconfig*.json,**/tsconfig*.json}'],
   requiresBuild: true,
+  foldFindings: foldTypesDefault,
   rules: [
     {
       id: 'base-url',
@@ -188,7 +190,10 @@ export const typescriptPack = definePack({
       id: 'changed-defaults',
       summary:
         'TypeScript 6.0 changed defaults a tsconfig may rely on: strict is on, types is [], noUncheckedSideEffectImports is on, rootDir is the tsconfig directory, module is esnext and target is the current ES year. Each option left unset either keeps its new value (the code is fixed where the compiler reports it) or is pinned to its 5.x value in the tsconfig; say which, per option.',
-      reported: ['decision'],
+      // A finding only where the compiler shows it matters: errors from the `types` default fold
+      // into one at the tsconfig that leaves `types` unset (fold.ts). Elsewhere a decision.
+      reported: ['finding', 'decision'],
+      severity: 'deprecated',
       applies: ({ inventory }) => {
         const lines = unsetDefaults(inventory ?? []);
         return lines.length > 0

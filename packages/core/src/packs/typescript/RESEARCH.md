@@ -183,26 +183,39 @@ The false negatives, all expected:
 - **`changed-defaults` sites.** That note is a decision, not a finding, so its 4 sites are
   behavior-only misses, not missed breaks.
 
-### After rebasing on UPT-49 (#138)
+### After rebasing on UPT-49 (#138): the `types` default folds
 
-On #138's project scope the compile also builds `tsconfig.*.json` projects, which `packs:truth`
-did not read (it compiled `tsconfig.json` alone). The first run on the new scope found 14 false
-positives, in shogo82148/typescript-action `__tests__/` through `tsconfig.eslint.json`:
-`describe`, `it` and `expect` unresolved under `types: []`. They are real 6.0 breaks for that
-repository: its `jest.config.js` runs ts-jest with that config, and its own upgrade added
-`"types": ["jest", "node"]` there.
+On #138's project scope the compile also builds `tsconfig.*.json` projects. The first run there
+found 14 breaking false positives in shogo82148/typescript-action `__tests__/`, through
+`tsconfig.eslint.json`: `describe`, `it` and `expect` unresolved under `types: []`. The ground
+truth, committed before scoring, does not change to make a run pass, so a redraft was reverted
+(the `packs:truth` change that drafts on the same scope stays, for packs drafted from now on).
 
-The gap was in the truth method, so the method changed, not the rule. `packs:truth` now drafts
-on `projectScope`, the same project list `check` compiles, and all seven repositories were
-redrafted (2026-10-15, committed before re-scoring):
+The engine changed instead. A person fixes the `types` default with one line, `"types": [...]`,
+not at each use, as shogo did in `tsconfig.eslint.json`. So `foldTypesDefault` (`fold.ts`, the
+pack's `foldFindings` hook, run after #136's option cascades) folds those errors into one
+`changed-defaults` finding:
 
-- shogo gains those 14 compiler sites under `generic`;
-- the other new diagnostics are inherited options on newly compiled leaf configs (signalk
-  `tsconfig.build.json:3`, Borewit `lib/tsconfig.prod.json:3`), expected where the option is set,
-  as before.
+- **Which errors:** TS2580/2581/2582/2591/2592/2593, and TS2304/TS2503 when an `@types` package
+  5.x included declares the missing name.
+- **Where:** at the covering project that leaves `types` unset through its `extends`, on the
+  config's root object line. The errors become its evidence (`anchorOnly`).
+- **Severity:** the note's, `deprecated` ("needs a look"). A breaking anchor would be a
+  breaking false positive wherever the original truth has no site for that tsconfig edit
+  (dependency-radar's `types` insertion touched a changed line, so it was never anchored).
 
-Re-scored: 0 false positives, breaking recall 99% (1,393 of 1,413). The run measures verified and
-the record stays candidate by choice.
+Re-scored 2026-10-15 on the original truth (unchanged since `d128198`):
+
+- 0 breaking false positives; PASS. The run measures verified and the record stays candidate.
+- Breaking recall **17% (240 of 1,399)**. 1,159 sites the original truth lists one per error line
+  under `generic` are now evidence of one tsconfig finding each, so they score as misses.
+- 8 `changed-defaults` false positives (deprecated, not breaking): the anchor is on the root
+  object line, while the truth's lines for those edits follow each diff's shape (`:1` where the
+  insertion went into an untouched object, the last property where a comma changed).
+
+The recall figure measures the original truth's convention (every error line a site) against
+the engine's (one site per edit). It is not a count of breaks `check` misses: every folded
+error is listed under its tsconfig finding.
 
 ## The verified gate, now and under UPT-48
 

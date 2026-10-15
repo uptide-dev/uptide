@@ -45,7 +45,9 @@ describe('every registered pack meets the contract', () => {
     }
     for (const note of pack.behavior) {
       expect(note.reported.length, note.id).toBeGreaterThan(0);
-      if (note.reported.includes('finding')) expect(note.detect, note.id).toBeDefined();
+      // A note's findings come from its `detect`, or from the pack folding compiler errors into it.
+      if (note.reported.includes('finding'))
+        expect(note.detect ?? pack.foldFindings, note.id).toBeDefined();
     }
     expect(pack.instructions).not.toBe('');
 
