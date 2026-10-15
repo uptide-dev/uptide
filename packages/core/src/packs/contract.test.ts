@@ -15,7 +15,7 @@ import {
   VERIFIED_MIN_BREAKING_SITES,
   verifiedGate,
 } from './contract.js';
-import { packFixability, withUnexercised } from './fixability.js';
+import { withUnexercised } from './fixability.js';
 import { activePacks, registeredPacks } from './index.js';
 import { runFixtures } from './tooling/fixtures.js';
 import { scoreSites } from './tooling/pack-test.js';
@@ -350,8 +350,7 @@ describe('definePack', () => {
       text,
       reason: expect.stringContaining('rename rewrite'),
     });
-    expect(packFixability(finding(1, 1), text, assisted).fixability).toBe('assisted');
-    expect(packFixability(finding(1, 1), text, pack).fixability).toBe('mechanical');
+    expect(pack.transform(text, finding(1, 1), context).applied).toBe(true);
     // Another rule's edits are untouched.
     expect(withUnexercised(pack, ['other']).transform(text, finding(1, 1), context).applied).toBe(
       true,

@@ -1,6 +1,6 @@
-import type { Finding, PackageReport, PlanGroup } from '../domain/report.js';
+import type { Finding, Fixability, PackageReport, PlanGroup } from '../domain/report.js';
 import type { Pack } from '../packs/contract.js';
-import type { MigrationPack, PackContext } from '../packs/types.js';
+import type { MigrationPack, PackContext, TransformResult } from '../packs/types.js';
 import { changeRule, diagnosticTitle, RULE_TITLES, ruleTitle } from './report.js';
 import { selectedFindings } from './select.js';
 
@@ -28,7 +28,7 @@ export function planPackage(
   /** What the pack gathered for this package (API versions, evidence): the dry run sees it too. */
   context: Partial<PackContext> = {},
 ): PlanGroup[] {
-  const usable = pack !== undefined && pack.name === p.name && pack.supports(p.installed, p.target);
+  const usable = usablePack(p, pack);
   const visible: PackageReport = {
     ...p,
     findings: p.findings.filter((f) => f.confidence >= VISIBLE_CONFIDENCE),
@@ -39,26 +39,7 @@ export function planPackage(
     true,
   );
   const planned: Planned[] = selected.map((finding) => {
-    const source = usable ? read(finding.usage.file) : undefined;
-    const dry =
-      usable && source !== undefined
-        ? pack.transform(source, finding, {
-            ...context,
-            from: finding.change.from,
-            to: p.target,
-            includeDeprecated: true,
-          })
-        : undefined;
-    // A pack's own finding marked manual is a decision, not a site anyone migrates unasked.
-    const decision = finding.change.source === 'pack' && finding.fixability === 'manual';
-    // Without a pack, `fix` hands the sites that have evidence to the agent; the rest is a
-    // person's call.
-    const generic = !usable && finding.severity === 'breaking';
-    const outcome: Outcome = dry?.applied
-      ? 'mechanical'
-      : (usable && !decision) || generic
-        ? 'agent'
-        : 'manual';
+    const { outcome, dry } = siteOutcome(p, finding, pack, read, context);
     const rule =
       finding.rule ??
       dry?.rule ??
@@ -121,6 +102,53 @@ export function planPackage(
         b.sites - a.sites ||
         a.rule.localeCompare(b.rule),
     );
+}
+
+const usablePack = (p: PackageReport, pack?: MigrationPack): pack is MigrationPack =>
+  pack !== undefined && pack.name === p.name && pack.supports(p.installed, p.target);
+
+/** A site's outcome as a finding's fixability: what every view of the site says (UPT-70). */
+export const FIXABILITY: Record<Outcome, Fixability> = {
+  mechanical: 'mechanical',
+  agent: 'assisted',
+  manual: 'manual',
+};
+
+/**
+ * Who migrates one site: the pack's transform as a dry run with the context `check` gathered
+ * (Stripe pins an unpinned client only once it knows the API versions). The plan's counts and
+ * each finding's `fixability` both come from here, so the summary, `--details` and `--json`
+ * cannot disagree. `finding.usage.file` is what `read` takes.
+ */
+export function siteOutcome(
+  p: PackageReport,
+  finding: Finding,
+  pack: MigrationPack | undefined,
+  read: (file: string) => string | undefined,
+  context: Partial<PackContext> = {},
+): { outcome: Outcome; dry?: TransformResult } {
+  const usable = usablePack(p, pack);
+  const source = usable ? read(finding.usage.file) : undefined;
+  const dry =
+    usable && source !== undefined
+      ? pack.transform(source, finding, {
+          ...context,
+          from: finding.change.from,
+          to: p.target,
+          includeDeprecated: true,
+        })
+      : undefined;
+  // A pack's own finding marked manual is a decision, not a site anyone migrates unasked.
+  const decision = finding.change.source === 'pack' && finding.fixability === 'manual';
+  // Without a pack, `fix` hands the sites that have evidence to the agent; the rest is a
+  // person's call.
+  const generic = !usable && finding.severity === 'breaking';
+  const outcome: Outcome = dry?.applied
+    ? 'mechanical'
+    : (usable && !decision) || generic
+      ? 'agent'
+      : 'manual';
+  return dry ? { outcome, dry } : { outcome };
 }
 
 const emptySummary = {

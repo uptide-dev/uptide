@@ -13,6 +13,7 @@ export {
   type CheckResult,
   check,
   isFailure,
+  planPackages,
   workerHeapMb,
 } from './check/check.js';
 export { resolveDirection } from './check/direction.js';

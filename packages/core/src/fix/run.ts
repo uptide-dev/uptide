@@ -11,7 +11,7 @@ import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { DEFAULT_MAX_COST_USD, providerFixer } from '../llm/fixer.js';
-import { decisionInventory, packDecisions } from '../packs/decisions.js';
+import { decidedRules, decisionInventory, packDecisions } from '../packs/decisions.js';
 import { genericPack } from '../packs/generic.js';
 import {
   activePack,
@@ -832,6 +832,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (headline) result.headline = headline;
   const decisions = packDecisions(pack, packContext, rules, followed);
   if (decisions?.length) result.decisions = decisions;
+  const decided = decidedRules(pack, packContext, rules, followed);
+  if (decided.length) result.decidedRules = decided;
   const remote = originOf(root);
   if (remote) result.remote = remote;
   mkdirSync(dirname(result.prBody), { recursive: true });

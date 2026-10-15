@@ -21,6 +21,89 @@ Next
 "
 `;
 
+exports[`formatCheck, the first screen > prints the plan on a row where nothing breaks (UPT-62) > a blocker 1`] = `
+"uptide check · storefront · pnpm · 25s
+
+ioredis        4.28.5 → 5.4.1   major · latest on npm      ✓ no impact (12 call sites)
+
+ioredis   0 breaking · types not verified: the compiler did not run
+  ✗ blocked: ioredis 5.4.1 needs denque ^3.0.0; installed 1.5.1, and only a new major satisfies it (denque 3.0.0)   a new major, never made by Uptide
+
+Next
+  npx uptide@next check ioredis --details    every site and reason
+"
+`;
+
+exports[`formatCheck, the first screen > prints the plan on a row where nothing breaks (UPT-62) > a companion 1`] = `
+"uptide check · storefront · pnpm · 25s
+
+ioredis        4.28.5 → 5.4.1   major · latest on npm      ✓ no impact (12 call sites)
+
+ioredis   0 breaking · types not verified: the compiler did not run
+  ↑ upgrades with ioredis-mock 7.4.0 → 8.9.0   release group
+
+Next
+  npx uptide@next check ioredis --details    every site and reason
+"
+`;
+
+exports[`formatCheck, the first screen > prints the plan on a row where nothing breaks (UPT-62) > a move the target requires 1`] = `
+"uptide check · storefront · pnpm · 25s
+
+ioredis        4.28.5 → 5.4.1   major · latest on npm      ✓ no impact (12 call sites)
+
+ioredis   0 breaking · types not verified: the compiler did not run
+  ↑ moves denque 1.5.1 → 2.1.0   moved because ioredis 5.4.1 requires denque ^2.1.0
+
+Next
+  npx uptide@next check ioredis --details    every site and reason
+"
+`;
+
+exports[`formatCheck, the first screen > prints the plan on a row where nothing breaks (UPT-62) > a removal 1`] = `
+"uptide check · storefront · pnpm · 25s
+
+ioredis        4.28.5 → 5.4.1   major · latest on npm      ✓ no impact (12 call sites)
+
+ioredis   0 breaking · types not verified: the compiler did not run
+  − removed: @types/ioredis, ioredis 5 ships its own types   npm deprecates its new release as a stub; was 4.28.10
+
+Next
+  npx uptide@next check ioredis --details    every site and reason
+"
+`;
+
+exports[`formatCheck, the first screen > prints the plan on a row where nothing breaks (UPT-62) > a stay 1`] = `
+"uptide check · storefront · pnpm · 25s
+
+ioredis        4.28.5 → 5.4.1   major · latest on npm      ✓ no impact (12 call sites)
+
+ioredis   0 breaking · types not verified: the compiler did not run
+  · bull stays at 3.29.3 (versioned on its own)
+
+Next
+  npx uptide@next check ioredis --details    every site and reason
+"
+`;
+
+exports[`formatCheck, the first screen > prints the plan on a row where nothing breaks (UPT-62) > in --details too 1`] = `
+"uptide check · storefront · pnpm · 25s
+
+ioredis  4.28.5 → 5.4.1
+  ✓ no impact on your code (12 call sites checked)
+  ↑ upgrades with ioredis-mock 7.4.0 → 8.9.0   release group
+  ↑ moves denque 1.5.1 → 2.1.0   moved because ioredis 5.4.1 requires denque ^2.1.0
+  ✗ blocked: ioredis 5.4.1 needs denque ^3.0.0; installed 1.5.1, and only a new major satisfies it (denque 3.0.0)   a new major, never made by Uptide
+  − removed: @types/ioredis, ioredis 5 ships its own types   npm deprecates its new release as a stub; was 4.28.10
+  · bull stays at 3.29.3 (versioned on its own)
+
+Summary: 0 packages need attention · 0 breaking · 0 deprecated · 0 unaffected
+
+Next
+  npx uptide@next check ioredis    the summary, one line per change
+"
+`;
+
 exports[`formatCheck, the first screen > summarizes a real workspace: a row per dependency, a line per rule, the next commands 1`] = `
 "uptide check · storefront · pnpm · 25s
 

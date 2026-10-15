@@ -13,7 +13,7 @@ import {
   verdictOf,
 } from '@uptide/core';
 import pc from 'picocolors';
-import { formatCheckDetails } from './format-check-details.js';
+import { formatCheckDetails, planBlock } from './format-check-details.js';
 import { importerNotes } from './importers.js';
 import { alignedRows, terminalHeader } from './terminal.js';
 
@@ -210,7 +210,8 @@ function rowOf(p: PackageReport, multi: boolean, colors: Colors): Row | undefine
     quiet:
       plan.length === 0 &&
       gaps === 0 &&
-      !p.peerConflicts?.length &&
+      // A row with a plan (a companion, a blocker, a removal) is never folded away.
+      planBlock(p, colors).length === 0 &&
       !['no-types', 'skipped', 'unknown'].includes(p.status),
     ...(verdictLine(p) ? { summary: verdictLine(p) } : {}),
   };
@@ -260,12 +261,7 @@ function sectionLines(row: Row, colors: Colors): string[] {
   const coverage = row.p.compile?.coverage
     ? [colors.dim(`  ${coverageLine(row.p.compile.coverage)}${preexisting}`)]
     : [];
-  // A deprecated `@types` stub the new version makes redundant: removed, not upgraded. Said
-  // even when nothing breaks, since `fix` changes the manifest for it.
-  const removals = (row.p.companionRemovals ?? []).map(
-    (r) =>
-      `  ${colors.cyan('−')} removed: ${r.name}, ${r.reason}   ${colors.dim(`npm deprecates its new release as a stub; was ${r.from}`)}`,
-  );
+  const plan = planBlock(row.p, colors);
   if (
     acting.length === 0 &&
     possible.length === 0 &&
@@ -273,7 +269,7 @@ function sectionLines(row: Row, colors: Colors): string[] {
     importers.length === 0 &&
     peers.length === 0
   )
-    return row.summary || removals.length ? [heading, ...coverage, ...removals] : [];
+    return row.summary || plan.length ? [heading, ...coverage, ...plan] : [];
   const scope = (g: PlanGroup): string => {
     if (g.fixes !== g.sites)
       return `${plural(g.fixes, 'fix', 'fixes')}, ${plural(g.sites, 'error')}`;
@@ -331,30 +327,7 @@ function sectionLines(row: Row, colors: Colors): string[] {
       `  ${colors.yellow('!')} ${plural(sites, 'deprecated call')} (${deprecatedNames(deprecated)})   ${colors.dim(who)}`,
     );
   }
-  // What moves with it: one install, at versions that agree, the way `fix` upgrades it.
-  const companions = (row.p.companions ?? []).filter((c) => !c.required);
-  if (companions.length > 0)
-    lines.push(
-      `  ${colors.cyan('↑')} upgrades with ${companions.map((c) => `${c.name} ${c.from} → ${c.to}`).join(', ')}   ${colors.dim(companions.map((c) => c.reason).join('; '))}`,
-    );
-  // Not released with it: the planned versions require them, within their majors.
-  for (const c of (row.p.companions ?? []).filter((c) => c.required))
-    lines.push(
-      `  ${colors.cyan('↑')} moves ${c.name} ${c.from} → ${c.to}   ${colors.dim(`moved because ${c.reason}`)}`,
-    );
-  for (const blocker of row.p.companionBlockers ?? [])
-    lines.push(
-      `  ${colors.red('✗')} blocked: ${blocker}   ${colors.dim('a new major, never made by Uptide')}`,
-    );
-  lines.push(...removals);
-  for (const conflict of row.p.companionConflicts ?? [])
-    lines.push(`  ${colors.red('✗')} ${conflict}: no consistent upgrade`);
-  for (const stay of row.p.companionStays ?? []) lines.push(`  ${colors.dim(`· ${stay}`)}`);
-  // Left in place, as the repository's own upgrade may leave it: possible impact, never breaking.
-  for (const conflict of row.p.peerConflicts ?? [])
-    lines.push(
-      `  ${colors.magenta('?')} possible impact, peer conflict: ${conflict}   ${colors.dim('left where it is, not compiled at another version, not counted as breaking')}`,
-    );
+  lines.push(...plan);
   // An importer the manifest does not show, or one the analysis could not reach: the reader
   // decides whether the sites above are all of them.
   for (const note of importers) lines.push(`  ${colors.yellow('⚠')} ${note}`);

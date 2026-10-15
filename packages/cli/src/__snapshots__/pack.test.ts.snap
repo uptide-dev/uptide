@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`prints what check plans in each repository: companions, required moves, stays, blockers and removals (UPT-62) 1`] = `
+"ground truth
+  owner/name                                   ioredis 4.28.5 → 5.4.1  predicted 0, expected 0, false positives 0, false negatives 0
+    with ioredis-mock 7.4.0 → 8.9.0, denque 1.5.1 → 2.1.0 (moved because ioredis 5.4.1 requires denque ^2.1.0)
+    · bull stays at 3.29.3 (versioned on its own)
+    ✗ blocked: ioredis 5.4.1 needs node >=12.22; only a new major satisfies it
+    − removed: @types/ioredis 4.28.10, ioredis 5 ships its own types"
+`;

@@ -44,3 +44,19 @@ export function packDecisions(
     return applies ? [`- ${typeof applies === 'string' ? applies : note.summary}`] : [];
   });
 }
+
+/**
+ * The rules the pack decides about itself: those whose decisions are more than what it says
+ * for every run. An agent's restatement of one of them is not said again (UPT-70).
+ */
+export function decidedRules(
+  pack: MigrationPack,
+  context: PackContext,
+  rules: readonly string[],
+  followed?: Parameters<NonNullable<MigrationPack['decisions']>>[2],
+): string[] {
+  const always = new Set(packDecisions(pack, context, [], followed));
+  return rules.filter((rule) =>
+    packDecisions(pack, context, [rule], followed).some((d) => !always.has(d)),
+  );
+}

@@ -224,6 +224,8 @@ function packageLines(p: PackageReport, opts: DetailOptions, colors: Colors): st
     );
     lines.push(...render(deprecated, '!', colors, colors.yellow));
   }
+  const plan = planBlock(p, colors);
+  if (plan.length > 0) lines.push(...(visible.length > 0 ? [''] : []), ...plan);
   // `info` findings are demoted verdicts the compiler accepted: never listed, never counted, only mentioned here.
   const hidden = p.findings.filter(
     (f) =>
@@ -255,6 +257,44 @@ function packageLines(p: PackageReport, opts: DetailOptions, colors: Colors): st
     if (visible.length === 0 && /sites? not analyzed/.test(note)) continue;
     lines.push(colors.dim(`  ⚠ ${note}`));
   }
+  return lines;
+}
+
+/**
+ * What `fix` changes in the manifest besides the package, and what it will not: printed on
+ * every row that has any, a row where nothing breaks included (UPT-62). A blocker there is
+ * what the reader needs before running `fix`.
+ */
+export function planBlock(p: PackageReport, colors: Colors): string[] {
+  const lines: string[] = [];
+  // What moves with it: one install, at versions that agree, the way `fix` upgrades it.
+  const companions = (p.companions ?? []).filter((c) => !c.required);
+  if (companions.length > 0)
+    lines.push(
+      `  ${colors.cyan('↑')} upgrades with ${companions.map((c) => `${c.name} ${c.from} → ${c.to}`).join(', ')}   ${colors.dim(companions.map((c) => c.reason).join('; '))}`,
+    );
+  // Not released with it: the planned versions require them, within their majors.
+  for (const c of (p.companions ?? []).filter((c) => c.required))
+    lines.push(
+      `  ${colors.cyan('↑')} moves ${c.name} ${c.from} → ${c.to}   ${colors.dim(`moved because ${c.reason}`)}`,
+    );
+  for (const blocker of p.companionBlockers ?? [])
+    lines.push(
+      `  ${colors.red('✗')} blocked: ${blocker}   ${colors.dim('a new major, never made by Uptide')}`,
+    );
+  // A deprecated `@types` stub the new version makes redundant: removed, not upgraded.
+  for (const r of p.companionRemovals ?? [])
+    lines.push(
+      `  ${colors.cyan('−')} removed: ${r.name}, ${r.reason}   ${colors.dim(`npm deprecates its new release as a stub; was ${r.from}`)}`,
+    );
+  for (const conflict of p.companionConflicts ?? [])
+    lines.push(`  ${colors.red('✗')} ${conflict}: no consistent upgrade`);
+  for (const stay of p.companionStays ?? []) lines.push(`  ${colors.dim(`· ${stay}`)}`);
+  // Left in place, as the repository's own upgrade may leave it: possible impact, never breaking.
+  for (const conflict of p.peerConflicts ?? [])
+    lines.push(
+      `  ${colors.magenta('?')} possible impact, peer conflict: ${conflict}   ${colors.dim('left where it is, not compiled at another version, not counted as breaking')}`,
+    );
   return lines;
 }
 
