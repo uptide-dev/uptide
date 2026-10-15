@@ -16,6 +16,8 @@ import { reactPack } from './react/index.js';
 import reactVerification from './react/verification.json' with { type: 'json' };
 import { reactRouterPack } from './react-router/index.js';
 import reactRouterVerification from './react-router/verification.json' with { type: 'json' };
+import { redisPack } from './redis/index.js';
+import redisVerification from './redis/verification.json' with { type: 'json' };
 import { sentryBrowserPack } from './sentry-browser/index.js';
 import sentryBrowserVerification from './sentry-browser/verification.json' with { type: 'json' };
 import { sentryNextjsPack } from './sentry-nextjs/index.js';
@@ -45,6 +47,7 @@ export const REGISTRY: readonly RegisteredPack[] = [
     pack: reactRouterPack,
     verification: reactRouterVerification as PackVerification,
   },
+  { dir: 'redis', pack: redisPack, verification: redisVerification as PackVerification },
   {
     dir: 'sentry-browser',
     pack: sentryBrowserPack,

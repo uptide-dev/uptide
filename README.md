@@ -63,6 +63,7 @@ verified with two or more public repositories and no false positive. The contrac
 | `next` | 15.x → 16.x | 100% | 85% | sambecker/exif-photo-blog, stoczec/wortkarte | verified |
 | `react` | 18.x → 19.x | 100% | 69% | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6.x → 7.x | 100% | 88% | Arize-ai/phoenix, getlago/lago-front | verified |
+| `redis` | >=4 <6 → >=5 <7 | n/a | n/a | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, deanmoses/tacocat-gallery-sam, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | candidate |
 | `@sentry/browser` | 10.x → 11.x | 100% | 100% | Automancer-Ltd/automancer-site, sbomify/sbomify | verified |
 | `@sentry/nextjs` | 10.x → 11.x | 100% | 100% | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `@sentry/react` | 10.x → 11.x | 100% | 100% | owine/youth-activity-scheduler, successible/cleanslate | verified |
