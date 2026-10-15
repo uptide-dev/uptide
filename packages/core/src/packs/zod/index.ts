@@ -17,8 +17,10 @@ import type { PackContext, TransformResult } from '../types.js';
 import {
   errorMemberFindings,
   errorMemberSites,
+  ISSUES_RULE,
   RULE,
   rewriteErrorMembers,
+  rewriteErrors,
 } from './error-members.js';
 import { zodGuide } from './guide.js';
 import { defaultMessageSites } from './messages.js';
@@ -361,12 +363,22 @@ export const zodPack: Pack = {
       summary:
         'ZodError#formErrors and #errors were removed; read off an untyped catch binding, the compiler cannot see it',
       severity: 'breaking',
-      // Only its own sites: a typed read is the compiler's finding, under the rules above.
+      // Only its own sites: a typed read is the compiler's finding (`error-issues` for errors).
       kinds: [],
       symbols: /$^/,
       guide: zodGuide.errorMembers,
       detect: (text, file) => errorMemberSites(text, file),
       rewrite: (text, finding) => rewriteErrorMembers(text, finding),
+    },
+    {
+      id: ISSUES_RULE,
+      summary: 'ZodError#errors was an alias of issues and was removed: errors becomes issues',
+      severity: 'breaking',
+      // The type diff's finding: the checker resolved the receiver to ZodError.
+      kinds: ['removed'],
+      symbols: /^ZodError#errors$/,
+      guide: zodGuide.errorMembers,
+      rewrite: (text, finding) => rewriteErrors(text, finding),
     },
     {
       id: 'types',
