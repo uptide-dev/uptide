@@ -198,8 +198,14 @@ Where the expected findings come from: two sources that are not Uptide.
    the old side). One site per change: consecutive changed lines of the same change are one
    site, at the first line of code (a line that is plainly another rule's starts a new
    one); a run with a diagnostic inside it, or right after a diagnostic of the same rule, is
-   that diagnostic's site. Comment-only lines, pure insertions (no line at `<commit>`), and
-   changes for another package are not sites.
+   that diagnostic's site. Comment-only lines and changes for another package are not sites.
+   A pure insertion (no line at `<commit>`) is a site only when it adds to a call or object
+   the upgrade otherwise left unchanged, such as an option added to a constructor:
+   `new Redis(url, {` at line 138 that gains `protocol: 2` is a site at 138. The anchor is the
+   start line of the innermost call (or `new`) whose parentheses hold the inserted lines,
+   through any object and array literals, or of the object literal when no call takes it.
+   An insertion between statements or into a function body is not a site, nor is one into a
+   call the upgrade also changed: that call's changed lines are its site.
 
 `pnpm packs:truth` drafts both for one repository:
 
@@ -209,8 +215,9 @@ pnpm packs:truth ai vercel/chatbot <commit> <upgrade-commit> --to 7.0.9 \
   --also @ai-sdk/react@4.0.10 --also @ai-sdk/provider@4.0.1
 ```
 
-It prints the compiler's new diagnostics with each line's text, and the changed and inserted
-lines. You read each one, drop what is not about the package, and give every kept site its
+It prints the compiler's new diagnostics with each line's text, the changed and inserted
+lines, and `anchors`: each insertion into an unchanged call or object, at the line the rule
+above anchors it, with the lines inserted there. You read each one, drop what is not about the package, and give every kept site its
 rule, from its code and text. A site the pack has no rule for is expected under `generic`.
 The expected findings never come from Uptide's output: a site `check` reports that neither
 source has is a false positive, and it stays one.

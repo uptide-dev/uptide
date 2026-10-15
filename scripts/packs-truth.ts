@@ -8,6 +8,9 @@
  * - changed: every line of `<commit>` the upgrade commit changed or removed (`git diff -U0`,
  *   the old side), in source files. Pure insertions have no line in `<commit>` and are listed
  *   apart.
+ * - anchors: the pure insertions that add to a call or object the upgrade left otherwise
+ *   unchanged (an option added to a constructor), at the call's start line: the site such a
+ *   change has (docs/packs.md, "Ground truth"), drafted for review like the rest.
  * - compiler: the diagnostics the repository's own TypeScript reports with the target version
  *   swapped in and not without it, errors and deprecations (6385, 6387), keyed on file, code
  *   and message. The target is linked where the repository has the package installed, as an
@@ -32,7 +35,15 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative } from 'node:path';
-import { createNpmFetcher, ensureRepo, maxSatisfying, satisfies, validRange } from '@uptide/core';
+import {
+  createNpmFetcher,
+  diffLines,
+  ensureRepo,
+  insertionAnchors,
+  maxSatisfying,
+  satisfies,
+  validRange,
+} from '@uptide/core';
 import { compilerDiagnostics, type Diagnostic } from './packs-truth-compiler.ts';
 
 const args = process.argv.slice(2);
@@ -65,32 +76,15 @@ const git = (...a: string[]) =>
     maxBuffer: 256 * 1024 * 1024,
   });
 git('fetch', '-q', '--depth', '1', '--no-tags', 'origin', upgrade);
-const SOURCE = /\.[cm]?[jt]sx?$/;
-const changed: { file: string; line: number; text: string }[] = [];
-const inserted: { file: string; after: number; text: string }[] = [];
-let file = '';
-let oldLine = 0;
-let newRun = false;
-for (const line of git('diff', '-U0', '--no-color', '--no-ext-diff', commit, upgrade).split('\n')) {
-  if (line.startsWith('--- ')) continue;
-  if (line.startsWith('+++ ')) {
-    file = line.slice(4).replace(/^b\//, '');
-    continue;
-  }
-  const hunk = /^@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@/.exec(line);
-  if (hunk) {
-    oldLine = Number(hunk[1]);
-    newRun = hunk[2] === '0';
-    if (newRun) oldLine += 1;
-    continue;
-  }
-  if (!SOURCE.test(file) || (directory && !file.startsWith(`${directory}/`))) continue;
-  const where = directory ? relative(directory, file) : file;
-  if (line.startsWith('-'))
-    changed.push({ file: where, line: oldLine++, text: line.slice(1).trim() });
-  else if (line.startsWith('+') && newRun)
-    inserted.push({ file: where, after: oldLine - 1, text: line.slice(1).trim() });
-}
+const { changed, inserted } = diffLines(
+  git('diff', '-U0', '--no-color', '--no-ext-diff', commit, upgrade),
+  directory,
+);
+// Read at `<commit>`, which is what is checked out.
+const anchors = insertionAnchors({ changed, inserted }, (file) => {
+  const path = join(project, file);
+  return existsSync(path) ? readFileSync(path, 'utf8') : undefined;
+});
 
 // Where the repository has the package: the root's node_modules and each workspace's.
 function installs(name: string, dir: string, depth = 0): string[] {
@@ -236,6 +230,7 @@ console.log(
       })),
       changed,
       inserted,
+      anchors,
     },
     null,
     2,
