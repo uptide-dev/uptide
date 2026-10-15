@@ -128,7 +128,6 @@
       "from": "15.5.15",
       "to": "16.2.6",
       "with": {
-        "@next/eslint-plugin-next": "16.2.6",
         "eslint-config-next": "16.2.6"
       },
       "why": "App Router app whose own 15 to 16 upgrade moved its aliased unstable_cacheLife/unstable_cacheTag import to the stable names (UPT-69) and its experimental flags. Left out: the ESLint flat-config rewrite (its ESLint companion), supabase cookie-type annotations, and the packs:truth helper's resolution artifacts (next/font/google TS2305, Script and styled-jsx TS2322, implicit-any cascades), as RESEARCH.md describes.",
@@ -160,7 +159,6 @@
       "from": "15.5.10",
       "to": "16.1.6",
       "with": {
-        "@next/eslint-plugin-next": "16.1.6",
         "@next/third-parties": "16.1.6",
         "eslint-config-next": "16.1.6"
       },
