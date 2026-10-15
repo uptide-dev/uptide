@@ -139,6 +139,8 @@ export interface DiagnosticCause {
 
 /** The files Signal B was asked to judge and what became of them: the denominator of a verdict. */
 export interface CompileCoverage {
+  /** No tsconfig was found: importer-based compilation was used. */
+  noTsconfig?: boolean;
   /** Files type-checked against the target. */
   compiled: number;
   /** Files that use the package (and the files importing them) the signal was asked about. */

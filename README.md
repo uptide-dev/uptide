@@ -34,9 +34,9 @@ Everything else: [getting started](docs/getting-started.md).
 
 - Renovate and Dependabot bump the version. Uptide says what the bump breaks in your code,
   fixes it on a branch, and verifies the result with your compiler and your tests.
-- Breaking means compiler-confirmed: a finding counts only when your code fails to compile
-  against the target at that site, the runtime probe saw the export go, or a migration pack
-  found it. Everything else is listed as possible impact, never counted.
+- Breaking findings require compiler, runtime, or pack confirmation. Everything else is possible impact.
+  Files outside your tsconfig projects never count; without a tsconfig, importer-based
+  compilation is used and reported.
 - A migration is a pull request you can read: rule-based edits first, assisted edits only
   where a rule cannot, each kept only if its compiler error disappears and no new one
   appears, and a report that says what was verified and what was not. Accepted agent edits

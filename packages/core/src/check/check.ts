@@ -767,6 +767,7 @@ export function mergeAcrossWorkspaces(
           ? {
               coverage: {
                 compiled: coverages.reduce((n, c) => n + c.compiled, 0),
+                ...(coverages.some((c) => c.noTsconfig) ? { noTsconfig: true } : {}),
                 total: coverages.reduce((n, c) => n + c.total, 0),
                 workspaces: coverages.reduce((n, c) => n + c.workspaces, 0),
                 skipped: [...skipped].map(([reason, count]) => ({ reason, count })),
@@ -2340,6 +2341,20 @@ async function checkGroup(
             `${f.change.package} ${f.change.to} exports: ${exported.slice(0, 60).join(', ')}${exported.length > 60 ? `, and ${exported.length - 60} more` : ''}`,
           ];
       }
+    if (ctx.adapter.compileScope) {
+      const scope = await ctx.adapter.compileScope(repo, [
+        ...new Set(findings.map((f) => f.usage.file)),
+      ]);
+      const outside = new Set(scope.outside);
+      const covered = findings.filter((f) => !outside.has(f.usage.file));
+      findings.length = 0;
+      findings.push(...covered);
+      if (outside.size)
+        notes.push(
+          `${outside.size} file(s) outside the TypeScript project; not counted as findings`,
+        );
+      if (scope.noTsconfig) notes.push('No tsconfig found; using importer-based compile scope.');
+    }
     const unanalyzedCount = prepared.reduce((n, p) => n + p.scan.unanalyzed.length, 0);
     let status = statusOf(findings, usages.length, unanalyzedCount);
     // Nothing to diff and nothing found: the honest status is "no types", with the reason in the notes.

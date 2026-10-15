@@ -57,6 +57,44 @@ process.env.UPTIDE_CACHE_DIR = mkdtempSync(join(tmpdir(), 'uptide-test-cache-'))
 
 const adapter = createTypescriptAdapter({ now: () => new Date('2026-09-27T00:00:00.000Z') });
 
+it.each([true, false])(
+  'excludes guardrails-style examples from findings (compile=%s)',
+  async (compile) => {
+    const dir = mkdtempSync(join(tmpdir(), 'uptide-guardrails-scope-'));
+    cpSync(CONSUMER, dir, { recursive: true });
+    const config = JSON.parse(readFileSync(join(dir, 'tsconfig.json'), 'utf8'));
+    for (const key of Object.keys(config.compilerOptions.paths))
+      config.compilerOptions.paths[key] = config.compilerOptions.paths[key].map((p: string) =>
+        resolve(CONSUMER, p),
+      );
+    writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify(config));
+    mkdirSync(join(dir, 'examples'));
+    writeFileSync(
+      join(dir, 'examples/multiturn.ts'),
+      "import { createClient } from 'synthetic';\ncreateClient('one');\ncreateClient('two');\ncreateClient('three');\ncreateClient('four');\n",
+    );
+    const result = await check({
+      cwd: dir,
+      only: ['synthetic'],
+      fetcher,
+      cache: memoryCache(),
+      runtime: false,
+      compile,
+    });
+    const report = result.packages[0];
+    expect(report?.findings.some((f) => f.usage.file.startsWith('examples/'))).toBe(false);
+    if (compile) {
+      expect(
+        report?.findings.some((f) => f.severity === 'breaking' && f.usage.file === 'src/chains.ts'),
+      ).toBe(true);
+      expect(report?.compile?.coverage?.skipped).toContainEqual({
+        reason: 'outside the TypeScript project',
+        count: 1,
+      });
+    }
+  },
+);
+
 it('compiles every named importer even when an unused removed binding has no attributed usage', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'uptide-scoped-import-'));
   cpSync(CONSUMER, dir, { recursive: true });
@@ -66,7 +104,10 @@ it('compiles every named importer even when an unused removed binding has no att
       resolve(CONSUMER, p),
     );
   writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify(config));
-  writeFileSync(join(dir, 'unused.ts'), "import { parseLegacy } from 'synthetic';\nexport {};\n");
+  writeFileSync(
+    join(dir, 'src/unused.ts'),
+    "import { parseLegacy } from 'synthetic';\nexport {};\n",
+  );
   const result = await check({
     cwd: dir,
     only: ['synthetic'],
@@ -78,7 +119,7 @@ it('compiles every named importer even when an unused removed binding has no att
     expect.objectContaining({
       severity: 'breaking',
       evidence: 'compiler',
-      usage: expect.objectContaining({ file: 'unused.ts', line: 1 }),
+      usage: expect.objectContaining({ file: 'src/unused.ts', line: 1 }),
     }),
   );
 });
