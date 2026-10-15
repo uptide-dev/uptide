@@ -215,9 +215,11 @@ export interface FixReport {
   releaseAge?: string;
   from?: string;
   /** What moved with it, at the versions that agree with the target, and why (`check/companions.ts`). */
-  companions?: { name: string; from: string; to: string; reason: string }[];
+  companions?: { name: string; from: string; to: string; reason: string; required?: true }[];
   /** Packages of the same scope left where they are, and why (`check/companions.ts`). */
   companionStays?: string[];
+  /** Required moves only a new major makes, never made (`check/required.ts`). */
+  companionBlockers?: string[];
   /** `pin`: no upgrade; the SDK's default API version was written on every client (`--pin-current-api`). */
   mode?: 'pin';
   /** The API version the pin run wrote. */

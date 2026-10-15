@@ -318,6 +318,7 @@ export function migrationRisk(report: FixReport): {
   const high = [
     ...(report.packWarning ? [report.packWarning] : []),
     ...(report.peerConflicts?.length ? ['peer compatibility is not verified'] : []),
+    ...(report.companionBlockers?.length ? ['a required move is blocked'] : []),
     ...(report.sites.some((s) => s.outcome === 'manual') ? ['manual sites left'] : []),
     ...(!report.verification.passed ||
     report.verification.newErrors.length ||
@@ -739,11 +740,27 @@ export function renderMigration(
     );
   }
   // What moved with the package: one install at versions that agree, never the package alone.
-  if (report.companions?.length)
+  const released = report.companions?.filter((c) => !c.required) ?? [];
+  const required = report.companions?.filter((c) => c.required) ?? [];
+  if (released.length)
     lines.push(
       `Upgraded with ${report.package}, so the install stays consistent:`,
       '',
-      ...report.companions.map((c) => `- \`${c.name}\` ${c.from} → ${c.to} (${c.reason})`),
+      ...released.map((c) => `- \`${c.name}\` ${c.from} → ${c.to} (${c.reason})`),
+      '',
+    );
+  if (required.length)
+    lines.push(
+      'Moved because the new version requires it:',
+      '',
+      ...required.map((c) => `- \`${c.name}\` ${c.from} → ${c.to} (moved because ${c.reason})`),
+      '',
+    );
+  if (report.companionBlockers?.length)
+    lines.push(
+      'Blocked: a required move only a new major makes, which Uptide never makes:',
+      '',
+      ...report.companionBlockers.map((b) => `- ${b}`),
       '',
     );
   if (report.companionStays?.length)

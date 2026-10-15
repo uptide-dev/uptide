@@ -236,6 +236,7 @@ export function assertLockScope(
     left: Record<string, string | undefined>,
     right: Record<string, string | undefined>,
     seen = new Set<string>(),
+    declared = false,
   ): boolean =>
     [...new Set([...Object.keys(left), ...Object.keys(right)])].every((name) => {
       if (!Object.hasOwn(left, name) || !Object.hasOwn(right, name)) return false;
@@ -243,7 +244,10 @@ export function assertLockScope(
         b = right[name];
       if (a === undefined || b === undefined) return a === b;
       // Intended upgrades stay authorized; dedupe from an outside copy must still compare.
-      if (originalScope.has(a) && originalScope.has(b)) return true;
+      // A package an importer declares moves only when the plan names it: npm resolves a
+      // moved package's peer to the root copy, and reaching it is no consent to move it.
+      if (originalScope.has(a) && originalScope.has(b) && (!declared || names.includes(name)))
+        return true;
       // Admitted peers may move; their transitive upgrades cannot change an outside consumer.
       if (extraRoots.includes(a) && extraRoots.includes(b)) return true;
       return equivalent(a, b, seen);
@@ -252,7 +256,7 @@ export function assertLockScope(
     ...Object.keys(before.roots ?? {}),
     ...Object.keys(after.roots ?? {}),
   ]))
-    if (!sameEdges(before.roots?.[key] ?? {}, after.roots?.[key] ?? {}))
+    if (!sameEdges(before.roots?.[key] ?? {}, after.roots?.[key] ?? {}, new Set(), true))
       unexpected.add(`importer ${key || '.'} resolutions`);
 
   const counterpart = (

@@ -261,6 +261,42 @@ describe('formatCheck, the first screen', () => {
     expect(out).toContain('npx uptide@next fix ai');
   });
 
+  it('names a move the target requires, and a blocker it will not move across a major', () => {
+    const out = formatCheck(
+      report([
+        pkg({
+          name: 'openai',
+          installed: '4.83.0',
+          latest: '7.4.0',
+          target: '7.4.0',
+          majorsBehind: 3,
+          status: 'breaking',
+          findings: [removed('src/index.ts', 3)],
+          companions: [
+            {
+              name: 'zod',
+              from: '3.24.2',
+              to: '3.25.0',
+              reason: 'openai 7.4.0 requires zod ^3.25 || ^4.0',
+              required: true,
+            },
+          ],
+          companionBlockers: [
+            'openai 7.4.0 needs ws ^8.18.0; installed 7.5.10, and only a new major satisfies it (ws 8.18.0)',
+          ],
+        }),
+      ]),
+      { ...shown, fixable: ['openai'] },
+    );
+    expect(out).toContain(
+      '↑ moves zod 3.24.2 → 3.25.0   moved because openai 7.4.0 requires zod ^3.25 || ^4.0',
+    );
+    expect(out).not.toContain('upgrades with');
+    expect(out).toContain(
+      '✗ blocked: openai 7.4.0 needs ws ^8.18.0; installed 7.5.10, and only a new major satisfies it (ws 8.18.0)   a new major, never made by Uptide',
+    );
+  });
+
   it('lists a peer conflict as possible impact, never as breaking', () => {
     const out = formatCheck(
       report([

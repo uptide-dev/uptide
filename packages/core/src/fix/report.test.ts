@@ -1011,6 +1011,31 @@ it('says why a required build failed when it stopped before the framework build'
     'the build needs DATABASE_URL before the framework build started. Set `verify.build` in uptide.yml',
   );
 });
+it('lists required moves apart from companions, and blockers, next to what stays', () => {
+  const report = ruleOnly();
+  report.companions = [
+    {
+      name: 'zod',
+      from: '3.24.2',
+      to: '3.25.0',
+      reason: 'openai 7.4.0 requires zod ^3.25 || ^4.0',
+      required: true,
+    },
+  ];
+  report.companionBlockers = [
+    '@openai/agents 0.1.11 depends on openai ^5.20.2; only a new major accepts openai 7.9.0 (@openai/agents 0.15.0, which needs zod ^4.0.0; installed 3.25.76)',
+  ];
+  const body = visible(prBody(report));
+  expect(body).not.toContain('Upgraded with');
+  expect(body).toContain(
+    '- `zod` 3.24.2 → 3.25.0 (moved because openai 7.4.0 requires zod ^3.25 || ^4.0)',
+  );
+  expect(body).toContain(
+    '- @openai/agents 0.1.11 depends on openai ^5.20.2; only a new major accepts openai 7.9.0',
+  );
+  expect(migrationRisk(report)).toMatchObject({ level: 'High' });
+  expect(migrationRisk(report).reason).toContain('a required move is blocked');
+});
 it('names the packages of the scope that stay where they are', () => {
   const report = ruleOnly();
   report.companionStays = [

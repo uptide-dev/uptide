@@ -711,6 +711,8 @@ export function mergeAcrossWorkspaces(
     if (conflicts.length > 0) combined.companionConflicts = conflicts;
     const stays = [...new Set(list.flatMap((p) => p.companionStays ?? []))].sort();
     if (stays.length > 0) combined.companionStays = stays;
+    const blockers = [...new Set(list.flatMap((p) => p.companionBlockers ?? []))].sort();
+    if (blockers.length > 0) combined.companionBlockers = blockers;
     const peerConflicts = [...new Set(list.flatMap((p) => p.peerConflicts ?? []))].sort();
     if (peerConflicts.length > 0) combined.peerConflicts = peerConflicts;
     const members = [
@@ -1251,7 +1253,8 @@ async function companionPlans(
         plan.companions.length > 0 ||
         plan.conflicts.length > 0 ||
         plan.peerConflicts.length > 0 ||
-        plan.stays?.length
+        plan.stays?.length ||
+        plan.blockers?.length
       )
         plans[lead] = plan;
     } catch {
@@ -1761,6 +1764,7 @@ async function checkGroup(
     ...(plan?.companions.length ? { companions: plan.companions } : {}),
     ...(plan?.conflicts.length ? { companionConflicts: plan.conflicts } : {}),
     ...(plan?.stays?.length ? { companionStays: plan.stays } : {}),
+    ...(plan?.blockers?.length ? { companionBlockers: plan.blockers } : {}),
     ...(plan?.peerConflicts.length ? { peerConflicts: plan.peerConflicts } : {}),
     majorsBehind: Math.max(...prepared.map((p) => majorsBehind(p.installedVersion, p.target))),
     findings: [],

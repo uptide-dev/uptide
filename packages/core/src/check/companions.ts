@@ -2,6 +2,7 @@ import { satisfies } from '../fetch/range.js';
 import type { Manifest } from '../list/evidence.js';
 import { dependencyGroups } from '../list/groups.js';
 import type { ListedDependency } from '../list/list.js';
+import { requiredMoves } from './required.js';
 import { typedPackageOf, typesReleaseFor } from './types-release.js';
 import { compareVersions, parseVersion } from './version.js';
 
@@ -12,6 +13,11 @@ export interface Companion {
   to: string;
   /** Why this version: `ai 7.0.9 pins @ai-sdk/provider 4.0.1`. */
   reason: string;
+  /**
+   * Moved because a planned version requires it, not because it is released with the lead:
+   * `openai 7.4.0 requires zod ^3.25 || ^4.0` (`required.ts`). Always within its major.
+   */
+  required?: true;
 }
 
 export interface InstalledDependency {
@@ -37,6 +43,11 @@ export interface CompanionPlan {
    * the pack declares. Information, never a reason to refuse the upgrade.
    */
   stays?: string[];
+  /**
+   * Moves a planned version requires that only a new major makes, never made: `openai 7.9.0
+   * needs zod ^4.0.0; installed 3.25.76, and only a new major satisfies it (zod 4.0.0)`.
+   */
+  blockers?: string[];
   /** The group as `list` names it (`@ai-sdk family, shared @ai-sdk/provider-utils`). */
   reason?: string;
 }
@@ -218,11 +229,7 @@ function typesMove(
   return { version, reason: `${dep.name} ${version} types ${host} ${hostTarget}` };
 }
 
-/**
- * What moves with `name@target` in a repository, from its installed dependencies and the
- * registry's manifests of every version (`manifests`, one cached packument per package).
- */
-export async function companionsOf(input: {
+interface CompanionInput {
   name: string;
   target: string;
   installed: InstalledDependency[];
@@ -232,7 +239,39 @@ export async function companionsOf(input: {
   releaseGroup?: readonly string[];
   /** Targets already planned before an explicitly requested peer upgrade. */
   peerTargets?: Record<string, string>;
-}): Promise<CompanionPlan> {
+}
+
+/**
+ * What moves with `name@target` in a repository, from its installed dependencies and the
+ * registry's manifests of every version (`manifests`, one cached packument per package): its
+ * release group, then what the planned versions require of the rest (`required.ts`).
+ */
+export async function companionsOf(input: CompanionInput): Promise<CompanionPlan> {
+  const plan = await releaseGroupOf(input);
+  const lead = input.installed.find((d) => d.name === input.name);
+  const targetManifest = lead && (await input.manifests(input.name))[input.target];
+  if (!lead || !targetManifest) return plan;
+  const first = (line: string) => line.split(' ')[0] as string;
+  const required = await requiredMoves({
+    lead,
+    target: input.target,
+    targetManifest,
+    installed: input.installed,
+    manifests: input.manifests,
+    planned: plan.companions,
+    reported: new Set([...plan.conflicts, ...plan.peerConflicts, ...(plan.stays ?? [])].map(first)),
+  });
+  if (!required.moves.length && !required.blockers.length) return plan;
+  return {
+    ...plan,
+    companions: [...plan.companions, ...required.moves].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    ),
+    ...(required.blockers.length ? { blockers: required.blockers } : {}),
+  };
+}
+
+async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
   const none: CompanionPlan = { companions: [], conflicts: [], peerConflicts: [] };
   const lead = input.installed.find((d) => d.name === input.name);
   if (!lead) return none;

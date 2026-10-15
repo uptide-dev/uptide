@@ -108,6 +108,22 @@ follows (the same one, or an ancestor). `check react` 18 → 19 moves react-dom,
 and @types/react-dom together; the plan is carried by every report of the package, alone or
 leading its group, and the merged entry keeps every companion.
 
+What the planned versions require is planned after the group (`src/check/required.ts`). A
+package the target, or any package the plan moves, declares as a peer or dependency at a range
+the installed copy does not satisfy (openai 7 peers on `zod ^3.25 || ^4.0`; zod 3.24.2 is
+installed) moves to the lowest release of its line that satisfies it: zod 3.25.0. A range the
+installed host already broke (react 19.2.0 under `@ai-sdk/react` 3's `^19.2.1`) is not this
+upgrade's and stays. A direct dependency whose own dependency range rejects the lead's target
+moves the same way. A line is what a caret
+range of the installed version reaches: one major, one minor for 0.x. Each is a companion
+marked `required`, shown apart from the group ("moved because openai 7.4.0 requires zod
+^3.25 || ^4.0"), and `fix` installs it with the rest. A move only a new major makes is never
+made: a peer or a dependent is a `companionBlockers` entry with the exact range (`openai
+7.9.0 needs zod ^4.0.0; installed 3.25.76, and only a new major satisfies it (zod 4.0.0)`),
+in `check`, the PR body and `pack test`; a plain dependency gets its own nested copy. The
+install scope guard allows exactly these moves: an importer's declared dependency changes only
+when the plan names it, even where npm resolves it as a moved package's peer.
+
 ### One dependency, one decision
 
 A dependency at the same installed version and target in several workspaces is one entry
