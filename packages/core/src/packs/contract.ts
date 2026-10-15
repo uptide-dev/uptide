@@ -148,8 +148,8 @@ export interface GroundTruth {
 
 /**
  * What `uptide pack test --write` recorded: the status the gate below reads at runtime. CI
- * runs `pack test` on every pack and fails when this record no longer matches what the
- * ground truth says, so the label cannot outlive the evidence behind it.
+ * runs `pack test` on every pack and fails when this record claims verified where the ground
+ * truth measures candidate, so the label cannot outlive the evidence behind it.
  */
 export interface PackVerification {
   status: PackStatus;

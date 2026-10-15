@@ -157,9 +157,15 @@ export function formatPackTest(report: PackTestReport, color = false): string {
     );
   }
   out.push('');
-  if (report.stale)
+  if (report.overclaimed)
     out.push(
-      `${c.red('✗')} verification.json does not match this run: \`uptide pack test ${report.package} --write\` records it`,
+      `${c.red('✗')} verification.json records verified; this run measures candidate: \`uptide pack test ${report.package} --write\` records it`,
+    );
+  else if (report.recorded === 'candidate' && report.status === 'verified' && !report.fixturesOnly)
+    out.push('recorded candidate by choice; measures verified');
+  else if (report.stale)
+    out.push(
+      `verification.json differs from this run: \`uptide pack test ${report.package} --write\` records it`,
     );
   const breakingFp = report.breaking.falsePositives;
   out.push(

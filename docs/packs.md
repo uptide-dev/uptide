@@ -288,9 +288,12 @@ A missed site counts against breaking recall only when its severity is breaking:
 It prints precision and recall for each, `n/a` where there was nothing to measure (nothing
 predicted, or nothing expected), every false positive as `repo  file:line  rule (severity)`,
 every false negative the same way with the severity it was expected at, and sites found under
-another rule. It exits non-zero on any false
-positive among breaking findings, any fixture failure, or a `verification.json` that no
-longer matches what it measured (`--write` records it).
+another rule. A `generic` expected site (one no rule covered when the truth was written)
+counts for whichever rule claims it now. It exits non-zero on any false positive among
+breaking findings, any fixture failure, or a `verification.json` that claims more than it
+measured: recorded `verified`, measured `candidate`. A record that claims less on purpose
+(recorded `candidate`, measured `verified`) passes with `recorded candidate by choice;
+measures verified`; one whose numbers merely differ passes with a note (`--write` records it).
 
 ## Verified or candidate
 
@@ -311,7 +314,8 @@ which records the digest of the ground-truth file it was measured against, with 
 recall and the counts behind them for breaking findings and for behavior-note sites
 (`behavior`, absent from records written before it). The gate reads the breaking ones only. CI runs
 `pack test` for every pack on every pull request that touches packs and fails when the
-record no longer matches the evidence, so the label cannot outlive what supports it.
+record claims verified where the evidence measures candidate, so the label cannot outlive
+what supports it.
 
 ## The registry, the queue, CI
 

@@ -76,8 +76,13 @@ export interface PackTestReport {
   /** What the evidence below supports, and what `verification.json` says. */
   status: PackStatus;
   recorded: PackStatus;
-  /** The recorded verification no longer matches this run (`--write` updates it). */
+  /** The recorded verification no longer matches this run (`--write` updates it). Not a failure. */
   stale: boolean;
+  /**
+   * `verification.json` claims more than this run measures: recorded verified, measured
+   * candidate. The one way a record fails the test; recording less on purpose passes.
+   */
+  overclaimed: boolean;
   /** Ground truth was not scored (`--fixtures-only`). */
   fixturesOnly: boolean;
   verification: PackVerification;
@@ -174,8 +179,14 @@ export function scoreSites(
   return {
     falsePositives: predicted.filter((p) => !truth.has(key(p))),
     falseNegatives: expected.filter((e) => !seen.has(key(e))),
+    // A `generic` entry is a site no rule covered when the truth was written: any rule may claim it.
     wrongRule: predicted
-      .filter((p) => truth.has(key(p)) && truth.get(key(p))?.rule !== p.rule)
+      .filter(
+        (p) =>
+          truth.has(key(p)) &&
+          truth.get(key(p))?.rule !== GENERIC_RULE &&
+          truth.get(key(p))?.rule !== p.rule,
+      )
       .map((p) => ({ ...p, expected: truth.get(key(p))?.rule as string })),
   };
 }
@@ -239,7 +250,14 @@ export function scoreTruth(
     let rfp = 0;
     let rfn = 0;
     for (const r of scored) {
-      const want = new Set(r.expected.filter((e) => e.rule === id).map(key));
+      const claimed = new Map(r.predicted.map((p) => [key(p), p.rule]));
+      // A `generic` entry counts for whichever rule claims its site now.
+      const expected = r.expected.map((e) =>
+        e.rule === GENERIC_RULE && claimed.has(key(e))
+          ? { ...e, rule: claimed.get(key(e)) as string }
+          : e,
+      );
+      const want = new Set(expected.filter((e) => e.rule === id).map(key));
       const got = new Set(r.predicted.filter((p) => p.rule === id).map(key));
       for (const k of got) (want.has(k) ? () => tp++ : () => rfp++)();
       for (const k of want) if (!got.has(k)) rfn++;
@@ -424,6 +442,8 @@ export async function testPack(
   let stale =
     !options.fixturesOnly && JSON.stringify(verification) !== JSON.stringify(entry.verification);
   const scoredAll = problems.length === 0 && repos.every((r) => !r.error);
+  // A repository that could not be scored is no evidence either way: it fails as unscored.
+  const overclaimed = !options.fixturesOnly && scoredAll && overclaims(recorded, status);
   if (options.write && stale && scoredAll && !options.fixturesOnly) {
     writeVerification(options.root, entry.dir, verification);
     stale = false;
@@ -433,13 +453,14 @@ export async function testPack(
     fixturesPass(fixtures) &&
     breaking.falsePositives === 0 &&
     !repos.some((r) => r.leftBehind?.length) &&
-    !stale;
+    !overclaimed;
   return {
     package: pack.name,
     dir: entry.dir,
     status,
     recorded,
     stale,
+    overclaimed,
     fixturesOnly: options.fixturesOnly === true,
     verification,
     problems,
@@ -451,6 +472,15 @@ export async function testPack(
     behavior,
     passed,
   };
+}
+
+/**
+ * Whether a record claims more than the evidence supports: verified where the run measures
+ * candidate. A record may claim less (candidate where the run measures verified): the runtime
+ * then treats the package as generic, which is a maintainer's choice, not a lie.
+ */
+export function overclaims(recorded: PackStatus, measured: PackStatus): boolean {
+  return recorded === 'verified' && measured === 'candidate';
 }
 
 /** `--write`: the record the runtime gate reads, as this run measured it. */
@@ -472,6 +502,7 @@ export function unfinishedPack(entry: RegisteredPack, reason: string): PackTestR
     status: 'candidate',
     recorded: recordedStatus(entry.verification),
     stale: false,
+    overclaimed: false,
     fixturesOnly: false,
     verification: entry.verification,
     problems: [reason],

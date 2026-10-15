@@ -5,7 +5,7 @@ import type { CheckReport, Finding } from '../../domain/report.js';
 import { aiPack } from '../ai/index.js';
 import type { PackVerification } from '../contract.js';
 import { registeredPacks } from '../index.js';
-import { companionOutcome, predictedSites, testPack } from './pack-test.js';
+import { companionOutcome, overclaims, predictedSites, testPack } from './pack-test.js';
 
 const root = fileURLToPath(new URL('../../../../../', import.meta.url));
 const verification = JSON.parse(
@@ -159,4 +159,20 @@ it('counts a required move as moved, and names the blocker that keeps a package 
       `zod: the upgrade moved it to 4.5.4, check leaves it (blocked: ${blocker})`,
     ],
   });
+});
+
+it('fails a record only when it claims more than the run measures', () => {
+  expect(overclaims('verified', 'candidate')).toBe(true);
+  // Recorded lower on purpose: the runtime treats the package as generic, and the test passes.
+  expect(overclaims('candidate', 'verified')).toBe(false);
+  expect(overclaims('verified', 'verified')).toBe(false);
+  expect(overclaims('candidate', 'candidate')).toBe(false);
+});
+
+it('never finds a fixtures-only run over-claiming, whatever the record says', async () => {
+  const report = await testPack(
+    { dir: 'ai', pack: aiPack, verification },
+    { root, fixturesOnly: true },
+  );
+  expect(report).toMatchObject({ recorded: 'verified', status: 'candidate', overclaimed: false });
 });
