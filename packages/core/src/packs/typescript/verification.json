@@ -1,19 +1,23 @@
 {
   "status": "candidate",
-  "truth": "sha256-0468123eb075e5afc4f74eedb3039b57a49faf0a2c237d151a0194ef6468fdb9",
-  "repos": 0,
+  "truth": "sha256-b463fcdce83820c229ab46ab51a2afb62c3da5f4f5e6a2b53fee63f302755e68",
+  "repos": 7,
   "breaking": {
     "precision": 1,
-    "recall": 1,
+    "recall": 0.1716,
     "falsePositives": 0,
-    "truePositives": 0,
-    "falseNegatives": 0
+    "truePositives": 240,
+    "falseNegatives": 1159
   },
   "behavior": {
-    "precision": 1,
-    "recall": 1,
-    "falsePositives": 0,
-    "truePositives": 0,
-    "falseNegatives": 0
-  }
+    "precision": 0.2,
+    "recall": 0.5,
+    "falsePositives": 8,
+    "truePositives": 2,
+    "falseNegatives": 2
+  },
+  "class": "breaking",
+  "breakingSites": 1399,
+  "behaviorSites": 4,
+  "unexercised": ["downlevel-iteration", "import-assertions", "module-keyword"]
 }

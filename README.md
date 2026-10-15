@@ -68,6 +68,7 @@ The contract: [migration packs](docs/packs.md).
 | `@sentry/nextjs` | 10.x → 11.x | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `@sentry/react` | 10.x → 11.x | 100% | 100% | 2 | owine/youth-activity-scheduler, successible/cleanslate | candidate |
 | `stripe` | 14 and newer | 100% | 90% | 16 | unkeyed/unkey, nextjs/saas-starter | verified |
+| `typescript` | 5.x → 6.x | 100% | 17% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | candidate |
 | `vitest` | 4.x → 5.x | 100% | 50% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
 | `zod` | 3.x → 4.x | 100% | 74% | 85 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript | verified |
 <!-- packs:end -->
