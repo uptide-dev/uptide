@@ -56,9 +56,10 @@ const V5: PackRule[] = [
     summary:
       '`scanIterator`, `hScanIterator`, `sScanIterator` and `zScanIterator` yield a batch (an array) per step in 5, one item per step in 4',
     severity: 'breaking',
-    kinds: ['type', 'signature'],
-    symbols: /(?:ScanIterator|^TS2345$|^TS2339$|^TS2322$)/,
-    message: /(?:^$|\[\]|Array<)/,
+    // Found by syntax only: the compiler's errors downstream of a batch (a `string[]` passed
+    // as a key) name no iterator, and a reply union mentions `Array<` anyway.
+    kinds: [],
+    symbols: /$^/,
     detect: scanIteratorSites,
     rewrite: (text, finding) => rewriteScanIterator(text, finding),
     guide:
@@ -150,6 +151,11 @@ const V5: PackRule[] = [
     symbols: /(?:^|[#.:])(?:quit|QUIT|disconnect)$/,
     rewrite: (text, finding) => {
       const name = finding.usage.symbolPath.split(/[#.:]/).pop() ?? '';
+      // `quit()` resolves "OK", `close()` undefined, `destroy()` is synchronous: only a call
+      // whose result is not used is the same statement after the rename.
+      const line = text.split('\n')[finding.usage.line - 1] ?? '';
+      if (!/^\s*(?:await\s+)?[\w$.?]+\.(?:quit|QUIT|disconnect)\(\);?\s*(?:\/\/.*)?$/.test(line))
+        return { text, applied: false, reason: `the result of \`${name}()\` is used` };
       return replaceAtSite(text, finding, name, name === 'disconnect' ? 'destroy' : 'close');
     },
     guide:
@@ -202,8 +208,9 @@ const V6: PackRule[] = [
     summary:
       '`RedisClientType` is invariant in its RESP version in 6, and clients default to RESP3: a client typed `RedisClientType` or `ReturnType<typeof createClient>` no longer accepts the client `createClient()` returns',
     severity: 'breaking',
-    kinds: ['type', 'signature'],
-    symbols: /^TS(?:2322|2345)$/,
+    // The compiler's TS2322/TS2345, reported at the type it names (`added RedisClientType`).
+    kinds: ['type', 'signature', 'added', 'removed'],
+    symbols: /(?:Redis(?:Client|Cluster|Sentinel|ClientPool)Type|^TS2322$|^TS2345$)$/,
     message: /Redis(?:Client|Cluster|Sentinel|ClientPool)Type<[^>]*\b3\b/,
     guide:
       'Type the client from the call that creates it, not from the generic factory: wrap creation in a function (`function makeClient(url: string) { return createClient({ url }); }`) and use `ReturnType<typeof makeClient>`, or `typeof client` for a module-level client. Where the code needs a named type, write the RESP version the client uses (`RedisClientType<RedisDefaultModules, {}, {}, 3, {}>`). When the client is pinned to `RESP: 2` (client-defaults), the type says `2`. Never cast the client to the wide type or to any.',

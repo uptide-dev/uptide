@@ -9,3 +9,4 @@ export async function stop() {
   for await (const key of queue.scanIterator()) console.log(key); // @uptide scan-iterators keep
   await queue.quit();
 }
+export const gates = { unstableResp3: true }; // @uptide unstable-resp3 keep

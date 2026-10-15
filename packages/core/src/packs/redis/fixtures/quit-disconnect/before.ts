@@ -9,3 +9,7 @@ export async function shutdown() {
 export async function abort() {
   await client.disconnect(); // @uptide quit-disconnect at:disconnect
 }
+
+export async function reply() {
+  return client.quit(); // @uptide quit-disconnect keep at:quit
+}

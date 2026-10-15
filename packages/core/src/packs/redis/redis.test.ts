@@ -125,6 +125,23 @@ it('redis: compiler findings are claimed by the rule the diagnostic names', () =
   const wide =
     "Type 'RedisClientType<RedisDefaultModules, {}, {}, 3, {}>' is not assignable to type 'RedisClientType<RedisModules, RedisFunctions, RedisScripts, RespVersions, TypeMapping>'.";
   expect(at(2322, wide)).toBe('client-type');
+  // How check reports it: at the type the diagnostic names.
+  const named = redisPack.ruleOf?.({
+    change: {
+      package: 'redis',
+      from: '5.12.1',
+      to: '6.2.0',
+      path: 'RedisClientType',
+      kind: 'added',
+      severity: 'breaking',
+      source: 'compiler',
+      confidence: 1,
+    },
+    usage: { file: 'a.ts', line: 1, column: 1, symbolPath: 'RedisClientType', compileError: wide },
+    severity: 'breaking',
+    confidence: 1,
+  } as unknown as Finding);
+  expect(named).toBe('client-type');
   // The same diagnostic is not a 4 → 5 change.
   expect(at(2322, wide, '4.7.1', '5.12.1')).toBeUndefined();
   expect(
