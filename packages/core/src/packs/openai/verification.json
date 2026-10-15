@@ -1,0 +1,31 @@
+{
+  "status": "candidate",
+  "truth": "sha256-ff39a7277a212ba12d5cedb40a97a79ebefd6729d2f0cbdd89bee78e1aa3f7cc",
+  "repos": 7,
+  "breaking": {
+    "precision": 1,
+    "recall": 0.15,
+    "falsePositives": 0,
+    "truePositives": 3,
+    "falseNegatives": 17
+  },
+  "behavior": {
+    "precision": 1,
+    "recall": 1,
+    "falsePositives": 0,
+    "truePositives": 0,
+    "falseNegatives": 0
+  },
+  "class": "breaking",
+  "breakingSites": 20,
+  "behaviorSites": 0,
+  "unexercised": [
+    "beta-chat",
+    "core-paths",
+    "delete-method",
+    "named-path-params",
+    "removed-modules",
+    "request-options",
+    "runner-renames"
+  ]
+}

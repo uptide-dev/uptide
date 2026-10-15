@@ -1,0 +1,202 @@
+{
+  "$comment": "Ground truth for the openai pack (docs/packs.md, \"Ground truth\"). Every public repository below merged an openai 4.x to 7.x upgrade and is pinned at the commit before it; found by mining npm manifests that moved openai from ^4 to ^7 and by searching for merged 4.104.0 to 7.x pull requests (RESEARCH.md lists the ones screened out). Expected findings were drafted by pnpm packs:truth and read by hand before the pack was scored: the diagnostics the repository's own TypeScript reports with the target (and the companions its upgrade moved, --also) linked in and not without them, and the lines the upgrade changed for openai (one site per change run, at its first line of code; comments, insertions and other packages' changes such as zod 4 and @openai/agents left out). A site no rule of the pack claims is `generic`. Each `with` lists what the upgrade moved because of openai (from its lockfile).",
+  "package": "openai",
+  "repos": [
+    {
+      "repo": "zeikar/charivo",
+      "commit": "b9a476d9acb59f473e08f0e97ce6e91dc2201d99",
+      "migration": "https://github.com/zeikar/charivo/compare/b9a476d9acb59f473e08f0e97ce6e91dc2201d99...67ae240f175f166ca0d7c5e79c1ea160e09ef133",
+      "from": "4.104.0",
+      "to": "7.10.0",
+      "why": "pnpm workspace: Chat Completions tool calls read off ChatCompletionMessageToolCall, which became a function | custom union (packages/llm); audio speech and transcription (packages/stt, packages/tts) compile unchanged",
+      "findings": [
+        {
+          "file": "packages/llm/src/openai-tool-format.ts",
+          "line": 119,
+          "rule": "tool-call-union",
+          "note": "compiler TS2339, changed by the upgrade (narrowed on type)"
+        },
+        {
+          "file": "packages/llm/src/openai-tool-format.ts",
+          "line": 129,
+          "rule": "tool-call-union",
+          "note": "compiler TS18046, changed by the upgrade"
+        },
+        {
+          "file": "packages/llm/src/openai-tool-format.ts",
+          "line": 135,
+          "rule": "tool-call-union",
+          "note": "changed by the upgrade: function.arguments is no longer known to be a string off the union"
+        }
+      ]
+    },
+    {
+      "repo": "openai/openai-guardrails-js",
+      "commit": "6c13ba08ab021215fd6f8c900ae15ae29627f2d2",
+      "migration": "https://github.com/openai/openai-guardrails-js/pull/122",
+      "from": "4.104.0",
+      "to": "7.9.0",
+      "with": {
+        "@openai/agents": "0.17.2",
+        "zod": "4.5.4"
+      },
+      "why": "library that subclasses OpenAI and AzureOpenAI: client options typing, client cloning through withOptions, credentials copied by hand",
+      "findings": [
+        {
+          "file": "src/base-client.ts",
+          "line": 368,
+          "rule": "generic",
+          "note": "compiler TS2345: AzureOpenAI no longer accepts the full ClientOptions"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 9,
+          "rule": "generic",
+          "note": "changed by the upgrade: imports ClientOptions types for withOptions overrides"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 31,
+          "rule": "generic",
+          "note": "changed by the upgrade: subclass state is assigned after SDK cloning"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 44,
+          "rule": "generic",
+          "note": "changed by the upgrade: constructor takes client options first, as withOptions calls it"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 51,
+          "rule": "generic",
+          "note": "changed by the upgrade"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 81,
+          "rule": "generic",
+          "note": "changed by the upgrade"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 121,
+          "rule": "generic",
+          "note": "changed by the upgrade"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 134,
+          "rule": "generic",
+          "note": "changed by the upgrade"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 141,
+          "rule": "generic",
+          "note": "changed by the upgrade"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 171,
+          "rule": "generic",
+          "note": "changed by the upgrade"
+        },
+        {
+          "file": "src/client.ts",
+          "line": 214,
+          "rule": "generic",
+          "note": "changed by the upgrade: a second client copied apiKey/baseURL by hand; withOptions({}) keeps provider and callback credentials"
+        }
+      ]
+    },
+    {
+      "repo": "wardby/wardby",
+      "commit": "d46ec64dc0be781aa43967d9b6d26be9386aa67d",
+      "migration": "https://github.com/wardby/wardby/pull/231",
+      "from": "4.104.0",
+      "to": "7.30.0",
+      "why": "Responses API streaming provider; compiles unchanged at 7.x, the upgrade adopted the SDK's own usage and reasoning types",
+      "findings": [
+        {
+          "file": "src/providers/llm/openai.ts",
+          "line": 107,
+          "rule": "generic",
+          "note": "changed by the upgrade: a local ResponsesUsage interface replaced by OpenAI.Responses.ResponseUsage (optional)"
+        },
+        {
+          "file": "src/providers/llm/openai.ts",
+          "line": 188,
+          "rule": "generic",
+          "note": "changed by the upgrade: a ReasoningEffort cast dropped, 7.x types the values (optional)"
+        }
+      ]
+    },
+    {
+      "repo": "csnyder256/ux-struggle-detector",
+      "commit": "b73084896208f7d2794b84bf23de3157eca5fc09",
+      "migration": "https://github.com/csnyder256/ux-struggle-detector/pull/11",
+      "from": "4.104.0",
+      "to": "7.23.0",
+      "why": "Next.js app with one Chat Completions provider; compiles unchanged at 7.x",
+      "findings": [
+        {
+          "file": "src/lib/providers/openai.ts",
+          "line": 24,
+          "rule": "generic",
+          "note": "changed by the upgrade: max_tokens to max_completion_tokens, a request change; the declaration is the same in 4.104.0 and 7.x"
+        },
+        {
+          "file": "src/lib/providers/openai.ts",
+          "line": 66,
+          "rule": "generic",
+          "note": "changed by the upgrade, as above"
+        }
+      ]
+    },
+    {
+      "repo": "grantsingleton/batch-ai",
+      "commit": "05c7e9f132b3e6ec6504de3d82371889fdc2d368",
+      "migration": "https://github.com/grantsingleton/batch-ai/pull/14",
+      "from": "4.83.0",
+      "to": "7.4.0",
+      "with": {
+        "zod": "4.4.3"
+      },
+      "why": "library over the Batch API with zodResponseFormat; zod 3.24 is below openai 7's zod peer range; compiles unchanged at 7.x",
+      "findings": [
+        {
+          "file": "src/index.ts",
+          "line": 32,
+          "rule": "generic",
+          "note": "changed by the upgrade: the ChatModel parameter also accepts any string (optional)"
+        },
+        {
+          "file": "src/index.ts",
+          "line": 35,
+          "rule": "generic",
+          "note": "changed by the upgrade, as above"
+        }
+      ]
+    },
+    {
+      "repo": "digitalchokro/askchokro",
+      "commit": "047fc4485538a3bff4224a9a604d83143c2cd5d2",
+      "migration": "https://github.com/digitalchokro/askchokro/pull/31",
+      "from": "4.104.0",
+      "to": "7.4.0",
+      "why": "pnpm workspace with OpenAI and Groq (OpenAI-compatible) providers; a version bump only, compiles unchanged",
+      "findings": []
+    },
+    {
+      "repo": "microsoft/prompty",
+      "commit": "e878b6b7789ff621265ca086b20d4e2d70914f81",
+      "directory": "runtime/typescript",
+      "migration": "https://github.com/microsoft/prompty/pull/527",
+      "from": "4.104.0",
+      "to": "7.10.0",
+      "why": "npm workspace: chat, responses, embeddings and images executors; a grouped version bump, compiles unchanged",
+      "findings": []
+    }
+  ]
+}
