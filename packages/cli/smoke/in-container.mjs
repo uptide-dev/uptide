@@ -149,7 +149,13 @@ for (const fixture of ['npm', 'npm-workspaces', 'pnpm', 'yarn', 'yarn-berry']) {
     check.out,
     /zod\s+3\.23\.8 → 4\.6\.5\s+major · (?:--target|latest on npm)\s+verified\s+✗ \d+ breaking/,
   );
-  has(`${manager} check`, check.out, 'New error API (required_error → error)');
+  // zod's record-key rewrite: mechanical, exercised by real ground truth (unlike required_error,
+  // which UPT-48 runs as assisted until a real site covers it).
+  has(
+    `${manager} check`,
+    check.out,
+    'z.record(valueSchema) requires an explicit string key schema',
+  );
   matches(
     `${manager} check`,
     check.out,
@@ -308,7 +314,7 @@ for (const fixture of ['npm', 'npm-workspaces', 'pnpm', 'yarn', 'yarn-berry']) {
   for (const file of files)
     expect(
       `${fixture}: ${file} migrated`,
-      !/required_error|invalid_type_error/.test(onBranch(repo, zodBranch, file)),
+      !/z\.record\((?!z\.string\(\), )/.test(onBranch(repo, zodBranch, file)),
     );
   if (fixture === 'npm-workspaces') {
     expect(

@@ -9,7 +9,7 @@ import {
   truthDigest,
   verificationTally,
 } from '../contract.js';
-import { packsDir } from './pack-test.js';
+import { formatRecord, packsDir } from './pack-test.js';
 import { packConstant, packDir, parseRegistry, renderRegistry } from './registry-file.js';
 
 export interface ScaffoldOptions {
@@ -166,9 +166,14 @@ export function scaffoldPack(options: ScaffoldOptions): ScaffoldResult {
     repos: 0,
     breaking: verificationTally(nothing),
     behavior: verificationTally(nothing),
+    class: 'breaking',
+    breakingSites: 0,
+    behaviorSites: 0,
+    // No real site exercises the example rewrite yet.
+    unexercised: [RULE],
   };
   const verificationFile = join(home, 'verification.json');
-  writeFileSync(verificationFile, `${JSON.stringify(verification, null, 2)}\n`);
+  writeFileSync(verificationFile, `${formatRecord(verification)}\n`);
   written.splice(written.length - 1, 0, verificationFile);
   return {
     dir,
