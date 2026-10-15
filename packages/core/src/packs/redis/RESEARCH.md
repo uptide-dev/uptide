@@ -69,7 +69,7 @@ another library is never a site: fixture `other-libraries`).
 ## Independent ground truth
 
 Drafted with `pnpm packs:truth` from each repository's own compiler and merged upgrade, reviewed by
-hand and committed (0e2c81a) before the first score. Kept: the line the compiler reports, else the
+hand and committed (ffb4f90) before the first score. Kept: the line the compiler reports, else the
 line the upgrade changed because of redis. Not kept: lines changed only as a consequence of the
 repository's own fix, and deprecations the code already had at the installed version.
 
