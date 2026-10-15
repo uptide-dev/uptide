@@ -1,7 +1,8 @@
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { ts } from 'ts-morph';
+import { describe, expect, it, vi } from 'vitest';
 import { compileAgainstTarget } from './compile.js';
 import { projectScope } from './project-scope.js';
 
@@ -34,6 +35,38 @@ function fixture() {
 }
 
 describe('repository compile projects', () => {
+  it('does not load unrelated source programs to establish membership of an explicit root', () => {
+    const f = fixture();
+    f.write('repo/tsconfig.json', { compilerOptions: f.options, files: ['src/main.ts'] });
+    f.write('repo/src/main.ts', f.source);
+    f.write('repo/unrelated/tsconfig.json', { compilerOptions: f.options, include: ['src'] });
+    f.write('repo/unrelated/src/large.ts', f.source);
+    const read = vi.spyOn(ts.sys, 'readFile');
+    try {
+      expect(projectScope({ dir: f.dir }).covers(join(f.dir, 'src/main.ts'))).toBe(true);
+      expect(read.mock.calls.map(([path]) => path)).not.toContain(
+        join(f.dir, 'unrelated/src/large.ts'),
+      );
+    } finally {
+      read.mockRestore();
+    }
+  });
+  it('checks a workspace source once in its own project, not again in importing consumer projects', async () => {
+    const f = fixture();
+    f.write('repo/tsconfig.json', { compilerOptions: f.options, include: ['packages'] });
+    f.write('repo/packages/lib/package.json', { name: 'lib' });
+    f.write('repo/packages/lib/tsconfig.json', {
+      compilerOptions: { ...f.options, strict: false },
+      include: ['src'],
+    });
+    f.write('repo/packages/lib/src/main.ts', f.source);
+    f.write('repo/consumer/tsconfig.json', { compilerOptions: f.options, files: ['main.ts'] });
+    f.write('repo/consumer/main.ts', "import '../packages/lib/src/main';");
+    const signal = await f.compile(['src/main.ts'], join(f.dir, 'packages/lib'));
+    expect(signal.diagnostics).toEqual([]);
+    expect(signal.coverage.compiled).toBe(1);
+  });
+
   it('honors inherited include/exclude and explicit files, even outside include', async () => {
     const f = fixture();
     f.write('repo/tsconfig.base.json', {
@@ -68,6 +101,47 @@ describe('repository compile projects', () => {
     const signal = await f.compile(['examples/demo.ts']);
     expect(signal.diagnostics.map((d) => d.file)).toEqual(['examples/demo.ts']);
   });
+
+  it.each([false, true])(
+    'matches compiler membership through aliases, references and JavaScript (allowJs=%s)',
+    (allowJs) => {
+      const f = fixture();
+      f.write('repo/tsconfig.json', {
+        compilerOptions: { ...f.options, allowJs, paths: { '#shared': ['./excluded/shared.ts'] } },
+        files: ['src/main.ts'],
+      });
+      f.write(
+        'repo/src/main.ts',
+        "/// <reference path='../excluded/global.d.ts' />\nimport '#shared';\nimport '../excluded/plain.js';\n",
+      );
+      f.write('repo/excluded/shared.ts', "export * from './nested';\n");
+      f.write('repo/excluded/nested.ts', 'export const value = 1;');
+      f.write('repo/excluded/global.d.ts', "import './ambient-source';\n");
+      f.write('repo/excluded/ambient-source.ts', 'export {};');
+      f.write('repo/excluded/plain.js', 'export const value = 1;');
+      f.write('repo/excluded/unreferenced.ts', 'export {};');
+      const parsed = ts.getParsedCommandLineOfConfigFile(
+        join(f.dir, 'tsconfig.json'),
+        {},
+        { ...ts.sys, onUnRecoverableConfigFileDiagnostic() {} },
+      );
+      if (!parsed) throw new Error('fixture config must parse');
+      const program = ts.createProgram(parsed.fileNames, parsed.options);
+      const scope = projectScope({ dir: f.dir });
+      for (const file of [
+        'src/main.ts',
+        'excluded/shared.ts',
+        'excluded/nested.ts',
+        'excluded/global.d.ts',
+        'excluded/ambient-source.ts',
+        'excluded/plain.js',
+        'excluded/unreferenced.ts',
+      ])
+        expect(scope.covers(join(f.dir, file)), file).toBe(
+          program.getSourceFile(join(f.dir, file)) !== undefined,
+        );
+    },
+  );
 
   it('follows recursive project references and custom config names with their own options', async () => {
     const f = fixture();
@@ -135,6 +209,7 @@ describe('repository compile projects', () => {
     f.write('repo/tsconfig.json', { compilerOptions: f.options, include: ['src'] });
     f.write('repo/tsconfig.build.json', { extends: './tsconfig.json' });
     f.write('repo/src/main.ts', f.source);
+    expect(projectScope({ dir: f.dir }).projects).toHaveLength(1);
     const signal = await f.compile(['src/main.ts']);
     expect(signal.diagnostics.map((d) => d.file)).toEqual(['src/main.ts']);
     expect(signal.coverage.compiled).toBe(1);

@@ -7,7 +7,7 @@ import type { ApiSurface, ApiSymbol } from '../../domain/surface.js';
 import { compareTypesWithChecker } from './compat.js';
 import { compileAgainstTarget, compileAgainstTargets } from './compile.js';
 import { resolveEntryPoints } from './entry-points.js';
-import { forgetProjectScope, projectScope } from './project-scope.js';
+import { forgetProjectScope } from './project-scope.js';
 import { forgetRepo, loadedRepo, readInstalled, workspacePackagesOf } from './repo.js';
 import {
   findUsagesInRepo,
@@ -139,16 +139,6 @@ export function createTypescriptAdapter(opts: TypescriptAdapterOptions = {}): Ty
   const now = opts.now ?? (() => new Date());
   const adapter: TypescriptAdapter = {
     id: 'typescript',
-    async compileScope(repo, files) {
-      const scope = projectScope(repo);
-      const noTsconfig = scope.projects.length === 0;
-      return {
-        noTsconfig,
-        outside: noTsconfig
-          ? []
-          : files.filter((file) => !scope.covers(join(realpathSync(repo.dir), file))),
-      };
-    },
     compareTypes: compareTypesWithChecker,
     findUsages: (repo, pkg, surface) => findUsagesInRepo(adapter, repo, pkg, surface),
     compileAgainst: compileAgainstTarget,
@@ -184,7 +174,7 @@ export function createTypescriptAdapter(opts: TypescriptAdapterOptions = {}): Ty
     },
     forgetRepo(repo) {
       forgetRepo(realpathSync(repo.dir));
-      forgetProjectScope();
+      if (!repo.root) forgetProjectScope();
     },
     async installedSurface(repo, pkg, version) {
       const dir = installedPackageDir(repo, pkg);

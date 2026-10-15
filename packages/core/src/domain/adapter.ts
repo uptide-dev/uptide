@@ -84,12 +84,6 @@ export interface CompileOptions {
 }
 
 export interface LanguageAdapter {
-  /** Classify candidate sites by the repository's build projects, independently of compile success. */
-  compileScope?(
-    repo: RepoDir,
-    files: string[],
-  ): Promise<{ outside: string[]; noTsconfig: boolean }>;
-
   /** "typescript" */
   readonly id: string;
   extractSurface(input: PackageDir): Promise<ApiSurface>;

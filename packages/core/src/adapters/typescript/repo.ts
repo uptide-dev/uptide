@@ -68,6 +68,9 @@ onReset(() => repos.clear());
 export function loadedRepo(dir: string, rootFiles?: string[], configPath?: string): LoadedRepo {
   dir = realpathSync(dir);
   rootFiles = rootFiles?.map((file) => realpathSync(file));
+  // The scanner and compiler share the same project when its explicit roots and config agree.
+  // Naming the workspace's default config must not allocate a second ts-morph program.
+  if (rootFiles && configPath === join(dir, 'tsconfig.json')) configPath = undefined;
   const key = JSON.stringify([dir, rootFiles?.slice().sort(), configPath]);
   let repo = repos.get(key);
   if (!repo) {

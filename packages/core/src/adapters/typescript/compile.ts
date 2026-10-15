@@ -9,7 +9,7 @@ import {
 } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { ts } from 'ts-morph';
 import type { CompileOptions, RepoDir } from '../../domain/adapter.js';
 import type {
@@ -23,8 +23,8 @@ import { onReset } from '../../shared-state.js';
 import { augmentationCause, findCause, parameterCause } from './cause.js';
 import { type Compiler, repositoryCompiler, unresolvedConfig } from './compiler.js';
 import { jsxNamespaceCause } from './config-cause.js';
-import { projectScope } from './project-scope.js';
-import { type LoadedRepo, loadedRepo, ownsFile } from './repo.js';
+import { type CompileProject, projectScope } from './project-scope.js';
+import { type LoadedRepo, loadedRepo, loadRepo, ownsFile } from './repo.js';
 import {
   consumerCopySatisfies,
   type DependencyLinks,
@@ -799,35 +799,44 @@ export async function compileAgainstTargets(
     return signal;
   }
   const requested = options.files ?? repoRef.rootFiles?.map((f) => relative(dir, realpathSync(f)));
-  const outside = (requested ?? []).filter((f) => !scope.covers(join(dir, f)));
+  // A workspace is checked with its own config, not every consumer project that imports
+  // its source. Prefer the nearest covering default config, then named projects, falling
+  // back to another covering project for files included from elsewhere. This preserves
+  // workspace compiler options and avoids repeated programs for transitive references.
+  const owners = new Map<string, CompileProject | undefined>();
+  const owner = (file: string): CompileProject | undefined => {
+    if (owners.has(file)) return owners.get(file);
+    const enclosing = (p: CompileProject): boolean => file.startsWith(`${dirname(p.config)}/`);
+    const rank = (p: CompileProject): number =>
+      enclosing(p) ? (basename(p.config) === 'tsconfig.json' ? 2 : 1) : 0;
+    const candidates = scope.projects
+      .slice()
+      .sort(
+        (a, b) =>
+          rank(b) - rank(a) ||
+          (enclosing(b) ? dirname(b.config).length : 0) -
+            (enclosing(a) ? dirname(a.config).length : 0),
+      );
+    const project = candidates.find((p) => p.covers(file));
+    owners.set(file, project);
+    return project;
+  };
+  const outside = (requested ?? []).filter((f) => !owner(join(dir, f)));
+  // Keep the scanner's scoped program when all its roots are covered. Removing uncovered
+  // roots is necessary, but splitting those roots per consumer project wastes the shared AST.
+  const roots = repoRef.rootFiles?.filter((f) => owner(realpathSync(f)));
+  const ref = { ...repoRef, ...(roots ? { rootFiles: roots } : {}) };
   const signals: ProjectSignal[] = [];
   for (const project of scope.projects) {
-    // An enclosing project already reports this unresolved nested config and skips its files.
-    if (
-      project.invalid &&
-      requested?.length &&
-      requested
-        .filter((f) => join(dir, f).startsWith(`${dirname(project.config)}/`))
-        .every((f) => scope.projects.some((p) => !p.invalid && p.files.has(join(dir, f))))
-    )
-      continue;
-    const covers = (file: string): boolean =>
-      project.invalid
-        ? resolve(file).startsWith(`${dirname(project.config)}/`)
-        : project.files.has(resolve(file));
-    const files = options.files?.filter((f) => covers(join(dir, f)));
-    const roots = repoRef.rootFiles?.filter((f) => covers(realpathSync(f)));
-    if (requested && !(options.files ? files?.length : roots?.length)) continue;
-    const ref = { ...repoRef, ...(roots ? { rootFiles: roots } : {}) };
+    const files = requested?.filter((f) => owner(join(dir, f)) === project);
+    if (files && !files.length) continue;
     signals.push(
       await compileProject(
         ref,
         targets,
-        {
-          ...options,
-          ...(files ? { files } : {}),
-        },
+        { ...options, ...(options.files ? { files } : {}) },
         project.config,
+        (file) => owner(file) === project,
       ),
     );
   }
@@ -875,11 +884,18 @@ async function compileProject(
   targets: Target[],
   options: CompileOptions = {},
   configPath?: string,
+  inProject: (file: string) => boolean = () => true,
 ): Promise<ProjectSignal> {
   const compiler = repositoryCompiler(configPath ? dirname(configPath) : realpathSync(repoRef.dir));
   let repo: LoadedRepo;
   try {
-    repo = loadedRepo(realpathSync(repoRef.dir), repoRef.rootFiles, configPath);
+    const dir = realpathSync(repoRef.dir);
+    // An alternate project's program is used for this compile only, not retained beside
+    // every other project's AST/checker until the whole workspace finishes.
+    repo =
+      configPath && configPath !== join(dir, 'tsconfig.json')
+        ? loadRepo(dir, repoRef.rootFiles, configPath)
+        : loadedRepo(dir, repoRef.rootFiles, configPath);
   } catch (err) {
     const message = (err instanceof Error ? err.message : String(err)).split('\n')[0] ?? '';
     return {
@@ -975,12 +991,14 @@ async function compileProject(
       ],
     };
   };
-  const { files, missing } = filesToCheck(
+  const { files: candidates, missing } = filesToCheck(
     repo,
     repoRef,
     checked,
     options.files ? requested : undefined,
   );
+
+  const files = candidates.filter((file) => inProject(file.fileName));
   const baseline = files.flatMap((f) =>
     memoized
       ? baselineErrorsOf(repo, checked, f)
