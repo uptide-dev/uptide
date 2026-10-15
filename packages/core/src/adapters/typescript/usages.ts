@@ -156,7 +156,12 @@ function isPackageSpecifier(specifier: string, pkg: string): boolean {
 export function resolvePackageDir(repo: LoadedRepo, pkg: string): string | undefined {
   const files = repo.project.getSourceFiles();
   const from = files[0];
-  if (!from) return undefined;
+  if (!from) {
+    // No file in the scoped program (a package nothing imports, such as the compiler itself):
+    // where Node would find it.
+    const hoisted = hoistedPackageDir(repo.dir, pkg);
+    return hoisted === undefined ? undefined : realpathSync(hoisted);
+  }
   const resolved = ts.resolveModuleName(
     pkg,
     from.getFilePath(),

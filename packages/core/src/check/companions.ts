@@ -539,7 +539,14 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
       grew = true;
     }
   }
-  if (inGroup.size < 2) return stays.length ? { ...none, stays: stays.sort() } : none;
+  // A peer `list` does not group with the lead (typescript-eslint, which peers on typescript) is
+  // still left in place when it rejects the target, and still reported as a peer conflict.
+  if (inGroup.size < 2)
+    return {
+      ...none,
+      peerConflicts: [...peerConflicts.values()].sort(),
+      ...(stays.length ? { stays: stays.sort() } : {}),
+    };
   const companions: Companion[] = [];
   const conflicts: string[] = [];
   for (const member of candidates.filter((c) => inGroup.has(c.name))) {

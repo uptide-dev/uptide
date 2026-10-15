@@ -193,9 +193,11 @@ Where the expected findings come from: two sources that are not Uptide.
    dependencies at the versions it declares, as an install would leave it, and
    `--also <package>@<version>` links the companions the upgrade commit moved with it (the
    versions in its lockfile): `ai` 7 next to `@ai-sdk/react` 3 is a mix no repository ships,
-   and its errors are not the upgrade's.
+   and its errors are not the upgrade's. The tsconfig's own errors (a deprecated option,
+   TS5101) are listed too, where the compiler points: for an option an extended config sets,
+   that is the extending config, and the site is where the option is set.
 2. **The upgrade commit.** The lines it changed or removed (`git diff -U0 <commit> <upgrade>`,
-   the old side). One site per change: consecutive changed lines of the same change are one
+   the old side), in source files and `tsconfig*.json`. One site per change: consecutive changed lines of the same change are one
    site, at the first line of code (a line that is plainly another rule's starts a new
    one); a run with a diagnostic inside it, or right after a diagnostic of the same rule, is
    that diagnostic's site. Comment-only lines and changes for another package are not sites.
@@ -411,6 +413,17 @@ A missing, failed, or timed-out build blocks publication; its result appears in 
 PR's **Verified by** row. Reverification reruns the required build. Existing packs
 without this declaration retain their current behavior. Next 16 requires this gate
 because custom webpack configuration can fail with the default Turbopack build.
+
+### When the package is the compiler
+
+`typescript` is the one package no overlay can swap: it judges every file, not the ones that
+import it. For it, `check` compiles each of the workspace's projects (its tsconfig, the projects
+it references, every `tsconfig.json` below it) twice: with the repository's installed
+TypeScript, and with the target's, loaded from the copy `check` fetched. A diagnostic new at the
+target is a finding. The bundled compiler never stands in for either; a target with no
+JavaScript API (TypeScript 7) is not compiled, and the report says so. Diagnostics on tsconfig
+files are the pack's own findings, from its inventory, in the file that sets the option. The
+typescript pack's RESEARCH.md has the details.
 
 ### Release groups
 

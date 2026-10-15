@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { ts } from 'ts-morph';
@@ -26,8 +26,25 @@ export function consumerCompilerDir(dir: string): string | undefined {
   }
 }
 
-function loadCompiler(packageDir: string): typeof ts {
-  return createRequire(join(packageDir, 'package.json'))(packageDir) as typeof ts;
+/** The version a package directory holds now, from its manifest. */
+function installedVersion(packageDir: string): string | undefined {
+  try {
+    return (
+      JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')) as { version?: string }
+    ).version;
+  } catch {
+    return undefined;
+  }
+}
+
+export function loadCompiler(packageDir: string): typeof ts {
+  const require = createRequire(join(packageDir, 'package.json'));
+  // Node keeps a loaded module by path: after `fix` installs another TypeScript at the same
+  // path (the typescript pack upgrades the compiler itself), the old module must not answer.
+  const main = require.resolve(packageDir);
+  const cached = require.cache[main]?.exports as { version?: string } | undefined;
+  if (cached && cached.version !== installedVersion(packageDir)) delete require.cache[main];
+  return require(packageDir) as typeof ts;
 }
 
 /** The consumer's compiler is authoritative; bundles carry ts-morph's compiler as fallback. */
@@ -68,7 +85,8 @@ onReset(() => compilers.clear());
  */
 export function repositoryCompiler(dir: string): Compiler {
   const own = consumerCompilerDir(dir);
-  const key = own ?? '';
+  // Keyed by version too: an install that replaced the compiler is another compiler.
+  const key = own === undefined ? '' : `${own}@${installedVersion(own) ?? ''}`;
   let compiler = compilers.get(key);
   if (!compiler) {
     const loaded = own === undefined ? ts : resolveCompiler(dir, ts, loadCompiler, () => own);

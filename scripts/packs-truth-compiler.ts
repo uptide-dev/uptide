@@ -1,6 +1,7 @@
+import { realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
-import { unresolvedConfig } from '@uptide/core';
+import { consumerCompilerDir, unresolvedConfig } from '@uptide/core';
 
 export interface Diagnostic {
   file: string;
@@ -25,10 +26,14 @@ export function compilerDiagnostics(
   notCompiled: { path: string; reason: string }[];
 } {
   const require = createRequire(join(project, 'package.json'));
-  let ts = require(
-    require.resolve('typescript', {
-      paths: [project, ...configs.map((c) => join(project, dirname(c)))],
-    }),
+  // Found on disk each time, by its real path: Node caches a resolution, and the typescript pack
+  // links the target compiler in place of the installed one between two calls.
+  const found = consumerCompilerDir(configs[0] ? join(project, dirname(configs[0])) : project);
+  const dir = found && realpathSync(found);
+  let ts = (
+    dir
+      ? createRequire(join(dir, 'package.json'))(dir)
+      : require(require.resolve('typescript', { paths: [project] }))
   ) as typeof import('typescript');
   let compiler = `typescript ${ts.version}, the repository's`;
   // TypeScript 7 has no JavaScript API: the one this checkout builds with stands in, said so.
@@ -69,13 +74,19 @@ export function compilerDiagnostics(
       getDirectories: ts.sys.getDirectories,
       realpath: ts.sys.realpath,
     });
-    for (const source of parsed.fileNames) {
-      if (source.includes('/node_modules/')) continue;
-      const diagnostics = [
-        ...service.getSyntacticDiagnostics(source),
-        ...service.getSemanticDiagnostics(source),
-        ...service.getSuggestionDiagnostics(source).filter((d) => DEPRECATED.has(d.code)),
-      ];
+    // The tsconfig's own errors (a deprecated option, TS5101): where the compiler points, which
+    // is the leaf config even for an option an extended one sets.
+    const configErrors = [...parsed.errors, ...service.getCompilerOptionsDiagnostics()];
+    for (const source of [undefined, ...parsed.fileNames]) {
+      if (source?.includes('/node_modules/')) continue;
+      const diagnostics =
+        source === undefined
+          ? configErrors
+          : [
+              ...service.getSyntacticDiagnostics(source),
+              ...service.getSemanticDiagnostics(source),
+              ...service.getSuggestionDiagnostics(source).filter((d) => DEPRECATED.has(d.code)),
+            ];
       for (const d of diagnostics) {
         if (!d.file || d.start === undefined) continue;
         if (d.category !== ts.DiagnosticCategory.Error && !DEPRECATED.has(d.code)) continue;

@@ -285,6 +285,27 @@ describe('companionsOf, react 18 → 19', () => {
     expect(plan.companions.map((c) => `${c.name} ${c.to}`)).toEqual(['react-dom 19.2.1']);
   });
 
+  it('reports a peer conflict even when the peer is not grouped with the lead', async () => {
+    // typescript-eslint peers on typescript, which `list` groups with nothing: a parser whose
+    // range rejects TypeScript 6 stays where it is, and the report says so.
+    const parser = { '8.56.0': { peerDependencies: { typescript: '>=4.8.4 <6.0.0' } } };
+    const plan = await companionsOf({
+      name: 'typescript',
+      target: '6.0.3',
+      installed: [
+        installed('typescript', '5.9.3', ['.']),
+        { ...installed('@typescript-eslint/parser', '8.56.0', ['.']), manifest: parser['8.56.0'] },
+      ],
+      manifests: async (name) =>
+        name === '@typescript-eslint/parser' ? parser : { '6.0.3': {}, '5.9.3': {} },
+    });
+    expect(plan).toEqual({
+      companions: [],
+      conflicts: [],
+      peerConflicts: ['@typescript-eslint/parser 8.56.0 declares typescript >=4.8.4 <6.0.0'],
+    });
+  });
+
   it('leaves a named companion whose installed peer range already accepts the target', async () => {
     // No release of it at the target's version, so only the pack's list moves it.
     const wrapper = {

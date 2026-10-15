@@ -923,7 +923,13 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
     !opts.adapter &&
     opts.only &&
     !opts.allDeps &&
-    (importedByWorkspace[workspace] ?? []).length === 0
+    (importedByWorkspace[workspace] ?? []).length === 0 &&
+    // A pack whose inventory matches (the typescript pack's tsconfig files) has sites without imports.
+    !opts.only.some(
+      (name) =>
+        packInventory(opts.cwd, workspace, packsOf(opts).find((p) => p.name === name)?.inventory)
+          .length > 0,
+    )
   ) {
     return progress(opts.onProgress, { phase: 'resolve', workspace }, () =>
       Object.entries(installedByWorkspace[workspace] ?? {})
