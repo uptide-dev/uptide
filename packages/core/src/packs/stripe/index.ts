@@ -325,6 +325,8 @@ export const stripePack: Pack = {
     },
   ],
   instructions: SDK_GUIDE,
+  // `transform` pins an unpinned client and widens a fixture cast; no rule has a `rewrite`.
+  mechanical: ['api-version-unpinned', 'fixture-cast'],
   transform: (text, finding, context) => {
     // A client without apiVersion says the version the target SDK's types describe: with the
     // bump that is the only honest pin. Staying on the old version is `--pin-current-api`.

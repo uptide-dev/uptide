@@ -297,9 +297,27 @@ measures verified`; one whose numbers merely differ passes with a note (`--write
 
 ## Verified or candidate
 
-A pack is **verified** only with ground truth from at least two public repositories and no
-false positive among its breaking findings there (precision 100%), with at least one
-breaking finding predicted. Anything else is a **candidate**:
+A pack is **verified** only with ground truth from at least two public repositories, no
+false positive among its breaking findings there (precision 100%), at least one breaking
+finding predicted, and at least five expected breaking sites across the public repositories
+(fixture repositories never count). An upgrade the compiler cannot see, where every
+expected site is a behavior note's (ioredis 6: new runtime defaults), is judged on its notes
+instead, whatever their severity: at least five expected note sites, one found, and no false positive on a note or a
+mechanical rule. `pack test` prints the gate's class, the site counts and every reason a
+pack is a candidate.
+
+A rule with a `rewrite` that no public repository's ground truth exercises (no true
+positive) is **unexercised**: `pack test` lists it and records it in `verification.json`
+(`unexercised`), because nothing real confirms its rewrite yet. `check` and `fix` read the record:
+its sites are assisted (the agent, with the rule's guide), never rewritten. Detection is
+unaffected, and so is the pack's status. A pack whose `transform` edits for a rule that has no
+`rewrite` of its own (Stripe's pin) lists that rule in `mechanical`, so the gate counts it too.
+
+A pack may ask for fewer real breaking sites with `meta.minBreakingSites`, only for a major whose
+guide lists fewer breaking changes, and only with the reason written under
+`## Breaking-site minimum` in its RESEARCH.md; `pack test` fails a pack that sets it without one.
+
+Anything else is a **candidate**:
 
 - it ships in the tree, and `pack test` scores it;
 - by default, `check`, `list` and `fix` treat the dependency as generic: no `verified` label, the
@@ -312,7 +330,8 @@ breaking finding predicted. Anything else is a **candidate**:
 The CLI reads the status from `verification.json`, which `pack test --write` writes and
 which records the digest of the ground-truth file it was measured against, with precision,
 recall and the counts behind them for breaking findings and for behavior-note sites
-(`behavior`, absent from records written before it). The gate reads the breaking ones only. CI runs
+(`behavior`, absent from records written before it), the gate's class, the real breaking and
+behavior-note site counts, and the unexercised rules. CI runs
 `pack test` for every pack on every pull request that touches packs and fails when the
 record claims verified where the evidence measures candidate, so the label cannot outlive
 what supports it.

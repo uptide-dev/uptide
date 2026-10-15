@@ -1,11 +1,22 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import type { CheckReport, Finding } from '../../domain/report.js';
 import { aiPack } from '../ai/index.js';
 import type { PackVerification } from '../contract.js';
 import { registeredPacks } from '../index.js';
-import { companionOutcome, overclaims, predictedSites, testPack } from './pack-test.js';
+import {
+  companionOutcome,
+  formatRecord,
+  gateOf,
+  minimumProblems,
+  overclaims,
+  predictedSites,
+  type RepoScore,
+  testPack,
+} from './pack-test.js';
 
 const root = fileURLToPath(new URL('../../../../../', import.meta.url));
 const verification = JSON.parse(
@@ -175,4 +186,101 @@ it('never finds a fixtures-only run over-claiming, whatever the record says', as
     { root, fixturesOnly: true },
   );
   expect(report).toMatchObject({ recorded: 'verified', status: 'candidate', overclaimed: false });
+});
+
+it('gates on real sites only: a fixture repository scores, never counts, and never exercises a rule', () => {
+  const pack = {
+    rules: [
+      {
+        id: 'rename',
+        summary: '',
+        severity: 'breaking' as const,
+        rewrite: () => ({ applied: false as const, reason: '' }),
+      },
+      {
+        id: 'json',
+        summary: '',
+        severity: 'breaking' as const,
+        rewrite: () => ({ applied: false as const, reason: '' }),
+      },
+      { id: 'look', summary: '', severity: 'breaking' as const },
+    ],
+    behavior: [],
+    meta: {},
+  } as unknown as Parameters<typeof gateOf>[0];
+  const site = (file: string, rule: string) => ({
+    file,
+    line: 1,
+    rule,
+    severity: 'breaking' as const,
+  });
+  const repo = (
+    label: string,
+    sites: ReturnType<typeof site>[],
+    over: Partial<RepoScore> = {},
+  ): RepoScore => ({
+    label,
+    from: '1.0.0',
+    to: '2.0.0',
+    predicted: sites,
+    expected: sites,
+    falsePositives: [],
+    falseNegatives: [],
+    wrongRule: [],
+    ...over,
+  });
+  const real = (i: number) =>
+    repo(`o/r${i}`, [site('a.ts', 'rename'), site('b.ts', 'look')], { repo: `o/r${i}` });
+  const truth = {
+    package: 'x',
+    repos: [0, 1].map((i) => ({
+      repo: `o/r${i}`,
+      commit: 'c',
+      from: '1.0.0',
+      to: '2.0.0',
+      why: '',
+      findings: [],
+    })),
+  };
+  const fixture = repo('fixture', [site('c.ts', 'json'), site('d.ts', 'json')], {
+    fixture: 'fixtures/repos/x',
+  });
+
+  const gate = gateOf(pack, truth, [real(0), real(1), fixture]);
+  expect(gate.breakingSites).toBe(4);
+  expect(gate.unexercised).toEqual(['json']);
+  expect(gate.reasons).toEqual(['4 breaking sites in public ground truth, verified needs 5']);
+
+  const third = repo('o/r2', [site('e.ts', 'rename')], { repo: 'o/r2' });
+  expect(gateOf(pack, truth, [real(0), real(1), third, fixture]).status).toBe('verified');
+  // A repository that could not be scored is no evidence.
+  const broken = { ...third, error: 'clone failed' };
+  expect(gateOf(pack, truth, [real(0), real(1), broken]).breakingSites).toBe(4);
+});
+
+it('takes a lower breaking-site minimum only with its reason written in RESEARCH.md', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'uptide-minimum-'));
+  const needs = [
+    'meta.minBreakingSites needs its reason under "## Breaking-site minimum" in RESEARCH.md',
+  ];
+  expect(minimumProblems(undefined, dir)).toEqual([]);
+  expect(minimumProblems(3, dir)).toEqual(needs);
+  writeFileSync(
+    join(dir, 'RESEARCH.md'),
+    '# x\n\n## Breaking-site minimum\n\n## Sources\n\nguide\n',
+  );
+  expect(minimumProblems(3, dir)).toEqual(needs);
+  writeFileSync(
+    join(dir, 'RESEARCH.md'),
+    '# x\n\n## Breaking-site minimum\n\nThe 2.0 guide lists three breaking changes.\n\n## Sources\n',
+  );
+  expect(minimumProblems(3, dir)).toEqual([]);
+  expect(minimumProblems(0, dir)[0]).toContain('at least 1');
+});
+
+it('writes a record as the formatter would: a short list inline, a long one a line per item', () => {
+  for (const entry of registeredPacks()) {
+    const file = join(root, 'packages/core/src/packs', entry.dir, 'verification.json');
+    expect(`${formatRecord(entry.verification)}\n`, entry.dir).toBe(readFileSync(file, 'utf8'));
+  }
 });

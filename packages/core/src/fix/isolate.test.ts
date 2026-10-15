@@ -30,6 +30,13 @@ import { command, git, quietEnv } from './process.js';
 import { zodFixture } from './test-fixture.js';
 import type { FixRequest } from './types.js';
 
+// zod's required_error rewrite has no real ground-truth site yet, so the registry runs it as
+// assisted (UPT-48). These tests exercise the fix machinery with that rule as written.
+vi.mock('../packs/fixability.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../packs/fixability.js')>()),
+  withUnexercised: (pack: unknown) => pack,
+}));
+
 const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'uptide-isolate-')));
 // Clones made by these tests live under the scratch directory, not in the machine's temporary root.
 process.env.UPTIDE_RUNS_DIR = join(scratch, 'runs');

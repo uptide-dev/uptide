@@ -6,6 +6,7 @@ import type { Companion } from '../../check/companions.js';
 import type { CheckReport } from '../../domain/report.js';
 import {
   companionProblems,
+  type GateResult,
   type GroundTruth,
   type GroundTruthRepo,
   type Pack,
@@ -14,9 +15,9 @@ import {
   publicRepos,
   type RegisteredPack,
   recordedStatus,
-  statusOf,
   truthDigest,
   verificationTally,
+  verifiedGate,
 } from '../contract.js';
 import { type FixtureResult, fixturesPass, runFixtures } from './fixtures.js';
 import { type EnsureOptions, ensureFixture, ensureRepo, label, truthProblems } from './truth.js';
@@ -97,6 +98,8 @@ export interface PackTestReport {
   breaking: Tally;
   /** Ground truth, at the line level, the sites of behavior notes, whatever their severity. */
   behavior: Tally;
+  /** The verified gate's verdict, and the real-site counts it read. */
+  gate: GateResult & { breakingSites: number; behaviorSites: number };
   passed: boolean;
 }
 
@@ -396,6 +399,7 @@ export async function testPack(
   const problems: string[] = [];
   if (!pack.meta.sources.length) problems.push('meta.sources lists no changelog or guide');
   if (!pack.meta.maintainer) problems.push('meta.maintainer is empty');
+  problems.push(...minimumProblems(pack.meta.minBreakingSites, dir));
   problems.push(...companionProblems(pack.companions, pack.name));
   problems.push(
     ...companionProblems(pack.releaseGroup, pack.name).map((p) =>
@@ -422,20 +426,26 @@ export async function testPack(
     repos.filter((r) => !r.error),
   );
 
+  const gate = gateOf(pack, truth, repos);
   // A pack whose upgrade leaves part of the group behind produces an inconsistent install.
-  const status: PackStatus =
-    repos.some((r) => r.error || r.leftBehind?.length) || options.fixturesOnly
-      ? 'candidate'
-      : statusOf(truth, {
-          falsePositives: breaking.falsePositives,
-          predicted: breaking.truePositives + breaking.falsePositives,
-        });
+  if (options.fixturesOnly) gate.reasons.unshift('ground truth not scored (--fixtures-only)');
+  for (const r of repos) {
+    if (r.error) gate.reasons.unshift(`${r.label} could not be scored`);
+    if (r.leftBehind?.length)
+      gate.reasons.unshift(`${r.label}: check leaves part of the upgrade behind`);
+  }
+  const status: PackStatus = gate.reasons.length ? 'candidate' : 'verified';
+  gate.status = status;
   const verification: PackVerification = {
     status,
     truth: read ? truthDigest(read.text) : '',
     repos: publicRepos(truth).length,
     breaking: verificationTally(breaking),
     behavior: verificationTally(behavior),
+    class: gate.class,
+    breakingSites: gate.breakingSites,
+    behaviorSites: gate.behaviorSites,
+    unexercised: gate.unexercised,
   };
   const recorded = recordedStatus(entry.verification);
   // Fixtures alone say nothing about ground truth: only a full run can find the record stale.
@@ -470,8 +480,70 @@ export async function testPack(
     overall,
     breaking,
     behavior,
+    gate,
     passed,
   };
+}
+
+/**
+ * The gate over one run: real sites are those of public repositories (a fixture repository
+ * scores, never counts), and so are the true positives that exercise a mechanical rule.
+ */
+export function gateOf(
+  pack: Pick<Pack, 'rules' | 'behavior' | 'mechanical' | 'meta'>,
+  truth: GroundTruth,
+  repos: RepoScore[],
+): PackTestReport['gate'] {
+  const scored = repos.filter((r) => !r.error);
+  const real = scored.filter((r) => !r.fixture);
+  const notes = new Set(pack.behavior.map((b) => b.id));
+  const expected = real.flatMap((r) => r.expected);
+  const breakingSites = expected.filter((e) => siteSeverity(pack, e.rule) === 'breaking').length;
+  const behaviorSites = expected.filter((e) => notes.has(e.rule)).length;
+  const ruleSites = expected.length - behaviorSites;
+  const all = scoreTruth(pack, scored);
+  const { rules } = scoreTruth(pack, real);
+  const ids = [...pack.rules.filter((r) => r.rewrite).map((r) => r.id), ...(pack.mechanical ?? [])];
+  const mechanical = Object.fromEntries(
+    ids.map((id) => [
+      id,
+      {
+        truePositives: rules[id]?.truePositives ?? 0,
+        falsePositives: all.rules[id]?.falsePositives ?? 0,
+      },
+    ]),
+  );
+  const gate = verifiedGate({
+    repos: publicRepos(truth).length,
+    ...(pack.meta.minBreakingSites !== undefined
+      ? { minBreakingSites: pack.meta.minBreakingSites }
+      : {}),
+    ruleSites,
+    breakingSites,
+    behaviorSites,
+    breaking: all.breaking,
+    behavior: all.behavior,
+    mechanical,
+  });
+  return { ...gate, breakingSites, behaviorSites };
+}
+
+/**
+ * `meta.minBreakingSites`: a whole number of at least one, and its reason written under
+ * `## Breaking-site minimum` in the pack's RESEARCH.md.
+ */
+export function minimumProblems(min: number | undefined, dir: string): string[] {
+  if (min === undefined) return [];
+  if (!Number.isInteger(min) || min < 1)
+    return [`meta.minBreakingSites must be a whole number of at least 1, not ${min}`];
+  const file = join(dir, 'RESEARCH.md');
+  const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const start = text.search(/^## Breaking-site minimum[ \t]*$/m);
+  const body = start < 0 ? '' : text.slice(start).split('\n').slice(1).join('\n');
+  const reason = body.split(/^## /m)[0]?.trim();
+  return reason
+    ? []
+    : ['meta.minBreakingSites needs its reason under "## Breaking-site minimum" in RESEARCH.md'];
 }
 
 /**
@@ -486,8 +558,23 @@ export function overclaims(recorded: PackStatus, measured: PackStatus): boolean 
 /** `--write`: the record the runtime gate reads, as this run measured it. */
 export function writeVerification(root: string, dir: string, record: PackVerification): string {
   const file = join(packsDir(root), dir, 'verification.json');
-  writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
+  writeFileSync(file, `${formatRecord(record)}\n`);
   return file;
+}
+
+/** JSON as the repository's formatter writes it: a list of strings on one line when it fits. */
+export function formatRecord(record: PackVerification): string {
+  return JSON.stringify(record, null, 2).replace(
+    /^( *"[^"\n]+": )\[\n((?: *"[^"\n]*",?\n)+) *\]/gm,
+    (whole, head: string, items: string) => {
+      const line = `${head}[${items
+        .trim()
+        .split('\n')
+        .map((item) => item.trim().replace(/,$/, ''))
+        .join(', ')}]`;
+      return line.length <= 100 ? line : whole;
+    },
+  );
 }
 
 /**
@@ -519,6 +606,14 @@ export function unfinishedPack(entry: RegisteredPack, reason: string): PackTestR
     overall: none,
     breaking: none,
     behavior: none,
+    gate: {
+      status: 'candidate',
+      class: 'breaking',
+      reasons: [reason],
+      unexercised: [],
+      breakingSites: 0,
+      behaviorSites: 0,
+    },
     passed: false,
   };
 }

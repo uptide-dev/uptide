@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
 export const signup = z.object({
-  email: z.string({ required_error: 'Email is required' }),
-  plan: z.enum(['free', 'pro'], { invalid_type_error: 'Unknown plan' }),
+  email: z.string().min(3),
+  plan: z.enum(['free', 'pro']),
+  metadata: z.record(z.string()),
+  limits: z.record(z.number()),
 });
 
 export type Signup = z.infer<typeof signup>;

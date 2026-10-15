@@ -127,6 +127,11 @@ export interface MigrationPack {
   readonly behavior?: readonly BehaviorNote[];
   readonly name: string;
   /**
+   * Rules whose edit no real upgrade in the ground truth exercised (`verification.json`):
+   * their sites are assisted, never rewritten. Set by the registry from the record.
+   */
+  readonly unexercised?: readonly string[];
+  /**
    * Packages that always move with this one, even when the installed version of each already
    * accepts the target. Each carries the `source` that says so: the URL of an official
    * migration guide or changelog (the package's own, when the leader's does not name it).

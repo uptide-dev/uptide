@@ -94,9 +94,11 @@ Rules for a pack change:
    by `uptide pack test`. Expected findings come from the repository's own upgrade and the
    compiler, never from Uptide's output. No private code, paths or names anywhere: fixtures
    are synthetic, ground truth is public.
-4. A pack is verified only with ground truth from two public repositories and no false
-   positive among its breaking findings; until then it ships as a candidate, and the CLI
-   treats the dependency as generic.
+4. A pack is verified only with ground truth from two public repositories, at least five
+   expected breaking sites across them, and no false positive among its breaking findings
+   (docs/packs.md has the behavior-only variant); until then it ships as a candidate, and
+   the CLI treats the dependency as generic. A rewrite no real site exercises is listed
+   as unexercised and runs as assisted: give each mechanical rule at least one real site.
 5. Server API changes (Stripe API versions) are never rewritten by rule.
 
 ## Write a pack
@@ -123,8 +125,9 @@ open a **Pack request** issue, and say you are writing it.
    (`// @uptide <rule>`, `keep` for one it must leave alone) and `after.ts`, what the rules
    must produce. `pnpm uptide pack test <package> --fixtures-only` runs them in seconds;
    `--update-fixtures` writes each `after.ts` from what the rules do, for you to read.
-5. **Find ground truth.** Two public repositories that made this upgrade in a commit you
-   can point at. Pin the commit before it, and draft the expected findings from their own
+5. **Find ground truth.** Two or more public repositories that made this upgrade in a
+   commit you can point at, with at least five breaking sites between them and a real site
+   for every rule that rewrites. Pin the commit before it, and draft the expected findings from their own
    compiler and their own upgrade commit:
    ```sh
    pnpm packs:truth <package> owner/name <commit-before> <upgrade-commit> --to <version>
@@ -144,6 +147,8 @@ open a **Pack request** issue, and say you are writing it.
    A false negative is a site to cover or a known gap to say in the pull request. A site
    expected under a behavior note scores at the note's `severity`, and behavior-note sites
    get their own precision and recall: a missed "needs a look" is not a missed break.
+   The `gate` line says the class, the real site counts, and why the pack is a candidate if
+   it is one; rules it lists as unexercised run as assisted until a real site covers them.
 7. **Smoke-test locally** without editing `verification.json`:
    ```sh
    pnpm uptide check <package> --allow-candidate --cwd /path/to/local-fixture

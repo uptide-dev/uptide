@@ -177,6 +177,7 @@ export * from './onboarding/node.js';
 export {
   type BehaviorNote,
   definePack,
+  type GateResult,
   type GroundTruth,
   type GroundTruthFinding,
   type GroundTruthRepo,
@@ -188,8 +189,11 @@ export {
   type RegisteredPack,
   rateLabel,
   replaceAtSite,
+  VERIFIED_MIN_BEHAVIOR_SITES,
+  VERIFIED_MIN_BREAKING_SITES,
   VERIFIED_MIN_REPOS,
   type VerificationTally,
+  verifiedGate,
 } from './packs/contract.js';
 export { activePacks, packStatus, registeredPacks } from './packs/index.js';
 export { leadName, leadNames, packLeading } from './packs/leads.js';
