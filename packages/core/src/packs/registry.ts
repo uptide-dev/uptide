@@ -4,6 +4,8 @@
 import { aiPack } from './ai/index.js';
 import aiVerification from './ai/verification.json' with { type: 'json' };
 import type { PackVerification, RegisteredPack } from './contract.js';
+import { expressPack } from './express/index.js';
+import expressVerification from './express/verification.json' with { type: 'json' };
 import { ioredisPack } from './ioredis/index.js';
 import ioredisVerification from './ioredis/verification.json' with { type: 'json' };
 import { joiPack } from './joi/index.js';
@@ -37,6 +39,7 @@ import zodVerification from './zod/verification.json' with { type: 'json' };
 
 export const REGISTRY: readonly RegisteredPack[] = [
   { dir: 'ai', pack: aiPack, verification: aiVerification as PackVerification },
+  { dir: 'express', pack: expressPack, verification: expressVerification as PackVerification },
   { dir: 'ioredis', pack: ioredisPack, verification: ioredisVerification as PackVerification },
   { dir: 'joi', pack: joiPack, verification: joiVerification as PackVerification },
   {

@@ -1,0 +1,590 @@
+{
+  "$comment": "Public repositories at the commit before they upgraded express from >=4 <5 to >=5 <6, and every finding the pack must report there. Drafted with `pnpm packs:truth` (compiler + upgrade diff) and reviewed by hand on 2026-10-14, before the first score. See RESEARCH.md and docs/packs.md, \"Ground truth\".",
+  "package": "express",
+  "repos": [
+    {
+      "repo": "netlify/cli",
+      "commit": "63b6f1cbca316fa6c338d59e5b5053a11de25c6c",
+      "migration": "https://github.com/netlify/cli/pull/7927",
+      "from": "4.22.1",
+      "to": "5.2.1",
+      "with": {
+        "@types/express": "5.0.6",
+        "http-proxy-middleware": "3.0.5"
+      },
+      "why": "CLI, one package, npm. Upgrade 6414c142 renames the unnamed `*` route wildcards path-to-regexp 8 rejects (source and test servers, and route data of a mock API) and drops two test assertions on an empty `req.body`. The compiler reports nothing new. http-proxy-middleware 2 to 3 in the same commit is that package's own change and is not a site.",
+      "findings": [
+        {
+          "file": "src/lib/functions/server.ts",
+          "line": 296,
+          "rule": "route-syntax",
+          "note": "`app.all('*', \u2026)` becomes `'{*splat}'`"
+        },
+        {
+          "file": "tests/integration/commands/blobs/blobs.test.ts",
+          "line": 51,
+          "rule": "route-syntax",
+          "note": "route data `path: 'blobs/*'`, registered by the mock API's `app[method](path)`, becomes `'blobs/{*splat}'`"
+        },
+        {
+          "file": "tests/integration/commands/dev/dev.test.ts",
+          "line": 236,
+          "rule": "req-body-undefined",
+          "note": "an assertion that a GET request's body is `{}` is removed: without a parser `req.body` is undefined in Express 5"
+        },
+        {
+          "file": "tests/integration/commands/dev/dev.test.ts",
+          "line": 357,
+          "rule": "req-body-undefined",
+          "note": "same assertion, second test"
+        },
+        {
+          "file": "tests/integration/commands/dev/v2-api.test.ts",
+          "line": 16,
+          "rule": "route-syntax",
+          "note": "route data `'sites/*/service-instances'` becomes `'sites/:siteId/service-instances'`"
+        },
+        {
+          "file": "tests/integration/commands/dev/v2-api.test.ts",
+          "line": 17,
+          "rule": "route-syntax",
+          "note": "route data `'sites/*'` becomes `'sites/{*splat}'`"
+        },
+        {
+          "file": "tests/integration/utils/external-server.ts",
+          "line": 8,
+          "rule": "route-syntax",
+          "note": "`app.all('*', \u2026)` becomes `'{*splat}'`"
+        },
+        {
+          "file": "tests/integration/utils/mock-api-vitest.ts",
+          "line": 87,
+          "rule": "route-syntax",
+          "note": "`app.all('*', \u2026)` becomes `'{*splat}'`"
+        },
+        {
+          "file": "tests/integration/utils/mock-api.ts",
+          "line": 93,
+          "rule": "route-syntax",
+          "note": "`app.all('*', \u2026)` becomes `'{*splat}'`"
+        },
+        {
+          "file": "tests/unit/lib/functions/server.test.ts",
+          "line": 45,
+          "rule": "route-syntax",
+          "note": "the path `'*'` of a multi-line `app.all(` becomes `'{*splat}'`"
+        }
+      ]
+    },
+    {
+      "repo": "bcgov/tenant-management-system",
+      "commit": "6fd01755043a3db9ed0577ffa6b1b4a184ae670f",
+      "migration": "https://github.com/bcgov/tenant-management-system/pull/699",
+      "directory": "backend",
+      "from": "4.22.2",
+      "to": "5.2.1",
+      "with": {
+        "@types/express": "5.0.6"
+      },
+      "why": "API in `backend/`, npm lockfile beside it. Upgrade 74470563 casts every `req.params.x` the compiler now types `string | string[]` (@types/express-serve-static-core 5.1) and names one wildcard route.",
+      "findings": [
+        {
+          "file": "src/common/auth.mw.ts",
+          "line": 105,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/common/tenant-access.mw.ts",
+          "line": 11,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/routes/routes.ts",
+          "line": 24,
+          "rule": "route-syntax",
+          "note": "`app.get('/v1/swagger-resources/*', \u2026)` becomes `/*rest`: an unnamed wildcard throws in path-to-regexp 8"
+        },
+        {
+          "file": "src/services/assertion.service.ts",
+          "line": 76,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 29,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 96,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 97,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 144,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 162,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 163,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 264,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 265,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 266,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 298,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 299,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 313,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 332,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 333,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 347,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 348,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 373,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 374,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 396,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/group.service.ts",
+          "line": 397,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/shared-service.service.ts",
+          "line": 50,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/shared-service.service.ts",
+          "line": 70,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/shared-service.service.ts",
+          "line": 86,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/shared-service.service.ts",
+          "line": 87,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/shared-service.service.ts",
+          "line": 105,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/shared-service.service.ts",
+          "line": 121,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/shared-service.service.ts",
+          "line": 150,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant-request.service.ts",
+          "line": 104,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant-request.service.ts",
+          "line": 176,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 76,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 127,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 168,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 182,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 210,
+          "rule": "params-string-array",
+          "note": "`const { tenantId, tenantUserId } = req.params` becomes two typed consts; the compiler reports the uses at 214 and 215"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 214,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 215,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 242,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 254,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 255,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 267,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 268,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 269,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 282,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 305,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 343,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 344,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 388,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 389,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 423,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        },
+        {
+          "file": "src/services/tenant.service.ts",
+          "line": 424,
+          "rule": "params-string-array",
+          "note": "TS2322 req.params value is string | string[]; the upgrade casts it to string"
+        }
+      ]
+    },
+    {
+      "repo": "amiantos/lurker",
+      "commit": "f7a0f3dac77570ec3fd93a487ccf0aaf2f6ca5db",
+      "migration": "https://github.com/amiantos/lurker/pull/147",
+      "from": "4.22.2",
+      "to": "5.2.1",
+      "with": {
+        "@types/express": "5.0.6"
+      },
+      "why": "Server at the root, npm. Upgrade 84d7bb12 types route params (`Request<{ token: string }>`, a generic `asyncHandler`) where the compiler now reports `string | string[]`.",
+      "findings": [
+        {
+          "file": "integrations/autonotes/server.ts",
+          "line": 176,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/routes/admin.ts",
+          "line": 107,
+          "rule": "params-string-array",
+          "note": "the handler is annotated `Request<{ \u2026 }>` so its params are typed strings; the compiler reports the uses below"
+        },
+        {
+          "file": "server/routes/admin.ts",
+          "line": 115,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/routes/admin.ts",
+          "line": 124,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 244,
+          "rule": "params-string-array",
+          "note": "the handler is annotated `Request<{ \u2026 }>` so its params are typed strings; the compiler reports the uses below"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 245,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 259,
+          "rule": "params-string-array",
+          "note": "the handler is annotated `Request<{ \u2026 }>` so its params are typed strings; the compiler reports the uses below"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 260,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 306,
+          "rule": "params-string-array",
+          "note": "the handler is annotated `Request<{ \u2026 }>` so its params are typed strings; the compiler reports the uses below"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 317,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 352,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 379,
+          "rule": "params-string-array",
+          "note": "the handler is annotated `Request<{ \u2026 }>` so its params are typed strings; the compiler reports the uses below"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 380,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/routes/auth.ts",
+          "line": 402,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/routes/settings.ts",
+          "line": 35,
+          "rule": "params-string-array",
+          "note": "the handler is annotated `Request<{ \u2026 }>` so its params are typed strings; the compiler reports the uses below"
+        },
+        {
+          "file": "server/routes/settings.ts",
+          "line": 36,
+          "rule": "params-string-array",
+          "note": "TS2345 req.params value is string | string[]"
+        },
+        {
+          "file": "server/utils/asyncHandler.ts",
+          "line": 10,
+          "rule": "params-string-array",
+          "note": "`AsyncRouteHandler` becomes generic over the params type"
+        },
+        {
+          "file": "server/utils/asyncHandler.ts",
+          "line": 12,
+          "rule": "params-string-array",
+          "note": "`asyncHandler` passes the params type through (12-13, one change)"
+        }
+      ]
+    },
+    {
+      "repo": "openhab/openhab-cloud",
+      "commit": "5a1866efe1c038e287d2d59091951e1912db12f8",
+      "migration": "https://github.com/openhab/openhab-cloud/pull/550",
+      "from": "4.22.1",
+      "to": "5.2.1",
+      "with": {
+        "@types/express": "5.0.6",
+        "body-parser": "2.2.2",
+        "serve-static": "2.2.1"
+      },
+      "why": "Server at the root, npm. Upgrade b25ee437 rewrites wildcard routes for path-to-regexp 8 (single routes and a list registered in a loop), replaces csurf (typed for Express 4) and moves body-parser and serve-static to 2.x with express.",
+      "findings": [
+        {
+          "file": "src/app.ts",
+          "line": 235,
+          "rule": "generic",
+          "note": "TS2345 `csrf(req, res, next)`: csurf's Request type (@types/express 4) no longer accepts Express 5's; the upgrade replaces csurf with csrf-sync"
+        },
+        {
+          "file": "src/routes/index.ts",
+          "line": 668,
+          "rule": "route-syntax",
+          "note": "`router.all('/addAndroidRegistration*', \u2026)` becomes `\u2026{*path}`"
+        },
+        {
+          "file": "src/routes/index.ts",
+          "line": 669,
+          "rule": "route-syntax",
+          "note": "`router.all('/addIosRegistration*', \u2026)` becomes `\u2026{*path}`"
+        },
+        {
+          "file": "src/routes/index.ts",
+          "line": 678,
+          "rule": "route-syntax",
+          "note": "`router.all('/ws/*', \u2026)` becomes `'/ws/{*path}'`"
+        },
+        {
+          "file": "src/routes/index.ts",
+          "line": 681,
+          "rule": "route-syntax",
+          "note": "the `proxyPaths` list (681-684), registered by one `for\u2026of` over `router.all(path, \u2026)`: every `*` becomes `{*path}`, `/jquery.*` becomes `/jquery.:ext`"
+        },
+        {
+          "file": "src/routes/middleware.ts",
+          "line": 82,
+          "rule": "generic",
+          "note": "`createMiddleware` gains an explicit `RouteMiddleware` return type, \"to resolve type portability issue with Express 5's bundled types\" (commit message); not reported by a no-emit compile"
+        }
+      ]
+    }
+  ]
+}

@@ -57,6 +57,7 @@ The contract: [migration packs](docs/packs.md).
 | Package | Range | Precision | Recall | Breaking sites | Ground-truth repositories | Status |
 | --- | --- | ---: | ---: | ---: | --- | --- |
 | `ai` | 6.x → 7.x | 100% | 82% | 11 | vercel/chatbot, miurla/morphic | verified |
+| `express` | 4.x → 5.x | 100% | 85% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | candidate |
 | `ioredis` | 5.x → 6.x | n/a | 0% | 2 | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
 | `joi` | 17.x → 18.x | n/a | n/a | — | edtech4good/edtech-lms-api, senacor/azure-function-middleware | candidate |
 | `lucide-react` | 0.x → 1.x | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
