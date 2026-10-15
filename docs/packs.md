@@ -240,8 +240,11 @@ versions it chose (from its `package.json` at the upgrade commit). `pack test` p
 cannot move one consistently: a pack whose `fix` produces an install the real upgrade never
 had is not verified. Versions may differ (check picks the release that agrees with `to`);
 the names may not. A package the target requires counts as moved at the lowest release of its
-major that satisfies it (batch-ai's zod 3.24.2 → 3.25.0, where its upgrade chose 4.4.3); one
-only a new major satisfies is a blocker, printed with its range, and stays left behind.
+major that satisfies it (batch-ai's zod 3.24.2 → 3.25.0, where its upgrade chose 4.4.3). One
+`check` leaves and says why counts as explained, not left behind: a blocker or a stay that
+only a new major makes (guardrails' `@openai/agents` 0.1 → 0.17), or a peer conflict
+(netlify's `http-proxy-middleware` 2 on `@types/express ^4`). A package that does not depend
+on the lead is the repository's choice (openhab's `body-parser` with express) and fails nothing.
 
 `fixture` entries (`"fixture": "fixtures/repos/storefront"`) are repositories in this tree.
 They are scored like the others and never count toward `verified`.

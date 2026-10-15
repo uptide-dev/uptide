@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createFsSurfaceCache } from '../../cache/fs-surface-cache.js';
 import { check } from '../../check/check.js';
 import type { Companion } from '../../check/companions.js';
@@ -59,6 +59,10 @@ export interface RepoScore {
   stays?: string[];
   /** Packages the real upgrade moved (`with`) that `check` would leave behind, or cannot move consistently. */
   leftBehind?: string[];
+  /** `with` moves `check` leaves and reports: only a new major makes them. Not a failure. */
+  explained?: string[];
+  /** `with` moves of packages that do not depend on the lead: the repository's choice. Not a failure. */
+  repoChoice?: string[];
   /** Required moves `check` will not make, each only a new major (`check/required.ts`). */
   blockers?: string[];
   predicted: ScoredSite[];
@@ -325,7 +329,7 @@ async function scoreRepo(
     const predicted = predictedSites(report, pack);
     return {
       ...base,
-      ...companionOutcome(own, entry.with),
+      ...companionOutcome(own, entry.with, (name) => dependsOn(project, dir, name, pack.name)),
       predicted,
       ...scoreSites(predicted, expected),
     };
@@ -335,14 +339,36 @@ async function scoreRepo(
 }
 
 /**
+ * Whether the installed copy of `name` nearest `project` (up to the checkout `root`) declares
+ * `lead` in any of its dependencies. Unknown, when no copy is found, counts as yes.
+ */
+function dependsOn(project: string, root: string, name: string, lead: string): boolean {
+  for (let at = project; ; at = dirname(at)) {
+    try {
+      const m = JSON.parse(readFileSync(join(at, 'node_modules', name, 'package.json'), 'utf8'));
+      return [m.dependencies, m.peerDependencies, m.optionalDependencies].some((d) => d?.[lead]);
+    } catch {
+      // Not installed here: look one directory up.
+    }
+    if (at === root || dirname(at) === at) return true;
+  }
+}
+
+/**
  * What `check` moves with the package in one repository, against what its real upgrade moved
- * (`with`): a package the upgrade moved that `check` does not is left behind, and says why
- * when a blocker names it (a required move only a new major makes).
+ * (`with`). A package the upgrade moved that `check` does not is explained when check reports
+ * why it stays: a blocker or a stay that names it as a new major (`check/required.ts`), or a
+ * peer conflict (`check/companions.ts`), none of which check ever moves. It is the repository's choice when
+ * it does not depend on the lead (openhab's body-parser with express), and left behind otherwise.
  */
 export function companionOutcome(
   own: CheckReport['packages'],
   moved: Record<string, string> = {},
-): Pick<RepoScore, 'companions' | 'stays' | 'leftBehind' | 'blockers'> {
+  dependsOnLead: (name: string) => boolean = () => true,
+): Pick<
+  RepoScore,
+  'companions' | 'stays' | 'leftBehind' | 'blockers' | 'explained' | 'repoChoice'
+> {
   const companions = [
     ...new Map(own.flatMap((p) => p.companions ?? []).map((c) => [c.name, c])).values(),
   ].sort((a, b) => a.name.localeCompare(b.name));
@@ -350,20 +376,31 @@ export function companionOutcome(
   const blockers = [...new Set(own.flatMap((p) => p.companionBlockers ?? []))].sort();
   const names = (blocker: string, name: string) =>
     new RegExp(`(^|[ (])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} `).test(blocker);
-  const leftBehind = [
-    ...new Set(own.flatMap((p) => p.companionConflicts ?? [])),
-    ...Object.entries(moved)
-      .filter(([name]) => !companions.some((c) => c.name === name))
-      .map(([name, version]) => {
-        const blocker = blockers.find((b) => names(b, name));
-        return `${name}: the upgrade moved it to ${version}, check leaves it${blocker ? ` (blocked: ${blocker})` : ''}`;
-      }),
-  ];
+  const leftBehind: string[] = [...new Set(own.flatMap((p) => p.companionConflicts ?? []))];
+  const explained: string[] = [];
+  const repoChoice: string[] = [];
+  for (const [name, version] of Object.entries(moved)) {
+    if (companions.some((c) => c.name === name)) continue;
+    const left = `${name}: the upgrade moved it to ${version}`;
+    const blocker = blockers.find((b) => names(b, name));
+    const stay = stays.find((s) => s.includes('only a new major') && names(s, name));
+    const conflict = own
+      .flatMap((p) => p.peerConflicts ?? [])
+      .find((c) => c.startsWith(`${name} `));
+    if (blocker) explained.push(`${left}, check leaves it (blocked: ${blocker})`);
+    else if (conflict) explained.push(`${left}, check leaves it (peer conflict: ${conflict})`);
+    else if (stay) explained.push(`${left}, check leaves it (${stay})`);
+    else if (!dependsOnLead(name))
+      repoChoice.push(`${left}, the repository's choice (it does not depend on the package)`);
+    else leftBehind.push(`${left}, check leaves it`);
+  }
   return {
     ...(companions.length ? { companions } : {}),
     ...(stays.length ? { stays } : {}),
     ...(blockers.length ? { blockers } : {}),
     ...(leftBehind.length ? { leftBehind } : {}),
+    ...(explained.length ? { explained } : {}),
+    ...(repoChoice.length ? { repoChoice } : {}),
   };
 }
 

@@ -13,6 +13,12 @@ export interface RequiredPlan {
    * installed 3.25.76, and only a new major satisfies it (zod 4.0.0)`.
    */
   blockers: string[];
+  /**
+   * Direct dependencies whose own dependency range rejects the lead's target, left with a
+   * nested copy of the lead: `@openai/agents 0.1.11 keeps its own openai ^5.20.2; only a new
+   * major accepts openai 7.9.0 (@openai/agents 0.15.0)`. Information, never a blocker.
+   */
+  stays: string[];
 }
 
 const stable = (version: string): boolean => {
@@ -63,9 +69,9 @@ const visibleFrom = (dep: InstalledDependency, host: InstalledDependency): boole
  * peer or dependency at a range the installed copy does not satisfy, when the installed host
  * accepted it; and a direct dependency whose own dependency range rejects the lead's target.
  * Each moves to the lowest release of its
- * line that agrees. One that only a new major satisfies is never moved: a peer or a dependent
- * is a blocker, with the exact range; a plain dependency gets its own nested copy, so the
- * repository's stays.
+ * line that agrees. One that only a new major satisfies is never moved: a peer is a blocker,
+ * with the exact range; a plain dependency, of a planned version or of a dependent, gets its
+ * own nested copy, so the repository's stays (a dependent's is reported as a stay).
  */
 export async function requiredMoves(input: {
   lead: InstalledDependency;
@@ -86,6 +92,7 @@ export async function requiredMoves(input: {
     decided.set(c.name, { version: c.to, manifest: (await input.manifests(c.name))[c.to] ?? {} });
   const moves: Companion[] = [];
   let blockers = new Set<string>();
+  let stays = new Set<string>();
   const open = (d: InstalledDependency) =>
     d.name !== lead.name && !decided.has(d.name) && !input.reported.has(d.name);
   const move = async (d: InstalledDependency, to: string, reason: string) => {
@@ -109,6 +116,7 @@ export async function requiredMoves(input: {
   for (let grew = true; grew; ) {
     grew = false;
     blockers = new Set<string>();
+    stays = new Set<string>();
     // What a planned version declares, and what the install has.
     for (const [host, at] of [...decided]) {
       for (const peer of [true, false]) {
@@ -140,7 +148,8 @@ export async function requiredMoves(input: {
       }
     }
     // A direct dependency whose own dependency range rejects the lead's target: the package
-    // the user asked to move, which that dependency would keep a second copy of.
+    // the user asked to move, which that dependency keeps a second, nested copy of (prompty's
+    // @azure/ai-projects with openai 6, netlify's verdaccio pinning express 4).
     for (const dep of input.installed) {
       if (!open(dep) || !dep.workspaces.some((w) => lead.workspaces.includes(w))) continue;
       for (const [host, at] of [[lead.name, decided.get(lead.name)]] as const) {
@@ -165,8 +174,8 @@ export async function requiredMoves(input: {
         }
         const first = candidates[0];
         const needs = first ? unmetPeers(versions[first] ?? {}) : [];
-        blockers.add(
-          `${dep.name} ${dep.version} depends on ${host} ${range}; ${
+        stays.add(
+          `${dep.name} ${dep.version} keeps its own ${host} ${range}; ${
             first
               ? `only a new major accepts ${host} ${at.version} (${dep.name} ${first}${needs.length ? `, which needs ${needs.join(', and ')}` : ''})`
               : `no release accepts ${host} ${at.version}`
@@ -175,5 +184,5 @@ export async function requiredMoves(input: {
       }
     }
   }
-  return { moves, blockers: [...blockers].sort() };
+  return { moves, blockers: [...blockers].sort(), stays: [...stays].sort() };
 }
