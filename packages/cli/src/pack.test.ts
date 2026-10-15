@@ -49,3 +49,40 @@ it('prints behavior notes on their own row, n/a where nothing was predicted, and
   expect(out).toContain('src/client.ts:9  client-defaults (deprecated)');
   expect(out).toContain('src/client.ts:20  handshake-auth (breaking)');
 });
+
+it('fails a record that claims verified where the run measures candidate, and says so', () => {
+  const entry = registeredPacks()[0];
+  if (!entry) throw new Error('no registered pack');
+  const base = { ...unfinishedPack(entry, ''), problems: [] };
+  const over = formatPackTest({
+    ...base,
+    recorded: 'verified',
+    status: 'candidate',
+    overclaimed: true,
+    stale: true,
+  });
+  expect(over).toContain('verification.json records verified; this run measures candidate');
+  expect(over).toContain(`FAIL ${entry.pack.name}`);
+
+  const under = formatPackTest({
+    ...base,
+    recorded: 'candidate',
+    status: 'verified',
+    stale: true,
+    passed: true,
+  });
+  expect(under).toContain('recorded candidate by choice; measures verified');
+  expect(under).not.toContain('✗');
+  expect(under).toContain(`PASS ${entry.pack.name}: verified`);
+
+  // Same status, different numbers: a note, not a failure.
+  const drifted = formatPackTest({
+    ...base,
+    recorded: 'verified',
+    status: 'verified',
+    stale: true,
+    passed: true,
+  });
+  expect(drifted).toContain('verification.json differs from this run');
+  expect(drifted).not.toContain('✗');
+});

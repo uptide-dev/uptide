@@ -162,3 +162,32 @@ describe('rateLabel', () => {
     expect(rateLabel({ precision: 1, recall: 0.7375, falsePositives: 0 }, 'recall')).toBe('74%');
   });
 });
+
+describe('a generic truth entry', () => {
+  it('counts as a true positive for whichever rule claims its site', () => {
+    const expected = [at('src/a.ts:3', 'generic'), at('src/a.ts:9', 'generic')];
+    const predicted = [at('src/a.ts:3', 'duplicate-signature', 'breaking')];
+    const scored = repo(predicted, expected);
+    expect(scored.wrongRule).toEqual([]);
+    const { rules, breaking } = scoreTruth(pack, [scored]);
+    expect(rules['duplicate-signature']).toMatchObject({
+      truePositives: 1,
+      falsePositives: 0,
+      falseNegatives: 0,
+    });
+    // The site no rule claims is still the generic miss it was.
+    expect(rules.generic).toMatchObject({ truePositives: 0, falsePositives: 0, falseNegatives: 1 });
+    expect(breaking).toMatchObject({ truePositives: 1, falsePositives: 0, falseNegatives: 1 });
+  });
+  it('a named rule still has to match: another rule claiming it is reported, not counted', () => {
+    const scored = repo(
+      [at('src/a.ts:3', 'duplicate-signature')],
+      [at('src/a.ts:3', 'handshake-auth')],
+    );
+    expect(scored.wrongRule).toHaveLength(1);
+    expect(scoreTruth(pack, [scored]).rules['duplicate-signature']).toMatchObject({
+      truePositives: 0,
+      falsePositives: 1,
+    });
+  });
+});
