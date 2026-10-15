@@ -41,6 +41,7 @@ import {
   ensureRepo,
   insertionAnchors,
   maxSatisfying,
+  projectScope,
   satisfies,
   validRange,
 } from '@uptide/core';
@@ -97,17 +98,14 @@ function installs(name: string, dir: string, depth = 0): string[] {
       found.push(...installs(name, join(dir, entry.name), depth + 1));
   return found;
 }
-function tsconfigs(dir: string, depth = 0): string[] {
-  const found = existsSync(join(dir, 'tsconfig.json'))
-    ? [relative(project, join(dir, 'tsconfig.json'))]
-    : [];
-  if (depth >= 3) return found;
-  for (const entry of readdirSync(dir, { withFileTypes: true }))
-    if (entry.isDirectory() && !['node_modules', '.git', 'dist', 'build'].includes(entry.name))
-      found.push(...tsconfigs(join(dir, entry.name), depth + 1));
-  return found;
-}
-const configs = tsconfigs(project);
+// The projects `check` compiles (the TypeScript project scope, project-scope.ts: every
+// tsconfig*.json and its references, configs that are only extended left out), so the draft
+// and the run judge the same files: a `tsconfig.eslint.json` ts-jest type-checks tests with is
+// as much a build as `tsconfig.json`.
+const configs = projectScope({ dir: project })
+  .projects.map((p) => relative(project, p.config))
+  .filter((config) => !config.startsWith('..'))
+  .sort();
 const fetcher = createNpmFetcher();
 const work = mkdtempSync(join(tmpdir(), 'uptide-truth-'));
 

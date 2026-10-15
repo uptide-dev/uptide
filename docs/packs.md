@@ -185,8 +185,10 @@ repository upgraded to.
 
 Where the expected findings come from: two sources that are not Uptide.
 
-1. **The compiler.** The repository's own TypeScript, run on every `tsconfig.json`, with the
-   target version linked where the package is installed and without it. Every diagnostic
+1. **The compiler.** The repository's own TypeScript, run on every project `check` compiles
+   (the TypeScript project scope: each `tsconfig*.json` and its references, configs that are
+   only extended left out), with the target version linked where the package is installed
+   and without it. Every diagnostic
    new at the target is a site: errors, and deprecations (6385, 6387, what an editor strikes
    through). A repository on TypeScript 7, which has no JavaScript API, is compiled with the
    TypeScript of this checkout, and the draft says so. The target is linked with its own
