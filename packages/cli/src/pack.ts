@@ -26,7 +26,7 @@ export function packRoot(cwd: string): string {
 export function packsToTest(
   root: string,
   registered: readonly RegisteredPack[],
-  name: string | undefined,
+  names: readonly string[],
 ): RegisteredPack[] {
   const onDisk = [
     ...readFileSync(join(root, 'packages', 'core', 'src', 'packs', 'registry.ts'), 'utf8').matchAll(
@@ -37,15 +37,17 @@ export function packsToTest(
   if (missing.length > 0)
     throw new CliError(`this build of uptide does not include the pack in ${missing.join(', ')}`, {
       why: 'pack test runs the packs compiled into the CLI; `pnpm uptide` runs them from source',
-      next: `pnpm uptide pack test${name ? ` ${name}` : ''}`,
+      next: `pnpm uptide pack test${names.map((n) => ` ${n}`).join('')}`,
     });
-  if (!name) return [...registered];
-  const entry = registered.find((e) => e.pack.name === name || e.dir === name);
-  if (!entry)
-    throw new CliError(`no pack for ${name}`, {
-      next: `uptide pack new ${name} --from <range> --to <range>`,
-    });
-  return [entry];
+  if (names.length === 0) return [...registered];
+  return names.map((name) => {
+    const entry = registered.find((e) => e.pack.name === name || e.dir === name);
+    if (!entry)
+      throw new CliError(`no pack for ${name}`, {
+        next: `uptide pack new ${name} --from <range> --to <range>`,
+      });
+    return entry;
+  });
 }
 
 function row(name: string, t: Tally): string {

@@ -5,7 +5,9 @@ name: Packs
 # findings, a failing fixture, or a verification.json the evidence no longer supports.
 #
 # The job always reports, so it can be a required check: on a pull request that touches
-# neither a pack nor the engine that produces their findings it passes without running.
+# neither a pack nor the engine that produces their findings it passes without running. A pull
+# request that changes only pack directories (and the files listing packs) tests just those
+# packs, with a cache of just their repositories (scripts/pack-test-scope.mjs).
 
 on:
   push:
@@ -29,8 +31,9 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          changed=$(git diff --name-only "$BASE" HEAD)
+          changed=$(git diff --name-only --no-renames "$BASE" HEAD)
           echo "$changed"
+          echo "$changed" | node scripts/pack-test-scope.mjs | tee -a "$GITHUB_OUTPUT"
           if echo "$changed" | grep -Eq '^(packages/core/src/(packs|check|adapters|fix/plan\.ts|fix/report\.ts)|packages/core/package\.json|packs/|fixtures/repos/storefront/|scripts/pack-test-report\.ts|\.github/workflows/packs\.yml|pnpm-lock\.yaml)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
@@ -52,19 +55,30 @@ jobs:
       # Ground-truth repositories (shallow, installed with scripts off) and the registry
       # tarballs `check` extracts. Keyed on the ground truth: a new repository is fetched once.
       - uses: actions/cache@v6
-        if: steps.scope.outputs.run == 'true'
+        if: steps.scope.outputs.run == 'true' && steps.scope.outputs.ids == ''
         with:
           path: ~/.cache/uptide
           key: packs-${{ runner.os }}-${{ hashFiles('packages/core/src/packs/*/ground-truth.json') }}
           restore-keys: packs-${{ runner.os }}-
+      # Only the changed packs run: a cache of their repositories alone, keyed on their ground truth.
+      - uses: actions/cache@v6
+        if: steps.scope.outputs.run == 'true' && steps.scope.outputs.ids != ''
+        with:
+          path: ~/.cache/uptide-pack
+          key: ${{ runner.os }}-${{ steps.scope.outputs.key }}
+          restore-keys: ${{ runner.os }}-${{ steps.scope.outputs.restore }}
       # Ground-truth repositories that pin Yarn Berry via packageManager (tldraw) install with it.
       - if: steps.scope.outputs.run == 'true'
         run: corepack enable
       - name: uptide pack test
         if: steps.scope.outputs.run == 'true'
+        env:
+          IDS: ${{ steps.scope.outputs.ids }}
         run: |
           set +e
-          pnpm -s uptide pack test --json > pack-test.json
+          if [ -n "$IDS" ]; then export UPTIDE_CACHE_DIR="$HOME/.cache/uptide-pack"; fi
+          # shellcheck disable=SC2086 # one argument per pack id
+          pnpm -s uptide pack test $IDS --json > pack-test.json
           code=$?
           node --conditions=source --import tsx scripts/pack-test-report.ts pack-test.json | tee -a "$GITHUB_STEP_SUMMARY"
           exit $code

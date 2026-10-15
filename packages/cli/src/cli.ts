@@ -1468,7 +1468,7 @@ ${EXIT_CODES('scaffolded', 'not used')}`,
     .description(
       'Score packs against their fixtures and ground truth: precision and recall per rule',
     )
-    .argument('[package]', 'one pack; every registered pack when omitted')
+    .argument('[packages...]', 'packs to test; every registered pack when omitted')
     .option('--offline', 'never fetch: use only ground-truth repositories already cached')
     .option('--fixtures-only', 'run the fixtures, skip the ground-truth repositories')
     .option('--write', "record this run's result in the pack's verification.json")
@@ -1494,13 +1494,14 @@ lifecycle scripts off into ~/.cache/uptide/ground-truth (UPTIDE_GROUND_TRUTH_CAC
 
 Examples:
   $ uptide pack test zod
+  $ uptide pack test zod ai
   $ uptide pack test --json > pack-test.json
   $ uptide pack test ai --write          record the status verification.json claims
 ${EXIT_CODES('every pack passed', 'a false positive among breaking findings, a failing fixture, or a stale verification.json')}`,
     )
     .action(
       (
-        name: string | undefined,
+        names: string[],
         flags: Shared & {
           offline?: boolean;
           fixturesOnly?: boolean;
@@ -1526,7 +1527,7 @@ ${EXIT_CODES('every pack passed', 'a false positive among breaking findings, a f
             log: (line: string) => io.err(`${line}\n`),
           };
           const reports = [];
-          for (const entry of packsToTest(root, registeredPacks(), name)) {
+          for (const entry of packsToTest(root, registeredPacks(), names)) {
             let report: Awaited<ReturnType<typeof testPack>>;
             if (process.env[IN_PROCESS_ENV] === '1') report = await testPack(entry, options);
             else {
