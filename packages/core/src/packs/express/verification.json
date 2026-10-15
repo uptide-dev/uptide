@@ -15,5 +15,9 @@
     "falsePositives": 0,
     "truePositives": 0,
     "falseNegatives": 2
-  }
+  },
+  "class": "breaking",
+  "breakingSites": 86,
+  "behaviorSites": 2,
+  "unexercised": []
 }

@@ -3,7 +3,7 @@ import type { Express } from 'express';
 
 const app = express();
 const api = Router();
-const cache = new Map<string, string>();
+declare const cache: Map<string, string>;
 
 app.get('*', serve); // @uptide route-syntax
 app.use('/assets/*', serve); // @uptide route-syntax

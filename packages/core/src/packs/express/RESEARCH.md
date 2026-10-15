@@ -130,7 +130,9 @@ Searched read-only (blobless clones, `git log`/`show`, `gh search`):
 ## Measured pack test
 
 `pnpm uptide pack test express --write` with per-pack caches (`UPTIDE_GROUND_TRUTH_CACHE`,
-`UPTIDE_CACHE_DIR`): **candidate**, 4 public repositories, and **the run fails** (below).
+`UPTIDE_CACHE_DIR`), rebased on UPT-48 (#155) and UPT-63 (#157), 2026-10-15: **passes, measures
+verified; recorded candidate by choice** (below). 4 public repositories, 86 expected breaking sites,
+no unexercised rewrite.
 
 | Rule / scoring group | Precision | Recall | TP | FP | FN |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -142,20 +144,18 @@ Searched read-only (blobless clones, `git log`/`show`, `gh search`):
 | Behavior-note sites | n/a | 0% | 0 | 0 | 2 |
 | Breaking sites | 100% | 85% | 73 | 0 | 13 |
 
-**Why it fails, and why that is not fixed here.** `pack test` fails a repository whose upgrade
-moved a package `check` leaves in place:
+**Moves around the lead.** Before UPT-63 the run failed on them; it now explains each, and the
+ground truth was not changed:
 
-- netlify: http-proxy-middleware (moved to 3.0.5; `check` treats the 2.x optional peer on
-  `@types/express ^4` as a conflict and leaves it, as the engine does for every peer conflict), and
-  `blocked: verdaccio 6.2.4 depends on express 4.21.2` (verdaccio is a dev tool with its own
-  nested express; npm kept it at 4.21.2 in the real upgrade, so blocking on it is wrong for a nested
-  exact dependency).
-- openhab: body-parser and serve-static, which the repository chose to move.
+- netlify: `verdaccio 6.2.4 keeps its own express 4.21.2` (a dependent's plain dependency gets a
+  nested copy, as npm did in the real upgrade); http-proxy-middleware moved to 3.0.5 by the upgrade,
+  left by `check` as a peer conflict (2.0.9 declares `@types/express ^4.17.13`).
+- openhab: body-parser and serve-static moved to 2.x, the repository's choice (neither depends on
+  express).
 
-Changing `with` or dropping these repositories after scoring would make the pack pass by editing
-the evidence. Both are engine questions: move peer-conflicted dependents with the lead, do not block
-on a dependency's exact nested pin, and decide whether a repository's own extra moves belong in
-`with`.
+**Why candidate.** Kept a candidate on purpose until a person reviews it: the http-proxy-middleware
+peer conflict means `fix` would leave an install the netlify upgrade never had, and every rule
+outside `route-syntax` and `params-string-array` is measured by fixtures only.
 
 **Recall misses, all kept.** Lurker's handler annotations and bcgov's destructure are where the
 upgrade fixed a params type, not where the compiler reports it. netlify keeps three route paths as
@@ -175,12 +175,11 @@ Not measured by public ground truth (fixtures and unit tests only): `req-param-r
 `query-middleware-removed`, `redirect-back`, `send-status-number`, and every decision note. None of
 them rewrites, so under UPT-48 none is an unexercised rewrite.
 
-## UPT-48 readiness
+## UPT-48 gate
 
-Written to the stricter gate as proposed (it had not landed at the read date): 86 expected breaking
-sites across 4 repositories, per-rule TP/FP/FN above, and no mechanical rewrite to demote to
-assisted. To rebase on UPT-48 before claiming verified; the companion failures above block verified
-on either gate.
+Scored under the stricter gate (#155): 86 expected breaking sites across 4 repositories, per-rule
+TP/FP/FN above, `unexercised: []` (no rule rewrites). It measures verified; the record says
+candidate by choice.
 
 ## What the engine cannot express
 
@@ -188,7 +187,7 @@ on either gate.
   another file is not followed; `check` has no data flow.
 - **Where the params fix goes.** The compiler reports the use; the right fix is often the handler's
   type parameter, which `check` does not report as a site.
-- **Moves around the lead** (above): peer-conflicted dependents, nested exact pins, and packages a
-  repository moves by choice.
+- **Peer-conflicted dependents** (http-proxy-middleware above) stay where they are; `check` names
+  them, it does not move them.
 - The curated express runtime list in `check/runtime-changes.ts` (text patterns, `unverified`)
   still serves the generic tier; with the pack in use, the pack owns those sites.
