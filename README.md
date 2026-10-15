@@ -57,7 +57,7 @@ The contract: [migration packs](docs/packs.md).
 | Package | Range | Precision | Recall | Breaking sites | Ground-truth repositories | Status |
 | --- | --- | ---: | ---: | ---: | --- | --- |
 | `ai` | 6.x → 7.x | 100% | 82% | 11 | vercel/chatbot, miurla/morphic | verified |
-| `express` | 4.x → 5.x | 100% | 85% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | candidate |
+| `express` | 4.x → 5.x | 100% | 85% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
 | `ioredis` | 5.x → 6.x | n/a | 0% | 2 | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
 | `joi` | 17.x → 18.x | n/a | n/a | — | edtech4good/edtech-lms-api, senacor/azure-function-middleware | candidate |
 | `lucide-react` | 0.x → 1.x | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
@@ -70,7 +70,7 @@ The contract: [migration packs](docs/packs.md).
 | `@sentry/nextjs` | 10.x → 11.x | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `@sentry/react` | 10.x → 11.x | 100% | 100% | 2 | owine/youth-activity-scheduler, successible/cleanslate | candidate |
 | `stripe` | 14 and newer | 100% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
-| `typescript` | 5.x → 6.x | 100% | 17% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | candidate |
+| `typescript` | 5.x → 6.x | 100% | 17% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
 | `vitest` | 4.x → 5.x | 100% | 50% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
 | `zod` | 3.x → 4.x | 100% | 64% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
 <!-- packs:end -->

@@ -1,5 +1,5 @@
 {
-  "status": "candidate",
+  "status": "verified",
   "truth": "sha256-b463fcdce83820c229ab46ab51a2afb62c3da5f4f5e6a2b53fee63f302755e68",
   "repos": 7,
   "breaking": {

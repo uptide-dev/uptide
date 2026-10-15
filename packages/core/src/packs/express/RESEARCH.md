@@ -129,10 +129,11 @@ Searched read-only (blobless clones, `git log`/`show`, `gh search`):
 
 ## Measured pack test
 
-`pnpm uptide pack test express --write` with per-pack caches (`UPTIDE_GROUND_TRUTH_CACHE`,
-`UPTIDE_CACHE_DIR`), rebased on UPT-48 (#155) and UPT-63 (#157), 2026-10-15: **passes, measures
-verified; recorded candidate by choice** (below). 4 public repositories, 86 expected breaking sites,
-no unexercised rewrite.
+`pnpm uptide pack test express --write` on main (`530f90c`, after UPT-48 #155 and UPT-63 #157)
+with its own `UPTIDE_CACHE_DIR`, 2026-10-15: **passes, measures verified, recorded verified.** 4
+public repositories, 86 expected breaking sites, no unexercised rewrite. The ground truth is
+unchanged (same digest as the candidate record), and the numbers match the run that first measured
+verified.
 
 | Rule / scoring group | Precision | Recall | TP | FP | FN |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -153,9 +154,11 @@ ground truth was not changed:
 - openhab: body-parser and serve-static moved to 2.x, the repository's choice (neither depends on
   express).
 
-**Why candidate.** Kept a candidate on purpose until a person reviews it: the http-proxy-middleware
-peer conflict means `fix` would leave an install the netlify upgrade never had, and every rule
-outside `route-syntax` and `params-string-array` is measured by fixtures only.
+**Known gaps of the verified record.** The http-proxy-middleware peer conflict means `fix` would
+leave an install the netlify upgrade never had (`check` names the conflict, it does not move the
+package), and every rule outside `route-syntax` and `params-string-array` is measured by fixtures
+only. The pack was held as a candidate on these grounds until UPT-48's gate was on main; the gate
+does not cover either, so they are stated here.
 
 **Recall misses, all kept.** Lurker's handler annotations and bcgov's destructure are where the
 upgrade fixed a params type, not where the compiler reports it. netlify keeps three route paths as
@@ -177,9 +180,14 @@ them rewrites, so under UPT-48 none is an unexercised rewrite.
 
 ## UPT-48 gate
 
-Scored under the stricter gate (#155): 86 expected breaking sites across 4 repositories, per-rule
-TP/FP/FN above, `unexercised: []` (no rule rewrites). It measures verified; the record says
-candidate by choice.
+Verified under the stricter gate (#155):
+
+- Repositories: 4 public (gate: ≥2).
+- Real breaking sites: 86 expected (gate: ≥5).
+- Breaking false positives: 0 (gate: 0). Breaking precision 100%, recall 85% (73 of 86).
+- Behavior notes: 2 expected `req-body-undefined` sites, none predicted (recall 0%, no false
+  positive).
+- Unexercised: none (`unexercised: []`). No rule rewrites, so no rewrite runs unconfirmed.
 
 ## What the engine cannot express
 
