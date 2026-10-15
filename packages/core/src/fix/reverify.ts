@@ -147,14 +147,21 @@ export async function reverify(
   );
   const unverified = typeResolutionFailure(root, report.verification.baseline);
   const rules = [...new Set(sites.map((s) => s.rule).filter((r): r is string => !!r))];
+  // Said first only while it is true of this tree: a stored line may describe pins since aligned.
+  const apiVersions =
+    report.packContext?.apiVersions ??
+    (report.apiChanges && { from: report.apiChanges.from, to: report.apiChanges.to });
+  const headline = pack.headline?.({ ...context, ...(apiVersions ? { apiVersions } : {}) });
   const decisions = [
     ...new Set([
       ...(report.decisions ?? []),
       ...(packDecisions(pack, context, rules, followed) ?? []),
     ]),
   ];
+  const { headline: _stored, ...kept } = report;
   const result: FixReport = {
-    ...report,
+    ...kept,
+    ...(headline ? { headline } : {}),
     repo: root,
     ...(options.tool ?? uptideVersionInfo()),
     verifiedAt: new Date().toISOString(),

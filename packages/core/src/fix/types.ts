@@ -1,6 +1,6 @@
 import type { Finding, ImportersNotAnalyzed, Tier } from '../domain/report.js';
 import type { Provider } from '../llm/types.js';
-import type { ApiChangeFacts, PackContext } from '../packs/types.js';
+import type { ApiChangeFacts, Headline, PackContext } from '../packs/types.js';
 import type { BaselineHealth } from './baseline.js';
 import type { BehaviorResult } from './behavior.js';
 import type { InstallReport } from './managers/upgrade.js';
@@ -317,7 +317,7 @@ export interface FixReport {
   /** Pack-provided decisions from facts of this repository, rendered under "Decisions for you". */
   decisions?: string[];
   /** One owner decision the pack says first, at the top of the PR body (`MigrationPack.headline`). */
-  headline?: string;
+  headline?: Headline;
   /** The user's checkout the run was made for; `repo` is the private clone it ran in. */
   source?: string;
   /** The temporary clone the run used: removed when no longer needed, kept (with why) otherwise. */

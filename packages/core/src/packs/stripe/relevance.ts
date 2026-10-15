@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, extname, join, relative } from 'node:path';
-import { Node, Project, SyntaxKind } from 'ts-morph';
+import { dirname, join, relative } from 'node:path';
+import { Node, Project, SyntaxKind, ts } from 'ts-morph';
 import { createTypescriptAdapter } from '../../adapters/typescript/index.js';
 import type { Finding } from '../../domain/report.js';
 import { type Usage, usagePaths } from '../../domain/usage.js';
@@ -386,29 +386,77 @@ export type ApiClient = NonNullable<PackContext['apiClients']>[number];
  * its version is unknown here, and a guess would invent a divergence.
  */
 export function apiClients(root: string, workspaces: string[]): ApiClient[] {
+  const files: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (SKIPPED.has(entry.name)) continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (SOURCE.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+        const text = readFileSync(path, 'utf8');
+        // Only a file that names the package constructs its client (under an alias too).
+        if (/\bnew\s+[\w$.]+\s*\(/.test(text) && /['"]stripe['"]/.test(text)) files.push(path);
+      }
+    }
+  };
+  for (const workspace of workspaces) {
+    // The root holds scripts of its own (`sync-stripe.js`): walked too, nested workspaces
+    // included, so a client is found once whichever workspaces the run names.
+    try {
+      walk(join(root, workspace));
+    } catch {
+      // An unreadable directory has no client to report.
+    }
+  }
+  if (files.length === 0) return [];
+  // The repository's own node_modules on disk: the checker resolves `stripe` from each file,
+  // `require` in JS included, so a receiver is a Stripe client by its type, whatever its name.
+  const project = new Project({
+    skipAddingFilesFromTsConfig: true,
+    compilerOptions: {
+      allowJs: true,
+      noEmit: true,
+      skipLibCheck: true,
+      esModuleInterop: true,
+      module: ts.ModuleKind.NodeNext,
+      moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    },
+  });
+  const sources = files.map((f) => project.addSourceFileAtPath(f));
+  const isClient = (node: Node): boolean => {
+    const symbol = node.getType().getSymbol();
+    return (
+      symbol?.getName() === 'Stripe' &&
+      symbol
+        .getDeclarations()
+        .some((d) => /[\\/]node_modules[\\/]stripe[\\/]/.test(d.getSourceFile().getFilePath()))
+    );
+  };
+  const literal = (node: Node | undefined): string | undefined =>
+    node && (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node))
+      ? node.getLiteralValue()
+      : undefined;
   const found: ApiClient[] = [];
-  const visit = (path: string): void => {
-    const text = readFileSync(path, 'utf8');
-    if (!/\bnew\s+Stripe\s*\(/.test(text)) return;
-    const ast = new Project({ useInMemoryFileSystem: true }).createSourceFile(
-      `source${extname(path).replace(/^\.[cm]/, '.')}`,
-      text,
-    );
-    const literal = (node: Node | undefined): string | undefined =>
-      node && (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node))
-        ? node.getLiteralValue()
-        : undefined;
-    const constant = (name: string) => literal(ast.getVariableDeclaration(name)?.getInitializer());
-    // ponytail: only receivers named like a Stripe client; a client kept under another name
-    // contributes no resources (its changelog list is then the empty one, never a wrong one).
-    const resources = usedResources(
-      [...text.matchAll(/\b[\w$]*[Ss]tripe[\w$]*((?:\.[a-z]\w*)+)\s*\(/g)].map(
-        (m) => m[1] as string,
-      ),
-      [],
-    );
-    for (const node of ast.getDescendantsOfKind(SyntaxKind.NewExpression)) {
-      if (node.getExpression().getText() !== 'Stripe') continue;
+  for (const source of sources) {
+    const constant = (name: string) =>
+      literal(source.getVariableDeclaration(name)?.getInitializer());
+    const clients = source
+      .getDescendantsOfKind(SyntaxKind.NewExpression)
+      .filter((n) => n.getExpression().getText() === 'Stripe' || isClient(n));
+    if (clients.length === 0) continue;
+    // Typed: every member read on a Stripe instance. Untyped (no `stripe` types reachable):
+    // ponytail: receivers named like a client; one kept under another name adds no resource,
+    // so its changelog list is the empty one, never a wrong one.
+    const paths = clients.some(isClient)
+      ? source
+          .getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)
+          .filter((p) => isClient(p.getExpression()))
+          .map((p) => p.getName())
+      : [...source.getFullText().matchAll(/\b[\w$]*[Ss]tripe[\w$]*((?:\.[a-z]\w*)+)\s*\(/g)].map(
+          (m) => m[1] as string,
+        );
+    const resources = usedResources(paths, []);
+    for (const node of clients) {
       const options = node.getArguments()[1];
       let version: string | null | undefined = null;
       if (options !== undefined) {
@@ -425,28 +473,11 @@ export function apiClients(root: string, workspaces: string[]): ApiClient[] {
         if (version === undefined) continue;
       }
       found.push({
-        file: relative(root, path),
+        file: relative(root, source.getFilePath()),
         line: node.getStartLineNumber(),
         version,
         resources,
       });
-    }
-  };
-  const walk = (dir: string): void => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (SKIPPED.has(entry.name)) continue;
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) walk(path);
-      else if (SOURCE.test(entry.name) && !entry.name.endsWith('.d.ts')) visit(path);
-    }
-  };
-  for (const workspace of workspaces) {
-    // The root holds scripts of its own (`sync-stripe.js`): walked too, nested workspaces
-    // included, so a client is found once whichever workspaces the run names.
-    try {
-      walk(join(root, workspace));
-    } catch {
-      // An unreadable directory has no client to report.
     }
   }
   return [...new Map(found.map((c) => [`${c.file}:${c.line}`, c])).values()].sort(

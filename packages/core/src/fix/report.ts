@@ -694,7 +694,7 @@ export function renderMigration(
   const unhealthy = baselineHeadline(baselineHealthOf(report));
   if (mode === 'full' && unhealthy && !report.verificationPending)
     lines.push(`> ⚠️ ${sentenceCase(unhealthy)}.`, '');
-  if (report.headline) lines.push(`> **Decision for you:** ${report.headline}`, '');
+  if (report.headline) lines.push(`> **Decision for you:** ${report.headline.line}`, '');
   if (mode === 'full' && report.mode === 'pin') {
     const manual = report.sites.filter((s) => s.outcome === 'manual').length;
     lines.push(
@@ -1045,7 +1045,11 @@ export function renderMigration(
     decisions.push(
       '- Coordinate the API-version rollout with dashboard webhook endpoints and other services.',
     );
-  decisions.push(...agentDecisionLines(report), ...(report.decisions ?? []));
+  decisions.push(
+    ...(report.headline?.decision ?? []),
+    ...agentDecisionLines(report),
+    ...(report.decisions ?? []),
+  );
   if (decisions.length) lines.push('### Decisions for you', '', ...decisions, '');
   lines.push(
     '<details><summary>Verification details</summary>',

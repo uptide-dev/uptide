@@ -522,7 +522,7 @@ function planPackages(packages: PackageReport[], opts: CheckOptions): void {
       ...p.planContext,
     };
     const headline = context && pack?.headline?.(context);
-    if (headline) p.headline = headline;
+    if (headline) p.headline = headline.line;
     const plan = planPackage(p, pack, read, p.planContext ?? {});
     if (plan.length === 0) continue;
     p.plan = plan;

@@ -830,7 +830,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     : packContext;
   const headline = pack.headline?.(settled);
   if (headline) result.headline = headline;
-  const decisions = packDecisions(pack, settled, rules, followed);
+  const decisions = packDecisions(pack, packContext, rules, followed);
   if (decisions?.length) result.decisions = decisions;
   const remote = originOf(root);
   if (remote) result.remote = remote;

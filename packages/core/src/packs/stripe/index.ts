@@ -189,15 +189,22 @@ function divergentClients(context: PackContext): (ApiClient & { speaks: string }
   return new Set(clients.map((c) => c.speaks)).size > 1 ? clients : undefined;
 }
 const CHANGELOG_SHOWN = 10;
+/** `lib/stripe.ts:5 SDK default: <installed> (installed) → <target> (after upgrade)`, or its pin. */
+function clientVersion(c: ApiClient, context: PackContext, quote = ''): string {
+  const q = (text: string) => `${quote}${text}${quote}`;
+  const at = q(`${c.file}:${c.line}`);
+  const api = context.apiVersions;
+  return c.version !== null
+    ? `${at} pinned ${q(c.version)}`
+    : `${at} SDK default: ${q(api?.from ?? 'unknown')} (installed) → ${q(api?.to ?? 'unknown')} (after upgrade)`;
+}
 /** Which version each client pins is the owner's: the run never moves a pin the bump did not. */
 function divergenceDecision(context: PackContext): string[] {
   const clients = divergentClients(context);
   const to = context.apiVersions?.to;
   if (!clients || !to) return [];
-  const where = (c: (typeof clients)[number]) =>
-    `\`${c.file}:${c.line}\` \`${c.speaks}\`${c.version === null ? ' (SDK default)' : ''}`;
   const lines = [
-    `- Stripe clients pin different API versions: ${clients.map(where).join(', ')}. Which version each client pins is your decision; this PR leaves a pin the upgrade did not require where it is.`,
+    `- Stripe clients pin different API versions: ${clients.map((c) => clientVersion(c, context, '`')).join('; ')}. Which version each client pins is your decision; this PR leaves a pin the upgrade did not require where it is.`,
   ];
   for (const c of clients) {
     if (c.speaks >= to) continue;
@@ -493,7 +500,7 @@ export const stripePack: Pack = {
     };
   },
   decisions(context, rules = []) {
-    const choices: string[] = divergenceDecision(context);
+    const choices: string[] = [];
     if (rules.includes('api-version-unpinned') && context.apiVersions) {
       const { from, to } = context.apiVersions;
       choices.push(
@@ -575,10 +582,10 @@ export const stripePack: Pack = {
   headline(context) {
     const clients = divergentClients(context);
     if (!clients) return undefined;
-    const named = clients.map(
-      (c) => `${c.file}:${c.line} ${c.speaks}${c.version === null ? ' (SDK default)' : ''}`,
-    );
-    return `${clients.length} clients on different API versions: ${named.join(', ')}. Which version each one pins is your decision.`;
+    return {
+      line: `${clients.length} clients on different API versions: ${clients.map((c) => clientVersion(c, context)).join('; ')}. Which version each one pins is your decision.`,
+      decision: divergenceDecision(context),
+    };
   },
   planNote(rule, context) {
     if (!['api-version', 'api-version-unpinned'].includes(rule) || !context.apiVersions)

@@ -27,6 +27,12 @@ export interface SharedHelper {
    */
   imports?: Record<string, string>;
 }
+/** What a pack says first: one line, and the decision lines that go with it. */
+export interface Headline {
+  line: string;
+  /** Rendered first under "Decisions for you"; recomputed with the line, never kept stale. */
+  decision: string[];
+}
 export interface PackContext {
   /** Pre-edit inventory, with repository-relative paths and file contents. */
   inventory?: { file: string; text: string }[];
@@ -242,7 +248,7 @@ export interface MigrationPack {
    * One owner decision said before anything else, at the top of `check` and of the PR body
    * (stripe: clients pinned to different API versions). Never an edit.
    */
-  headline?(context: PackContext): string | undefined;
+  headline?(context: PackContext): Headline | undefined;
   /** One line under a planned rule in `check` (stripe: how many API changes touch the code). */
   planNote?(rule: string, context: PackContext): string | undefined;
   /**

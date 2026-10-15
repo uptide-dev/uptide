@@ -1095,7 +1095,7 @@ it('places subscriptionPeriod in the file of the site when no client module is i
 
 it('reports clients on different API versions first, as a decision, with the changelog the lagging one would cross', () => {
   // The layout of boxyhq/saas-starter-kit: the app's client on the SDK default, a JS sync
-  // script pinned years earlier.
+  // script pinned years earlier. No stripe types installed: resources come from the names.
   const dir = mkdtempSync(join(tmpdir(), 'stripe-divergent-'));
   try {
     mkdirSync(join(dir, 'lib'));
@@ -1125,16 +1125,26 @@ it('reports clients on different API versions first, as a decision, with the cha
       apiVersions: { from: '2025-02-24.acacia', to },
       apiClients: clients,
     };
-    expect(stripePack.headline?.(context)).toBe(
-      `2 clients on different API versions: lib/stripe.ts:4 ${to} (SDK default), sync-stripe.js:7 2022-11-15. Which version each one pins is your decision.`,
+    const headline = stripePack.headline?.(context);
+    // A default client says what it spoke before and what it speaks after the upgrade.
+    expect(headline?.line).toBe(
+      `2 clients on different API versions: lib/stripe.ts:4 SDK default: 2025-02-24.acacia (installed) → ${to} (after upgrade); sync-stripe.js:7 pinned 2022-11-15. Which version each one pins is your decision.`,
     );
-    const [decision, align, ...entries] = stripePack.decisions?.(context, []) ?? [];
-    expect(decision).toMatch(/^- Stripe clients pin different API versions: .*this PR leaves a pin/);
+    const [decision, align, ...entries] = headline?.decision ?? [];
+    expect(decision).toMatch(
+      /^- Stripe clients pin different API versions: .*this PR leaves a pin/,
+    );
     expect(align).toMatch(
-      new RegExp(`^  - Aligning \`sync-stripe.js\` on \`${to.replace('.', '\\.')}\` crosses \\d+ API changes to what it calls \\(price, product\\), \\d+ breaking`),
+      new RegExp(
+        `^  - Aligning \`sync-stripe.js\` on \`${to.replace('.', '\\.')}\` crosses \\d+ API changes to what it calls \\(price, product\\), \\d+ breaking`,
+      ),
     );
     expect(entries.length).toBeGreaterThan(0);
-    expect(entries.at(-1)).toContain("[Stripe's changelog](https://docs.stripe.com/changelog), 2022-11-15");
+    expect(entries.at(-1)).toContain(
+      "[Stripe's changelog](https://docs.stripe.com/changelog), 2022-11-15",
+    );
+    // The decision lives with the headline, so re-verifying recomputes both; never stored twice.
+    expect(stripePack.decisions?.(context, []).join('\n')).not.toContain('different API versions');
     // Clients that agree, or one client alone, say nothing.
     expect(stripePack.headline?.({ ...context, apiClients: clients.slice(0, 1) })).toBeUndefined();
     expect(
@@ -1143,6 +1153,31 @@ it('reports clients on different API versions first, as a decision, with the cha
         apiClients: [clients[0], { ...clients[1], version: to }] as typeof clients,
       }),
     ).toBeUndefined();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it('finds what a client calls by its type, whatever the variable is named', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'stripe-typed-'));
+  try {
+    mkdirSync(join(dir, 'node_modules/stripe'), { recursive: true });
+    writeFileSync(
+      join(dir, 'node_modules/stripe/package.json'),
+      JSON.stringify({ name: 'stripe', version: '17.7.0', types: 'index.d.ts' }),
+    );
+    writeFileSync(
+      join(dir, 'node_modules/stripe/index.d.ts'),
+      'type Api = { list(params?: object): Promise<unknown> };\ndeclare class Stripe {\n  constructor(key: string, config?: { apiVersion?: string });\n  prices: Api;\n  subscriptions: Api;\n}\nexport = Stripe;\n',
+    );
+    // `client` is no Stripe-like name; `stripeCache` is one, but not a Stripe client.
+    writeFileSync(
+      join(dir, 'billing.ts'),
+      "import Stripe from 'stripe';\nconst client = new Stripe('k', { apiVersion: '2022-11-15' });\nconst stripeCache = { subscriptions: { list: () => [] } };\nexport const load = () => [client.prices.list(), stripeCache.subscriptions.list()];\n",
+    );
+    expect(apiClients(dir, ['.'])).toEqual([
+      { file: 'billing.ts', line: 2, version: '2022-11-15', resources: ['price'] },
+    ]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
