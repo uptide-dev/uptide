@@ -1,0 +1,157 @@
+{
+  "$comment": "Expected findings drafted with pnpm packs:truth (each repository's own compiler, TypeScript 5.9.3, scripts off) and its merged upgrade commit, reviewed by hand and fixed before the pack was scored. One site per change the upgrade made because of redis: the line the compiler reports, else the line the upgrade changed. Lines the upgrade changed only as a consequence of its own fix (uses of a renamed import, a `let cursor = 0` whose comparison is the site) are not sites; neither are deprecations the code already had at the installed version (quit() on 5.x), nor FalkorDB's custom command definitions (library-author API, no diagnostic to tie each line to). Three hops: 4 → 5, 5 → 6 and 4 → 6. See RESEARCH.md.",
+  "package": "redis",
+  "repos": [
+    {
+      "repo": "FalkorDB/falkordb-ts",
+      "commit": "a68f77bb8da8e3c491329c47271f0cac4e38c426",
+      "migration": "https://github.com/FalkorDB/falkordb-ts/commit/7318d9e541abb413246042c3eb95df1972295500",
+      "from": "4.7.1",
+      "to": "5.10.0",
+      "with": { "@redis/client": "5.10.0" },
+      "why": "TypeScript client library for FalkorDB built on node-redis, npm. Upgrade #495 (4.7.1 → 5.10.0, @redis/client 1.6.1 → 5.10.0) replaces executeIsolated and the isolation pool, and the RedisCommandArgument deep imports.",
+      "findings": [
+        { "file": "src/clients/client.ts", "line": 1, "rule": "deep-imports" },
+        { "file": "src/clients/cluster.ts", "line": 3, "rule": "deep-imports" },
+        { "file": "src/clients/nullClient.ts", "line": 1, "rule": "deep-imports" },
+        { "file": "src/clients/single.ts", "line": 3, "rule": "deep-imports" },
+        { "file": "src/graph.ts", "line": 1, "rule": "deep-imports" },
+        { "file": "src/commands/QUERY.ts", "line": 1, "rule": "deep-imports" },
+        { "file": "src/commands/RO_QUERY.ts", "line": 1, "rule": "deep-imports" },
+        { "file": "src/commands/index.ts", "line": 22, "rule": "deep-imports" },
+        { "file": "src/test-utils/lib/dockers.ts", "line": 4, "rule": "deep-imports" },
+        { "file": "src/test-utils/lib/dockers.ts", "line": 5, "rule": "deep-imports" },
+        {
+          "file": "src/clients/single.ts",
+          "line": 26,
+          "rule": "command-options",
+          "note": "isolationPoolOptions is gone; the upgrade drops the pool switch"
+        },
+        { "file": "src/clients/single.ts", "line": 40, "rule": "command-options" },
+        { "file": "src/clients/single.ts", "line": 55, "rule": "command-options" },
+        { "file": "src/clients/single.ts", "line": 70, "rule": "command-options" },
+        { "file": "src/clients/single.ts", "line": 81, "rule": "command-options" },
+        { "file": "src/clients/single.ts", "line": 90, "rule": "command-options" },
+        { "file": "src/clients/single.ts", "line": 116, "rule": "command-options" },
+        { "file": "src/clients/single.ts", "line": 128, "rule": "command-options" },
+        {
+          "file": "src/falkordb.ts",
+          "line": 137,
+          "rule": "command-options",
+          "note": "the poolOptions → isolationPoolOptions copy is removed with the option"
+        },
+        {
+          "file": "src/test-utils/lib/dockers.ts",
+          "line": 223,
+          "rule": "quit-disconnect",
+          "note": "TS6387: disconnect is deprecated"
+        }
+      ]
+    },
+    {
+      "repo": "deanmoses/tacocat-gallery-sam",
+      "commit": "34e11760f6e767abef6afd53f973dc155f6f8c4b",
+      "directory": "app",
+      "migration": "https://github.com/deanmoses/tacocat-gallery-sam/pull/83",
+      "from": "4.6.12",
+      "to": "5.10.0",
+      "why": "Serverless photo gallery with RediSearch, npm in app/. Upgrade PR #83 (4.6.12 → 5.10.0) moves SchemaFieldTypes and SearchOptions to their v5 names and types the FT.SEARCH reply.",
+      "findings": [
+        {
+          "file": "src/lib/gallery/resetAndReloadRedis/resetAndReloadRedis.ts",
+          "line": 6,
+          "rule": "renamed-exports",
+          "note": "SchemaFieldTypes → SCHEMA_FIELD_TYPE (TS2724); the seven uses follow the import"
+        },
+        {
+          "file": "src/lib/redis_utils/redisSearch.ts",
+          "line": 1,
+          "rule": "renamed-exports",
+          "note": "SearchOptions → FtSearchOptions (TS2724)"
+        },
+        {
+          "file": "src/lib/redis_utils/redisSearch.ts",
+          "line": 40,
+          "rule": "generic",
+          "note": "TS2339: the FT.SEARCH reply is a union under the generic client; the upgrade casts it to SearchReply"
+        },
+        { "file": "src/lib/redis_utils/redisSearch.ts", "line": 41, "rule": "generic" }
+      ]
+    },
+    {
+      "repo": "swoofer/mcp-coordinator",
+      "commit": "8b337f0a081d0d0e0c3724890b9cc847b6c5dd6f",
+      "migration": "https://github.com/swoofer/mcp-coordinator/pull/251",
+      "from": "5.12.1",
+      "to": "6.2.0",
+      "why": "Coordination service, pnpm. Upgrade PR #251 (5.12.1 → 6.2.0) derives the client type from a real createClient call because v6 made RedisClientType invariant in RESP (TS2322); it keeps the RESP3 default.",
+      "findings": [
+        { "file": "src/infra/redis.ts", "line": 62, "rule": "client-type" },
+        { "file": "src/infra/redis.ts", "line": 63, "rule": "client-type" }
+      ]
+    },
+    {
+      "repo": "deanmoses/tacocat-gallery-sam",
+      "commit": "30724e21efd6db123a7385e73482cac237b1e9ba",
+      "directory": "app",
+      "migration": "https://github.com/deanmoses/tacocat-gallery-sam/pull/133",
+      "from": "5.12.1",
+      "to": "6.2.1",
+      "why": "The same gallery a year later, 5.12.1 → 6.2.1 in PR #133. The client type breaks (TS2322); the quit → close and cast removals in the same PR are cleanups of what 5 already allowed.",
+      "findings": [
+        { "file": "src/lib/redis_utils/redisClientUtils.ts", "line": 16, "rule": "client-type" },
+        { "file": "src/lib/redis_utils/redisClientUtils.ts", "line": 21, "rule": "client-type" }
+      ]
+    },
+    {
+      "repo": "UNN-Devotek/FCM-Fallout-Chat-Mod",
+      "commit": "280190489fac1ac8b75bf5fda8fd54265f339d7e",
+      "directory": "backend",
+      "migration": "https://github.com/UNN-Devotek/FCM-Fallout-Chat-Mod/pull/125",
+      "from": "4.7.1",
+      "to": "6.0.0",
+      "why": "Express backend with connect-redis and rate-limit-redis, npm in backend/. Upgrade PR #125 jumps 4.7.1 → 6.0.0: SCAN cursors become strings, the client type breaks, and the options pin RESP2 to keep 4's reply shapes.",
+      "findings": [
+        {
+          "file": "src/config/redis.ts",
+          "line": 10,
+          "rule": "client-defaults",
+          "note": "RESP: 2 pinned in the options the clients are built from"
+        },
+        { "file": "src/config/redis.ts", "line": 11, "rule": "client-defaults" },
+        { "file": "src/config/redis.ts", "line": 39, "rule": "client-type" },
+        { "file": "src/config/redis.ts", "line": 46, "rule": "client-type" },
+        { "file": "src/controllers/adminNukeController.ts", "line": 61, "rule": "scan-cursor" },
+        {
+          "file": "src/controllers/adminNukeController.ts",
+          "line": 68,
+          "rule": "scan-cursor",
+          "note": "`cursor !== 0` would never end the loop with a string cursor"
+        },
+        { "file": "src/services/roleVerificationService.ts", "line": 59, "rule": "scan-cursor" },
+        { "file": "src/services/roleVerificationService.ts", "line": 60, "rule": "scan-cursor" },
+        { "file": "src/services/roleVerificationService.ts", "line": 72, "rule": "scan-cursor" }
+      ]
+    },
+    {
+      "repo": "tearingItUp786/blog",
+      "commit": "bb88f3afc40df07e29da461c6aed6c34709bc6bf",
+      "migration": "https://github.com/tearingItUp786/blog/commit/092ea344acb0068e2d067b84dd3c84d66ed8d1d0",
+      "from": "4.7.0",
+      "to": "6.0.0",
+      "why": "Remix blog, pnpm. PR #223 bumped 4.7.0 → 6.0.0 with package files only; the same-day follow-up 092ea34 makes the SCAN cursor a string, the only redis change the jump needed.",
+      "findings": [
+        {
+          "file": "app/inngest/refresh-cache.ts",
+          "line": 204,
+          "rule": "scan-cursor",
+          "note": "the client no longer fits the local RedisScanClient type: scan takes a string cursor"
+        },
+        { "file": "app/inngest/refresh-cache.ts", "line": 206, "rule": "scan-cursor" },
+        { "file": "app/inngest/refresh-cache.ts", "line": 322, "rule": "scan-cursor" },
+        { "file": "app/inngest/refresh-cache.ts", "line": 326, "rule": "scan-cursor" },
+        { "file": "app/inngest/utils.ts", "line": 106, "rule": "scan-cursor" }
+      ]
+    }
+  ]
+}
