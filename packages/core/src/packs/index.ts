@@ -1,5 +1,6 @@
 import { UptideError } from '../errors.js';
 import { type PackStatus, type RegisteredPack, recordedStatus } from './contract.js';
+import { withUnexercised } from './fixability.js';
 import { REGISTRY } from './registry.js';
 import type { MigrationPack } from './types.js';
 
@@ -21,7 +22,7 @@ export function activePacks(allowCandidate = false): readonly MigrationPack[] {
   return REGISTRY.filter(
     (e) =>
       packStatus(e) === 'verified' || (allowCandidate && e.verification?.status === 'candidate'),
-  ).map((e) => e.pack);
+  ).map((e) => withUnexercised(e.pack, e.verification?.unexercised));
 }
 
 export function activePack(name: string, allowCandidate = false): MigrationPack | undefined {

@@ -434,7 +434,13 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
     for (const report of results.flat()) {
       // Packs whose rules carry their own rewrite (zod, and every pack built on the contract).
       const pack = packsOf(opts).find((p) => p.name === report.name);
-      if (!pack || !(pack.rules as readonly { rewrite?: unknown }[]).some((r) => r.rewrite))
+      if (
+        !pack ||
+        !(
+          (pack.rules as readonly { rewrite?: unknown }[]).some((r) => r.rewrite) ||
+          pack.unexercised?.length
+        )
+      )
         continue;
       const sources = new Map<string, string>();
       report.findings = report.findings.map((finding) => {

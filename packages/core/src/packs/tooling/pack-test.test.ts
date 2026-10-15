@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import type { CheckReport, Finding } from '../../domain/report.js';
@@ -8,6 +10,7 @@ import { registeredPacks } from '../index.js';
 import {
   companionOutcome,
   gateOf,
+  minimumProblems,
   overclaims,
   predictedSites,
   type RepoScore,
@@ -202,6 +205,7 @@ it('gates on real sites only: a fixture repository scores, never counts, and nev
       { id: 'look', summary: '', severity: 'breaking' as const },
     ],
     behavior: [],
+    meta: {},
   } as unknown as Parameters<typeof gateOf>[0];
   const site = (file: string, rule: string) => ({
     file,
@@ -251,4 +255,24 @@ it('gates on real sites only: a fixture repository scores, never counts, and nev
   // A repository that could not be scored is no evidence.
   const broken = { ...third, error: 'clone failed' };
   expect(gateOf(pack, truth, [real(0), real(1), broken]).breakingSites).toBe(4);
+});
+
+it('takes a lower breaking-site minimum only with its reason written in RESEARCH.md', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'uptide-minimum-'));
+  const needs = [
+    'meta.minBreakingSites needs its reason under "## Breaking-site minimum" in RESEARCH.md',
+  ];
+  expect(minimumProblems(undefined, dir)).toEqual([]);
+  expect(minimumProblems(3, dir)).toEqual(needs);
+  writeFileSync(
+    join(dir, 'RESEARCH.md'),
+    '# x\n\n## Breaking-site minimum\n\n## Sources\n\nguide\n',
+  );
+  expect(minimumProblems(3, dir)).toEqual(needs);
+  writeFileSync(
+    join(dir, 'RESEARCH.md'),
+    '# x\n\n## Breaking-site minimum\n\nThe 2.0 guide lists three breaking changes.\n\n## Sources\n',
+  );
+  expect(minimumProblems(3, dir)).toEqual([]);
+  expect(minimumProblems(0, dir)[0]).toContain('at least 1');
 });

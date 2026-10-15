@@ -15,6 +15,7 @@ import {
   VERIFIED_MIN_BREAKING_SITES,
   verifiedGate,
 } from './contract.js';
+import { packFixability, withUnexercised } from './fixability.js';
 import { activePacks, registeredPacks } from './index.js';
 import { runFixtures } from './tooling/fixtures.js';
 import { scoreSites } from './tooling/pack-test.js';
@@ -125,6 +126,15 @@ describe('the verified gate', () => {
       '4 breaking sites in public ground truth, verified needs 5',
     ]);
     expect(verifiedGate(evidence({ breakingSites: 1 })).status).toBe('candidate');
+  });
+
+  it("reads the pack's own breaking-site minimum", () => {
+    expect(verifiedGate(evidence({ breakingSites: 3, minBreakingSites: 3 })).status).toBe(
+      'verified',
+    );
+    expect(verifiedGate(evidence({ breakingSites: 2, minBreakingSites: 3 })).reasons).toEqual([
+      '2 breaking sites in public ground truth, verified needs 3',
+    ]);
   });
 
   it('needs a breaking site found', () => {
@@ -319,6 +329,24 @@ describe('definePack', () => {
       definePack({ meta: pack.meta, rules: [], instructions: 'x', releaseGroup: companions })
         .releaseGroup,
     ).toEqual(companions);
+  });
+
+  it('runs an unexercised rule as assisted: no edit, the site demoted, detection unchanged', () => {
+    const context = { from: '1.2.0', to: '2.0.0', includeDeprecated: false };
+    const text = 'oldName(1);';
+    expect(withUnexercised(pack, [])).toBe(pack);
+    const assisted = withUnexercised(pack, ['rename']);
+    expect(assisted.transform(text, finding(1, 1), context)).toMatchObject({
+      applied: false,
+      text,
+      reason: expect.stringContaining('rename rewrite'),
+    });
+    expect(packFixability(finding(1, 1), text, assisted).fixability).toBe('assisted');
+    expect(packFixability(finding(1, 1), text, pack).fixability).toBe('mechanical');
+    // Another rule's edits are untouched.
+    expect(withUnexercised(pack, ['other']).transform(text, finding(1, 1), context).applied).toBe(
+      true,
+    );
   });
 
   it('rewrites only the reported occurrence, within the supported versions', () => {

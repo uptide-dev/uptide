@@ -40,11 +40,11 @@ export function packsTable(): string {
       pack.meta.from === pack.meta.to
         ? rangeLabel(pack.meta.from)
         : `${rangeLabel(pack.meta.from)} → ${rangeLabel(pack.meta.to)}`;
-    return `| \`${pack.meta.package}\` | ${range} | ${rateLabel(verification.breaking, 'precision')} | ${rateLabel(verification.breaking, 'recall')} | ${repos.join(', ')} | ${verification.status} |`;
+    return `| \`${pack.meta.package}\` | ${range} | ${rateLabel(verification.breaking, 'precision')} | ${rateLabel(verification.breaking, 'recall')} | ${verification.breakingSites ?? '—'} | ${repos.join(', ')} | ${verification.status} |`;
   });
   return [
-    '| Package | Range | Precision | Recall | Ground-truth repositories | Status |',
-    '| --- | --- | ---: | ---: | --- | --- |',
+    '| Package | Range | Precision | Recall | Breaking sites | Ground-truth repositories | Status |',
+    '| --- | --- | ---: | ---: | ---: | --- | --- |',
     ...rows,
   ].join('\n');
 }

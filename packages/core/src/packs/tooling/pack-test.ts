@@ -399,6 +399,7 @@ export async function testPack(
   const problems: string[] = [];
   if (!pack.meta.sources.length) problems.push('meta.sources lists no changelog or guide');
   if (!pack.meta.maintainer) problems.push('meta.maintainer is empty');
+  problems.push(...minimumProblems(pack.meta.minBreakingSites, dir));
   problems.push(...companionProblems(pack.companions, pack.name));
   problems.push(
     ...companionProblems(pack.releaseGroup, pack.name).map((p) =>
@@ -489,7 +490,7 @@ export async function testPack(
  * scores, never counts), and so are the true positives that exercise a mechanical rule.
  */
 export function gateOf(
-  pack: Pick<Pack, 'rules' | 'behavior'>,
+  pack: Pick<Pack, 'rules' | 'behavior' | 'mechanical' | 'meta'>,
   truth: GroundTruth,
   repos: RepoScore[],
 ): PackTestReport['gate'] {
@@ -502,19 +503,21 @@ export function gateOf(
   const ruleSites = expected.length - behaviorSites;
   const all = scoreTruth(pack, scored);
   const { rules } = scoreTruth(pack, real);
+  const ids = [...pack.rules.filter((r) => r.rewrite).map((r) => r.id), ...(pack.mechanical ?? [])];
   const mechanical = Object.fromEntries(
-    pack.rules
-      .filter((r) => r.rewrite)
-      .map((r) => [
-        r.id,
-        {
-          truePositives: rules[r.id]?.truePositives ?? 0,
-          falsePositives: all.rules[r.id]?.falsePositives ?? 0,
-        },
-      ]),
+    ids.map((id) => [
+      id,
+      {
+        truePositives: rules[id]?.truePositives ?? 0,
+        falsePositives: all.rules[id]?.falsePositives ?? 0,
+      },
+    ]),
   );
   const gate = verifiedGate({
     repos: publicRepos(truth).length,
+    ...(pack.meta.minBreakingSites !== undefined
+      ? { minBreakingSites: pack.meta.minBreakingSites }
+      : {}),
     ruleSites,
     breakingSites,
     behaviorSites,
@@ -523,6 +526,24 @@ export function gateOf(
     mechanical,
   });
   return { ...gate, breakingSites, behaviorSites };
+}
+
+/**
+ * `meta.minBreakingSites`: a whole number of at least one, and its reason written under
+ * `## Breaking-site minimum` in the pack's RESEARCH.md.
+ */
+export function minimumProblems(min: number | undefined, dir: string): string[] {
+  if (min === undefined) return [];
+  if (!Number.isInteger(min) || min < 1)
+    return [`meta.minBreakingSites must be a whole number of at least 1, not ${min}`];
+  const file = join(dir, 'RESEARCH.md');
+  const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const start = text.search(/^## Breaking-site minimum[ \t]*$/m);
+  const body = start < 0 ? '' : text.slice(start).split('\n').slice(1).join('\n');
+  const reason = body.split(/^## /m)[0]?.trim();
+  return reason
+    ? []
+    : ['meta.minBreakingSites needs its reason under "## Breaking-site minimum" in RESEARCH.md'];
 }
 
 /**

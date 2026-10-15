@@ -35,6 +35,12 @@ export interface PackMeta {
   sources: readonly PackSource[];
   /** Who answers for the pack: a GitHub handle (`@octocat`) or `uptide-dev`. */
   maintainer: string;
+  /**
+   * The real breaking sites `verified` needs, when not `VERIFIED_MIN_BREAKING_SITES`: only for a
+   * major whose guide lists fewer breaking changes, and only with the reason written under
+   * `## Breaking-site minimum` in the pack's RESEARCH.md (`pack test` checks it is there).
+   */
+  minBreakingSites?: number;
 }
 
 /** One place a rule or a behavior note applies, found in a file's text. */
@@ -100,6 +106,11 @@ export interface Pack extends MigrationPack {
   readonly behavior: readonly BehaviorNote[];
   /** What the agent is told for every site no rule rewrites; each rule's `guide` comes first. */
   readonly instructions: string;
+  /**
+   * Rules a hand-written `transform` edits without a `rewrite` of their own (Stripe's pin):
+   * mechanical for the verified gate, so each needs a real site like any rewrite.
+   */
+  readonly mechanical?: readonly string[];
 }
 
 /**
@@ -225,6 +236,8 @@ export const VERIFIED_MIN_BEHAVIOR_SITES = 5;
  */
 export interface GateEvidence {
   repos: number;
+  /** The pack's own minimum (`meta.minBreakingSites`), else `VERIFIED_MIN_BREAKING_SITES`. */
+  minBreakingSites?: number;
   /** Expected sites under a rule or `generic`: what the compiler or a rule sees, not a note. */
   ruleSites: number;
   breakingSites: number;
@@ -262,9 +275,10 @@ export function verifiedGate(e: GateEvidence): GateResult {
       `${e.breaking.falsePositives} false positive${e.breaking.falsePositives === 1 ? '' : 's'} among breaking findings`,
     );
   if (cls === 'breaking') {
-    if (e.breakingSites < VERIFIED_MIN_BREAKING_SITES)
+    const min = e.minBreakingSites ?? VERIFIED_MIN_BREAKING_SITES;
+    if (e.breakingSites < min)
       reasons.push(
-        `${sites(e.breakingSites, 'breaking')} in public ground truth, verified needs ${VERIFIED_MIN_BREAKING_SITES}`,
+        `${sites(e.breakingSites, 'breaking')} in public ground truth, verified needs ${min}`,
       );
     if (e.breaking.truePositives === 0) reasons.push('no breaking site found');
   } else {
