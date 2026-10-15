@@ -258,9 +258,9 @@
       "package": "react-router",
       "members": ["react-router", "@types/react-router-dom", "react-router-dom"],
       "from": ">=6 <7",
-      "to": ">=8 <9",
-      "why": "declared directly in 23 of 52 sample repositories, 21 of them on an older major; 103 breaking API changes, 83 distinct (51 removed or renamed, 32 change shapes) from 6.30.6 to 8.4.0; upgraded with @types/react-router-dom, react-router-dom (react-router-dom re-exports react-router, needs react moved)",
-      "status": "todo",
+      "to": ">=7 <8",
+      "why": "declared directly in 23 of 52 sample repositories, 21 of them on an older major; 103 breaking API changes, 83 distinct (51 removed or renamed, 32 change shapes) from 6.30.6 to 8.4.0; upgraded with @types/react-router-dom, react-router-dom (react-router-dom re-exports react-router, needs react moved); split 2026-10-14: React Router documents 6 to 8 as two upgrades (the v6 guide exists only in the v7 docs, each guide assumes the previous major's future flags were adopted on that major, and react-router-dom has no 8.x), so this entry is the 6 to 7 pack and 7 to 8 is the next entry; the counts above measure 6.30.6 to 8.4.0",
+      "status": "verified",
       "repos": 23,
       "reposBehind": 21,
       "weeklyDownloads": 0,
@@ -269,6 +269,17 @@
         "distinct": 83,
         "guide": 9
       }
+    },
+    {
+      "package": "react-router",
+      "members": ["react-router"],
+      "from": ">=7 <8",
+      "to": ">=8 <9",
+      "why": "split from the 6 to 8 entry above: the second upgrade, from the latest 7.x with the v8 future flags adopted on 7 (https://github.com/remix-run/react-router/blob/7ccdcecdd944e15be0cd0dcb702b86c9af1214a8/docs/upgrading/v7.md): react-router-dom removed, React 19.2.7 and Node 22.22 minimums, ESM only, middleware always on (context typed Readonly<RouterContextProvider>), UIMatch.data removed for loaderData, hasErrorBoundary removed, stale future keys rejected from 8.4; not measured separately",
+      "status": "todo",
+      "repos": 23,
+      "reposBehind": 21,
+      "weeklyDownloads": 0
     },
     {
       "package": "prettier",

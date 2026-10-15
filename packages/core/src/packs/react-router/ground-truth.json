@@ -1,0 +1,289 @@
+{
+  "$comment": "Ground truth for the react-router pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own React Router 6 to 7 upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth and read by hand before the pack was scored: the diagnostics the repository's TypeScript reports with react-router and react-router-dom at the upgrade's version linked in and not without them (Phoenix removed react-router-dom in the same commit; it is linked at the same version as react-router, which re-exports it, so the compiler sees the v7 API either way), and the lines the upgrade commit changed for react-router. One site per construct that the upgrade needed to change: an import line from react-router-dom that moved to react-router is a site; an existing react-router import line touched only to merge a moved name into it is not (it compiles unchanged at 7). Left out on purpose, because React Router 7 does not require them: Phoenix's `useLoaderData() as T` to `useLoaderData<typeof loader>()` rewrites with tiny-invariant checks and the lines that follow from them (v7 still compiles the casts: useLoaderData returns any), its vite.config.mts @ts-expect-error comments, and its vite/vitest bumps. Phoenix's src/pages/projects/ProjectsPage.tsx:16 still imports react-router-dom after its upgrade, so it is not an expected site. Lago (PR #4287) is drafted the same way, with react-router-dom linked at 7.18.3 (react-router is not declared there; it is analyzed through react-router-dom). Kept from Lago, decided before scoring: every compiler site, each a separate construct (four typed future props, FutureConfig, eight generatePath null params, the TS1192 default import); the two createElement(..., { future }) calls of src/test-utils/routerFutureMock.ts, which the upgrade deletes and packs:truth does not list because the file is gone at the upgrade commit; and the two test assertions v7 behavior makes fail (generatePath escaping, Link href normalization), as generic. Left out of Lago: renamed test titles and added assertions, the jest-setup-early.ts filter for a v7_startTransition warning v7 never emits, the Cypress flow edits (navigation by click instead of visitApp, extra waits), the callers of the deleted mock helper and imports of the deleted flags, the wallet refactor's removed `as string` casts that still compile, and four TS7006 diagnostics in src/pages/InvoiceOverview.tsx that the draft reports and the upgrade never touched (an artifact of the linked environment, as docs/packs.md's next RESEARCH notes for ambient React types). A parent is kept only if its own project compile passes (the repository's type-check script and tsconfig, not a bare tsc), or if every error it reports comes from an unbuilt workspace package the upgrade does not touch, shown by building that package and compiling again (RESEARCH.md, \"Parents that do not type-check\"). Phoenix's app/ compiles clean. Lago's scripts/check-types.js reports 188 errors, all from importing lago-design-system before it is built; with that package's declarations emitted as its own build does, the parent and the upgrade commit both compile clean, and the parent's code against the upgrade's dependencies reports exactly the fourteen compiler sites below. wire-webapp (PR #22299) and OpenMetadata (PR #31641) were drafted and are left out under that rule: wire's tsconfig.type-check.json reports 1979 errors at the parent, including a gitignored generated module (src/script/components/icon.tsx) that no workspace build produces and five in testUtil.tsx, a file the upgrade edits; OpenMetadata's tsc:check reports 1481, including unrelated ones (unused locals, spread arguments) and one in AppRoot.tsx, a file the upgrade edits.",
+  "package": "react-router",
+  "repos": [
+    {
+      "repo": "Arize-ai/phoenix",
+      "commit": "4d6c1dfb01e9406cf769efab14f0350ea2d0a0f8",
+      "migration": "https://github.com/Arize-ai/phoenix/commit/3e9dc43bcc686e8ff3d57a028a9fcc15f3935490",
+      "directory": "app",
+      "from": "6.25.1",
+      "to": "7.4.0",
+      "why": "Arize Phoenix web app (app/, pnpm): a data router with createBrowserRouter and loaders on React 18, react-router and react-router-dom both declared; the upgrade moves every react-router-dom import to react-router and RouterProvider to react-router/dom (with moduleResolution bundler), and drops react-router-dom",
+      "findings": [
+        {
+          "file": "src/Routes.tsx",
+          "line": 2,
+          "rule": "dom-entry-imports",
+          "note": "RouterProvider moves to react-router/dom; the same commit sets moduleResolution bundler so that it resolves"
+        },
+        {
+          "file": "src/Routes.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/components/Link.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/components/auth/CreateAPIKeyDialog.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/components/button/LinkButton.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/components/nav/Navbar.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/ModelRoot.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/auth/LoginPage.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/auth/ResetPasswordWithTokenPage.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/dataset/datasetLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/examples/examplesLoader.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/experiment/ExperimentComparePage.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/experiment/ExperimentRunFilterConditionField.tsx",
+          "line": 7,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/experiment/experimentCompareLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/experiments/experimentsLoader.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/home/homeLoader.ts",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/playground/Playground.tsx",
+          "line": 4,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/playground/PlaygroundDatasetExamplesTable.tsx",
+          "line": 20,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/playground/PlaygroundDatasetPicker.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/playground/PlaygroundExamplePage.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/project/projectLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/PromptVersionsList.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/promptLoader.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/promptPlaygroundLoader.tsx",
+          "line": 1,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/promptVersionLoader.tsx",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompt/promptVersionsLoader.tsx",
+          "line": 5,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompts/PromptsTable.tsx",
+          "line": 3,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/prompts/promptsLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/trace/TraceDetails.tsx",
+          "line": 4,
+          "rule": "dom-imports"
+        },
+        {
+          "file": "src/pages/trace/sessionLoader.ts",
+          "line": 2,
+          "rule": "dom-imports"
+        }
+      ]
+    },
+    {
+      "repo": "getlago/lago-front",
+      "commit": "84aa05d535edc326a4d104923e4e7293d1be6646",
+      "migration": "https://github.com/getlago/lago-front/commit/6055a5a3c8076522235fe2da452a209e99af8541",
+      "from": "6.30.6",
+      "to": "7.18.3",
+      "with": {
+        "react-router-dom": "7.18.3"
+      },
+      "why": "Lago web app (pnpm, TypeScript 6.0.3, React 18): declares only react-router-dom 6.30.6, the usual v6 setup, so react-router is analyzed through it; v6 future flags passed as a shared variable to BrowserRouter and MemoryRouter and injected untyped into jest router mocks, the removed FutureConfig type, and generatePath calls passing null for required params",
+      "findings": [
+        {
+          "file": "src/App.tsx",
+          "line": 128,
+          "rule": "future-prop",
+          "note": "TS2322: <BrowserRouter future={ROUTER_FUTURE_FLAGS}>; the prop is a variable, so the edit is assisted"
+        },
+        {
+          "file": "src/App.tsx",
+          "line": 141,
+          "rule": "future-prop",
+          "note": "TS2322: <MemoryRouter future={ROUTER_FUTURE_FLAGS}>"
+        },
+        {
+          "file": "src/components/activityLogs/__tests__/utils.test.tsx",
+          "line": 348,
+          "rule": "generic",
+          "note": "generatePath escapes interpolated params in 7.x: the expected path changes"
+        },
+        {
+          "file": "src/components/activityLogs/utils.ts",
+          "line": 123,
+          "rule": "generate-path-params",
+          "note": "TS2322: a required generatePath param given string | null"
+        },
+        {
+          "file": "src/components/invoices/details/ViewFeeDetailsDrawer.tsx",
+          "line": 413,
+          "rule": "future-prop",
+          "note": "TS2322: <MemoryRouter future={ROUTER_FUTURE_FLAGS}>"
+        },
+        {
+          "file": "src/components/wallets/WalletAlerts.tsx",
+          "line": 223,
+          "rule": "generate-path-params",
+          "note": "TS2322: customerId ?? null"
+        },
+        {
+          "file": "src/components/wallets/WalletTransactionList.tsx",
+          "line": 198,
+          "rule": "generate-path-params",
+          "note": "TS2322: customerId ?? null"
+        },
+        {
+          "file": "src/core/router/__tests__/Link.test.tsx",
+          "line": 94,
+          "rule": "generic",
+          "note": "<Link to=\"/\\\\evil.com\"> renders a normalized href in 7.x: the expected href changes"
+        },
+        {
+          "file": "src/core/router/futureFlags.ts",
+          "line": 1,
+          "rule": "removed-exports",
+          "note": "TS2305: FutureConfig is not exported by react-router-dom 7; the file is deleted"
+        },
+        {
+          "file": "src/hooks/wallet/useWalletActions.ts",
+          "line": 74,
+          "rule": "generate-path-params",
+          "note": "TS2322: customerId ?? null"
+        },
+        {
+          "file": "src/hooks/wallet/useWalletActions.ts",
+          "line": 101,
+          "rule": "generate-path-params",
+          "note": "TS2322: customerId ?? null"
+        },
+        {
+          "file": "src/pages/wallet/WalletDetails.tsx",
+          "line": 244,
+          "rule": "generate-path-params",
+          "note": "TS2322: customerId ?? null"
+        },
+        {
+          "file": "src/pages/wallet/WalletDetails.tsx",
+          "line": 281,
+          "rule": "generate-path-params",
+          "note": "TS2322: customerId ?? null"
+        },
+        {
+          "file": "src/pages/wallet/WalletDetails.tsx",
+          "line": 336,
+          "rule": "generate-path-params",
+          "note": "TS2322: customerId ?? null"
+        },
+        {
+          "file": "src/test-utils.tsx",
+          "line": 6,
+          "rule": "generic",
+          "note": "TS1192: react-router-dom 7 has no default export; `import Router` becomes `import * as Router`"
+        },
+        {
+          "file": "src/test-utils.tsx",
+          "line": 47,
+          "rule": "future-prop",
+          "note": "TS2322: <BrowserRouter future={ROUTER_FUTURE_FLAGS}>"
+        },
+        {
+          "file": "src/test-utils/routerFutureMock.ts",
+          "line": 12,
+          "rule": "future-prop",
+          "note": "createElement(actual.BrowserRouter, { future, ...props }) with untyped props: no compiler error, the file is deleted by the upgrade"
+        },
+        {
+          "file": "src/test-utils/routerFutureMock.ts",
+          "line": 14,
+          "rule": "future-prop",
+          "note": "createElement(actual.MemoryRouter, { future, ...props }), likewise"
+        }
+      ]
+    }
+  ]
+}
