@@ -672,8 +672,10 @@ function overlayProgram(
       const range = declaredRange(from, dep);
       if (range !== undefined && !deps.decided.has(dep) && !deps.links.has(dep)) {
         const importer = overlayDirs.get(from) as string;
-        const consumer = installedVersion(repo, dep);
-        if (consumer && isPeerOnly(from, dep)) {
+        const peer = isPeerOnly(from, dep);
+        // An installed target resolves its peer from its own directory, like Node does.
+        const consumer = installedVersion(repo, dep, peer ? importer : undefined);
+        if (consumer && peer) {
           // A peer is the consumer's to provide: upgrading the target leaves the consumer's
           // copy where it is, so that is what the target is compiled against. Fetching the
           // version the peer range asks for would compile against two copies of the peer,

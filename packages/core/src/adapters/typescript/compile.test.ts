@@ -531,6 +531,60 @@ describe("Signal B: a target's peer dependency", () => {
     // One copy of the peer's types on both sides of the call: nothing to report.
     expect(signal.diagnostics).toEqual([]);
   });
+
+  it('is the copy the installed dependent resolves, not an older copy nested under the app', async () => {
+    // npm workspaces: hooks and i18n 25 hoisted to the root, an old i18n 1.6.0 nested under
+    // apps/web. hooks resolves i18n from its own directory and gets 25, which hooks@2 accepts.
+    const root = mkdtempSync(join(tmpdir(), 'uptide-peer-nested-'));
+    const write = (file: string, text: string) => {
+      mkdirSync(join(root, file, '..'), { recursive: true });
+      writeFileSync(join(root, file), text);
+    };
+    const pkgJson = (name: string, version: string, extra = {}) =>
+      JSON.stringify({ name, version, types: 'index.d.ts', ...extra });
+    const HOOKS = "import type { I18n } from 'i18n';\nexport declare function useI18n(): I18n;\n";
+    const I18N = 'export interface I18n { language: string }\n';
+    write('hooks-2/package.json', pkgJson('hooks', '2.0.0', { peerDependencies: { i18n: '>=2' } }));
+    write('hooks-2/index.d.ts', HOOKS);
+    write(
+      'repo/node_modules/hooks/package.json',
+      pkgJson('hooks', '1.0.0', { peerDependencies: { i18n: '>=1' } }),
+    );
+    write('repo/node_modules/hooks/index.d.ts', HOOKS);
+    write('repo/node_modules/i18n/package.json', pkgJson('i18n', '25.10.9'));
+    write('repo/node_modules/i18n/index.d.ts', I18N);
+    write('repo/apps/web/node_modules/i18n/package.json', pkgJson('i18n', '1.6.0'));
+    write('repo/apps/web/node_modules/i18n/index.d.ts', I18N);
+    write(
+      'repo/apps/web/package.json',
+      JSON.stringify({ name: 'web', dependencies: { hooks: '1.0.0', i18n: '1.6.0' } }),
+    );
+    write(
+      'repo/apps/web/tsconfig.json',
+      JSON.stringify({
+        compilerOptions: {
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+          strict: true,
+          noEmit: true,
+          skipLibCheck: true,
+          types: [],
+        },
+        include: ['src'],
+      }),
+    );
+    write(
+      'repo/apps/web/src/index.ts',
+      "import { useI18n } from 'hooks';\nimport type { I18n } from 'i18n';\nexport const i: I18n = useI18n();\n",
+    );
+    const signal = await compileAgainstTarget(
+      { dir: join(root, 'repo/apps/web') },
+      'hooks',
+      join(root, 'hooks-2'),
+      {},
+    );
+    expect(signal.unsatisfiedDependencies).toEqual([]);
+  });
 });
 
 describe('workspace dependencies compile from source', () => {
