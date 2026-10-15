@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rateLabel } from '../packages/core/src/packs/contract.ts';
 import { registeredPacks } from '../packages/core/src/packs/index.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -29,8 +30,6 @@ function rangeLabel(range: string): string {
   return range;
 }
 
-const percent = (n: number): string => `${Math.round(n * 100)}%`;
-
 export function packsTable(): string {
   const rows = registeredPacks().map(({ dir, pack, verification }) => {
     const truth = JSON.parse(
@@ -41,7 +40,7 @@ export function packsTable(): string {
       pack.meta.from === pack.meta.to
         ? rangeLabel(pack.meta.from)
         : `${rangeLabel(pack.meta.from)} → ${rangeLabel(pack.meta.to)}`;
-    return `| \`${pack.meta.package}\` | ${range} | ${percent(verification.breaking.precision)} | ${percent(verification.breaking.recall)} | ${repos.join(', ')} | ${verification.status} |`;
+    return `| \`${pack.meta.package}\` | ${range} | ${rateLabel(verification.breaking, 'precision')} | ${rateLabel(verification.breaking, 'recall')} | ${repos.join(', ')} | ${verification.status} |`;
   });
   return [
     '| Package | Range | Precision | Recall | Ground-truth repositories | Status |',

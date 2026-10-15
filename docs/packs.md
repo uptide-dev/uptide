@@ -267,10 +267,21 @@ findings:
 
 - **per rule**: a site counts for a rule when file, line and rule all match;
 - **overall**: at the line level, every severity;
+- **behavior notes**: at the line level, the sites of the pack's behavior notes, whatever
+  their severity;
 - **breaking**: at the line level, breaking findings only.
 
-It prints precision and recall for each, and every false positive and false negative as
-`repo  file:line  rule`, and sites found under another rule. It exits non-zero on any false
+An expected site has the severity of the rule or note it is expected under: a rule's
+`severity`; a note's `severity`, or breaking when the note reports findings without one (as
+`check` reports them); `behavior` for a note `check` never reports as a finding (`decision`,
+`test-follow-up`); breaking for `generic`. A predicted site has the severity `check` reported.
+A missed site counts against breaking recall only when its severity is breaking: a missed
+`deprecated` note ("needs a look") or a decision is not a missed break.
+
+It prints precision and recall for each, `n/a` where there was nothing to measure (nothing
+predicted, or nothing expected), every false positive as `repo  file:line  rule (severity)`,
+every false negative the same way with the severity it was expected at, and sites found under
+another rule. It exits non-zero on any false
 positive among breaking findings, any fixture failure, or a `verification.json` that no
 longer matches what it measured (`--write` records it).
 
@@ -289,7 +300,9 @@ breaking finding predicted. Anything else is a **candidate**:
   cannot be published. Never edit `verification.json` just to smoke-test a pack.
 
 The CLI reads the status from `verification.json`, which `pack test --write` writes and
-which records the digest of the ground-truth file it was measured against. CI runs
+which records the digest of the ground-truth file it was measured against, with precision,
+recall and the counts behind them for breaking findings and for behavior-note sites
+(`behavior`, absent from records written before it). The gate reads the breaking ones only. CI runs
 `pack test` for every pack on every pull request that touches packs and fails when the
 record no longer matches the evidence, so the label cannot outlive what supports it.
 
@@ -330,14 +343,16 @@ pnpm uptide pack test ai --write         # record the measured status in verific
 pnpm uptide pack test ai --fixtures-only --update-fixtures  # write after.ts from the rules
 ```
 
-`pack test` prints precision and recall per rule, overall and for breaking findings, and
-every false positive and false negative as `repository  file:line  rule`. Exit codes: **0**
+`pack test` prints precision and recall per rule, overall, for behavior-note sites and for
+breaking findings, and every false positive and false negative as
+`repository  file:line  rule (severity)`. Exit codes: **0**
 every pack passed, **1** a false positive among breaking findings, a failing fixture, or a
 `verification.json` the run does not support, **2** it could not run (not in a checkout, bad
 arguments).
 
 The "Verified packs" table in the README is generated from each pack's `verification.json`
-and ground truth by `pnpm docs:packs`; CI fails when it is stale.
+and ground truth by `pnpm docs:packs`; CI fails when it is stale. Its precision and recall are
+the breaking ones, `n/a` when nothing breaking was predicted or expected.
 
 ### Config files and transactional edits
 

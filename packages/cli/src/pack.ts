@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { PackTestReport, RegisteredPack, Tally } from '@uptide/core';
+import { type PackTestReport, type RegisteredPack, rateLabel, type Tally } from '@uptide/core';
 import pc from 'picocolors';
 import { CliError } from './errors.js';
 
@@ -48,10 +48,8 @@ export function packsToTest(
   return [entry];
 }
 
-const pct = (n: number): string => `${Math.round(n * 100)}%`;
-
 function row(name: string, t: Tally): string {
-  return `  ${name.padEnd(28)} ${pct(t.precision).padStart(9)} ${pct(t.recall).padStart(7)} ${String(t.truePositives).padStart(5)} ${String(t.falsePositives).padStart(4)} ${String(t.falseNegatives).padStart(4)}`;
+  return `  ${name.padEnd(28)} ${rateLabel(t, 'precision').padStart(9)} ${rateLabel(t, 'recall').padStart(7)} ${String(t.truePositives).padStart(5)} ${String(t.falsePositives).padStart(4)} ${String(t.falseNegatives).padStart(4)}`;
 }
 
 /** What `uptide pack test` prints for one pack. */
@@ -112,6 +110,8 @@ export function formatPackTest(report: PackTestReport, color = false): string {
     for (const [rule, t] of Object.entries(report.rules).sort(([a], [b]) => a.localeCompare(b)))
       out.push(row(rule, t));
     out.push(row('overall (sites)', report.overall));
+    // Absent from a report written before behavior notes were scored on their own.
+    if (report.behavior) out.push(row('behavior notes (sites)', report.behavior));
     out.push(c.bold(row('breaking (sites)', report.breaking)));
     const listed = (
       title: string,
@@ -136,7 +136,12 @@ export function formatPackTest(report: PackTestReport, color = false): string {
     listed(
       'false negatives',
       report.repos.flatMap((r) =>
-        r.falseNegatives.map((s) => ({ label: r.label, file: s.file, line: s.line, text: s.rule })),
+        r.falseNegatives.map((s) => ({
+          label: r.label,
+          file: s.file,
+          line: s.line,
+          text: s.severity ? `${s.rule} (${s.severity})` : s.rule,
+        })),
       ),
     );
     listed(

@@ -16,16 +16,21 @@ import {
   recordedStatus,
   statusOf,
   truthDigest,
+  verificationTally,
 } from '../contract.js';
 import { type FixtureResult, fixturesPass, runFixtures } from './fixtures.js';
 import { type EnsureOptions, ensureFixture, ensureRepo, label, truthProblems } from './truth.js';
 
-/** A site as scored: repository-relative file, line, the rule it belongs to, its severity. */
+/**
+ * A site as scored: repository-relative file, line, the rule it belongs to, its severity. A
+ * predicted site has the severity `check` reported; an expected one, its rule's or note's
+ * (`siteSeverity`), where `behavior` is a note `check` never reports as a finding.
+ */
 export interface ScoredSite {
   file: string;
   line: number;
   rule: string;
-  severity?: 'breaking' | 'deprecated' | 'unverified';
+  severity?: 'breaking' | 'deprecated' | 'unverified' | 'behavior';
 }
 
 export interface Tally {
@@ -85,6 +90,8 @@ export interface PackTestReport {
   overall: Tally;
   /** Ground truth, at the line level, breaking findings only: the verified gate. */
   breaking: Tally;
+  /** Ground truth, at the line level, the sites of behavior notes, whatever their severity. */
+  behavior: Tally;
   passed: boolean;
 }
 
@@ -173,13 +180,87 @@ export function scoreSites(
   };
 }
 
+/**
+ * The severity of an expected site: its rule's, or its note's as `check` reports the note's
+ * findings (breaking unless the note says otherwise). A note `check` never reports as a finding
+ * is `behavior`; a site no rule or note covers (`generic`) is breaking.
+ */
+export function siteSeverity(
+  pack: Pick<Pack, 'rules' | 'behavior'>,
+  rule: string,
+): 'breaking' | 'deprecated' | 'behavior' {
+  const own = pack.rules.find((r) => r.id === rule);
+  if (own) return own.severity;
+  const note = pack.behavior.find((b) => b.id === rule);
+  if (!note) return 'breaking';
+  if (note.severity) return note.severity;
+  return note.detect && note.reported.includes('finding') ? 'breaking' : 'behavior';
+}
+
+/**
+ * Every scored repository together: per rule, at the line level, for breaking findings, and
+ * for the sites of behavior notes.
+ */
+export function scoreTruth(
+  pack: Pick<Pack, 'rules' | 'behavior'>,
+  scored: Pick<RepoScore, 'predicted' | 'expected' | 'falsePositives' | 'falseNegatives'>[],
+): Pick<PackTestReport, 'rules' | 'overall' | 'breaking' | 'behavior'> {
+  const all = <K extends 'predicted' | 'expected' | 'falsePositives' | 'falseNegatives'>(k: K) =>
+    scored.flatMap((r) => r[k]);
+  const fp = all('falsePositives');
+  const fn = all('falseNegatives');
+  const predicted = all('predicted');
+  const overall = tally(predicted.length - fp.length, fp.length, fn.length);
+  const breakingPredicted = predicted.filter((p) => p.severity === 'breaking');
+  const breakingFp = fp.filter((p) => p.severity === 'breaking');
+  // A miss is a breaking one when the rule or note it was expected under is.
+  const breaking = tally(
+    breakingPredicted.length - breakingFp.length,
+    breakingFp.length,
+    fn.filter((f) => siteSeverity(pack, f.rule) === 'breaking').length,
+  );
+  const notes = new Set(pack.behavior.map((b) => b.id));
+  const ofNote = (s: ScoredSite) => notes.has(s.rule);
+  const noteFp = fp.filter(ofNote).length;
+  const behavior = tally(
+    predicted.filter(ofNote).length - noteFp,
+    noteFp,
+    fn.filter(ofNote).length,
+  );
+  const rules: Record<string, Tally> = {};
+  const ids = new Set([
+    ...pack.rules.map((r) => r.id),
+    ...pack.behavior.map((b) => b.id),
+    ...predicted.map((p) => p.rule),
+    ...all('expected').map((e) => e.rule),
+  ]);
+  for (const id of ids) {
+    let tp = 0;
+    let rfp = 0;
+    let rfn = 0;
+    for (const r of scored) {
+      const want = new Set(r.expected.filter((e) => e.rule === id).map(key));
+      const got = new Set(r.predicted.filter((p) => p.rule === id).map(key));
+      for (const k of got) (want.has(k) ? () => tp++ : () => rfp++)();
+      for (const k of want) if (!got.has(k)) rfn++;
+    }
+    if (tp + rfp + rfn > 0) rules[id] = tally(tp, rfp, rfn);
+  }
+  return { rules, overall, breaking, behavior };
+}
+
 async function scoreRepo(
   pack: Pack,
   entry: GroundTruthRepo,
   root: string,
   options: EnsureOptions,
 ): Promise<RepoScore> {
-  const expected = entry.findings.map((f) => ({ file: f.file, line: f.line, rule: f.rule }));
+  const expected = entry.findings.map((f) => ({
+    file: f.file,
+    line: f.line,
+    rule: f.rule,
+    severity: siteSeverity(pack, f.rule),
+  }));
   const base: RepoScore = {
     label: label(entry),
     ...(entry.repo ? { repo: entry.repo } : {}),
@@ -318,58 +399,25 @@ export async function testPack(
   if (!options.fixturesOnly && problems.length === 0)
     for (const repo of truth.repos) repos.push(await scoreRepo(pack, repo, options.root, options));
 
-  const scored = repos.filter((r) => !r.error);
-  const all = <K extends 'predicted' | 'expected' | 'falsePositives' | 'falseNegatives'>(k: K) =>
-    scored.flatMap((r) => r[k]);
-  const fp = all('falsePositives');
-  const fn = all('falseNegatives');
-  const predicted = all('predicted');
-  const overall = tally(predicted.length - fp.length, fp.length, fn.length);
-  const breakingPredicted = predicted.filter((p) => p.severity === 'breaking');
-  const breakingFp = fp.filter((p) => p.severity === 'breaking');
-  // A miss is a breaking one unless the rule it was expected under is deprecated.
-  const deprecatedRules = new Set(
-    pack.rules.filter((r) => r.severity === 'deprecated').map((r) => r.id),
+  const { rules, overall, breaking, behavior } = scoreTruth(
+    pack,
+    repos.filter((r) => !r.error),
   );
-  const breaking = tally(
-    breakingPredicted.length - breakingFp.length,
-    breakingFp.length,
-    fn.filter((f) => !deprecatedRules.has(f.rule)).length,
-  );
-  const rules: Record<string, Tally> = {};
-  const ids = new Set([
-    ...pack.rules.map((r) => r.id),
-    ...pack.behavior.map((b) => b.id),
-    ...predicted.map((p) => p.rule),
-    ...all('expected').map((e) => e.rule),
-  ]);
-  for (const id of ids) {
-    let tp = 0;
-    let rfp = 0;
-    let rfn = 0;
-    for (const r of scored) {
-      const want = new Set(r.expected.filter((e) => e.rule === id).map(key));
-      const got = new Set(r.predicted.filter((p) => p.rule === id).map(key));
-      for (const k of got) (want.has(k) ? () => tp++ : () => rfp++)();
-      for (const k of want) if (!got.has(k)) rfn++;
-    }
-    if (tp + rfp + rfn > 0) rules[id] = tally(tp, rfp, rfn);
-  }
 
   // A pack whose upgrade leaves part of the group behind produces an inconsistent install.
   const status: PackStatus =
     repos.some((r) => r.error || r.leftBehind?.length) || options.fixturesOnly
       ? 'candidate'
-      : statusOf(truth, { falsePositives: breakingFp.length, predicted: breakingPredicted.length });
+      : statusOf(truth, {
+          falsePositives: breaking.falsePositives,
+          predicted: breaking.truePositives + breaking.falsePositives,
+        });
   const verification: PackVerification = {
     status,
     truth: read ? truthDigest(read.text) : '',
     repos: publicRepos(truth).length,
-    breaking: {
-      precision: Number(breaking.precision.toFixed(4)),
-      recall: Number(breaking.recall.toFixed(4)),
-      falsePositives: breakingFp.length,
-    },
+    breaking: verificationTally(breaking),
+    behavior: verificationTally(behavior),
   };
   const recorded = recordedStatus(entry.verification);
   // Fixtures alone say nothing about ground truth: only a full run can find the record stale.
@@ -383,7 +431,7 @@ export async function testPack(
   const passed =
     scoredAll &&
     fixturesPass(fixtures) &&
-    breakingFp.length === 0 &&
+    breaking.falsePositives === 0 &&
     !repos.some((r) => r.leftBehind?.length) &&
     !stale;
   return {
@@ -400,6 +448,7 @@ export async function testPack(
     rules,
     overall,
     breaking,
+    behavior,
     passed,
   };
 }
@@ -438,6 +487,7 @@ export function unfinishedPack(entry: RegisteredPack, reason: string): PackTestR
     rules: {},
     overall: none,
     breaking: none,
+    behavior: none,
     passed: false,
   };
 }

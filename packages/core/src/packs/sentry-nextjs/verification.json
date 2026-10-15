@@ -5,6 +5,15 @@
   "breaking": {
     "precision": 1,
     "recall": 1,
-    "falsePositives": 0
+    "falsePositives": 0,
+    "truePositives": 8,
+    "falseNegatives": 0
+  },
+  "behavior": {
+    "precision": 1,
+    "recall": 1,
+    "falsePositives": 0,
+    "truePositives": 0,
+    "falseNegatives": 0
   }
 }
