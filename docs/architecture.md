@@ -118,9 +118,12 @@ moves the same way. A line is what a caret
 range of the installed version reaches: one major, one minor for 0.x. Each is a companion
 marked `required`, shown apart from the group ("moved because openai 7.4.0 requires zod
 ^3.25 || ^4.0"), and `fix` installs it with the rest. A move only a new major makes is never
-made: a peer or a dependent is a `companionBlockers` entry with the exact range (`openai
+made: a peer is a `companionBlockers` entry with the exact range (`openai
 7.9.0 needs zod ^4.0.0; installed 3.25.76, and only a new major satisfies it (zod 4.0.0)`),
-in `check`, the PR body and `pack test`; a plain dependency gets its own nested copy. The
+in `check`, the PR body and `pack test`; a plain dependency gets its own nested copy. A
+dependent's is a `companionStays` entry, never a blocker: `@azure/ai-projects 2.4.0 keeps its
+own openai ^6.16.0; no release accepts openai 7.10.0` (prompty), as for verdaccio's exact
+express 4.21.2 pin. The
 install scope guard allows exactly these moves: an importer's declared dependency changes only
 when the plan names it, even where npm resolves it as a moved package's peer.
 

@@ -289,9 +289,11 @@ export async function companionsOf(input: CompanionInput): Promise<CompanionPlan
       ...(plan.removals ?? []).map((r) => r.name),
     ]),
   });
-  if (!required.moves.length && !required.blockers.length) return plan;
+  if (!required.moves.length && !required.blockers.length && !required.stays.length) return plan;
+  const stays = [...(plan.stays ?? []), ...required.stays].sort();
   return {
     ...plan,
+    ...(stays.length ? { stays } : {}),
     companions: [...plan.companions, ...required.moves].sort((a, b) =>
       a.name.localeCompare(b.name),
     ),

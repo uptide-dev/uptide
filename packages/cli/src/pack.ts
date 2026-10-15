@@ -104,6 +104,8 @@ export function formatPackTest(report: PackTestReport, color = false): string {
       for (const stay of r.stays ?? []) out.push(`    ${c.dim(`· ${stay}`)}`);
       for (const blocker of r.blockers ?? []) out.push(`    ${c.red('✗')} blocked: ${blocker}`);
       for (const left of r.leftBehind ?? []) out.push(`    ${c.red('✗')} ${left}`);
+      for (const left of [...(r.explained ?? []), ...(r.repoChoice ?? [])])
+        out.push(`    ${c.dim(`· ${left}`)}`);
     }
     out.push('');
     out.push(

@@ -144,7 +144,7 @@ it('scores an anchored finding at its anchor; the call sites listed as evidence 
   ]);
 });
 
-it('counts a required move as moved, and names the blocker that keeps a package behind', () => {
+it('counts a required move as moved, and a move check reports only a new major makes as explained', () => {
   // batch-ai moved zod with openai; guardrails moved @openai/agents and zod across their majors.
   const own = [
     {
@@ -160,16 +160,74 @@ it('counts a required move as moved, and names the blocker that keeps a package 
     },
   ] as unknown as CheckReport['packages'];
   expect(companionOutcome(own, { zod: '4.4.3' })).toEqual({ companions: own[0]?.companions });
-  const blocker =
-    '@openai/agents 0.1.11 depends on openai ^5.20.2; only a new major accepts openai 7.9.0 (@openai/agents 0.15.0, which needs zod ^4.0.0; installed 3.25.76)';
-  const blocked = [{ companionBlockers: [blocker] }] as unknown as CheckReport['packages'];
-  expect(companionOutcome(blocked, { '@openai/agents': '0.17.2', zod: '4.5.4' })).toEqual({
-    blockers: [blocker],
-    leftBehind: [
-      `@openai/agents: the upgrade moved it to 0.17.2, check leaves it (blocked: ${blocker})`,
-      `zod: the upgrade moved it to 4.5.4, check leaves it (blocked: ${blocker})`,
+  // A move check reports and does not make, only a new major away, is explained.
+  const stay =
+    '@openai/agents 0.1.11 keeps its own openai ^5.20.2; only a new major accepts openai 7.9.0 (@openai/agents 0.15.0, which needs zod ^4.0.0; installed 3.25.76)';
+  const stayed = [{ companionStays: [stay] }] as unknown as CheckReport['packages'];
+  expect(companionOutcome(stayed, { '@openai/agents': '0.17.2', zod: '4.5.4' })).toEqual({
+    stays: [stay],
+    explained: [
+      `@openai/agents: the upgrade moved it to 0.17.2, check leaves it (${stay})`,
+      `zod: the upgrade moved it to 4.5.4, check leaves it (${stay})`,
     ],
   });
+  const blocker =
+    'openai 7.9.0 needs zod ^4.0.0; installed 3.25.76, and only a new major satisfies it (zod 4.0.0)';
+  const blocked = [{ companionBlockers: [blocker] }] as unknown as CheckReport['packages'];
+  expect(companionOutcome(blocked, { zod: '4.5.4' })).toEqual({
+    blockers: [blocker],
+    explained: [`zod: the upgrade moved it to 4.5.4, check leaves it (blocked: ${blocker})`],
+  });
+  // netlify/cli: http-proxy-middleware 2 peers on @types/express ^4, which moves to 5 with
+  // express; check reports the conflict and never moves it across its major.
+  const conflict = 'http-proxy-middleware 2.0.9 declares @types/express ^4.17.13';
+  const peers = [{ peerConflicts: [conflict] }] as unknown as CheckReport['packages'];
+  expect(companionOutcome(peers, { 'http-proxy-middleware': '3.0.5' })).toEqual({
+    explained: [
+      `http-proxy-middleware: the upgrade moved it to 3.0.5, check leaves it (peer conflict: ${conflict})`,
+    ],
+  });
+  // A stay that names no new major explains nothing: the release group left it on purpose.
+  const group = [
+    { companionStays: ['@sentry/vite-plugin stays at 5.4.0 (versioned on its own)'] },
+  ] as unknown as CheckReport['packages'];
+  expect(companionOutcome(group, { '@sentry/vite-plugin': '6.0.0' }).leftBehind).toEqual([
+    '@sentry/vite-plugin: the upgrade moved it to 6.0.0, check leaves it',
+  ]);
+});
+
+it("reports a move of a package that does not depend on the lead as the repository's choice (openhab-cloud)", () => {
+  // openhab/openhab-cloud moved body-parser and serve-static to 2.x with express 5; neither
+  // depends on express. @types/express does not either, but check moves it.
+  const own = [
+    {
+      companions: [
+        { name: '@types/express', from: '4.17.21', to: '5.0.6', reason: 'release group' },
+      ],
+    },
+  ] as unknown as CheckReport['packages'];
+  const dependsOnExpress = (name: string) => name === 'http-proxy-middleware';
+  expect(
+    companionOutcome(
+      own,
+      { '@types/express': '5.0.6', 'body-parser': '2.2.2', 'serve-static': '2.2.1' },
+      dependsOnExpress,
+    ),
+  ).toEqual({
+    companions: own[0]?.companions,
+    repoChoice: [
+      "body-parser: the upgrade moved it to 2.2.2, the repository's choice (it does not depend on the package)",
+      "serve-static: the upgrade moved it to 2.2.1, the repository's choice (it does not depend on the package)",
+    ],
+  });
+  // One that does depend on it, left behind with no reason, still fails.
+  expect(
+    companionOutcome(
+      [] as CheckReport['packages'],
+      { 'http-proxy-middleware': '3.0.5' },
+      dependsOnExpress,
+    ).leftBehind,
+  ).toEqual(['http-proxy-middleware: the upgrade moved it to 3.0.5, check leaves it']);
 });
 
 it('fails a record only when it claims more than the run measures', () => {

@@ -203,10 +203,12 @@ describe('what the target requires', () => {
     expect(hoisted.companions.map((c) => `${c.name} ${c.to}`)).toEqual(['zod 3.25.0']);
   });
 
-  it('reports a dependent that needs a new 0.x line, and what that line would need (openai-guardrails-js)', async () => {
+  it('leaves a dependent that needs a new 0.x line its own copy, and says what that line would need (openai-guardrails-js)', async () => {
     // openai/openai-guardrails-js: @openai/agents 0.1.11 depends on openai ^5.20.2. Its first
     // release on openai 7 is 0.15.0, a new line, which needs zod 4; zod 3.25.76 is installed.
-    // The real upgrade moved both across their majors; Uptide reports them and moves neither.
+    // A plain dependency, so npm keeps its nested openai 5 (as it does today, beside openai 4):
+    // never a blocker. The real upgrade chose to move both across their majors; Uptide says
+    // what that takes and moves neither.
     const plan = await companionsOf({
       name: 'openai',
       target: '7.9.0',
@@ -218,8 +220,55 @@ describe('what the target requires', () => {
       manifests: registryOf(guardrails),
     });
     expect(plan.companions).toEqual([]);
-    expect(plan.blockers).toEqual([
-      '@openai/agents 0.1.11 depends on openai ^5.20.2; only a new major accepts openai 7.9.0 (@openai/agents 0.15.0, which needs zod ^4.0.0; installed 3.25.76)',
+    expect(plan.blockers ?? []).toEqual([]);
+    expect(plan.stays).toEqual([
+      '@openai/agents 0.1.11 keeps its own openai ^5.20.2; only a new major accepts openai 7.9.0 (@openai/agents 0.15.0, which needs zod ^4.0.0; installed 3.25.76)',
+    ]);
+  });
+
+  it('never blocks on a dependent whose plain dependency rejects the target (microsoft/prompty)', async () => {
+    // microsoft/prompty: @azure/ai-projects 2.4.0 depends on openai ^6.16.0, and no release
+    // accepts openai 7. The real upgrade kept it, with openai 6.49.0 nested under it.
+    const registry = {
+      openai: { ...openai, '6.49.0': {}, '7.10.0': {} },
+      '@azure/ai-projects': {
+        '2.4.0': { dependencies: { openai: '^6.16.0' } },
+        '2.5.0': { dependencies: { openai: '^6.16.0' } },
+      },
+    };
+    const plan = await companionsOf({
+      name: 'openai',
+      target: '7.10.0',
+      installed: [at(registry, 'openai', '4.104.0'), at(registry, '@azure/ai-projects', '2.4.0')],
+      manifests: registryOf(registry),
+    });
+    expect(plan.companions).toEqual([]);
+    expect(plan.blockers ?? []).toEqual([]);
+    expect(plan.stays).toEqual([
+      '@azure/ai-projects 2.4.0 keeps its own openai ^6.16.0; no release accepts openai 7.10.0',
+    ]);
+  });
+
+  it('never blocks on a dependent that pins the lead exactly (netlify/cli, verdaccio)', async () => {
+    // netlify/cli: verdaccio 6 pins express 4.21.0; npm nests it, and the real upgrade to
+    // express 5 left verdaccio alone.
+    const registry = {
+      express: { '4.22.1': {}, '5.2.1': {} },
+      verdaccio: {
+        '6.1.6': { dependencies: { express: '4.21.0' } },
+        '6.2.1': { dependencies: { express: '4.21.2' } },
+      },
+    };
+    const plan = await companionsOf({
+      name: 'express',
+      target: '5.2.1',
+      installed: [at(registry, 'express', '4.22.1'), at(registry, 'verdaccio', '6.1.6')],
+      manifests: registryOf(registry),
+    });
+    expect(plan.companions).toEqual([]);
+    expect(plan.blockers ?? []).toEqual([]);
+    expect(plan.stays).toEqual([
+      'verdaccio 6.1.6 keeps its own express 4.21.0; no release accepts express 5.2.1',
     ]);
   });
 
