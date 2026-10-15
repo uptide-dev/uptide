@@ -1,6 +1,6 @@
 // Which packs a pull request needs `uptide pack test` for. When every changed file is inside a
 // registered pack's directory, or is one of the files that list packs (registry, README,
-// docs/packs.md, changesets), only those packs run, with a cache of only their repositories.
+// docs/packs.md, packs/queue.json, changesets), only those packs run, with a cache of only their repositories.
 // Anything else (the engine, tooling, a shared directory like packs/sentry/) runs every pack.
 //
 //   git diff --name-only --no-renames <base> HEAD | node scripts/pack-test-scope.mjs
@@ -13,7 +13,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PACKS = 'packages/core/src/packs/';
-const LISTS = new Set([`${PACKS}registry.ts`, 'README.md', 'docs/packs.md']);
+const LISTS = new Set([`${PACKS}registry.ts`, 'README.md', 'docs/packs.md', 'packs/queue.json']);
 
 /** The pack directories `files` stay inside, or `null` when every pack has to run. */
 export function packScope(files, registered) {
