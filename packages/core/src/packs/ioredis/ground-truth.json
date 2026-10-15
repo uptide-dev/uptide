@@ -1,5 +1,5 @@
 {
-  "$comment": "Ground truth for the ioredis pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own merged ioredis 5 to 6 upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth on 2026-10-14 and read by hand before any pack test run: the repository's own TypeScript with ioredis 6.0.0 linked (no new diagnostic in any of the five), and the lines the upgrade changed for ioredis. Anchor rule, fixed before scoring and applied to every repository: one site per client construction the upgrade changed, at the first changed line of code of the run that contains it; a second construction in the same run starts its own site; edits that only serve that construction (a moved import, a widened constructor type) belong to it; pure insertions (an option added to an unchanged call), comments, and other packages' changes (@sentry/node, mermaid, vitest) are not sites. Unrelated packages bumped in the same commit or branch are not listed under `with`: they share no dependency edge with ioredis. RESEARCH.md has the evidence for each entry and the repositories screened out.",
+  "$comment": "Ground truth for the ioredis pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own merged ioredis 5 to 6 upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth on 2026-10-14 and read by hand before any pack test run: the repository's own TypeScript with ioredis 6.0.0 linked (no new diagnostic in any of the five), and the lines the upgrade changed for ioredis. Anchor rule, fixed before scoring and applied to every repository: one site per client construction the upgrade changed, at the first changed line of code of the run that contains it; a second construction in the same run starts its own site; edits that only serve that construction (a moved import, a widened constructor type) belong to it; comments and other packages' changes (@sentry/node, mermaid, vitest) are not sites. Revised 2026-10-15 for docs/packs.md as changed by #144 (a pure insertion into a call the upgrade otherwise left unchanged is a site, at the call's start line): the anchors `pnpm packs:truth` now drafts were added unchanged (voiceai redis-pubsub.ts:140 and rate-limiter.ts:57, open-foundry server.ts:138, dokunc apps/web/src/lib/redis.ts:54), the @sentry/node anchor (voiceai error-scrub.test.ts:44) was dropped, and no earlier site was moved or removed. Unrelated packages bumped in the same commit or branch are not listed under `with`: they share no dependency edge with ioredis. RESEARCH.md has the evidence for each entry and the repositories screened out.",
   "package": "ioredis",
   "repos": [
     {
@@ -23,6 +23,24 @@
           "note": "host/port construction, same run, its own client"
         },
         {
+          "file": "src/memory/vectors/embedding-cache.ts",
+          "line": 134,
+          "rule": "client-defaults",
+          "note": "construction through a module name hidden from bundlers; the constructor type widened at :126 serves it"
+        },
+        {
+          "file": "src/services/data/redis-pubsub.ts",
+          "line": 140,
+          "rule": "client-defaults",
+          "note": "anchor (#144): protocol: 2 inserted into the unchanged publisher construction; the subscriber inherits it through duplicate()"
+        },
+        {
+          "file": "src/services/platform/rate-limiter.ts",
+          "line": 57,
+          "rule": "client-defaults",
+          "note": "anchor (#144): protocol: 2 inserted into the unchanged construction"
+        },
+        {
           "file": "src/services/workflows/jobs/redis-job-queue.ts",
           "line": 89,
           "rule": "client-defaults",
@@ -33,12 +51,6 @@
           "line": 98,
           "rule": "client-defaults",
           "note": "host/port construction, same run, its own client"
-        },
-        {
-          "file": "src/memory/vectors/embedding-cache.ts",
-          "line": 134,
-          "rule": "client-defaults",
-          "note": "construction through a module name hidden from bundlers; the constructor type widened at :126 serves it"
         }
       ]
     },
@@ -55,6 +67,12 @@
           "line": 136,
           "rule": "client-defaults",
           "note": "constructor acquisition rewritten; protocol: 2 inserted into the call at :138"
+        },
+        {
+          "file": "packages/api/src/server.ts",
+          "line": 138,
+          "rule": "client-defaults",
+          "note": "anchor (#144): protocol: 2 inserted into the unchanged construction"
         }
       ]
     },
@@ -83,6 +101,12 @@
           "line": 28,
           "rule": "handshake-auth",
           "note": "the redaction assertion runs for hello and auth"
+        },
+        {
+          "file": "apps/web/src/lib/redis.ts",
+          "line": 54,
+          "rule": "client-defaults",
+          "note": "anchor (#144): the v5 retryStrategy inserted into the unchanged construction in createRedis"
         }
       ]
     },

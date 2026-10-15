@@ -3,8 +3,9 @@
 Read date for every source below: **2026-10-14**. Scope: ioredis `>=5 <6` to `>=6 <7`; the only
 stable 6.x release at the read date is **6.0.0** (2026-07-31; `6.1.0-beta.1` is a prerelease).
 Status: **candidate**. The pack has no breaking false positive on five public upgrades, but none
-of them has a breaking site to predict, so the gate (at least one predicted breaking finding)
-cannot be met. The queue entry is `blocked` with the same reason.
+of them has a compiler diagnostic or a breaking site in application code. The only breaking
+expected sites are two lines of test data in dokunc, so the gate (at least one predicted breaking
+finding) cannot be met. The queue entry is `blocked` with the same reason.
 
 ## Source ledger
 
@@ -79,16 +80,23 @@ Anchor rule, fixed before the first `pack test` run (commit `0f767f4` holds the 
 any score) and applied to every repository: one site per client construction the upgrade
 changed, at the first changed line of code of the run that contains it. A second construction in
 the same run starts its own site. Edits that only serve that construction (a moved import, a
-widened constructor type) belong to it. Pure insertions, comments and other packages' changes are
-not sites (docs/packs.md). Compiler evidence: `pnpm packs:truth` with each repository's own
+widened constructor type) belong to it. Comments and other packages' changes are not sites.
+
+**Revision 2026-10-15, after rebasing on main.** #144 changed docs/packs.md: a pure insertion
+into a call the upgrade otherwise left unchanged is now a site, at the call's start line, and
+`pnpm packs:truth` drafts those `anchors`. Re-running it on all five repositories (still no
+compiler diagnostic) drafted five anchors. The four for ioredis were added unchanged: voiceai
+`redis-pubsub.ts:140` and `rate-limiter.ts:57`, open-foundry `server.ts:138`, dokunc
+`apps/web/src/lib/redis.ts:54`. The fifth, voiceai `error-scrub.test.ts:44`, belongs to the
+@sentry/node bump and was dropped. No earlier site was moved or removed. Compiler evidence: `pnpm packs:truth` with each repository's own
 TypeScript and ioredis 6.0.0 linked: **no new diagnostic in any of the five**. Installs ran with
 scripts off; nothing from a repository was executed.
 
 | Repository | Parent | Upgrade | Versions | Expected |
 | --- | --- | --- | --- | --- |
-| [ferni-ai/voiceai](https://github.com/ferni-ai/voiceai/pull/703) | `c59ed0982f96e23d2b2f5728711da5b55e07483a` | `c6838d5ecdc0bd319c706621b2bfc9d058a2dda0` | 5.8.2 → 6.0.0 | 5 `client-defaults` (protocol: 2 pins) |
-| [syzygyhack/open-foundry](https://github.com/syzygyhack/open-foundry/commit/a466e0d364c2e2dd0fae8bbcf30ef9de25978b18) | `73910018b5e8119cf4db99a81ff145726451aa3b` | `a466e0d364c2e2dd0fae8bbcf30ef9de25978b18` | 5.10.1 → 6.0.0 | 1 `client-defaults` |
-| [simondietschi/dokunc](https://github.com/simondietschi/dokunc/pull/15) | `83681ed0ccc527fa1dd5c802f554f26a5eac575c` | `c47539089296efdb02a3093bb650185b4861f297` (in merge `03ae5da`) | 5.11.1 → 6.0.0 | 1 `client-defaults` (v5 retryStrategy), 2 `handshake-auth` (redaction test) |
+| [ferni-ai/voiceai](https://github.com/ferni-ai/voiceai/pull/703) | `c59ed0982f96e23d2b2f5728711da5b55e07483a` | `c6838d5ecdc0bd319c706621b2bfc9d058a2dda0` | 5.8.2 → 6.0.0 | 7 `client-defaults` (protocol: 2 pins) |
+| [syzygyhack/open-foundry](https://github.com/syzygyhack/open-foundry/commit/a466e0d364c2e2dd0fae8bbcf30ef9de25978b18) | `73910018b5e8119cf4db99a81ff145726451aa3b` | `a466e0d364c2e2dd0fae8bbcf30ef9de25978b18` | 5.10.1 → 6.0.0 | 2 `client-defaults` |
+| [simondietschi/dokunc](https://github.com/simondietschi/dokunc/pull/15) | `83681ed0ccc527fa1dd5c802f554f26a5eac575c` | `c47539089296efdb02a3093bb650185b4861f297` (in merge `03ae5da`) | 5.11.1 → 6.0.0 | 2 `client-defaults` (v5 retryStrategy), 2 `handshake-auth` (redaction test) |
 | [safe-global/safe-client-gateway](https://github.com/safe-global/safe-client-gateway/pull/3409) | `14bd05b98bf41df509de0bfee8bc662cb9d95d1e` | `80135d22e8006fec71e7da270efdff65ec092c89` | 5.11.1 → 6.0.0 | none (manifest only; Yarn Berry) |
 | [kazumadev619-dev/FishingConditionsApp](https://github.com/kazumadev619-dev/FishingConditionsApp/pull/235) | `8ba3f0d24bc709169b79df11daa87307df32e77c` | `cdecc03c3c04d0e4f08351ceef6b10df6f1bfd81` (in merge `ebf69b5`) | 5.11.1 → 6.0.0 | none (manifest only; npm; drops `@types/ioredis`) |
 
@@ -96,7 +104,7 @@ Per repository:
 
 - **voiceai.** Its commit message: "Pin protocol: 2 at every client construction site so the
   upgrade does not change what goes over the wire." Seven constructions were pinned. Two were
-  pure insertions (`redis-pubsub.ts:140`, `rate-limiter.ts:57`), so they are not sites. Two runs
+  pure insertions, anchored at their calls (`redis-pubsub.ts:140`, `rate-limiter.ts:57`). Two runs
   rebuilt two constructions each: `redis-cache.ts` 98–118 and `redis-job-queue.ts` 89–106, at 98/108
   and 89/98. `embedding-cache.ts:134` builds its client through a module name hidden from bundlers;
   `:126` widens its constructor type for the option. The same commit bumps @sentry/node 10 → 11,
@@ -104,14 +112,14 @@ Per repository:
   lines are not scored. The commit message claims Redis < 6 fails the connection; the guide says
   the client retries with RESP2, and the pack follows the guide.
 - **open-foundry.** A rate limiter with `enableOfflineQueue: false` pins `protocol: 2` "for
-  Redis-compatible proxies". The changed run is the constructor acquisition (`:136–137`). The
-  pin itself is inserted into the unchanged call at `:138`.
+  Redis-compatible proxies". The changed run is the constructor acquisition (`:136–137`), and the
+  pin itself is inserted into the unchanged call, anchored at `:138`.
 - **dokunc.** The branch of merged PR #15 bumps ioredis (`bb72cd7`), dedupes the lockfile
   (`b4d6782`) and restores the v5 `retryStrategy` (`c475390`) after measuring 10–15 s command
   stalls during an outage with the new default. The range also carries vitest 5 and mermaid 12
   commits, whose lines are not scored. `apps/collab/src/server.ts:108` is the construction moved
-  to `createRedisClient` (the import at `:9` serves it). `apps/web/src/lib/redis.ts` gets
-  `retryStrategy` by pure insertion, so it is not a site. `log.test.ts:20` and `:28` extend the
+  to `createRedisClient` (the import at `:9` serves it). `apps/web/src/lib/redis.ts:54` gets
+  `retryStrategy` by pure insertion, anchored at the call. `log.test.ts:20` and `:28` extend the
   redaction test to `hello [3, AUTH, user, password]`. Later commits (`c8491ea`, `2a75967`) fix
   bugs their messages say already existed with ioredis 5, so they are not scored.
   `@hocuspocus/extension-redis` keeps its own ioredis 5.6.1; the repository already casts the
@@ -146,25 +154,30 @@ Per repository:
 
 ## Measured: `pnpm uptide pack test ioredis --write`
 
+On main `0881185` (with #143 and #144), from the revised truth above:
+
 | Rule / scoring group | Precision | Recall | TP | FP | FN |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| client-defaults (deprecated: needs a look) | 30% | 43% | 3 | 7 | 4 |
-| handshake-auth | n/a | 0% | 0 | 0 | 2 |
-| Overall sites | 30% | 33% | 3 | 7 | 6 |
-| Breaking sites | n/a (0 predicted) | 0% | 0 | 0 | 6 |
+| client-defaults (deprecated: needs a look) | 70% | 64% | 7 | 3 | 4 |
+| handshake-auth (breaking) | n/a | 0% | 0 | 0 | 2 |
+| Overall sites | 70% | 54% | 7 | 3 | 6 |
+| Behavior-note sites | 70% | 54% | 7 | 3 | 6 |
+| Breaking sites | n/a (0 predicted) | 0% | 0 | 0 | 2 |
 
-`n/a` means no prediction; the CLI and README print 100% for that zero denominator. Status:
-**candidate**, 5 public repositories, 0 breaking false positives, 0 breaking predictions.
+Status: **candidate**, 5 public repositories, 0 breaking false positives, 0 breaking
+predictions. Before the rebase (old scorer, truth without anchors) the same pack measured
+client-defaults 30% / 43% (3/7/4) and breaking 0/0/6.
+
+`check` on dokunc now also reports `@hocuspocus/extension-redis 4.7.0 depends on ioredis
+~5.6.1; no release accepts ioredis 6.0.0` as a blocker (#142). That is the bundled copy the
+`bundled-copies` decision names. The repository upgraded anyway, keeping both copies and casting
+the client it hands to the extension.
 
 False positives, all non-breaking `client-defaults`:
 
 - voiceai `redis-cache.ts:101` and `redis-job-queue.ts:92`: the first construction of each
   rebuilt run, which the anchor rule puts at the run's first line (98, 89). Those two lines are
   the matching false negatives.
-- voiceai `redis-pubsub.ts:140`, `rate-limiter.ts:57`; dokunc `apps/web/src/lib/redis.ts:54`: real
-  constructions the upgrade changed, but by pure insertion, which is not a site.
-- open-foundry `server.ts:138`: the construction; the truth anchors the change at the rewritten
-  acquisition, `:136`.
 - FishingConditionsApp `src/lib/cache/client.ts:13`: a client that sets its own `retryStrategy`
   and was left on RESP3 by choice. That is the decision this finding asks for, and the
   repository answered it without a code change.
@@ -173,14 +186,14 @@ False negatives:
 
 - voiceai `embedding-cache.ts:134`: built through `new Function('m', 'return import(m)')`, which
   no static scan can resolve, in a file `check` never lists as an ioredis user.
-- voiceai `:98`, `:89`, open-foundry `:136`: anchor mismatches, above.
+- voiceai `:98`, `:89`: anchor mismatches, above. open-foundry `:136`: the rewritten
+  constructor acquisition, two lines above the construction the pack reports (`:138`, now a true
+  positive).
 - dokunc `log.test.ts:20`, `:28`: test data and assertions modeling the v5 error shape
   (`command: { name: "auth" }`, `toBe("auth")`). `handshake-auth` finds code that *recognizes*
   AUTH by name, not fixtures that *construct* it. Widening it to every `"auth"` literal in tests
-  would trade these two for false positives elsewhere.
-
-All six expected sites belong to behavior notes, which are not breaking. The scorer still counts
-their misses as breaking false negatives, because it reads severity from `rules` only.
+  would trade these two for false positives elsewhere. They are the two breaking misses: the
+  note is declared breaking because a redaction that stops redacting breaks its contract.
 
 ## What the engine cannot express (follow-up work, not part of this pack)
 
@@ -188,12 +201,10 @@ their misses as breaking false negatives, because it reads severity from `rules`
    ioredis 6's breaking changes (RESP3, defaults, Node 20) are behavior. With perfect detection
    the pack would still be a candidate, and so would any upgrade that breaks nothing the compiler
    sees.
-2. **Behavior-note severity is ignored when scoring misses.** `pack-test.ts` classifies a false
-   negative as breaking unless a *rule* with that id is deprecated. `BehaviorNote.severity` is not
-   read, so `client-defaults` (deprecated) misses count as breaking.
-3. **Pure insertions are not sites.** The most common form of the v6 fix, adding `protocol` or
-   `retryStrategy` to an existing call, has no old line, so a correct finding at that call scores
-   as a false positive. An anchor at the enclosing call would make such changes scorable.
+2. ~~Behavior-note severity is ignored when scoring misses.~~ Resolved by #143: expected sites
+   are scored at their note's severity, and behavior-note sites have their own row.
+3. ~~Pure insertions are not sites.~~ Resolved by #144: an insertion into an unchanged call is
+   a site at the call, and the ground truth above now includes those anchors.
 4. **Run anchoring vs. construction anchoring.** The truth convention anchors a rewritten run at
    its first line. A finding anchors at the construction it is about, so rewrites that restructure
    around a call always miss by a few lines.
