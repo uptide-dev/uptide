@@ -76,3 +76,16 @@ The selected pull request must match the stored run's branch and verified commit
 `pnpm exec tsx scripts/reverify-run.ts <run.json> [output.json]` (in an Uptide checkout)
 refreshes behavior and type verification on the recorded commit without installing or
 changing source.
+
+Descriptions use a 60,000-character budget for every pack. The summary table, representative
+“What changed” diffs, “Decisions for you” and “Worth a look” stay; verification output takes
+space before additional file/attempt history, changelog lists and transitive changes. Omission
+notices name the trimmed material and point to the retained `report.json`. Actions job summaries
+also show verification results. The unabridged migration report retains the full text.
+
+Stripe descriptions keep every change with concrete code evidence visible above “What changed”,
+without a cap. Other changes to resources you use have no code evidence: they are collapsed,
+grouped by resource and capped at five per resource and twenty overall, with breaking entries
+first. One line counts what is shown and omitted and points to the full list in `report.json`.
+A Stripe changelog link names the recorded API version range. If required evidence alone exceeds the budget, rendering refuses rather
+than silently removing a decision or representative diff; narrow the migration before publishing.

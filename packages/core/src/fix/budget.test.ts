@@ -24,7 +24,10 @@ it('renders everything without a budget', () => {
 });
 
 it('keeps rank 0, then lower ranks first, and never cuts inside a block', () => {
-  const out = fitPieces(pieces, 172);
+  const out = fitPieces(
+    [...pieces, { kind: 'text', text: 'low priority '.repeat(100), rank: 9 }],
+    172,
+  );
   expect(out.length).toBeLessThanOrEqual(172);
   expect(out).toContain('# Title');
   expect(out).toContain('long diff');
@@ -45,5 +48,16 @@ it('falls back to one line per piece when almost nothing fits', () => {
       '## Changelog',
       '- … 4 more: https://example.test/changelog',
     ].join('\n'),
+  );
+});
+
+it('keeps a complete document unchanged when it fits, even if omission notices are longer', () => {
+  const body = fitPieces(pieces);
+  expect(fitPieces(pieces, body.length)).toBe(body);
+});
+
+it('refuses oversized required evidence instead of silently dropping it', () => {
+  expect(() => fitPieces([must('required'.repeat(20))], 100)).toThrow(
+    'Required migration evidence',
   );
 });

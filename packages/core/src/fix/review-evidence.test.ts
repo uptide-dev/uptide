@@ -29,5 +29,6 @@ it('bounds a large first error without losing the summary', () => {
   );
   expect(rendered.length).toBeLessThan(5000);
   expect(rendered).toContain('output truncated');
+  expect(rendered).toContain('full output is retained in report.json');
   expect(rendered).toContain('Test Suites: 1 failed');
 });

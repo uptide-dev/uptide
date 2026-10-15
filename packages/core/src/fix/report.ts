@@ -11,6 +11,7 @@ import { noPackBlockers } from './no-pack.js';
 import { uniqueSites } from './paired.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import { agentDecisionLines, testOutput } from './review-evidence.js';
+import { stripeChangelog } from './stripe-changelog.js';
 import type { FixDiagnostic, FixReport, FixSite, ReviewSection } from './types.js';
 import { missingPackages, newDiagnostics } from './verify.js';
 
@@ -650,7 +651,12 @@ const collapse = (label: string, lines: string[]) => [
 ];
 
 /** One renderer for PR descriptions, sticky comments and terminal summaries. */
-/** GitHub refuses a PR body over 65,536 characters; this leaves room for what GitHub adds. */
+/**
+ * GitHub documents a 65,536-character PR body limit:
+ * https://github.com/orgs/community/discussions/27190#discussioncomment-3254953
+ * 60,000 UTF-16 code units leaves 5,536 characters of margin (and counts astral characters
+ * conservatively). Apply after command expansion, including every wrapper and trim notice.
+ */
 export const PR_BODY_BUDGET = 60_000;
 /**
  * A droppable block: kept whole, or replaced by one line saying it was left out. A PR
@@ -661,7 +667,7 @@ const droppable = (rank: number, block: string[], what: string): Piece => ({
   kind: 'text',
   text: block.join('\n'),
   rank,
-  alt: `_${what} left out: this description is at GitHub's size limit._`,
+  alt: `_${what} omitted to fit the PR body budget. Full text is retained in report.json; see the job summary for verification results when run in Actions._`,
 });
 /** Commands a reader may run are written with the published dist-tag, wherever they came from. */
 const withCommand = (text: string): string =>
@@ -757,6 +763,34 @@ export function renderMigration(
       '',
     );
   lines.push(...summaryRows(report), '');
+  if (mode === 'full' && budget !== undefined && report.package === 'stripe') {
+    for (const stored of report.reviewSections ?? []) {
+      if (stored.title !== 'Stripe API changelog') continue;
+      const section = stripeChangelog(withLists(stored, report), report);
+      // Evidence stays visible and rank zero; only resource overlap can yield to the budget.
+      lines.push('### Stripe API changelog', '', ...section.lines, '');
+      const label = 'Other changes to resources you use (no code evidence)';
+      lines.push(
+        {
+          kind: 'text',
+          rank: 6,
+          text: collapse(label, [
+            section.summary,
+            '',
+            ...(section.lists ?? []).flatMap((list) => [
+              `**${list.summary}**`,
+              '',
+              ...list.items,
+              '',
+            ]),
+          ]).join('\n'),
+          alt: collapse(label, [section.omitted]).join('\n'),
+        },
+        '',
+      );
+    }
+  }
+
   if (report.lockfile?.peerReresolved?.length) {
     lines.push(
       '',
@@ -781,7 +815,7 @@ export function renderMigration(
     )}`;
     lines.push(
       droppable(
-        2,
+        7,
         collapse(label, [
           'Inside the upgraded packages’ own dependency subtrees; every other resolution is unchanged.',
           '',
@@ -800,7 +834,7 @@ export function renderMigration(
     const label = `Lockfile housekeeping · ${count(housekeeping.deduped.length, 'dedupe move')} · ${count(housekeeping.metadata.length, 'metadata-only change')}`;
     lines.push(
       droppable(
-        2,
+        7,
         collapse(label, [
           'Outside resolutions retain the same package name, version and integrity; execution and platform fields are unchanged.',
           '',
@@ -859,7 +893,22 @@ export function renderMigration(
       if (!attempts.length && g.outcome === 'manual') detail.push('', s.reason);
     }
     const label = g.outcome === 'mechanical' ? 'Example and files' : 'Diff and reasoning';
-    lines.push(droppable(1, collapse(label, detail), label), '');
+    // Keep the representative diff even when the many-file/attempt history cannot fit.
+    const piece = droppable(
+      3,
+      collapse(label, detail),
+      `${label}: file list and additional attempts`,
+    );
+    if (piece.kind === 'text')
+      piece.alt = collapse(label, [
+        ...(diff
+          ? ['```diff', diff.trim(), '```']
+          : ['Representative diff was not retained in this stored run.']),
+        ...(d.note ? ['', d.note] : []),
+        '',
+        piece.alt ?? '',
+      ]).join('\n');
+    lines.push(piece, '');
   });
   if (report.peerConflicts?.length)
     lines.push(
@@ -975,7 +1024,7 @@ export function renderMigration(
   lines.push(
     '<details><summary>Verification details</summary>',
     '',
-    ...verificationDetails(report),
+    ...verificationDetails(report, budget !== undefined),
     '',
     '</details>',
     '',
@@ -999,11 +1048,25 @@ export function renderMigration(
     ]),
     '',
   );
-  return withCommand(
-    fitPieces(
-      lines.map((part) => (typeof part === 'string' ? must(part) : part)),
-      budget,
-    ),
+  // Normalize commands before measuring: @next must not push a fitted body over budget.
+  return fitPieces(
+    lines.map((part): Piece => {
+      const piece = typeof part === 'string' ? must(part) : part;
+      return piece.kind === 'text'
+        ? {
+            ...piece,
+            text: withCommand(piece.text),
+            ...(piece.alt === undefined ? {} : { alt: withCommand(piece.alt) }),
+          }
+        : {
+            ...piece,
+            open: withCommand(piece.open),
+            close: withCommand(piece.close),
+            items: piece.items.map(withCommand),
+            more: withCommand(piece.more),
+          };
+    }),
+    budget,
   );
 }
 /** ` (needs DATABASE_URL; set verify.build)` when every failed build stopped before the framework's build. */
@@ -1012,7 +1075,7 @@ function buildCauseText(build: NonNullable<FixReport['verification']['build']>):
   const causes = [...new Set(failed.map((b) => b.cause))];
   return causes.length === 1 && causes[0] ? ` (build ${causes[0]}; set verify.build)` : '';
 }
-function verificationDetails(report: FixReport): (string | Piece)[] {
+function verificationDetails(report: FixReport, bounded: boolean): (string | Piece)[] {
   const v = report.verification;
   const bs = schemas(report);
   const checks = bs.flatMap((b) => b.messageChecks ?? []).filter((c) => c.status !== 'default');
@@ -1067,7 +1130,7 @@ function verificationDetails(report: FixReport): (string | Piece)[] {
         '',
         `\`${t.workspace}\` ${when}: \`${t.fallback?.command}\` ${t.fallback?.reason === 'no-related' ? 'found no test related to the affected files' : 'failed before running a test'}, so \`${t.fallback?.ranInstead}\` ran instead and its result is the one above.`,
         droppable(
-          5,
+          2,
           ['```text', testOutput(t.fallback?.output || '(no output)'), '```'],
           `Related-tests output (${t.workspace}, ${when})`,
         ),
@@ -1084,7 +1147,7 @@ function verificationDetails(report: FixReport): (string | Piece)[] {
       `Lint (${l.tool}) on ${count(l.files, 'edited file')}: ${l.status === 'passed' ? 'passed' : l.status === 'pre-existing' ? 'fails, and failed on the same files before the migration' : 'FAILED'} — \`${l.command}\``,
     );
     if (l.status !== 'passed' && l.output)
-      lines.push(droppable(5, ['```text', l.output.trim(), '```'], `Lint output (${l.tool})`));
+      lines.push(droppable(2, ['```text', l.output.trim(), '```'], `Lint output (${l.tool})`));
   }
   const listing = (d: FixDiagnostic): string => `- ${d.file}:${d.line} TS${d.code}: ${d.message}`;
   // What was broken before is one line of counts; the first few are there to look at.
@@ -1151,7 +1214,7 @@ function verificationDetails(report: FixReport): (string | Piece)[] {
       lines.push(
         '',
         `**Tests: ${t.workspace}**`,
-        droppable(5, ['```text', testOutput(t.output), '```'], `Test output (${t.status})`),
+        droppable(2, ['```text', testOutput(t.output), '```'], `Test output (${t.status})`),
       );
   // What happened to the publish step is the terminal's news, not the description's.
   const agentEdits = report.sites.some((s) => s.outcome === 'agent');
@@ -1164,17 +1227,20 @@ function verificationDetails(report: FixReport): (string | Piece)[] {
   for (const stored of report.reviewSections ?? []) {
     // Decisions are rendered once, in their own section above.
     if (stored.title === 'Decisions for you') continue;
+    if (bounded && report.package === 'stripe' && stored.title === 'Stripe API changelog') continue;
     const section = withLists(stored, report);
     lines.push('', `**${section.title}**`, '', ...section.lines);
     // Long lists (a provider's changelog) give way from their end, in the order given.
-    (section.lists ?? []).forEach((list, i) => {
+    (section.lists ?? []).forEach((list) => {
       lines.push('', {
         kind: 'list',
         open: `<details>\n<summary>${list.summary}</summary>\n`,
         close: '\n</details>',
         items: list.items,
-        rank: 2 + Math.min(i, 1),
-        more: list.more,
+        rank: 6,
+        more: list.more.includes('report.json')
+          ? list.more
+          : `${list.more} Full text is retained in report.json.`,
       });
     });
   }

@@ -1,0 +1,1123 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`groups and caps a large Stripe changelog, linking the omitted range 1`] = `
+"## Upgrade stripe 14.25.0 → 22.6.2
+
+**Review required before merging.** The code was migrated to stripe 22. Types compile; runtime behavior needs review. 24 of 420 API changes affect your code · 90 touch resources you use (30 breaking) between 2024-12-18.acacia and 2026-09-30.clover.
+
+| | |
+|---|---|
+| **Verified by** | ✅ type-check · build not required (pack-verified migration) · ✅ tests (1 run) |
+| **Risk** | High: behavior changes |
+| **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
+| **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
+| **Behavior** | ⚠️ 24 of 420 API changes affect your code · 90 touch resources you use (30 breaking) |
+| **Tests** | ✅ 1 workspace passed |
+
+### Stripe API changelog
+
+**24 changes with evidence in your code**
+
+- 2026-09-30.clover: [subscription change 0: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-0.md) — breaking; Billing — evidence: \`src/billing-0.ts:1\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 1: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-1.md) — breaking; Billing — evidence: \`src/billing-1.ts:2\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 2: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-2.md) — breaking; Billing — evidence: \`src/billing-2.ts:3\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 3: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-3.md) — breaking; Billing — evidence: \`src/billing-3.ts:4\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 4: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-4.md) — breaking; Billing — evidence: \`src/billing-4.ts:5\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 5: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-5.md) — breaking; Billing — evidence: \`src/billing-5.ts:6\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 6: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-6.md) — breaking; Billing — evidence: \`src/billing-6.ts:7\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 7: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-7.md) — breaking; Billing — evidence: \`src/billing-7.ts:8\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 8: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-8.md) — breaking; Billing — evidence: \`src/billing-8.ts:9\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 9: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-9.md) — breaking; Billing — evidence: \`src/billing-9.ts:10\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 10: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-10.md) — breaking; Billing — evidence: \`src/billing-10.ts:11\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 11: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-11.md) — breaking; Billing — evidence: \`src/billing-11.ts:12\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 12: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-12.md) — breaking; Billing — evidence: \`src/billing-12.ts:13\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 13: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-13.md) — breaking; Billing — evidence: \`src/billing-13.ts:14\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 14: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-14.md) — breaking; Billing — evidence: \`src/billing-14.ts:15\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 15: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-15.md) — breaking; Billing — evidence: \`src/billing-15.ts:16\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 16: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-16.md) — breaking; Billing — evidence: \`src/billing-16.ts:17\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 17: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-17.md) — breaking; Billing — evidence: \`src/billing-17.ts:18\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 18: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-18.md) — breaking; Billing — evidence: \`src/billing-18.ts:19\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 19: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-19.md) — breaking; Billing — evidence: \`src/billing-19.ts:20\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 20: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-20.md) — breaking; Billing — evidence: \`src/billing-20.ts:21\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 21: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-21.md) — breaking; Billing — evidence: \`src/billing-21.ts:22\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 22: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-22.md) — breaking; Billing — evidence: \`src/billing-22.ts:23\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 23: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-23.md) — breaking; Billing — evidence: \`src/billing-23.ts:24\` (field \`Stripe.Subscription#current_period_end\`)
+
+[Stripe's changelog](https://docs.stripe.com/changelog), 2024-12-18.acacia → 2026-09-30.clover.
+
+<details><summary>Other changes to resources you use (no code evidence)</summary>
+
+Showing 15 of 66 other changes to resources you use, grouped by resource; 51 resource changes and 330 other changelog entries omitted. Full list in report.json.
+
+**customer · 22 changes (2 breaking)**
+
+- 2026-09-30.clover: [customer change 25: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-25.md) — breaking; Billing
+- 2026-09-30.clover: [customer change 28: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-28.md) — breaking; Billing
+- 2026-09-30.clover: [customer change 31: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-31.md) — non-breaking; Billing
+- 2026-09-30.clover: [customer change 34: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-34.md) — non-breaking; Billing
+- 2026-09-30.clover: [customer change 37: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-37.md) — non-breaking; Billing
+
+**invoice · 22 changes (2 breaking)**
+
+- 2026-09-30.clover: [invoice change 26: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-26.md) — breaking; Billing
+- 2026-09-30.clover: [invoice change 29: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-29.md) — breaking; Billing
+- 2026-09-30.clover: [invoice change 32: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-32.md) — non-breaking; Billing
+- 2026-09-30.clover: [invoice change 35: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-35.md) — non-breaking; Billing
+- 2026-09-30.clover: [invoice change 38: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-38.md) — non-breaking; Billing
+
+**subscription · 22 changes (2 breaking)**
+
+- 2026-09-30.clover: [subscription change 24: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-24.md) — breaking; Billing
+- 2026-09-30.clover: [subscription change 27: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-27.md) — breaking; Billing
+- 2026-09-30.clover: [subscription change 30: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-30.md) — non-breaking; Billing
+- 2026-09-30.clover: [subscription change 33: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-33.md) — non-breaking; Billing
+- 2026-09-30.clover: [subscription change 36: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-36.md) — non-breaking; Billing
+
+
+</details>
+
+### What changed
+
+**1. Stripe API version** · 2 sites · by the agent (LLM)
+API literals now match the target SDK; types compile, but response and webhook compatibility needs review.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index 9f1cd8e..a3b1536 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -6,7 +6,7 @@ function subscriptionPeriodEnd(s: Stripe.Subscription): number {
+ }
+ 
+ export const version: Stripe.LatestApiVersion = '2026-08-26.dahlia';
+-const stripe = new Stripe('sk_test_fixture', { apiVersion: '2023-10-16' });
++const stripe = new Stripe('sk_test_fixture', { apiVersion: '2026-08-26.dahlia' });
+ 
+ export async function checkout(customer: string) {
+   return stripe.checkout.sessions.create({
+\`\`\`
+
+- \`src/billing.ts\` (2)
+
+**src/billing.ts:4 · attempt 1 (accepted)**
+
+The compiler error is on line 9, column 48: the \`apiVersion\` literal \`'2023-10-16'\` is no longer assignable to the new Stripe SDK's required type \`'2026-08-26.dahlia'\`. The fix is to update the string literal to the target API version \`'2026-08-26.dahlia'\`.
+
+The \`subscriptionPeriodEnd\` helper already exists in the file (lines 4–6) with the correct multi-item semantics (max of all item \`current_period_end\` values, returning 0 for empty items), so no changes are needed there.
+
+Only the \`apiVersion\` string literal on line 9 is patched. No casts, no type suppressions, no semantic changes.
+
+Diagnostics: 3 → 2.
+
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index 7cfe01b..9f1cd8e 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -1,6 +1,11 @@
+ import Stripe from 'stripe';
+ 
+-export const version: Stripe.LatestApiVersion = '2023-10-16';
++// same value for single-item subscriptions; max item end for multi-item subscriptions; empty items return 0
++function subscriptionPeriodEnd(s: Stripe.Subscription): number {
++  return s.items.data.reduce((end, item) => Math.max(end, item.current_period_end), 0);
++}
++
++export const version: Stripe.LatestApiVersion = '2026-08-26.dahlia';
+ const stripe = new Stripe('sk_test_fixture', { apiVersion: '2023-10-16' });
+ 
+ export async function checkout(customer: string) {
+\`\`\`
+
+**src/billing.ts:3 · attempt 1 (accepted)**
+
+The compiler error is straightforward: the string literal '2023-10-16' is no longer assignable to Stripe.LatestApiVersion, which is now '2026-08-26.dahlia'. The fix is to update the literal to match the new LatestApiVersion value.
+
+However, the migration guide explicitly warns: "Never update the literal mechanically or cast it to LatestApiVersion merely to compile. Confirm response and request field migrations." The guide also documents a breaking changelog entry (2025-03-31.basil) that removes subscription-level current_period_end/current_period_start and moves them to item level — and evidence shows src/billing.ts lines 18 and 24 access Stripe.Subscription#current_period_end. Those accesses must be migrated alongside the version bump.
+
+The guide prescribes a specific deterministic non-throwing helper for current_period_end:
+  function subscriptionPeriodEnd(s: Stripe.Subscription): number { return s.items.data.reduce((end, item) => Math.max(end, item.current_period_end), 0); }
+with a comment explaining: same value for single-item subscriptions; max item end for multi-item subscriptions; empty items return 0.
+
+Since I can only see lines 1, 3, 18, and 24 of billing.ts from the evidence (the enclosing function context only shows lines 1 and 3), I must:
+
+1. Update the version literal on line 3.
+
+2. Insert the subscriptionPeriodEnd helper immediately before line 3 (the enclosing context anchor is lines 1-3, so I insert after the import).
+
+3. Replace the two current_period_end accesses on lines 18 and 24 with calls to the helper.
+
+For lines 18 and 24, the snippets are not fully shown, but the evidence tells us \`s.current_period_end\` (or equivalent) is accessed. I'll apply the helper substitution at those lines. Because the exact surrounding code isn't shown, I'll anchor each hunk to the line numbers given by the evidence and replace \`.current_period_end\` with \`subscriptionPeriodEnd(...)\` — but since I don't know the variable name, I must be conservative. The evidence says \`Stripe.Subscription#current_period_end\` is accessed at lines 18 and 24; the most common pattern is \`subscription.current_period_end\` or \`sub.current_period_end\`. Without the full source I cannot safely patch lines 18/24. The guide says "Patch ONLY the current reported site" for the version literal, and the current reported finding is line 3 col 30. The current_period_end sites are listed as evidence for the changelog entry but are not the "current reported site" of the finding. I will therefore patch only line 3 (the reported site) and insert the helper, per the guide's instruction to "Patch ONLY the current reported site."
+
+Re-reading: the guide says the helper should be inserted and the evidence sites (18, 24) use it. But the instruction also says "Patch ONLY the current reported site. When adding a helper, insert immediately before the enclosing function shown in the context." The enclosing function context is lines 1-3. The helper insertion is required alongside updating line 3 because the basil changelog removes current_period_end from Subscription — so upgrading the version without fixing those accesses would cause compile errors at 18/24. But those are separate findings. I'll patch line 3 and insert the helper (the guide explicitly tells me to add it), but leave lines 18/24 for their own reported findings since I don't have their source text.
+
+Final decision: update line 3 literal + insert the helper after the import block (before line 3).
+
+Diagnostics: 4 → 3.
+
+</details>
+
+**2. Subscription billing period moved to items** · 2 sites · by the agent (LLM)
+One shared helper takes the item that ends last and returns start and end from that same item (undefined with no items), preserving the single-item values; multi-item and no-item behavior needs your decision.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index f60fe68..a19c39f 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -26,7 +26,7 @@ export async function subscription(id: string) {
+ export function webhook(payload: Buffer, signature: string, secret: string) {
+   const event = stripe.webhooks.constructEvent(payload, signature, secret);
+   if (event.type === 'customer.subscription.updated') {
+-    return event.data.object.current_period_end;
++    return subscriptionPeriodEnd(event.data.object);
+   }
+   return null;
+ }
+\`\`\`
+
+- \`src/billing.ts\` (2)
+
+**src/billing.ts:24 · attempt 1 (accepted)**
+
+The Stripe 2025-03-31 (basil) API change moved billing period tracking from the Subscription level to individual SubscriptionItem level, removing \`current_period_end\` from \`Stripe.Subscription\`. The guide specifies using a deterministic, non-throwing helper that calls \`reduce\` over \`s.items.data\` to find the max \`current_period_end\` across all items (returning 0 for empty items). The enclosing function context shows the helper \`subscriptionPeriodEnd\` already exists in the file (lines 4-6). The fix is to replace the direct property access \`event.data.object.current_period_end\` with a call to the existing \`subscriptionPeriodEnd(event.data.object)\` helper. Multi-item decision: using \`Math.max\` across all items' \`current_period_end\` values ensures correctness for both single-item subscriptions (same result as the old field) and multi-item subscriptions (returns the latest period end). No throws, nulls, or new failure modes are introduced; the existing \`return null\` branch is preserved unchanged.
+
+Diagnostics: 1 → 0.
+
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index a3b1536..f60fe68 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -20,7 +20,7 @@ export async function checkout(customer: string) {
+ 
+ export async function subscription(id: string) {
+   const subscription = await stripe.subscriptions.retrieve(id);
+-  return subscription.current_period_end;
++  return subscriptionPeriodEnd(subscription);
+ }
+ 
+ export function webhook(payload: Buffer, signature: string, secret: string) {
+\`\`\`
+
+**src/billing.ts:18 · attempt 1 (accepted)**
+
+The Stripe API version 2025-03-31.basil removed \`current_period_end\` from \`Stripe.Subscription\` and moved billing periods to the item level (\`Stripe.SubscriptionItem#current_period_end\`). 
+
+The guide specifies a deterministic, non-throwing helper using \`reduce\` over \`s.items.data\` with \`Math.max\`, returning 0 for empty items. This helper is already present in the enclosing function context (lines 4-6), so I reuse it instead of adding a duplicate.
+
+The fix replaces the direct \`subscription.current_period_end\` access at line 23 with a call to the existing \`subscriptionPeriodEnd(subscription)\` helper.
+
+Multi-item decision: \`Math.max\` across all items' \`current_period_end\` values is used, which equals the single value for single-item subscriptions and returns the latest period end for multi-item subscriptions. This is consistent with the guide's prescribed approach.
+
+Diagnostics: 2 → 1.
+
+</details>
+
+### Worth a look
+
+- Runtime behavior was not checked; smoke-test billing and webhook responses against the target API version.
+
+### Decisions for you
+
+- Confirm the latest-ending item is the desired billing rule: items ending \`[100, 200]\` → that item's \`{ start, end }\`; a single item is unchanged.
+- Confirm what no items means (Stripe never returns that): the webhook keeps fetching the full subscription, API routes throw "subscription has no items". Check pagination: only returned \`items.data\` are considered.
+- Coordinate the API-version rollout with dashboard webhook endpoints and other services.
+
+<details><summary>Verification details</summary>
+
+Type errors: baseline 0; target 4; after 0; 0 new. Verification: PASS.
+
+| Workspace | Baseline tests | Target tests |
+|---|---|---|
+| . | missing | passed |
+
+**Tests: .**
+\`\`\`text
+PASS billing scenario 0: invoice and subscription response compatibility verified
+PASS billing scenario 1: invoice and subscription response compatibility verified
+PASS billing scenario 2: invoice and subscription response compatibility verified
+PASS billing scenario 3: invoice and subscription response compatibility verified
+PASS billing scenario 4: invoice and subscription response compatibility verified
+PASS billing scenario 5: invoice and subscription response compatibility verified
+PASS billing scenario 6: invoice and subscription response compatibility verified
+PASS billing scenario 7: invoice and subscription response compatibility verified
+PASS billing scenario 8: invoice and subscription response compatibility verified
+PASS billing scenario 9: invoice and subscription response compatibility verified
+PASS billing scenario 10: invoice and subscription response compatibility verified
+PASS billing scenario 11: invoice and subscription response compatibility verified
+PASS billing scenario 12: invoice and subscription response compatibility verified
+PASS billing scenario 13: invoice and subscription response compatibility verified
+PASS billing scenario 14: invoice and subscription response compatibility verified
+PASS billing scenario 15: invoice and subscription response compatibility verified
+PASS billing scenario 16: invoice and subscription response compatibility verified
+PASS billing scenario 17: invoice and subscription response compatibility verified
+PASS billing scenario 18: invoice and subscription response compatibility verified
+PASS billing scenario 19: invoice and subscription response compatibility verified
+PASS billing scenario 20: invoice and subscription response compatibility verified
+PASS billing scenario 21: invoice and subscription response compatibility verified
+PASS billing scenario 22: invoice and subscription response compatibility verified
+PASS billing scenario 23: invoice and subscription response compatibility verified
+PASS billing scenario 24: invoice and subscription response compatibility verified
+PASS billing scenario 25: invoice and subscription response compatibility verified
+PASS billing scenario 26: invoice and subscription response compatibility verified
+PASS billing scenario 27: invoice and subscription response compatibility verified
+PASS billing scenario 28: invoice and subscription response compatibility verified
+PASS billing scenario 29: invoice and subscription response compatibility verified
+PASS billing scenario 30: invoice and subscription response compatibility verified
+PASS billing scenario 31: invoice and subscription response compatibility verified
+PASS billing scenario 32: invoice and subscription response compatibility verified
+PASS billing scenario 33: invoice and subscription response compatibility verified
+PASS billing scenario 34: invoice and subscription response compatibility verified
+PASS billing scenario 35: invoice and subscription response compatibility verified
+PASS billing scenario 36: invoice and subscription response compatibility verified
+PASS billing scenario 37: invoice and subscription response compatibility verified
+PASS billing scenario 38: invoice and subscription response compatibility verified
+PASS billing scenario 39: invoice and subscription response compatibility verified
+PASS billing scenario 40: invoice and subscription response compatibility verified
+PASS billing scenario 41: invoice and subscription response compatibility verified
+PASS billing scenario 42: invoice and subscription response compatibility verified
+PASS billing scenario 43: invoice and subscription response compatibility verified
+PASS billing scenario 44: invoice and subscription response compatibility verified
+PASS billing scenario 45: invoice and subscription response compatibility verified
+PASS billing scenario 46: invoice and subscription response compatibility verified
+PASS billing scenario 47: invoice and subscription response compatibility verified
+PASS billing scenario 48: invoice and subscription response compatibility verified
+PASS billing scenario 49: invoice and subscription response compatibility verified
+PASS billing scenario 50: invoice and subscription response compatibility verified
+PASS billing scenario 51: invoice and subscription response compatibility verified
+PASS billing scenario 52: invoice and subscription response compatibility verified
+PASS billing scenario 53: invoice and subscription response compatibility verified
+PASS billing scenario 54: in
+… output truncated; full output is retained in report.json.
+\`\`\`
+
+**Run notes**
+
+- SDK 14.25.0 → 22.6.2. API pin 2023-10-16 → 2026-08-26.dahlia. SDK releases pin an API date; the date can also change within a major.
+- Changing apiVersion can change response shapes and webhook payloads. It is never a mechanical fix.
+
+</details>
+
+<details><summary>Run details</summary>
+
+Uptide version not retained · claude-sonnet-4-6 · 6.5k/2.2k tokens · $0.05 · 1 min
+
+Uptide commit: \`not retained\`
+Branch: \`uptide/stripe-22.6.2\`
+
+</details>
+"
+`;
+
+exports[`keeps every evidenced Stripe entry above details and uncapped under budget pressure 1`] = `
+"## Upgrade stripe 14.25.0 → 22.6.2
+
+**Review required before merging.** The code was migrated to stripe 22. Types compile; runtime behavior needs review. 24 of 420 API changes affect your code · 90 touch resources you use (30 breaking) between 2024-12-18.acacia and 2026-09-30.clover.
+
+| | |
+|---|---|
+| **Verified by** | ✅ type-check · build not required (pack-verified migration) · ✅ tests (1 run) |
+| **Risk** | High: behavior changes |
+| **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
+| **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
+| **Behavior** | ⚠️ 24 of 420 API changes affect your code · 90 touch resources you use (30 breaking) |
+| **Tests** | ✅ 1 workspace passed |
+
+### Stripe API changelog
+
+**24 changes with evidence in your code**
+
+- 2026-09-30.clover: [subscription change 0: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-0.md) — breaking; Billing — evidence: \`src/billing-0.ts:1\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 1: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-1.md) — breaking; Billing — evidence: \`src/billing-1.ts:2\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 2: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-2.md) — breaking; Billing — evidence: \`src/billing-2.ts:3\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 3: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-3.md) — breaking; Billing — evidence: \`src/billing-3.ts:4\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 4: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-4.md) — breaking; Billing — evidence: \`src/billing-4.ts:5\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 5: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-5.md) — breaking; Billing — evidence: \`src/billing-5.ts:6\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 6: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-6.md) — breaking; Billing — evidence: \`src/billing-6.ts:7\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 7: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-7.md) — breaking; Billing — evidence: \`src/billing-7.ts:8\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 8: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-8.md) — breaking; Billing — evidence: \`src/billing-8.ts:9\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 9: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-9.md) — breaking; Billing — evidence: \`src/billing-9.ts:10\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 10: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-10.md) — breaking; Billing — evidence: \`src/billing-10.ts:11\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 11: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-11.md) — breaking; Billing — evidence: \`src/billing-11.ts:12\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 12: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-12.md) — breaking; Billing — evidence: \`src/billing-12.ts:13\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 13: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-13.md) — breaking; Billing — evidence: \`src/billing-13.ts:14\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 14: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-14.md) — breaking; Billing — evidence: \`src/billing-14.ts:15\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 15: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-15.md) — breaking; Billing — evidence: \`src/billing-15.ts:16\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 16: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-16.md) — breaking; Billing — evidence: \`src/billing-16.ts:17\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 17: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-17.md) — breaking; Billing — evidence: \`src/billing-17.ts:18\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 18: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-18.md) — breaking; Billing — evidence: \`src/billing-18.ts:19\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 19: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-19.md) — breaking; Billing — evidence: \`src/billing-19.ts:20\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 20: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-20.md) — breaking; Billing — evidence: \`src/billing-20.ts:21\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [subscription change 21: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-21.md) — breaking; Billing — evidence: \`src/billing-21.ts:22\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [customer change 22: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/customer-22.md) — breaking; Billing — evidence: \`src/billing-22.ts:23\` (field \`Stripe.Subscription#current_period_end\`)
+- 2026-09-30.clover: [invoice change 23: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/invoice-23.md) — breaking; Billing — evidence: \`src/billing-23.ts:24\` (field \`Stripe.Subscription#current_period_end\`)
+
+[Stripe's changelog](https://docs.stripe.com/changelog), 2024-12-18.acacia → 2026-09-30.clover.
+
+<details><summary>Other changes to resources you use (no code evidence)</summary>
+
+Showing 0 of 66 other changes to resources you use, grouped by resource; 66 resource changes and 330 other changelog entries omitted. Full list in report.json.
+
+</details>
+
+### What changed
+
+**1. Stripe API version** · 2 sites · by the agent (LLM)
+API literals now match the target SDK; types compile, but response and webhook compatibility needs review.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index 9f1cd8e..a3b1536 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -6,7 +6,7 @@ function subscriptionPeriodEnd(s: Stripe.Subscription): number {
+ }
+ 
+ export const version: Stripe.LatestApiVersion = '2026-08-26.dahlia';
+-const stripe = new Stripe('sk_test_fixture', { apiVersion: '2023-10-16' });
++const stripe = new Stripe('sk_test_fixture', { apiVersion: '2026-08-26.dahlia' });
+ 
+ export async function checkout(customer: string) {
+   return stripe.checkout.sessions.create({
+\`\`\`
+
+_Diff and reasoning: file list and additional attempts omitted to fit the PR body budget. Full text is retained in report.json; see the job summary for verification results when run in Actions._
+
+</details>
+
+**2. Subscription billing period moved to items** · 2 sites · by the agent (LLM)
+One shared helper takes the item that ends last and returns start and end from that same item (undefined with no items), preserving the single-item values; multi-item and no-item behavior needs your decision.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index f60fe68..a19c39f 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -26,7 +26,7 @@ export async function subscription(id: string) {
+ export function webhook(payload: Buffer, signature: string, secret: string) {
+   const event = stripe.webhooks.constructEvent(payload, signature, secret);
+   if (event.type === 'customer.subscription.updated') {
+-    return event.data.object.current_period_end;
++    return subscriptionPeriodEnd(event.data.object);
+   }
+   return null;
+ }
+\`\`\`
+
+_Diff and reasoning: file list and additional attempts omitted to fit the PR body budget. Full text is retained in report.json; see the job summary for verification results when run in Actions._
+
+</details>
+
+### Worth a look
+
+- Runtime behavior was not checked; smoke-test billing and webhook responses against the target API version.
+
+### Decisions for you
+
+- Confirm the latest-ending item is the desired billing rule: items ending \`[100, 200]\` → that item's \`{ start, end }\`; a single item is unchanged.
+- Confirm what no items means (Stripe never returns that): the webhook keeps fetching the full subscription, API routes throw "subscription has no items". Check pagination: only returned \`items.data\` are considered.
+- Coordinate the API-version rollout with dashboard webhook endpoints and other services.
+
+<details><summary>Verification details</summary>
+
+Type errors: baseline 0; target 4; after 0; 0 new. Verification: PASS.
+
+| Workspace | Baseline tests | Target tests |
+|---|---|---|
+| . | missing | passed |
+
+**Tests: .**
+\`\`\`text
+PASS billing scenario 0: invoice and subscription response compatibility verified
+PASS billing scenario 1: invoice and subscription response compatibility verified
+PASS billing scenario 2: invoice and subscription response compatibility verified
+PASS billing scenario 3: invoice and subscription response compatibility verified
+PASS billing scenario 4: invoice and subscription response compatibility verified
+PASS billing scenario 5: invoice and subscription response compatibility verified
+PASS billing scenario 6: invoice and subscription response compatibility verified
+PASS billing scenario 7: invoice and subscription response compatibility verified
+PASS billing scenario 8: invoice and subscription response compatibility verified
+PASS billing scenario 9: invoice and subscription response compatibility verified
+PASS billing scenario 10: invoice and subscription response compatibility verified
+PASS billing scenario 11: invoice and subscription response compatibility verified
+PASS billing scenario 12: invoice and subscription response compatibility verified
+PASS billing scenario 13: invoice and subscription response compatibility verified
+PASS billing scenario 14: invoice and subscription response compatibility verified
+PASS billing scenario 15: invoice and subscription response compatibility verified
+PASS billing scenario 16: invoice and subscription response compatibility verified
+PASS billing scenario 17: invoice and subscription response compatibility verified
+PASS billing scenario 18: invoice and subscription response compatibility verified
+PASS billing scenario 19: invoice and subscription response compatibility verified
+PASS billing scenario 20: invoice and subscription response compatibility verified
+PASS billing scenario 21: invoice and subscription response compatibility verified
+PASS billing scenario 22: invoice and subscription response compatibility verified
+PASS billing scenario 23: invoice and subscription response compatibility verified
+PASS billing scenario 24: invoice and subscription response compatibility verified
+PASS billing scenario 25: invoice and subscription response compatibility verified
+PASS billing scenario 26: invoice and subscription response compatibility verified
+PASS billing scenario 27: invoice and subscription response compatibility verified
+PASS billing scenario 28: invoice and subscription response compatibility verified
+PASS billing scenario 29: invoice and subscription response compatibility verified
+PASS billing scenario 30: invoice and subscription response compatibility verified
+PASS billing scenario 31: invoice and subscription response compatibility verified
+PASS billing scenario 32: invoice and subscription response compatibility verified
+PASS billing scenario 33: invoice and subscription response compatibility verified
+PASS billing scenario 34: invoice and subscription response compatibility verified
+PASS billing scenario 35: invoice and subscription response compatibility verified
+PASS billing scenario 36: invoice and subscription response compatibility verified
+PASS billing scenario 37: invoice and subscription response compatibility verified
+PASS billing scenario 38: invoice and subscription response compatibility verified
+PASS billing scenario 39: invoice and subscription response compatibility verified
+PASS billing scenario 40: invoice and subscription response compatibility verified
+PASS billing scenario 41: invoice and subscription response compatibility verified
+PASS billing scenario 42: invoice and subscription response compatibility verified
+PASS billing scenario 43: invoice and subscription response compatibility verified
+PASS billing scenario 44: invoice and subscription response compatibility verified
+PASS billing scenario 45: invoice and subscription response compatibility verified
+PASS billing scenario 46: invoice and subscription response compatibility verified
+PASS billing scenario 47: invoice and subscription response compatibility verified
+PASS billing scenario 48: invoice and subscription response compatibility verified
+PASS billing scenario 49: invoice and subscription response compatibility verified
+PASS billing scenario 50: invoice and subscription response compatibility verified
+PASS billing scenario 51: invoice and subscription response compatibility verified
+PASS billing scenario 52: invoice and subscription response compatibility verified
+PASS billing scenario 53: invoice and subscription response compatibility verified
+PASS billing scenario 54: in
+… output truncated; full output is retained in report.json.
+\`\`\`
+
+**Run notes**
+
+- SDK 14.25.0 → 22.6.2. API pin 2023-10-16 → 2026-08-26.dahlia. SDK releases pin an API date; the date can also change within a major.
+- Changing apiVersion can change response shapes and webhook payloads. It is never a mechanical fix.
+
+</details>
+
+<details><summary>Run details</summary>
+
+Uptide version not retained · claude-sonnet-4-6 · 6.5k/2.2k tokens · $0.05 · 1 min
+
+Uptide commit: \`not retained\`
+Branch: \`uptide/stripe-22.6.2\`
+
+</details>
+"
+`;
+
+exports[`keeps the under-budget output byte-for-byte unchanged 1`] = `
+"## Upgrade zod 3.25.76 → 4.6.5
+
+> ⚠️ This repository does not type-check before the upgrade (1 error); verification can only compare, not prove.
+
+**Ready for review.** The code was migrated to zod 4 in \`api\` and \`shared\`. No new type errors; pre-existing errors remain.
+
+| | |
+|---|---|
+| **Verified by** | ✅ the zod migration pack · ✅ type-check · build not required (pack-verified migration) · ✅ tests (2 runs) |
+| **Risk** | Medium: request validation in webhooks |
+| **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
+| **Types** | ✅ the upgrade broke 28 · Uptide left 0 (1 pre-existing, not counted) |
+| **Behavior** | ✅ 9 schemas identical · 2 not checked · 21/21 custom-message assertions |
+| **Tests** | ✅ 5 tests in 3 files passed |
+
+### What changed
+
+**1. Default error messages** · 1 site · auto-fixed
+Zod 4 words its default messages differently. Assertions that the migrated code made fail now match the new text; the tests pass again.
+<details><summary>Example and files</summary>
+
+\`\`\`diff
+- expect(parsed.error?.issues[0]?.message).toBe('Required');
++ expect(parsed.error?.issues[0]?.message).toBe('Invalid input: expected string, received undefined');
+\`\`\`
+
+- \`packages/shared/src/monitoring.test.ts\` (1)
+
+</details>
+
+**2. New error API** · 24 sites · auto-fixed
+\`required_error\` and \`invalid_type_error\` were replaced by \`error\`. Messages are unchanged.
+<details><summary>Example and files</summary>
+
+\`\`\`diff
+- marketingOptIn: z.boolean({ invalid_type_error: 'Opt-in must be true or false' }).optional(),
++ marketingOptIn: z.boolean({ error: (iss) => iss.input === undefined ? undefined : 'Opt-in must be true or false' }).optional(),
+\`\`\`
+
+Returning \`undefined\` keeps zod's default message for wrong types, exactly like v3.
+
+- \`packages/api/src/routes/customers.ts\` (5)
+- \`packages/api/src/routes/orders.ts\` (6)
+- \`packages/api/src/routes/webhooks.ts\` (5)
+- \`packages/shared/src/address.ts\` (4)
+- \`packages/shared/src/product.ts\` (4)
+
+</details>
+
+**3. \`.ip()\` removed** · 1 site · by the agent (LLM)
+Now \`z.union([z.ipv4(), z.ipv6()])\`, which accepts both families like before.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+--- a/packages/shared/src/monitoring.ts
++++ b/packages/shared/src/monitoring.ts
+@@ -6 +6 @@
+-  clientIp: z.string().ip(),
++  clientIp: z.union([z.ipv4(), z.ipv6()]),
+\`\`\`
+
+- \`packages/shared/src/monitoring.ts\` (1)
+
+**packages/shared/src/monitoring.ts:6 · attempt 1 (accepted)**
+
+The \`ZodString#ip()\` method was removed in Zod 4. Per the migration guide, when the previous validator accepted both IPv4 and IPv6 (which is what the default \`.ip()\` with no version option did), the replacement is \`z.union([z.ipv4(), z.ipv6()])\`. These are now top-level factories rather than \`z.string()\` methods. No options or custom error text were passed in the original call, so no additional arguments need to be preserved.
+
+Diagnostics: 2 → 1.
+
+</details>
+
+**4. \`ZodTypeDef\` removed** · 1 fix, 3 errors · by the agent (LLM)
+\`consumer\` now types schemas as \`ZodType<TMessage, unknown>\`, preserving the input/output contract.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+--- a/packages/api/src/queue/consumer.ts
++++ b/packages/api/src/queue/consumer.ts
+@@ -2,2 +2,2 @@
+-import type { ZodType, ZodTypeDef } from 'zod';
++import type { ZodType } from 'zod';
+@@ -12,2 +12,2 @@
+-    private readonly schema: ZodType<TMessage, ZodTypeDef, unknown>,
++    private readonly schema: ZodType<TMessage, unknown>,
+\`\`\`
+
+- \`packages/api/src/queue/consumer.ts\` (3)
+
+**packages/api/src/queue/consumer.ts:2 · attempt 1 (accepted)**
+
+In Zod v4, \`ZodType\` no longer takes a definition type parameter — the signature changed from \`ZodType<Output, Def extends ZodTypeDef, Input>\` to \`ZodType<Output, Input>\`. \`ZodTypeDef\` is no longer exported. The fix is to:
+
+1. Remove \`ZodTypeDef\` from the import (leaving only \`ZodType\`, or dropping the import entirely if \`ZodType\` is still used).
+
+2. Replace \`ZodType<TMessage, ZodTypeDef, unknown>\` with \`ZodType<TMessage, unknown>\` in the constructor signature, preserving the same Output/Input contract without weakening types to \`any\`.
+
+The \`unknown\` input type is kept so that the schema still validates arbitrary unknown input before narrowing to \`TMessage\`, which preserves the original validation intent.
+
+Diagnostics: 5 → 2.
+
+</details>
+
+### Worth a look
+
+- \`signUpSchema\` and \`createOrderSchema\`: behavior not checked (they import another schema file).
+
+### Decisions for you
+
+- Zod 4 words its default error messages differently, and a test of the migrated code failed on it. Updated 1 assertion: \`packages/shared/src/monitoring.test.ts:21\` \`"Required"\` → \`"Invalid input: expected string, received undefined"\`. Confirm that nothing outside the tests reads this text: logs, alerts, dead-letter descriptions, API responses.
+
+<details><summary>Verification details</summary>
+
+Type errors: baseline 1; target 29; after 1; 0 new. Verification: PASS.
+
+| Workspace | Baseline tests | Target tests |
+|---|---|---|
+| packages/api | passed | passed |
+| packages/shared | passed | passed |
+
+- \`packages/api\`: the \`test\` script of packages/api — \`vitest run\` — 3 tests in 2 files passed
+- \`packages/shared\`: the \`test\` script of packages/shared — \`vitest run\` — 2 tests in 1 file passed
+
+**1 pre-existing error (1 × TS2322)**
+<details><summary>List</summary>
+
+- packages/shared/src/errors.ts:19 TS2322: Type 'string' is not assignable to type 'number'.
+
+</details>
+
+Samples: 1,800/1,800 identical across 11 schemas. Custom-message assertions: 21/21 identical.
+
+Fixed seed 1729; up to 200 v3-derived inputs per schema. Isolated schema declarations and dependencies; no application code executed. Sampled equivalence is not a proof; examples are greedily minimized.
+
+| Schema | Inputs | Identical | Valid v3 inputs | Differences / limits |
+|---|---|---|---|---|
+| packages/api/src/queue/consumer.ts: (reported site) | 0 | 0 | 0 | site is not a top-level schema binding; no application code executed |
+| packages/api/src/routes/customers.ts: updateCustomerSchema | 200 | 200 | 61 | 0 |
+| packages/api/src/routes/customers.ts: signUpSchema | 0 | 0 | 0 | unstubbed runtime import: @storefront/shared |
+| packages/api/src/routes/orders.ts: cancelOrderSchema | 200 | 200 | 43 | 0 |
+| packages/api/src/routes/orders.ts: createOrderSchema | 0 | 0 | 0 | unstubbed runtime import: @storefront/shared |
+| packages/api/src/routes/orders.ts: lineItemSchema | 200 | 200 | 56 | 0 |
+| packages/api/src/routes/webhooks.ts: shipmentWebhookSchema | 200 | 200 | 49 | 0 |
+| packages/api/src/routes/webhooks.ts: paymentWebhookSchema | 200 | 200 | 43 | 0 |
+| packages/shared/src/address.ts: addressSchema | 200 | 200 | 62 | 0 |
+| packages/shared/src/monitoring.ts: accessLogSchema | 200 | 200 | 53 | 0 |
+| packages/shared/src/product.ts: stockUpdateSchema | 200 | 200 | 58 | 0 |
+| packages/shared/src/product.ts: productSchema | 200 | 200 | 46 | 0 |
+
+**packages/api/src/routes/customers.ts: updateCustomerSchema custom messages**
+- packages/api/src/routes/customers.ts:13:21, missing marketingOptIn: default — no repository-defined message for this input
+- packages/api/src/routes/customers.ts:13:21, wrong-type marketingOptIn: identical — "Opt-in must be true or false" → "Opt-in must be true or false"
+- packages/api/src/routes/customers.ts:12:11, missing name: default — no repository-defined message for this input
+- packages/api/src/routes/customers.ts:12:11, wrong-type name: identical — "Name must be a string" → "Name must be a string"
+
+**packages/api/src/routes/orders.ts: cancelOrderSchema custom messages**
+- packages/api/src/routes/orders.ts:18:13, missing reason: identical — "Reason is required" → "Reason is required"
+- packages/api/src/routes/orders.ts:18:13, wrong-type reason: default — no repository-defined message for this input
+- packages/api/src/routes/orders.ts:17:14, missing orderId: identical — "Order is required" → "Order is required"
+- packages/api/src/routes/orders.ts:17:14, wrong-type orderId: default — no repository-defined message for this input
+
+**packages/api/src/routes/orders.ts: lineItemSchema custom messages**
+- packages/api/src/routes/orders.ts:6:15, missing quantity: identical — "Quantity is required" → "Quantity is required"
+- packages/api/src/routes/orders.ts:6:15, wrong-type quantity: default — no repository-defined message for this input
+- packages/api/src/routes/orders.ts:5:16, missing productId: identical — "Product is required" → "Product is required"
+- packages/api/src/routes/orders.ts:5:16, wrong-type productId: default — no repository-defined message for this input
+
+**packages/api/src/routes/webhooks.ts: shipmentWebhookSchema custom messages**
+- packages/api/src/routes/webhooks.ts:15:19, missing trackingCode: identical — "Tracking code is required" → "Tracking code is required"
+- packages/api/src/routes/webhooks.ts:15:19, wrong-type trackingCode: default — no repository-defined message for this input
+- packages/api/src/routes/webhooks.ts:14:9, missing id: identical — "Event id is required" → "Event id is required"
+- packages/api/src/routes/webhooks.ts:14:9, wrong-type id: default — no repository-defined message for this input
+
+**packages/api/src/routes/webhooks.ts: paymentWebhookSchema custom messages**
+- packages/api/src/routes/webhooks.ts:9:20, missing payload.amountCents: identical — "Amount is required" → "Amount is required"
+- packages/api/src/routes/webhooks.ts:9:20, wrong-type payload.amountCents: default — no repository-defined message for this input
+- packages/api/src/routes/webhooks.ts:8:16, missing payload.orderId: identical — "Order id is required" → "Order id is required"
+- packages/api/src/routes/webhooks.ts:8:16, wrong-type payload.orderId: default — no repository-defined message for this input
+- packages/api/src/routes/webhooks.ts:4:9, missing id: identical — "Event id is required" → "Event id is required"
+- packages/api/src/routes/webhooks.ts:4:9, wrong-type id: default — no repository-defined message for this input
+
+**packages/shared/src/address.ts: addressSchema custom messages**
+- packages/shared/src/address.ts:10:14, missing country: identical — "Country is required" → "Country is required"
+- packages/shared/src/address.ts:10:14, wrong-type country: default — no repository-defined message for this input
+- packages/shared/src/address.ts:7:5, missing postalCode: identical — "Postal code is required" → "Postal code is required"
+- packages/shared/src/address.ts:7:5, wrong-type postalCode: identical — "Postal code must be a string" → "Postal code must be a string"
+- packages/shared/src/address.ts:5:11, missing city: identical — "City is required" → "City is required"
+- packages/shared/src/address.ts:5:11, wrong-type city: default — no repository-defined message for this input
+- packages/shared/src/address.ts:4:12, missing line1: identical — "Address line is required" → "Address line is required"
+- packages/shared/src/address.ts:4:12, wrong-type line1: default — no repository-defined message for this input
+
+**packages/shared/src/monitoring.ts: accessLogSchema custom messages**
+- packages/shared/src/monitoring.ts:6:24, missing clientIp: default — no repository-defined message for this input
+- packages/shared/src/monitoring.ts:6:24, wrong-type clientIp: default — no repository-defined message for this input
+
+**packages/shared/src/product.ts: stockUpdateSchema custom messages**
+- packages/shared/src/product.ts:17:15, missing quantity: identical — "Quantity is required" → "Quantity is required"
+- packages/shared/src/product.ts:17:15, wrong-type quantity: default — no repository-defined message for this input
+
+**packages/shared/src/product.ts: productSchema custom messages**
+- packages/shared/src/product.ts:8:5, missing priceCents: identical — "Price is required" → "Price is required"
+- packages/shared/src/product.ts:8:5, wrong-type priceCents: identical — "Price must be a number" → "Price must be a number"
+- packages/shared/src/product.ts:6:11, missing name: identical — "Name is required" → "Name is required"
+- packages/shared/src/product.ts:6:11, wrong-type name: default — no repository-defined message for this input
+- packages/shared/src/product.ts:5:10, missing sku: identical — "SKU is required" → "SKU is required"
+- packages/shared/src/product.ts:5:10, wrong-type sku: default — no repository-defined message for this input
+
+**Tests: packages/api**
+\`\`\`text
+RUN  v3.2.4 <repo>/packages/api
+
+ ✓ src/billing/renewal.test.ts (1 test) 1ms
+ ✓ src/routes/orders.test.ts (2 tests) 3ms
+
+   Start at  17:39:21
+   Duration  263ms (transform 58ms, setup 0ms, collect 97ms, tests 4ms, environment 0ms, prepare 85ms)
+ Test Files  2 passed (2)
+      Tests  3 passed (3)
+\`\`\`
+
+**Tests: packages/shared**
+\`\`\`text
+RUN  v3.2.4 <repo>/packages/shared
+
+ ✓ src/monitoring.test.ts (2 tests) 3ms
+
+   Start at  17:39:22
+   Duration  242ms (transform 23ms, setup 0ms, collect 46ms, tests 3ms, environment 0ms, prepare 35ms)
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+\`\`\`
+
+**Run notes**
+
+- Review validation behaviour and custom messages; compilation alone cannot prove runtime equivalence.
+- Migration reference: https://zod.dev/v4/changelog
+
+</details>
+
+<details><summary>Run details</summary>
+
+Uptide 0.1.0 · claude-sonnet-4-6 · 2.6k/0.6k tokens · $0.02 · 1 min
+
+Uptide commit: \`f46ec30ae488b48796ee03752b0e4b94f0a73fc7\` (working-tree changes)
+Branch: \`uptide/zod-4.6.5\`
+Tier: verified (a migration pack covers this upgrade)
+Verified at: 2026-10-04T00:39:23.575Z
+Verified commit: \`4d7932a03feb1b3b9a10d8cdbecf3e09bafb112e\`
+
+</details>
+"
+`;
+
+exports[`trims low-priority material before verification and retains diffs with many sites in any pack 1`] = `
+"## Upgrade example-sdk 14.25.0 → 22.6.2
+
+**Ready for review.** The code was migrated to example-sdk 22 in \`integration\`. Types compile; runtime behavior needs review.
+
+| | |
+|---|---|
+| **Verified by** | ✅ type-check · build not required (pack-verified migration) · ✅ tests (1 run) |
+| **Risk** | Medium: agent edits; sensitive paths; no tests |
+| **Changes** | 500 sites in 500 files · 0 auto-fixed · 500 fixed by the agent (LLM) |
+| **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
+| **Behavior** | ⚠️ not checked |
+| **Tests** | ✅ 1 workspace passed · ⚠️ no tests for \`integration\` |
+
+### What changed
+
+**1. resource-0** · 250 sites · by the agent (LLM)
+The Stripe 2025-03-31 (basil) API change moved billing period tracking from the Subscription level to individual SubscriptionItem level, removing \`current_period_end\` from \`Stripe.Subscription\`. No new type errors.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index f60fe68..a19c39f 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -26,7 +26,7 @@ export async function subscription(id: string) {
+ export function webhook(payload: Buffer, signature: string, secret: string) {
+   const event = stripe.webhooks.constructEvent(payload, signature, secret);
+   if (event.type === 'customer.subscription.updated') {
+-    return event.data.object.current_period_end;
++    return subscriptionPeriodEnd(event.data.object);
+   }
+   return null;
+ }
+\`\`\`
+
+_Diff and reasoning: file list and additional attempts omitted to fit the PR body budget. Full text is retained in report.json; see the job summary for verification results when run in Actions._
+
+</details>
+
+**2. resource-1** · 250 sites · by the agent (LLM)
+The Stripe 2025-03-31 (basil) API change moved billing period tracking from the Subscription level to individual SubscriptionItem level, removing \`current_period_end\` from \`Stripe.Subscription\`. No new type errors.
+<details><summary>Diff and reasoning</summary>
+
+\`\`\`diff
+diff --git a/src/billing.ts b/src/billing.ts
+index f60fe68..a19c39f 100644
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -26,7 +26,7 @@ export async function subscription(id: string) {
+ export function webhook(payload: Buffer, signature: string, secret: string) {
+   const event = stripe.webhooks.constructEvent(payload, signature, secret);
+   if (event.type === 'customer.subscription.updated') {
+-    return event.data.object.current_period_end;
++    return subscriptionPeriodEnd(event.data.object);
+   }
+   return null;
+ }
+\`\`\`
+
+_Diff and reasoning: file list and additional attempts omitted to fit the PR body budget. Full text is retained in report.json; see the job summary for verification results when run in Actions._
+
+</details>
+
+### Worth a look
+
+- Some workspaces have no tests. Exercise the changed code by hand before merging.
+
+### Decisions for you
+
+- Confirm the billing policy before deploying.
+
+<details><summary>Verification details</summary>
+
+Type errors: baseline 0; target 4; after 0; 0 new. Verification: PASS.
+
+| Workspace | Baseline tests | Target tests |
+|---|---|---|
+| . | missing | passed |
+| integration | not run | missing |
+
+**Tests: .**
+\`\`\`text
+PASS billing scenario 0: invoice and subscription response compatibility verified
+PASS billing scenario 1: invoice and subscription response compatibility verified
+PASS billing scenario 2: invoice and subscription response compatibility verified
+PASS billing scenario 3: invoice and subscription response compatibility verified
+PASS billing scenario 4: invoice and subscription response compatibility verified
+PASS billing scenario 5: invoice and subscription response compatibility verified
+PASS billing scenario 6: invoice and subscription response compatibility verified
+PASS billing scenario 7: invoice and subscription response compatibility verified
+PASS billing scenario 8: invoice and subscription response compatibility verified
+PASS billing scenario 9: invoice and subscription response compatibility verified
+PASS billing scenario 10: invoice and subscription response compatibility verified
+PASS billing scenario 11: invoice and subscription response compatibility verified
+PASS billing scenario 12: invoice and subscription response compatibility verified
+PASS billing scenario 13: invoice and subscription response compatibility verified
+PASS billing scenario 14: invoice and subscription response compatibility verified
+PASS billing scenario 15: invoice and subscription response compatibility verified
+PASS billing scenario 16: invoice and subscription response compatibility verified
+PASS billing scenario 17: invoice and subscription response compatibility verified
+PASS billing scenario 18: invoice and subscription response compatibility verified
+PASS billing scenario 19: invoice and subscription response compatibility verified
+PASS billing scenario 20: invoice and subscription response compatibility verified
+PASS billing scenario 21: invoice and subscription response compatibility verified
+PASS billing scenario 22: invoice and subscription response compatibility verified
+PASS billing scenario 23: invoice and subscription response compatibility verified
+PASS billing scenario 24: invoice and subscription response compatibility verified
+PASS billing scenario 25: invoice and subscription response compatibility verified
+PASS billing scenario 26: invoice and subscription response compatibility verified
+PASS billing scenario 27: invoice and subscription response compatibility verified
+PASS billing scenario 28: invoice and subscription response compatibility verified
+PASS billing scenario 29: invoice and subscription response compatibility verified
+PASS billing scenario 30: invoice and subscription response compatibility verified
+PASS billing scenario 31: invoice and subscription response compatibility verified
+PASS billing scenario 32: invoice and subscription response compatibility verified
+PASS billing scenario 33: invoice and subscription response compatibility verified
+PASS billing scenario 34: invoice and subscription response compatibility verified
+PASS billing scenario 35: invoice and subscription response compatibility verified
+PASS billing scenario 36: invoice and subscription response compatibility verified
+PASS billing scenario 37: invoice and subscription response compatibility verified
+PASS billing scenario 38: invoice and subscription response compatibility verified
+PASS billing scenario 39: invoice and subscription response compatibility verified
+PASS billing scenario 40: invoice and subscription response compatibility verified
+PASS billing scenario 41: invoice and subscription response compatibility verified
+PASS billing scenario 42: invoice and subscription response compatibility verified
+PASS billing scenario 43: invoice and subscription response compatibility verified
+PASS billing scenario 44: invoice and subscription response compatibility verified
+PASS billing scenario 45: invoice and subscription response compatibility verified
+PASS billing scenario 46: invoice and subscription response compatibility verified
+PASS billing scenario 47: invoice and subscription response compatibility verified
+PASS billing scenario 48: invoice and subscription response compatibility verified
+PASS billing scenario 49: invoice and subscription response compatibility verified
+PASS billing scenario 50: invoice and subscription response compatibility verified
+PASS billing scenario 51: invoice and subscription response compatibility verified
+PASS billing scenario 52: invoice and subscription response compatibility verified
+PASS billing scenario 53: invoice and subscription response compatibility verified
+PASS billing scenario 54: in
+… output truncated; full output is retained in report.json.
+\`\`\`
+
+**Run notes**
+
+- SDK 14.25.0 → 22.6.2. API pin 2023-10-16 → 2026-08-26.dahlia. SDK releases pin an API date; the date can also change within a major.
+- Changing apiVersion can change response shapes and webhook payloads. It is never a mechanical fix.
+
+**SDK changelog**
+
+
+<details>
+<summary>400 SDK changes</summary>
+
+- SDK change 0: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 1: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 2: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 3: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 4: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 5: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 6: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 7: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 8: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 9: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 10: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 11: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 12: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 13: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 14: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 15: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 16: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 17: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 18: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 19: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 20: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 21: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 22: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 23: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 24: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 25: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 26: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 27: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 28: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 29: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 30: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 31: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 32: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 33: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 34: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 35: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 36: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 37: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 38: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 39: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 40: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 41: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 42: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 43: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 44: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 45: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 46: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 47: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 48: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 49: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 50: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 51: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 52: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 53: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 54: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 55: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 56: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 57: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 58: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 59: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 60: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 61: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 62: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 63: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 64: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 65: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 66: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 67: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 68: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 69: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 70: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 71: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 72: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 73: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 74: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 75: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 76: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 77: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 78: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 79: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 80: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 81: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 82: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 83: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 84: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 85: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 86: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 87: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 88: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 89: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 90: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 91: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 92: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 93: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 94: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 95: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 96: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 97: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 98: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 99: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 100: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 101: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 102: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 103: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 104: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 105: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 106: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 107: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 108: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 109: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 110: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 111: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 112: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 113: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 114: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 115: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 116: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 117: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 118: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 119: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 120: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 121: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 122: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 123: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 124: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 125: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 126: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 127: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 128: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 129: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 130: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 131: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 132: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 133: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 134: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 135: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 136: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 137: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 138: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 139: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 140: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 141: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 142: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 143: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 144: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 145: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 146: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 147: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 148: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 149: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 150: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 151: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 152: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 153: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 154: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 155: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 156: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 157: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 158: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 159: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 160: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 161: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 162: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 163: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 164: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 165: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 166: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 167: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 168: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 169: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 170: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 171: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 172: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 173: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 174: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 175: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 176: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 177: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 178: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 179: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 180: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 181: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 182: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 183: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 184: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 185: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 186: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 187: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 188: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 189: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- SDK change 190: compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail compatibility detail 
+- 209 SDK changes omitted. Full text is retained in report.json.
+
+</details>
+
+</details>
+
+<details><summary>Run details</summary>
+
+Uptide version not retained · claude-sonnet-4-6 · 6.5k/2.2k tokens · $0.05 · 1 min
+
+Uptide commit: \`not retained\`
+Branch: \`uptide/stripe-22.6.2\`
+
+</details>
+"
+`;
