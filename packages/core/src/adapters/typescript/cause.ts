@@ -1,6 +1,7 @@
 import { relative } from 'node:path';
 import type { ts } from 'ts-morph';
 import type { DiagnosticCause } from '../../domain/usage.js';
+import { augmentationImportCause, isAugmentation, packageOf } from './augmentation-import.js';
 
 /**
  * Root cause of an `unknown`/`any` diagnostic. When an upgrade changes what a package
@@ -428,7 +429,7 @@ export function augmentationCause(
     decl =
       declarations.find((d) => d.getSourceFile().fileName.startsWith(`${repoDir}/`)) ??
       declarations[0];
-    if (!decl) return undefined;
+    if (!decl) return augmentationImportCause(programs, before, member, repoDir, rootDir);
     elsewhere = packageOf(member.getSourceFile().fileName);
   }
   const site = `${relative(repoDir, file.fileName)}:${file.getLineAndCharacterOfPosition(diagnostic.start).line + 1}`;
@@ -468,25 +469,6 @@ export function augmentationCause(
     reason,
     anchorOnly: true,
   };
-}
-
-/** Whether a declaration sits inside `declare global` or `declare module "x"`. */
-function isAugmentation(tsc: typeof ts, decl: ts.Node): boolean {
-  for (let n: ts.Node | undefined = decl.parent; n && !tsc.isSourceFile(n); n = n.parent)
-    if (
-      tsc.isModuleDeclaration(n) &&
-      (n.flags & tsc.NodeFlags.GlobalAugmentation || tsc.isStringLiteral(n.name))
-    )
-      return true;
-  return false;
-}
-
-/** The package a file under node_modules (or a fixture directory) belongs to, as a short label. */
-function packageOf(fileName: string): string {
-  const m = /\/node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(fileName);
-  if (m) return m[1] as string;
-  const dir = fileName.split('/').at(-2) ?? fileName;
-  return dir.replace(/-v\d+$/, '');
 }
 
 /** `jest.Matchers` for a member inside `namespace jest { interface Matchers }`; the holder's name alone otherwise. */

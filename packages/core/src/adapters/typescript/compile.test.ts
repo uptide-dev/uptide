@@ -27,6 +27,27 @@ function consumerCopy(mutate: (dir: string) => void): string {
 }
 
 describe('Signal B: compile against the target version', () => {
+  it('does not compile guardrails-style examples outside the tsconfig, even as explicit importers', async () => {
+    const dir = consumerCopy((d) => {
+      mkdirSync(join(d, 'examples'), { recursive: true });
+      writeFileSync(
+        join(d, 'examples/multiturn.ts'),
+        "import { createClient } from 'synthetic';\ncreateClient('one');\ncreateClient('two');\ncreateClient('three');\ncreateClient('four');\n",
+      );
+    });
+    const signal = await compileAgainstTarget(
+      { dir, rootFiles: [join(dir, 'src/chains.ts'), join(dir, 'examples/multiturn.ts')] },
+      'synthetic',
+      join(ROOT, 'synthetic-v2'),
+      { files: ['src/chains.ts', 'examples/multiturn.ts'] },
+    );
+    expect(signal.diagnostics.map((d) => d.file)).toEqual(['src/chains.ts']);
+    expect(signal.coverage.skipped).toContainEqual({
+      reason: 'outside the TypeScript project',
+      count: 1,
+    });
+  });
+
   it('reports the errors the upgrade introduces, at the right lines', async () => {
     const signal = await compileAgainstTarget(
       { dir: CONSUMER },

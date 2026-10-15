@@ -65,13 +65,16 @@ const repos = new Map<string, LoadedRepo>();
 onReset(() => repos.clear());
 
 /** `loadRepo`, cached by directory: a parsed program is reused across every package checked in a workspace. */
-export function loadedRepo(dir: string, rootFiles?: string[]): LoadedRepo {
+export function loadedRepo(dir: string, rootFiles?: string[], configPath?: string): LoadedRepo {
   dir = realpathSync(dir);
   rootFiles = rootFiles?.map((file) => realpathSync(file));
-  const key = JSON.stringify([dir, rootFiles?.slice().sort()]);
+  // The scanner and compiler share the same project when its explicit roots and config agree.
+  // Naming the workspace's default config must not allocate a second ts-morph program.
+  if (rootFiles && configPath === join(dir, 'tsconfig.json')) configPath = undefined;
+  const key = JSON.stringify([dir, rootFiles?.slice().sort(), configPath]);
   let repo = repos.get(key);
   if (!repo) {
-    repo = loadRepo(dir, rootFiles);
+    repo = loadRepo(dir, rootFiles, configPath);
     repos.set(key, repo);
   }
   return repo;
@@ -175,10 +178,10 @@ const formatAwareResolution: ResolutionHostFactory = (host, getOptions) => {
   };
 };
 
-export function loadRepo(cwd: string, rootFiles?: string[]): LoadedRepo {
+export function loadRepo(cwd: string, rootFiles?: string[], configPath?: string): LoadedRepo {
   const { dir, packageJson, lockfile, installed } = readInstalled(cwd);
 
-  const tsconfig = join(dir, 'tsconfig.json');
+  const tsconfig = configPath ?? join(dir, 'tsconfig.json');
   // Workspace dependencies resolve to their source, not to whatever their last build left in dist.
   const sources = workspaceSourceMap(dir, installed);
   const sourcePaths = Object.keys(sources.paths).length > 0 ? sources.paths : undefined;
@@ -205,7 +208,7 @@ export function loadRepo(cwd: string, rootFiles?: string[]): LoadedRepo {
       },
     });
     // Project references one level down: their files are part of what this repo compiles.
-    for (const ref of rootFiles === undefined ? readReferences(tsconfig) : []) {
+    for (const ref of rootFiles === undefined && !configPath ? readReferences(tsconfig) : []) {
       try {
         project.addSourceFilesFromTsConfig(ref);
       } catch {

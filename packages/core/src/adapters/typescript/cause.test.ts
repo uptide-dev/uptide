@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -203,6 +203,74 @@ describe('a member declared in a repository augmentation the target no longer re
       expect(d.cause).toEqual(cause);
       expect(d.root).toEqual(cause);
     }
+  });
+
+  it.each(['direct', 'inherited', 'reference'])(
+    'anchors a dependency augmentation at its side-effect import (%s)',
+    async (mode) => {
+      const dir = withMatchers({
+        'setup.ts': "import 'matchers-extra';\n",
+        'odd.test.ts':
+          "import { expect } from 'matchers';\nexpect(3).toBeOdd();\nexpect(5).toBeOdd();\n",
+      });
+      const config = JSON.parse(readFileSync(join(dir, 'tsconfig.json'), 'utf8'));
+      if (mode !== 'direct') {
+        const extra = join(dir, 'node_modules/matchers-extra');
+        mkdirSync(extra, { recursive: true });
+        writeFileSync(
+          join(extra, 'package.json'),
+          JSON.stringify({ name: 'matchers-extra', version: '1.0.0', types: 'index.d.ts' }),
+        );
+        writeFileSync(
+          join(extra, 'index.d.ts'),
+          'import type { ExtraMatchers } from "./matchers";\ndeclare global { namespace checks { interface Matchers<R> extends ExtraMatchers<R> {} } }\n',
+        );
+        writeFileSync(
+          join(extra, 'matchers.d.ts'),
+          'export interface ExtraMatchers<R> { toBeOdd(): R; }\n',
+        );
+        if (mode === 'reference') {
+          writeFileSync(join(extra, 'globals.d.ts'), readFileSync(join(extra, 'index.d.ts')));
+          writeFileSync(join(extra, 'index.d.ts'), '/// <reference path="./globals.d.ts" />\n');
+        }
+        config.compilerOptions.paths['matchers-extra'] = [join(extra, 'index.d.ts')];
+      }
+      // A Vite-style solution: selecting its app project makes these diagnostics visible.
+      writeFileSync(join(dir, 'tsconfig.app.json'), JSON.stringify(config));
+      writeFileSync(
+        join(dir, 'tsconfig.json'),
+        JSON.stringify({ files: [], references: [{ path: './tsconfig.app.json' }] }),
+      );
+      const signal = await compileAgainstTarget({ dir }, 'matchers', join(DEPS, 'matchers-v2'));
+      const missing = signal.diagnostics.filter((d) => d.code === 2339);
+      expect(missing).toHaveLength(2);
+      for (const d of missing)
+        expect(d.cause).toMatchObject({
+          file: 'src/setup.ts',
+          line: 1,
+          anchorOnly: true,
+        });
+    },
+  );
+
+  it('does not blame a side-effect import for an ordinary member removed by the upgraded package', async () => {
+    const dir = withMatchers({
+      'setup.ts': "import 'matchers';\n",
+      'plain.test.ts': "import { expect } from 'matchers';\nexpect(1).toBe(1);\n",
+    });
+    const target = mkdtempSync(join(tmpdir(), 'uptide-removed-matcher-'));
+    cpSync(join(DEPS, 'matchers-v2'), target, { recursive: true });
+    writeFileSync(
+      join(target, 'index.d.ts'),
+      readFileSync(join(target, 'index.d.ts'), 'utf8').replace(
+        'toBe(expected: T): R;',
+        'other(expected: T): R;',
+      ),
+    );
+    const signal = await compileAgainstTarget({ dir }, 'matchers', target);
+    const missing = signal.diagnostics.filter((d) => d.file === 'src/plain.test.ts');
+    expect(missing).toHaveLength(1);
+    expect(missing[0]?.cause).toBeUndefined();
   });
 
   it('leaves a member the package itself dropped to the site', async () => {

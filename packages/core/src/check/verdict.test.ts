@@ -123,3 +123,9 @@ it('says a package without a pack is not analyzed, instead of 0 breaking', () =>
   const breaking = { severity: 'breaking' } as PackageReport['findings'][number];
   expect(verdictOf({ ...generic, findings: [breaking] }).summary).toMatch(/^1 breaking · /);
 });
+
+it('states the importer-based fallback when no tsconfig exists', () => {
+  expect(
+    coverageLine({ compiled: 1, total: 1, workspaces: 1, skipped: [], noTsconfig: true }),
+  ).toContain('no tsconfig found, using importer-based compile scope');
+});

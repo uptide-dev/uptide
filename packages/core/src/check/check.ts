@@ -179,6 +179,9 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
   if (!adapter.installedDependencies) throw new AdapterCapabilityError(adapter.id, 'findUsages');
 
   const root: RepoDir = { dir: opts.cwd };
+  // One check owns a project-scope snapshot. Workspace cleanup releases its programs,
+  // while the small config/import index is reused until the next check starts.
+  adapter.forgetRepo?.(root);
   const workspaces = (await adapter.workspacePackages?.(root)) ?? ['.'];
   const memo = memoizingFetcher(fetcher);
   const installedByWorkspace: Record<string, Record<string, string>> = {};
@@ -767,6 +770,7 @@ export function mergeAcrossWorkspaces(
           ? {
               coverage: {
                 compiled: coverages.reduce((n, c) => n + c.compiled, 0),
+                ...(coverages.some((c) => c.noTsconfig) ? { noTsconfig: true } : {}),
                 total: coverages.reduce((n, c) => n + c.total, 0),
                 workspaces: coverages.reduce((n, c) => n + c.workspaces, 0),
                 skipped: [...skipped].map(([reason, count]) => ({ reason, count })),
@@ -2274,8 +2278,11 @@ async function checkGroup(
         targetDir: target?.runtime?.dir ?? target?.pkg.dir ?? p.installedDir.dir,
       };
     };
+    // Config files the pack reads (next.config.mjs): read by their tool, not compiled, so the
+    // TypeScript project scope does not apply to them.
     if (pack?.runtimeFindings && only) {
       try {
+        const inventory = packInventory(ctx.opts.cwd, workspace, pack.inventory);
         findings.push(
           ...pack.runtimeFindings({
             root: ctx.opts.cwd,
@@ -2284,7 +2291,7 @@ async function checkGroup(
             to: only.target,
             ...packDirs(only),
             usages: only.scan.usages,
-            files: packInventory(ctx.opts.cwd, workspace, pack.inventory),
+            files: inventory,
             read: (file) => {
               try {
                 return readFileSync(resolve(ctx.opts.cwd, file), 'utf8');

@@ -7,6 +7,7 @@ import type { ApiSurface, ApiSymbol } from '../../domain/surface.js';
 import { compareTypesWithChecker } from './compat.js';
 import { compileAgainstTarget, compileAgainstTargets } from './compile.js';
 import { resolveEntryPoints } from './entry-points.js';
+import { forgetProjectScope } from './project-scope.js';
 import { forgetRepo, loadedRepo, readInstalled, workspacePackagesOf } from './repo.js';
 import {
   findUsagesInRepo,
@@ -173,6 +174,7 @@ export function createTypescriptAdapter(opts: TypescriptAdapterOptions = {}): Ty
     },
     forgetRepo(repo) {
       forgetRepo(realpathSync(repo.dir));
+      if (!repo.root) forgetProjectScope();
     },
     async installedSurface(repo, pkg, version) {
       const dir = installedPackageDir(repo, pkg);

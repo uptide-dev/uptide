@@ -12,6 +12,7 @@ import type { ApiSurface } from '../domain/surface.js';
 import { UptideError } from '../errors.js';
 import { fix } from '../fix/run.js';
 import { isolatedPnpmWorkspace, zodFixture } from '../fix/test-fixture.js';
+import { definePack } from '../packs/contract.js';
 import { onReset } from '../shared-state.js';
 import {
   check,
@@ -57,6 +58,97 @@ process.env.UPTIDE_CACHE_DIR = mkdtempSync(join(tmpdir(), 'uptide-test-cache-'))
 
 const adapter = createTypescriptAdapter({ now: () => new Date('2026-09-27T00:00:00.000Z') });
 
+it('keeps pattern-rule findings outside tsconfig even without inventory', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'uptide-pattern-scope-'));
+  cpSync(CONSUMER, cwd, { recursive: true });
+  const config = JSON.parse(readFileSync(join(cwd, 'tsconfig.json'), 'utf8'));
+  for (const key of Object.keys(config.compilerOptions.paths))
+    config.compilerOptions.paths[key] = config.compilerOptions.paths[key].map((p: string) =>
+      resolve(CONSUMER, p),
+    );
+  writeFileSync(join(cwd, 'tsconfig.json'), JSON.stringify(config));
+  mkdirSync(join(cwd, 'examples'));
+  writeFileSync(
+    join(cwd, 'examples/pattern.ts'),
+    "import { createClient } from 'synthetic';\ncreateClient('old-pattern');\n",
+  );
+  const pack = definePack({
+    meta: { package: 'synthetic', from: '^1', to: '^2', sources: [], maintainer: 'test' },
+    instructions: '',
+    rules: [
+      {
+        id: 'old-pattern',
+        symbols: /createClient/,
+        guide: 'Replace the old pattern.',
+        summary: 'old pattern',
+        severity: 'breaking',
+        kinds: [],
+        detect: (text, file) =>
+          file === 'examples/pattern.ts' && text.includes('old-pattern')
+            ? [{ line: 2, column: 1, snippet: "createClient('old-pattern')" }]
+            : [],
+      },
+    ],
+  });
+  const result = await check({
+    cwd,
+    only: ['synthetic'],
+    packs: [pack],
+    fetcher,
+    cache: memoryCache(),
+    runtime: false,
+  });
+  expect(result.packages.flatMap((p) => p.findings)).toContainEqual(
+    expect.objectContaining({
+      rule: 'old-pattern',
+      severity: 'breaking',
+      usage: expect.objectContaining({ file: 'examples/pattern.ts', line: 2 }),
+    }),
+  );
+});
+
+it.each([true, false])(
+  'excludes guardrails-style example compiler errors (compile=%s)',
+  async (compile) => {
+    const dir = mkdtempSync(join(tmpdir(), 'uptide-guardrails-scope-'));
+    cpSync(CONSUMER, dir, { recursive: true });
+    const config = JSON.parse(readFileSync(join(dir, 'tsconfig.json'), 'utf8'));
+    for (const key of Object.keys(config.compilerOptions.paths))
+      config.compilerOptions.paths[key] = config.compilerOptions.paths[key].map((p: string) =>
+        resolve(CONSUMER, p),
+      );
+    writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify(config));
+    mkdirSync(join(dir, 'examples'));
+    writeFileSync(
+      join(dir, 'examples/multiturn.ts'),
+      "import { createClient } from 'synthetic';\ncreateClient('one');\ncreateClient('two');\ncreateClient('three');\ncreateClient('four');\n",
+    );
+    const result = await check({
+      cwd: dir,
+      only: ['synthetic'],
+      fetcher,
+      cache: memoryCache(),
+      runtime: false,
+      compile,
+    });
+    const report = result.packages[0];
+    expect(
+      report?.findings.some(
+        (f) => f.usage.file.startsWith('examples/') && f.evidence === 'compiler',
+      ),
+    ).toBe(false);
+    if (compile) {
+      expect(
+        report?.findings.some((f) => f.severity === 'breaking' && f.usage.file === 'src/chains.ts'),
+      ).toBe(true);
+      expect(report?.compile?.coverage?.skipped).toContainEqual({
+        reason: 'outside the TypeScript project',
+        count: 1,
+      });
+    }
+  },
+);
+
 it('compiles every named importer even when an unused removed binding has no attributed usage', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'uptide-scoped-import-'));
   cpSync(CONSUMER, dir, { recursive: true });
@@ -66,7 +158,10 @@ it('compiles every named importer even when an unused removed binding has no att
       resolve(CONSUMER, p),
     );
   writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify(config));
-  writeFileSync(join(dir, 'unused.ts'), "import { parseLegacy } from 'synthetic';\nexport {};\n");
+  writeFileSync(
+    join(dir, 'src/unused.ts'),
+    "import { parseLegacy } from 'synthetic';\nexport {};\n",
+  );
   const result = await check({
     cwd: dir,
     only: ['synthetic'],
@@ -78,7 +173,7 @@ it('compiles every named importer even when an unused removed binding has no att
     expect.objectContaining({
       severity: 'breaking',
       evidence: 'compiler',
-      usage: expect.objectContaining({ file: 'unused.ts', line: 1 }),
+      usage: expect.objectContaining({ file: 'src/unused.ts', line: 1 }),
     }),
   );
 });

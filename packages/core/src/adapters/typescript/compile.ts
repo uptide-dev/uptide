@@ -9,7 +9,7 @@ import {
 } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { ts } from 'ts-morph';
 import type { CompileOptions, RepoDir } from '../../domain/adapter.js';
 import type {
@@ -23,7 +23,8 @@ import { onReset } from '../../shared-state.js';
 import { augmentationCause, findCause, parameterCause } from './cause.js';
 import { type Compiler, repositoryCompiler, unresolvedConfig } from './compiler.js';
 import { jsxNamespaceCause } from './config-cause.js';
-import { type LoadedRepo, loadedRepo, ownsFile } from './repo.js';
+import { type CompileProject, projectScope } from './project-scope.js';
+import { type LoadedRepo, loadedRepo, loadRepo, ownsFile } from './repo.js';
 import {
   consumerCopySatisfies,
   type DependencyLinks,
@@ -242,7 +243,7 @@ function filesToCheck(
   };
 }
 
-const NOT_IN_TSCONFIG = 'not in the workspace tsconfig';
+const NOT_IN_TSCONFIG = 'outside the TypeScript project';
 
 const nestedConfigs = new Map<string, string | undefined>();
 onReset(() => nestedConfigs.clear());
@@ -776,16 +777,125 @@ export function compileAgainstTarget(
   return compileAgainstTargets(repoRef, [{ name: pkg, dir: targetDir }], options);
 }
 
-/** Several packages swapped in one overlay: a release group upgraded together. */
+interface ProjectSignal extends CompileSignal {
+  checkedFiles?: string[];
+}
+
+/** Compile each project with its own options, never promote importer discovery to build roots. */
 export async function compileAgainstTargets(
   repoRef: RepoDir,
   targets: Target[],
   options: CompileOptions = {},
 ): Promise<CompileSignal> {
-  const compiler = repositoryCompiler(realpathSync(repoRef.dir));
+  const dir = realpathSync(repoRef.dir);
+  const scope = projectScope({ ...repoRef, dir });
+  if (scope.projects.length === 0) {
+    const { checkedFiles: _checkedFiles, ...signal } = await compileProject(
+      repoRef,
+      targets,
+      options,
+    );
+    signal.coverage.noTsconfig = true;
+    return signal;
+  }
+  const requested = options.files ?? repoRef.rootFiles?.map((f) => relative(dir, realpathSync(f)));
+  // A workspace is checked with its own config, not every consumer project that imports
+  // its source. Prefer the nearest covering default config, then named projects, falling
+  // back to another covering project for files included from elsewhere. This preserves
+  // workspace compiler options and avoids repeated programs for transitive references.
+  const owners = new Map<string, CompileProject | undefined>();
+  const owner = (file: string): CompileProject | undefined => {
+    if (owners.has(file)) return owners.get(file);
+    const enclosing = (p: CompileProject): boolean => file.startsWith(`${dirname(p.config)}/`);
+    const rank = (p: CompileProject): number =>
+      enclosing(p) ? (basename(p.config) === 'tsconfig.json' ? 2 : 1) : 0;
+    const candidates = scope.projects
+      .slice()
+      .sort(
+        (a, b) =>
+          rank(b) - rank(a) ||
+          (enclosing(b) ? dirname(b.config).length : 0) -
+            (enclosing(a) ? dirname(a.config).length : 0),
+      );
+    const project = candidates.find((p) => p.covers(file));
+    owners.set(file, project);
+    return project;
+  };
+  const outside = (requested ?? []).filter((f) => !owner(join(dir, f)));
+  // Keep the scanner's scoped program when all its roots are covered. Removing uncovered
+  // roots is necessary, but splitting those roots per consumer project wastes the shared AST.
+  const roots = repoRef.rootFiles?.filter((f) => owner(realpathSync(f)));
+  const ref = { ...repoRef, ...(roots ? { rootFiles: roots } : {}) };
+  const signals: ProjectSignal[] = [];
+  for (const project of scope.projects) {
+    const files = requested?.filter((f) => owner(join(dir, f)) === project);
+    if (files && !files.length) continue;
+    signals.push(
+      await compileProject(
+        ref,
+        targets,
+        { ...options, ...(options.files ? { files } : {}) },
+        project.config,
+        (file) => owner(file) === project,
+      ),
+    );
+  }
+  const unique = <T>(items: T[]): T[] => [
+    ...new Map(items.map((v) => [JSON.stringify(v), v])).values(),
+  ];
+  const skips = signals
+    .flatMap((s) => s.coverage.skipped)
+    .filter((s) => s.reason !== NOT_IN_TSCONFIG);
+  if (outside.length) skips.push({ reason: NOT_IN_TSCONFIG, count: outside.length });
+  const compiled = new Set(signals.flatMap((s) => s.checkedFiles ?? [])).size;
+  return {
+    diagnostics: unique(signals.flatMap((s) => s.diagnostics)),
+    baselineErrors: signals.reduce((n, s) => n + s.baselineErrors, 0),
+    ...(signals.length && signals.every((s) => s.skipped)
+      ? { skipped: unique(signals.map((s) => s.skipped)).join('; ') }
+      : {}),
+    coverage: {
+      compiled,
+      total: compiled + skips.reduce((n, s) => n + s.count, 0),
+      skipped: skips,
+      compilers: unique(signals.flatMap((s) => s.coverage.compilers ?? [])),
+      ...(signals.some((s) => s.coverage.notCompiled)
+        ? {
+            notCompiled: unique(signals.flatMap((s) => s.coverage.notCompiled ?? [])),
+          }
+        : {}),
+    },
+    unresolvedInTarget: unique(signals.flatMap((s) => s.unresolvedInTarget)),
+    unresolvedFiles: unique(signals.flatMap((s) => s.unresolvedFiles)),
+    linkedDependencies: unique(signals.flatMap((s) => s.linkedDependencies)),
+    linkedDependencyDirs: Object.assign({}, ...signals.map((s) => s.linkedDependencyDirs)),
+    unsatisfiedDependencies: unique(signals.flatMap((s) => s.unsatisfiedDependencies)),
+    timing: {
+      baselineMs: signals.reduce((n, s) => n + s.timing.baselineMs, 0),
+      overlayMs: signals.reduce((n, s) => n + s.timing.overlayMs, 0),
+      dependenciesMs: signals.reduce((n, s) => n + s.timing.dependenciesMs, 0),
+    },
+  };
+}
+
+/** Several packages swapped in one overlay: a release group upgraded together. */
+async function compileProject(
+  repoRef: RepoDir,
+  targets: Target[],
+  options: CompileOptions = {},
+  configPath?: string,
+  inProject: (file: string) => boolean = () => true,
+): Promise<ProjectSignal> {
+  const compiler = repositoryCompiler(configPath ? dirname(configPath) : realpathSync(repoRef.dir));
   let repo: LoadedRepo;
   try {
-    repo = loadedRepo(realpathSync(repoRef.dir), repoRef.rootFiles);
+    const dir = realpathSync(repoRef.dir);
+    // An alternate project's program is used for this compile only, not retained beside
+    // every other project's AST/checker until the whole workspace finishes.
+    repo =
+      configPath && configPath !== join(dir, 'tsconfig.json')
+        ? loadRepo(dir, repoRef.rootFiles, configPath)
+        : loadedRepo(dir, repoRef.rootFiles, configPath);
   } catch (err) {
     const message = (err instanceof Error ? err.message : String(err)).split('\n')[0] ?? '';
     return {
@@ -811,10 +921,10 @@ export async function compileAgainstTargets(
     return {
       diagnostics: [],
       baselineErrors: 0,
-      skipped: `not compiled: tsconfig.json (${unresolved})`,
+      skipped: `not compiled: ${relative(repo.dir, repo.tsconfig)} (${unresolved})`,
       coverage: {
         ...coverageOf(compiler, 0, 0, { reason: 'tsconfig cannot be resolved', count: requested }),
-        notCompiled: [{ path: 'tsconfig.json', reason: unresolved }],
+        notCompiled: [{ path: relative(repo.dir, repo.tsconfig), reason: unresolved }],
       },
       unresolvedInTarget: [],
       unresolvedFiles: [],
@@ -881,12 +991,14 @@ export async function compileAgainstTargets(
       ],
     };
   };
-  const { files, missing } = filesToCheck(
+  const { files: candidates, missing } = filesToCheck(
     repo,
     repoRef,
     checked,
     options.files ? requested : undefined,
   );
+
+  const files = candidates.filter((file) => inProject(file.fileName));
   const baseline = files.flatMap((f) =>
     memoized
       ? baselineErrorsOf(repo, checked, f)
@@ -1005,6 +1117,7 @@ export async function compileAgainstTargets(
       ),
       baselineErrors: baseline.length,
       coverage: withNotCompiled(coverageOf(compiler, files.length, missing)),
+      checkedFiles: files.map((f) => f.fileName),
       unresolvedInTarget: [...unresolvedInTarget].sort(),
       unresolvedFiles: [...unresolvedFiles].sort(),
       linkedDependencies: deps.linked,
