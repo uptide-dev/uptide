@@ -29,6 +29,8 @@ describe('packScope', () => {
       ],
       ['ai', 'zod'],
     ],
+    ['a pack with the queue', [pack('zod/rules.ts'), 'packs/queue.json'], ['zod']],
+    ['only the queue', ['packs/queue.json'], null],
     ['the engine', [pack('zod/rules.ts'), 'packages/core/src/check/run.ts'], null],
     ['pack tooling', [pack('zod/rules.ts'), pack('tooling/pack-test.ts')], null],
     ['packs/index.ts', [pack('zod/rules.ts'), pack('index.ts')], null],
