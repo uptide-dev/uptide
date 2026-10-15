@@ -270,6 +270,12 @@ export interface MigrationPack {
     finding: Finding,
     context: PackContext,
   ): Pick<Finding, 'reason' | 'details'> | undefined;
+  /**
+   * After the pack's findings are claimed: compiler errors one edit elsewhere resolves, folded
+   * into that edit's finding as its evidence (the typescript pack's `types` default). Workspace-
+   * relative findings in, the same out.
+   */
+  foldFindings?(input: { root: string; workspace: string; findings: Finding[] }): Finding[];
   runtimeFindings?(input: {
     root: string;
     workspace: string;

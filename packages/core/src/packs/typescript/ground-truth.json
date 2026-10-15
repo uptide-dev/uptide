@@ -1,0 +1,7120 @@
+{
+  "$comment": "typescript 5 to 6. Expected findings drafted with pnpm packs:truth (the target compiler on every tsconfig.json, and the upgrade commit) on 2026-10-14 and fixed before the first scoring run. Compiler code diagnostics are expected under generic; a deprecated option is expected where it is set, not at the extending config the compiler names. RESEARCH.md says how each kind of site was assigned.",
+  "package": "typescript",
+  "repos": [
+    {
+      "repo": "m-lyon/recipe",
+      "commit": "f6e44b530c4dab5afc9ca6f3505774d5b44fcd33",
+      "migration": "https://github.com/m-lyon/recipe/pull/113",
+      "directory": "client",
+      "from": "5.6.2",
+      "to": "6.0.3",
+      "why": "baseUrl \"src\" with ten paths entries: removed, paths rewritten relative (\"./src/graphql/*\")",
+      "findings": [
+        {
+          "file": "tsconfig.json",
+          "line": 32,
+          "rule": "base-url",
+          "note": "paths entries rewritten relative to the tsconfig in the same change (baseUrl removal)"
+        }
+      ]
+    },
+    {
+      "repo": "robrechtme/recipes",
+      "commit": "0853747427b71f1d5de275e72aead59979fc1a03",
+      "migration": "https://github.com/robrechtme/recipes/pull/7",
+      "from": "5.9.3",
+      "to": "6.0.3",
+      "why": "target es5 raised to ES2022; baseUrl \"src\" removed with paths rewritten, including \"../data\" entries",
+      "findings": [
+        {
+          "file": "tsconfig.json",
+          "line": 3,
+          "rule": "target-es5"
+        },
+        {
+          "file": "tsconfig.json",
+          "line": 17,
+          "rule": "base-url",
+          "note": "paths entries rewritten relative to the tsconfig in the same change (baseUrl removal)"
+        }
+      ]
+    },
+    {
+      "repo": "JosephMaynard/dependency-radar",
+      "commit": "1920eb3217b701e43afc1651db3f6197028e6f0e",
+      "migration": "https://github.com/JosephMaynard/dependency-radar/pull/46",
+      "from": "5.9.3",
+      "to": "6.0.3",
+      "why": "moduleResolution node moved to node16 (module CommonJS to Node16 with it); types [] default: node globals and builtin imports stop resolving across src/, and a CSS side-effect import in report-ui/ fails (TS2882)",
+      "findings": [
+        {
+          "file": "report-ui/main.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "src/aggregator.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "src/aggregator.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "src/aggregator.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "src/aggregator.ts",
+          "line": 579,
+          "rule": "generic"
+        },
+        {
+          "file": "src/aggregator.ts",
+          "line": 580,
+          "rule": "generic"
+        },
+        {
+          "file": "src/aggregator.ts",
+          "line": 1405,
+          "rule": "generic"
+        },
+        {
+          "file": "src/aggregator.ts",
+          "line": 1406,
+          "rule": "generic"
+        },
+        {
+          "file": "src/aggregator.ts",
+          "line": 2152,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 4,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 43,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 79,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 80,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 81,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 82,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 83,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 84,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 85,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 86,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1118,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1158,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1178,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1180,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1187,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1189,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1195,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1210,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1214,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1219,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1228,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1232,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1252,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1406,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1429,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1430,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1433,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1439,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1440,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 1441,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2129,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2130,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2293,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2301,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2320,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2328,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2341,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2359,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2376,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2382,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2399,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2407,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2410,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2434,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2467,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2504,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2506,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2516,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2519,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2528,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2534,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2540,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2543,
+          "rule": "generic"
+        },
+        {
+          "file": "src/cli.ts",
+          "line": 2544,
+          "rule": "generic"
+        },
+        {
+          "file": "src/outputFormats.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "src/report.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "src/report.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/importGraphRunner.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/importGraphRunner.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/importGraphRunner.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/importGraphRunner.ts",
+          "line": 203,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/lockfileGraph.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/lockfileGraph.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/lockfileSignals.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/lockfileSignals.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/npmAudit.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/npmLs.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/npmLs.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/npmLs.ts",
+          "line": 136,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/npmLs.ts",
+          "line": 151,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/npmOutdated.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/npmRegistryMetadata.ts",
+          "line": 380,
+          "rule": "generic"
+        },
+        {
+          "file": "src/runners/npmRegistryMetadata.ts",
+          "line": 381,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 4,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 40,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 50,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 55,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 60,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 64,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 65,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 67,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 68,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 71,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 76,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 88,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 89,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 99,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 176,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 179,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 180,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 223,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 291,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 299,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 357,
+          "rule": "generic"
+        },
+        {
+          "file": "src/utils.ts",
+          "line": 359,
+          "rule": "generic"
+        },
+        {
+          "file": "tsconfig.json",
+          "line": 4,
+          "rule": "module-resolution-node10",
+          "note": "module CommonJS to Node16, required by the node16 resolution the same change chose"
+        },
+        {
+          "file": "tsconfig.json",
+          "line": 13,
+          "rule": "module-resolution-node10"
+        }
+      ]
+    },
+    {
+      "repo": "CroffZ/github-release-notifier",
+      "commit": "d9353f2471c554f0ce339496f0058a27599f4965",
+      "migration": "https://github.com/CroffZ/github-release-notifier/pull/5",
+      "from": "5.9.3",
+      "to": "6.0.3",
+      "why": "pnpm monorepo: baseUrl in the shared tsconfig.base.json removed (the compiler reports it at the extending packages/action tsconfig); rootDir \"../..\" added where the action package compiles core sources; types [] default breaks node globals",
+      "findings": [
+        {
+          "file": "packages/action/src/index.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "packages/action/tsconfig.json",
+          "line": 5,
+          "rule": "root-dir",
+          "note": "rootDir \"../..\" added after this line (the comma is the changed line)"
+        },
+        {
+          "file": "packages/cli/src/arguments.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "packages/cli/src/index.ts",
+          "line": 21,
+          "rule": "generic"
+        },
+        {
+          "file": "packages/cli/src/index.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "packages/cli/src/index.ts",
+          "line": 25,
+          "rule": "generic"
+        },
+        {
+          "file": "packages/cli/src/index.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "packages/cli/src/index.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "packages/cli/src/index.ts",
+          "line": 33,
+          "rule": "generic"
+        },
+        {
+          "file": "packages/cli/src/index.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "packages/core/src/release-identity.ts",
+          "line": 28,
+          "rule": "generic"
+        },
+        {
+          "file": "tsconfig.base.json",
+          "line": 14,
+          "rule": "base-url",
+          "note": "set here, reported by the compiler at packages/action/tsconfig.json:3; paths entries rewritten relative to the tsconfig in the same change (baseUrl removal)"
+        }
+      ]
+    },
+    {
+      "repo": "SignalK/signalk-derived-data",
+      "commit": "02f635e8232a433462593ed1192ff22e2e9b6253",
+      "migration": "https://github.com/SignalK/signalk-derived-data/pull/239",
+      "from": "5.9.3",
+      "to": "6.0.3",
+      "why": "moduleResolution node kept behind ignoreDeprecations \"6.0\" (the compiler error is the site); types [] default: module, require, __dirname and mocha globals stop resolving across src/ and test/",
+      "findings": [
+        {
+          "file": "src/calcs/airDensity.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/batteryPower.ts",
+          "line": 24,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/courseOverGroundMagnetic.ts",
+          "line": 58,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/courseOverGroundTrue.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/cpa_tcpa.ts",
+          "line": 516,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/depthBelowKeel.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/depthBelowKeel2.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/depthBelowSurface.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/dewPoint.ts",
+          "line": 62,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/eta.ts",
+          "line": 64,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/fuelConsumtion.ts",
+          "line": 42,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/headingTrue.ts",
+          "line": 46,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/heatIndex.ts",
+          "line": 65,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/leeway.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/leewayAngle.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/magneticVariation.ts",
+          "line": 183,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/moon.ts",
+          "line": 125,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/propslip.ts",
+          "line": 83,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/propState.ts",
+          "line": 105,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/setDrift.ts",
+          "line": 214,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/setDrift.ts",
+          "line": 222,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/steer_error.ts",
+          "line": 60,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/suncalc.ts",
+          "line": 166,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/suntime.ts",
+          "line": 90,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/tankVolume.ts",
+          "line": 114,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/tankVolume2.ts",
+          "line": 32,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/transducerToKeel.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/vmg_wind_stw.ts",
+          "line": 24,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/vmg_wind.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/windChill.ts",
+          "line": 48,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/windDirection.ts",
+          "line": 210,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/windGround.ts",
+          "line": 98,
+          "rule": "generic"
+        },
+        {
+          "file": "src/calcs/windShift.ts",
+          "line": 93,
+          "rule": "generic"
+        },
+        {
+          "file": "src/index.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "src/index.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "src/index.ts",
+          "line": 28,
+          "rule": "generic"
+        },
+        {
+          "file": "src/index.ts",
+          "line": 468,
+          "rule": "generic"
+        },
+        {
+          "file": "src/index.ts",
+          "line": 474,
+          "rule": "generic"
+        },
+        {
+          "file": "src/index.ts",
+          "line": 486,
+          "rule": "generic"
+        },
+        {
+          "file": "src/index.ts",
+          "line": 489,
+          "rule": "generic"
+        },
+        {
+          "file": "src/index.ts",
+          "line": 497,
+          "rule": "generic"
+        },
+        {
+          "file": "test/airDensity.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/airDensity.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/airDensity.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/airDensity.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "test/airDensity.ts",
+          "line": 33,
+          "rule": "generic"
+        },
+        {
+          "file": "test/airDensity.ts",
+          "line": 40,
+          "rule": "generic"
+        },
+        {
+          "file": "test/airDensity.ts",
+          "line": 48,
+          "rule": "generic"
+        },
+        {
+          "file": "test/batteryPower.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/batteryPower.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/batteryPower.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/batteryPower.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "test/batteryPower.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundMagnetic.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundMagnetic.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundMagnetic.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundMagnetic.ts",
+          "line": 19,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundMagnetic.ts",
+          "line": 25,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundMagnetic.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundTrue.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundTrue.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundTrue.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundTrue.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundTrue.ts",
+          "line": 28,
+          "rule": "generic"
+        },
+        {
+          "file": "test/courseOverGroundTrue.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 49,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 58,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 66,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 93,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 112,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 137,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 169,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 200,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 226,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 252,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 277,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 304,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 329,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 362,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 418,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 449,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 485,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 487,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 514,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 546,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 574,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 615,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 669,
+          "rule": "generic"
+        },
+        {
+          "file": "test/cpa_tcpa.ts",
+          "line": 716,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel2.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel2.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel2.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel2.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel2.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel2.ts",
+          "line": 33,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowKeel2.ts",
+          "line": 43,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowSurface.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowSurface.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowSurface.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/depthBelowSurface.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "test/dewPoint.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/dewPoint.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/dewPoint.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/eta.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/eta.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/eta.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "test/eta.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "test/eta.ts",
+          "line": 28,
+          "rule": "generic"
+        },
+        {
+          "file": "test/eta.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "test/fuelConsumtion.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/fuelConsumtion.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/fuelConsumtion.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/fuelConsumtion.ts",
+          "line": 24,
+          "rule": "generic"
+        },
+        {
+          "file": "test/fuelConsumtion.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/fuelConsumtion.ts",
+          "line": 39,
+          "rule": "generic"
+        },
+        {
+          "file": "test/fuelConsumtion.ts",
+          "line": 46,
+          "rule": "generic"
+        },
+        {
+          "file": "test/fuelConsumtion.ts",
+          "line": 52,
+          "rule": "generic"
+        },
+        {
+          "file": "test/headingTrue.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/headingTrue.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/headingTrue.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/headingTrue.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "test/headingTrue.ts",
+          "line": 28,
+          "rule": "generic"
+        },
+        {
+          "file": "test/headingTrue.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "test/heatIndex.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/heatIndex.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/heatIndex.ts",
+          "line": 21,
+          "rule": "generic"
+        },
+        {
+          "file": "test/heatIndex.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/heatIndex.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/heatIndex.ts",
+          "line": 41,
+          "rule": "generic"
+        },
+        {
+          "file": "test/heatIndex.ts",
+          "line": 50,
+          "rule": "generic"
+        },
+        {
+          "file": "test/heatIndex.ts",
+          "line": 52,
+          "rule": "generic"
+        },
+        {
+          "file": "test/heatIndex.ts",
+          "line": 58,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 29,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 33,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 44,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 55,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 56,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 82,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 119,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 122,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 130,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 133,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 139,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 142,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 147,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 148,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 169,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 189,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 210,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 226,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 251,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 271,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 286,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 304,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 319,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 341,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 351,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 360,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 373,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 411,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 424,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-index.ts",
+          "line": 426,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 18,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 60,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 61,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 65,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 78,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-loader.ts",
+          "line": 83,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 52,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 55,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 62,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 68,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 75,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 78,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 89,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 97,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 116,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 119,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 134,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 135,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 137,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 148,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 151,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 163,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 175,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 178,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 194,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 209,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 239,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 257,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 275,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 278,
+          "rule": "generic"
+        },
+        {
+          "file": "test/integration/plugin-start.ts",
+          "line": 300,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leeway.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leeway.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leeway.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leeway.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leeway.ts",
+          "line": 33,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leewayAngle.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leewayAngle.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leewayAngle.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leewayAngle.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leewayAngle.ts",
+          "line": 32,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leewayAngle.ts",
+          "line": 40,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leewayAngle.ts",
+          "line": 47,
+          "rule": "generic"
+        },
+        {
+          "file": "test/leewayAngle.ts",
+          "line": 55,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 32,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 33,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 40,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 42,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 49,
+          "rule": "generic"
+        },
+        {
+          "file": "test/magneticVariation.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 70,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 96,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 97,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 98,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 99,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 100,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 103,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 117,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 118,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 120,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 164,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 165,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 166,
+          "rule": "generic"
+        },
+        {
+          "file": "test/moon.ts",
+          "line": 167,
+          "rule": "generic"
+        },
+        {
+          "file": "test/propslip.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/propslip.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/propslip.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "test/propslip.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/propslip.ts",
+          "line": 48,
+          "rule": "generic"
+        },
+        {
+          "file": "test/propslip.ts",
+          "line": 61,
+          "rule": "generic"
+        },
+        {
+          "file": "test/propState.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/propState.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/propState.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/setDrift.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/setDrift.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/setDrift.ts",
+          "line": 21,
+          "rule": "generic"
+        },
+        {
+          "file": "test/setDrift.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "test/setDrift.ts",
+          "line": 47,
+          "rule": "generic"
+        },
+        {
+          "file": "test/setDrift.ts",
+          "line": 49,
+          "rule": "generic"
+        },
+        {
+          "file": "test/setDrift.ts",
+          "line": 53,
+          "rule": "generic"
+        },
+        {
+          "file": "test/setDrift.ts",
+          "line": 58,
+          "rule": "generic"
+        },
+        {
+          "file": "test/setDrift.ts",
+          "line": 62,
+          "rule": "generic"
+        },
+        {
+          "file": "test/steer_error.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/steer_error.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/steer_error.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/steer_error.ts",
+          "line": 29,
+          "rule": "generic"
+        },
+        {
+          "file": "test/steer_error.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "test/steer_error.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/steer_error.ts",
+          "line": 56,
+          "rule": "generic"
+        },
+        {
+          "file": "test/suncalc.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/suncalc.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/suncalc.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/suncalc.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "test/suntime.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/suntime.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/suntime.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/suntime.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/suntime.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 44,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 55,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 64,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 73,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 83,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 98,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 111,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 121,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume.ts",
+          "line": 131,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume2.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume2.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume2.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/tankVolume2.ts",
+          "line": 19,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 32,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 38,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 40,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 46,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 56,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 61,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 67,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 72,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 77,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 82,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 87,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 92,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 97,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 102,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 108,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 113,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 118,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 123,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 130,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 133,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 135,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 149,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 162,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 171,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 178,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 184,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 190,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 200,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 201,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 202,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 203,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 204,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 206,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 215,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 216,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 218,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 223,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 224,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 225,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 226,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 232,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test.ts",
+          "line": 239,
+          "rule": "generic"
+        },
+        {
+          "file": "test/transducerToKeel.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/transducerToKeel.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/transducerToKeel.ts",
+          "line": 21,
+          "rule": "generic"
+        },
+        {
+          "file": "test/transducerToKeel.ts",
+          "line": 32,
+          "rule": "generic"
+        },
+        {
+          "file": "test/transducerToKeel.ts",
+          "line": 41,
+          "rule": "generic"
+        },
+        {
+          "file": "test/transducerToKeel.ts",
+          "line": 46,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 18,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 19,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 39,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 52,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 58,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 64,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 68,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 72,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 78,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 83,
+          "rule": "generic"
+        },
+        {
+          "file": "test/utils.ts",
+          "line": 88,
+          "rule": "generic"
+        },
+        {
+          "file": "test/vmg_wind_stw.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/vmg_wind_stw.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/vmg_wind_stw.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/vmg_wind_stw.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "test/vmg_wind.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/vmg_wind.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/vmg_wind.ts",
+          "line": 17,
+          "rule": "generic"
+        },
+        {
+          "file": "test/vmg_wind.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windChill.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windChill.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windChill.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windChill.ts",
+          "line": 18,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windChill.ts",
+          "line": 24,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windChill.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windChill.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windChill.ts",
+          "line": 43,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windDirection.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windDirection.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windDirection.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windDirection.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windGround.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windGround.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windGround.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windGround.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windGround.ts",
+          "line": 38,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windGround.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windGround.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 41,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 47,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 56,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 68,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 81,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 91,
+          "rule": "generic"
+        },
+        {
+          "file": "test/windShift.ts",
+          "line": 98,
+          "rule": "generic"
+        },
+        {
+          "file": "tsconfig.json",
+          "line": 1,
+          "rule": "changed-defaults",
+          "note": "types [\"node\", \"mocha\"] (and ignoreDeprecations) inserted into the unchanged root object"
+        },
+        {
+          "file": "tsconfig.json",
+          "line": 5,
+          "rule": "module-resolution-node10"
+        }
+      ]
+    },
+    {
+      "repo": "shogo82148/typescript-action",
+      "commit": "0f03405c7267fafaebee5d57e773c1bb56e28b44",
+      "migration": "https://github.com/shogo82148/typescript-action/pull/487",
+      "from": "5.9.3",
+      "to": "6.0.3",
+      "why": "rootDir default: outDir ./dist from include [\"src\"] fails with TS5011, rootDir \"./src\" added; types [] default: setTimeout unresolved, types added in tsconfig.json and tsconfig.eslint.json",
+      "findings": [
+        {
+          "file": "src/wait.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "tsconfig.eslint.json",
+          "line": 6,
+          "rule": "changed-defaults",
+          "note": "types [\"jest\", \"node\"] added after this line"
+        },
+        {
+          "file": "tsconfig.json",
+          "line": 7,
+          "rule": "root-dir",
+          "note": "rootDir \"./src\" and types [\"node\"] added after outDir"
+        }
+      ]
+    },
+    {
+      "repo": "Borewit/music-metadata",
+      "commit": "783509b27bac24e244dd75e66c9b4a0828c35a96",
+      "migration": "https://github.com/Borewit/music-metadata/pull/2661",
+      "from": "5.9.3",
+      "to": "6.0.3",
+      "why": "baseUrl removed from the root tsconfig the lib/, test/ and doc-gen/ configs extend; strict and types defaults: the upgrade pinned strict false and listed node and mocha types, and still tightened 16 test files; the compiler reports mocha globals, node builtins and strict-mode errors across test/",
+      "findings": [
+        {
+          "file": "doc-gen/gen.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "doc-gen/gen.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "doc-gen/gen.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "doc-gen/MarkDown.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "doc-gen/tsconfig.json",
+          "line": 2,
+          "rule": "changed-defaults",
+          "note": "compilerOptions.types [\"node\"] added next to extends"
+        },
+        {
+          "file": "lib/common/MetadataCollector.ts",
+          "line": 211,
+          "rule": "generic"
+        },
+        {
+          "file": "lib/core.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "lib/index.ts",
+          "line": 5,
+          "rule": "generic"
+        },
+        {
+          "file": "lib/tsconfig.json",
+          "line": 1,
+          "rule": "changed-defaults",
+          "note": "types [\"node\"] inserted into the unchanged root object"
+        },
+        {
+          "file": "test/metadata-parsers.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "test/metadata-parsers.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-async.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-async.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-async.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 17,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 38,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 47,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 57,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 59,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 72,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 85,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 87,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 101,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 118,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-comment-mapping.ts",
+          "line": 128,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 43,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 56,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 70,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 86,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 97,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 105,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 107,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 113,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-common.ts",
+          "line": 129,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-concurrent-picture.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-concurrent-picture.ts",
+          "line": 4,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-concurrent-picture.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-concurrent-picture.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 29,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 40,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 53,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 103,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 120,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 141,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 146,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 168,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 170,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-discogs.ts",
+          "line": 227,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-dsdiff.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-dsdiff.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-dsdiff.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 16,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 39,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 42,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 43,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 57,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aac.ts",
+          "line": 58,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 29,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 32,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 41,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 44,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 47,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 53,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 66,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 68,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 71,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 72,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 78,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 81,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 82,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 88,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 91,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 92,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 98,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 101,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 102,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 108,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 111,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 112,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 118,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 121,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 122,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 131,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-aiff.ts",
+          "line": 146,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 31,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 46,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 57,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 59,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ape.ts",
+          "line": 71,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 17,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 87,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 89,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 92,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 98,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 116,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 119,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 120,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 131,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 134,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 136,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 149,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 157,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 158,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-asf.ts",
+          "line": 164,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-dsf.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-dsf.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-dsf.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 35,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 39,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 47,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 59,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 62,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 63,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 72,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 80,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 85,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 86,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 93,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 98,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 99,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 100,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 106,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 108,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 117,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 118,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 133,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 157,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 166,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 179,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 189,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 198,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 199,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 220,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 230,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 281,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-flac.ts",
+          "line": 296,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 29,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 38,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 63,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 67,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 72,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 74,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 83,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 96,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 105,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 117,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 137,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 146,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 157,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 165,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 169,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 177,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 181,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 188,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 197,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 203,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-matroska.ts",
+          "line": 210,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 64,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 89,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 119,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 124,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 127,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 144,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 145,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 153,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 164,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 181,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 199,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 215,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 218,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 226,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 232,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 238,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 247,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 253,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 255,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 259,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 262,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 263,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 269,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 271,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 274,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 275,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 276,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 286,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 288,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 297,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 317,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 334,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 336,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 345,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 347,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 356,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 363,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 375,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 377,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp3.ts",
+          "line": 388,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 23,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 26,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 41,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 48,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 69,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 74,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 78,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 91,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 94,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 98,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 121,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 124,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 128,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 150,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 152,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 155,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 159,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 180,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 185,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 192,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 297,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 309,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 321,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 323,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 326,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 330,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 355,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 358,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 368,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 371,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 375,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 385,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 388,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 392,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 411,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 414,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 417,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 438,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 463,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 467,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 468,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 478,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 486,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 492,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 493,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 500,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 511,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 518,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 529,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 536,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 549,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 558,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 563,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 570,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 573,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 576,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 585,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 589,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 601,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 608,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 638,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 649,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 665,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 669,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 688,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 707,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 716,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 821,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 832,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 844,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 855,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mp4.ts",
+          "line": 865,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 56,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 63,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 77,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 79,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 89,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 93,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 101,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 151,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 156,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 160,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 167,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 204,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 206,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 226,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 245,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 247,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 258,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 267,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 279,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 281,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 297,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 304,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 307,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 314,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 317,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 332,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 334,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 340,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 341,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 348,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 357,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-mpeg.ts",
+          "line": 362,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 18,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 43,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 53,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 58,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 72,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 77,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 79,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 85,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-musepack.ts",
+          "line": 86,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 22,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 39,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 41,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 53,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 61,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 69,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 77,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 85,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 94,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 96,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 100,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 111,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 112,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 120,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 148,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 171,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 191,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 192,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 193,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 198,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 200,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 207,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 211,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 218,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 220,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 222,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 226,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 231,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 235,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 238,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 247,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 248,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 258,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 260,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 264,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 273,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 274,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 281,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 286,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 287,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 301,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 303,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 311,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 316,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 318,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 333,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 343,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 345,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 355,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 358,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 368,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 376,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 378,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-ogg.ts",
+          "line": 390,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 55,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 64,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 113,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 126,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 129,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 169,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 171,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 184,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 188,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 200,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 212,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 224,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 239,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 253,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 266,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 276,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 280,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 289,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 293,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wav.ts",
+          "line": 310,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 16,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 38,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 40,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 52,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 53,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 59,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 61,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 68,
+          "rule": "generic",
+          "note": "tightened by the upgrade (non-null assertion or annotation); no diagnostic at the pinned commit"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 74,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-file-wavpack.ts",
+          "line": 75,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-http.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-http.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-http.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-http.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-http.ts",
+          "line": 19,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-http.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-http.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 42,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 43,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 50,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 55,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 61,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 77,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 78,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 84,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 115,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 116,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 127,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 132,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v1.1.ts",
+          "line": 133,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-duration-allframes.ts",
+          "line": 5,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-duration-allframes.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-duration-allframes.ts",
+          "line": 28,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-duration-allframes.ts",
+          "line": 39,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-lyrics.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-lyrics.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-unknownframe.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-unknownframe.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-unknownframe.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 18,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 19,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 40,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 46,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 63,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-utf16encoded.ts",
+          "line": 66,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-xheader.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-xheader.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2-xheader.ts",
+          "line": 17,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 20,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 65,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 78,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 79,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 125,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 134,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 135,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 138,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 140,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 154,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 170,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 172,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.2.ts",
+          "line": 193,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 39,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 105,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 107,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 144,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 158,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 210,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 223,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 257,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 260,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 270,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 273,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 280,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 283,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 292,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 309,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 316,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 349,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 406,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 410,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 470,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 489,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 495,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 497,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 502,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 514,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 516,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 533,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.3.ts",
+          "line": 553,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4-musicbrainz.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4-musicbrainz.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4-musicbrainz.ts",
+          "line": 27,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4-musicbrainz.ts",
+          "line": 28,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 43,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 71,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 82,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 93,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 103,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 106,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-id3v2.4.ts",
+          "line": 115,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-invalid-file.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-invalid-file.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-invalid-file.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-invalid-file.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-merge-tag-headers.ts",
+          "line": 1,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-merge-tag-headers.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-merge-tag-headers.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-merge-tag-headers.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-merge-tag-headers.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-merge-tag-headers.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-merge-tag-headers.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 4,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 11,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 32,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 52,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 66,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 70,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 79,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 81,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 88,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 95,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 101,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 110,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 122,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 126,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 130,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 135,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 139,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 143,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 147,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 151,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 155,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 159,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 163,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 167,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 171,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 175,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 179,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 183,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 187,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-mime.ts",
+          "line": 193,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-musicbrainz-picard-vorbis.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-musicbrainz-picard-vorbis.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-musicbrainz-picard-vorbis.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-musicbrainz-picard-vorbis.ts",
+          "line": 19,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-musicbrainz-picard-vorbis.ts",
+          "line": 56,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-no-metadata.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-no-metadata.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-no-metadata.ts",
+          "line": 17,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-nonasciichars.ts",
+          "line": 5,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-nonasciichars.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 7,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 15,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 17,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 19,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 29,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 39,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 53,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 62,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 71,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 82,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 84,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 93,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 102,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 115,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 117,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 126,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 135,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 146,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 148,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 157,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-options.ts",
+          "line": 166,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-mappings.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-mappings.ts",
+          "line": 19,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-mappings.ts",
+          "line": 93,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-mappings.ts",
+          "line": 102,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-mappings.ts",
+          "line": 128,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-mappings.ts",
+          "line": 137,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-mappings.ts",
+          "line": 187,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 4,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 108,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 109,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 110,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 113,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 114,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 115,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 129,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 133,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 182,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 186,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 205,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 222,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 277,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 281,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 299,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 303,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 323,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 374,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 378,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 405,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 432,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 497,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 524,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 553,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 568,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 608,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-picard-parsing.ts",
+          "line": 616,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 25,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 46,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 56,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 58,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 68,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 70,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 80,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 82,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 91,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 101,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 103,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 112,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 122,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 124,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 133,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 143,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 145,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 154,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 164,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 166,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 175,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 185,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 187,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 196,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 206,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 208,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 217,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 227,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 229,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 239,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 249,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 251,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 260,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 270,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 272,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 281,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 291,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 293,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 302,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 312,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 314,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 323,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 333,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 335,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 344,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 354,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 356,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 365,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 375,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 377,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 392,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 402,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 404,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 413,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 424,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 426,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 436,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 438,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 448,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-pr-544.ts",
+          "line": 450,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 5,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 21,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 46,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 55,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 63,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 64,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 72,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-radio-streams.ts",
+          "line": 73,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 41,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 47,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 54,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 56,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-regress-GH-56.ts",
+          "line": 60,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replay-gain.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replay-gain.ts",
+          "line": 184,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replay-gain.ts",
+          "line": 189,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replay-gain.ts",
+          "line": 202,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replay-gain.ts",
+          "line": 203,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replay-gain.ts",
+          "line": 210,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replay-gain.ts",
+          "line": 211,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replaygain.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replaygain.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replaygain.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replaygain.ts",
+          "line": 17,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replaygain.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-replaygain.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 18,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 48,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 50,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 89,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 242,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-trackinfo.ts",
+          "line": 244,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-ufid.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-ufid.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-unknownencoding.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-unknownencoding.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-unknownencoding.ts",
+          "line": 22,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-unknownencoding.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-unknownencoding.ts",
+          "line": 24,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-utf16bom-encoding.ts",
+          "line": 2,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-utf16bom-encoding.ts",
+          "line": 9,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 10,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 21,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 31,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 36,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 43,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 44,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 70,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 72,
+          "rule": "generic"
+        },
+        {
+          "file": "test/test-util.ts",
+          "line": 80,
+          "rule": "generic"
+        },
+        {
+          "file": "test/util.ts",
+          "line": 3,
+          "rule": "generic"
+        },
+        {
+          "file": "test/util.ts",
+          "line": 4,
+          "rule": "generic"
+        },
+        {
+          "file": "test/util.ts",
+          "line": 5,
+          "rule": "generic"
+        },
+        {
+          "file": "test/util.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "test/util.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "test/util.ts",
+          "line": 25,
+          "rule": "generic"
+        },
+        {
+          "file": "test/util.ts",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "tsconfig.json",
+          "line": 7,
+          "rule": "base-url",
+          "note": "types [\"node\", \"mocha\"] and strict false added in the same change"
+        }
+      ]
+    }
+  ]
+}

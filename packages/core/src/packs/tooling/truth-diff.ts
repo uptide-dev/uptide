@@ -1,7 +1,7 @@
 import { ts } from 'ts-morph';
 
-/** The source files `packs:truth` reads a diff of. */
-export const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
+/** The source files `packs:truth` reads a diff of, tsconfig files included (the compiler's own config). */
+export const SOURCE_FILE = /\.[cm]?[jt]sx?$|(?:^|\/)tsconfig[^/]*\.json$/;
 
 /** A line of `<commit>` the upgrade changed or removed. */
 export interface ChangedLine {
@@ -78,6 +78,7 @@ const TRANSPARENT = new Set([
 ]);
 
 function scriptKind(file: string): ts.ScriptKind {
+  if (file.endsWith('.json')) return ts.ScriptKind.JSON;
   if (file.endsWith('.tsx')) return ts.ScriptKind.TSX;
   if (file.endsWith('.jsx')) return ts.ScriptKind.JSX;
   return /\.[cm]?js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;

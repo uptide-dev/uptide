@@ -1,9 +1,10 @@
-export { unresolvedConfig } from './adapters/typescript/compiler.js';
+export { consumerCompilerDir, unresolvedConfig } from './adapters/typescript/compiler.js';
 export {
   createTypescriptAdapter,
   type TypescriptAdapterOptions,
   typescriptAdapter,
 } from './adapters/typescript/index.js';
+export { projectScope } from './adapters/typescript/project-scope.js';
 export { createFsSurfaceCache } from './cache/fs-surface-cache.js';
 export { defaultCacheDir } from './cache/paths.js';
 export { requireFindUsages } from './check/capabilities.js';

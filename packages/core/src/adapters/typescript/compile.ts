@@ -21,10 +21,16 @@ import type {
 import { satisfies } from '../../fetch/range.js';
 import { onReset } from '../../shared-state.js';
 import { augmentationCause, findCause, parameterCause } from './cause.js';
-import { type Compiler, repositoryCompiler, unresolvedConfig } from './compiler.js';
+import {
+  type Compiler,
+  consumerCompilerDir,
+  loadCompiler,
+  repositoryCompiler,
+  unresolvedConfig,
+} from './compiler.js';
 import { jsxNamespaceCause } from './config-cause.js';
 import { type CompileProject, projectScope } from './project-scope.js';
-import { type LoadedRepo, loadedRepo, loadRepo, ownsFile } from './repo.js';
+import { inheritedTsconfigOf, type LoadedRepo, loadedRepo, loadRepo, ownsFile } from './repo.js';
 import {
   consumerCopySatisfies,
   type DependencyLinks,
@@ -787,6 +793,9 @@ export async function compileAgainstTargets(
   targets: Target[],
   options: CompileOptions = {},
 ): Promise<CompileSignal> {
+  // The compiler itself is the upgrade: both sides compile whole projects (compileCompilerUpgrade).
+  const compilerTarget = targets.find((t) => t.name === 'typescript');
+  if (compilerTarget) return compileCompilerUpgrade(repoRef, compilerTarget);
   const dir = realpathSync(repoRef.dir);
   const scope = projectScope({ ...repoRef, dir });
   if (scope.projects.length === 0) {
@@ -1128,4 +1137,127 @@ async function compileProject(
   } finally {
     rmSync(overlay, { recursive: true, force: true });
   }
+}
+
+/**
+ * The compiler is the upgrade (`typescript` 5 to 6): no overlay can swap it in, since it judges
+ * every file, not the ones importing it. Each side compiles the workspace's projects whole: the installed side with the repository's own TypeScript, the
+ * target side with the target's, loaded from the copy `check` fetched (the release `fix`
+ * installs). Never the bundled compiler: one the repository neither has nor will have reports
+ * errors nobody sees. A target without a JavaScript API (TypeScript 7) is not compiled, and
+ * the report says so. Diagnostics on the tsconfig files themselves (TS5101, TS5107) are left to
+ * the pack, which reports each where the option is set, in the file that sets it.
+ */
+function compileCompilerUpgrade(repoRef: RepoDir, target: Target): CompileSignal {
+  const dir = realpathSync(repoRef.dir);
+  const skip = (skipped: string, compilers: CompileCoverage['compilers'] = []): CompileSignal => ({
+    diagnostics: [],
+    baselineErrors: 0,
+    skipped,
+    coverage: { compiled: 0, total: 0, skipped: [{ reason: skipped, count: 0 }], compilers },
+    unresolvedInTarget: [],
+    unresolvedFiles: [],
+    linkedDependencies: [],
+    unsatisfiedDependencies: [],
+    timing: { baselineMs: 0, overlayMs: 0, dependenciesMs: 0 },
+  });
+  const installedDir = consumerCompilerDir(dir);
+  if (installedDir === undefined)
+    return skip('not compiled: the repository installs no TypeScript to compare the target with');
+  const before = loadCompiler(installedDir);
+  let after: typeof ts;
+  try {
+    after = loadCompiler(target.dir);
+  } catch {
+    return skip(`not compiled: typescript at ${target.dir} cannot be loaded`);
+  }
+  const compilers = [
+    { version: before.version, own: true },
+    { version: after.version ?? '?', own: true },
+  ];
+  if (typeof after.createProgram !== 'function')
+    return skip(
+      `not compiled: typescript ${after.version ?? 'target'} has no JavaScript compiler API, so its diagnostics cannot be computed; tsconfig findings still come from the pack`,
+      compilers,
+    );
+  // The workspace's projects as the TypeScript project scope finds them (project-scope.ts: every
+  // tsconfig*.json, their references, configs only extended left out): those inside this
+  // workspace, or the one it inherits. A project whose `extends` is not installed is not built.
+  const scope = projectScope({ ...repoRef, dir });
+  const inherited = existsSync(join(dir, 'tsconfig.json')) ? undefined : inheritedTsconfigOf(dir);
+  const configs = scope.projects
+    .map((p) => p.config)
+    .filter(
+      (config) =>
+        (config.startsWith(`${dir}/`) || config === inherited) &&
+        !(repoRef.exclude ?? []).some((x) => config.startsWith(`${x}/`)) &&
+        unresolvedConfig(before, config) === undefined,
+    );
+  if (configs.length === 0) return skip('not compiled: no tsconfig.json', compilers);
+
+  /** The programs of the workspace's projects, built by one compiler. */
+  const programs = (tsc: typeof ts): ts.Program[] =>
+    configs.flatMap((config) => {
+      const parsed = tsc.getParsedCommandLineOfConfigFile(
+        config,
+        {},
+        { ...tsc.sys, onUnRecoverableConfigFileDiagnostic: () => {} },
+      );
+      if (!parsed || parsed.fileNames.length === 0) return [];
+      return [
+        tsc.createProgram({
+          rootNames: parsed.fileNames,
+          options: { ...parsed.options, noEmit: true, skipLibCheck: true },
+          ...(parsed.projectReferences ? { projectReferences: parsed.projectReferences } : {}),
+        }),
+      ];
+    });
+  // The project scope applies to compiler diagnostics as it does for any package: a file no
+  // project covers is never a site. Pack findings (the tsconfig files themselves) are not these.
+  const own = (f: ts.SourceFile): boolean =>
+    !f.isDeclarationFile &&
+    !f.fileName.includes('/node_modules/') &&
+    f.fileName.startsWith(`${dir}/`) &&
+    ownsFile(repoRef, f.fileName) &&
+    scope.covers(f.fileName);
+  const errorsOf = (program: ts.Program, file: ts.SourceFile): ts.Diagnostic[] =>
+    [...program.getSyntacticDiagnostics(file), ...program.getSemanticDiagnostics(file)].filter(
+      (d) => isRepoError(d, dir),
+    );
+
+  const t0 = Date.now();
+  const baseline: ts.Diagnostic[] = [];
+  for (const program of programs(before))
+    for (const file of program.getSourceFiles().filter(own))
+      baseline.push(...errorsOf(program, file));
+  const baselineMs = Date.now() - t0;
+  const known = new Set(baseline.map((d) => keyOf(d, dir)));
+  const knownPlaces = new Set(baseline.map((d) => placeOf(d, dir)));
+  const t1 = Date.now();
+  const fresh = new Map<string, CompileDiagnostic>();
+  const compiled = new Set<string>();
+  for (const program of programs(after))
+    for (const file of program.getSourceFiles().filter(own)) {
+      compiled.add(file.fileName);
+      for (const d of errorsOf(program, file)) {
+        if (known.has(keyOf(d, dir)) || knownPlaces.has(placeOf(d, dir))) continue;
+        const diagnostic = toDiagnostic(d, file, dir);
+        fresh.set(
+          `${diagnostic.file}:${diagnostic.line}:${diagnostic.column}:${d.code}`,
+          diagnostic,
+        );
+      }
+    }
+  return {
+    diagnostics: [...fresh.values()].sort(
+      (a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column,
+    ),
+    baselineErrors: baseline.length,
+    coverage: { compiled: compiled.size, total: compiled.size, skipped: [], compilers },
+    unresolvedInTarget: [],
+    unresolvedFiles: [],
+    linkedDependencies: [],
+    unsatisfiedDependencies: [],
+    timing: { baselineMs, overlayMs: Date.now() - t1, dependenciesMs: 0 },
+  };
 }

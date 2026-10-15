@@ -135,7 +135,12 @@ site is reported is part of the contract (`reported`):
 
 - `finding`: `check` lists the site as the pack's own finding (evidence `pack`), found by
   the note's `detect`; `fix` never edits it unasked. Example: a Stripe client created
-  without `apiVersion`, whose API version the SDK bump changes at runtime.
+  without `apiVersion`, whose API version the SDK bump changes at runtime. A pack may
+  instead create the note's findings with `foldFindings`, which runs once the pack's
+  findings are claimed and folds compiler errors that one edit elsewhere resolves into a
+  finding at that edit, as their evidence. The typescript pack folds the "Cannot find
+  name" errors of the 6.0 `types: []` default into one at the tsconfig that leaves
+  `types` unset.
 - `decision`: the pull request lists it under "Decisions for you", with the files and lines.
 - `test-follow-up`: an assertion is updated only after the migrated code made that test
   fail, and the test then has to pass (zod's reworded default messages).
@@ -185,17 +190,21 @@ repository upgraded to.
 
 Where the expected findings come from: two sources that are not Uptide.
 
-1. **The compiler.** The repository's own TypeScript, run on every `tsconfig.json`, with the
-   target version linked where the package is installed and without it. Every diagnostic
+1. **The compiler.** The repository's own TypeScript, run on every project `check` compiles
+   (the TypeScript project scope: each `tsconfig*.json` and its references, configs that are
+   only extended left out), with the target version linked where the package is installed
+   and without it. Every diagnostic
    new at the target is a site: errors, and deprecations (6385, 6387, what an editor strikes
    through). A repository on TypeScript 7, which has no JavaScript API, is compiled with the
    TypeScript of this checkout, and the draft says so. The target is linked with its own
    dependencies at the versions it declares, as an install would leave it, and
    `--also <package>@<version>` links the companions the upgrade commit moved with it (the
    versions in its lockfile): `ai` 7 next to `@ai-sdk/react` 3 is a mix no repository ships,
-   and its errors are not the upgrade's.
+   and its errors are not the upgrade's. The tsconfig's own errors (a deprecated option,
+   TS5101) are listed too, where the compiler points: for an option an extended config sets,
+   that is the extending config, and the site is where the option is set.
 2. **The upgrade commit.** The lines it changed or removed (`git diff -U0 <commit> <upgrade>`,
-   the old side). One site per change: consecutive changed lines of the same change are one
+   the old side), in source files and `tsconfig*.json`. One site per change: consecutive changed lines of the same change are one
    site, at the first line of code (a line that is plainly another rule's starts a new
    one); a run with a diagnostic inside it, or right after a diagnostic of the same rule, is
    that diagnostic's site. Comment-only lines and changes for another package are not sites.
@@ -411,6 +420,17 @@ A missing, failed, or timed-out build blocks publication; its result appears in 
 PR's **Verified by** row. Reverification reruns the required build. Existing packs
 without this declaration retain their current behavior. Next 16 requires this gate
 because custom webpack configuration can fail with the default Turbopack build.
+
+### When the package is the compiler
+
+`typescript` is the one package no overlay can swap: it judges every file, not the ones that
+import it. For it, `check` compiles each of the workspace's projects (the TypeScript project
+scope: every `tsconfig*.json` and its references) twice: with the repository's installed
+TypeScript, and with the target's, loaded from the copy `check` fetched. A diagnostic new at the
+target is a finding. The bundled compiler never stands in for either; a target with no
+JavaScript API (TypeScript 7) is not compiled, and the report says so. Diagnostics on tsconfig
+files are the pack's own findings, from its inventory, in the file that sets the option. The
+typescript pack's RESEARCH.md has the details.
 
 ### Release groups
 

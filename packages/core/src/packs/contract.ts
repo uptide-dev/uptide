@@ -429,6 +429,7 @@ export interface PackSpec {
   requiresBuild?: boolean;
   releaseGroup?: readonly PackCompanion[];
   alternateLeads?: readonly PackCompanion[];
+  foldFindings?: MigrationPack['foldFindings'];
 }
 
 /**
@@ -449,6 +450,7 @@ export function definePack(spec: PackSpec): Pack {
     ...(spec.requiresBuild ? { requiresBuild: true } : {}),
     ...(spec.releaseGroup ? { releaseGroup: spec.releaseGroup } : {}),
     ...(spec.alternateLeads ? { alternateLeads: spec.alternateLeads } : {}),
+    ...(spec.foldFindings ? { foldFindings: spec.foldFindings } : {}),
     defaultTarget: spec.defaultTarget ?? '',
     supports: (from, to) => satisfies(from, spec.meta.from) && satisfies(to, spec.meta.to),
     transform(text, finding, context) {
@@ -486,10 +488,10 @@ export function definePack(spec: PackSpec): Pack {
   return pack;
 }
 
-/** Notes found by `detect`: their findings carry the note's id, as rules' do. */
+/** Notes reported as findings (by `detect`, or by `foldFindings`): their findings carry the note's id, as rules' do. */
 function detectingNotes(behavior: readonly BehaviorNote[]): MigrationRule[] {
   return behavior
-    .filter((b) => b.detect && b.reported.includes('finding'))
+    .filter((b) => b.reported.includes('finding'))
     .map((b) => ({ id: b.id, kinds: [], symbols: /$^/, guide: b.summary }));
 }
 
