@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import type { ProgressEvent } from '../domain/progress.js';
+import { stripePack } from '../packs/stripe/index.js';
+import { apiClients } from '../packs/stripe/relevance.js';
 import { zodPack } from '../packs/zod/index.js';
 import { published, version } from '../version.js';
 import { git } from './process.js';
@@ -1353,3 +1355,33 @@ it('carries pre-edit inventory decisions through fix, PR rendering and reverify'
   const refreshed = await reverify({ cwd: root, pack }, services);
   expect(refreshed.decisions).toEqual(result.decisions);
 }, 15000);
+
+it('says the headline only while the tree still shows it: re-verify drops it once the pins agree', async () => {
+  const { root, services } = fixture();
+  const pin = (version: string) =>
+    `import Stripe from 'stripe';\nexport const s = new Stripe('k', { apiVersion: '${version}' });\n`;
+  writeFileSync(join(root, 'app.js'), pin('2026-09-30.endive'));
+  writeFileSync(join(root, 'sync.js'), pin('2022-11-15'));
+  git(root, 'add', '.');
+  git(root, 'commit', '-q', '-m', 'two clients');
+  const apiVersions = { from: '2025-02-24.acacia', to: '2026-09-30.endive' };
+  const pack = {
+    ...zodPack,
+    scanContext: (dir: string, workspaces: string[]) => ({
+      apiClients: apiClients(dir, workspaces),
+    }),
+    headline: (context: import('../packs/types.js').PackContext) =>
+      stripePack.headline?.({ ...context, apiVersions }),
+  };
+  const result = await fix({ cwd: root, only: 'zod', pack }, services);
+  expect(result.headline?.line).toContain('2 clients on different API versions');
+  expect(readFileSync(result.prBody, 'utf8')).toContain('> **Decision for you:** 2 clients');
+  // The owner aligns the script in a later commit; the stored run still has the old line.
+  writeFileSync(join(root, 'sync.js'), pin('2026-09-30.endive'));
+  git(root, 'commit', '-q', '-am', 'align the sync script');
+  const refreshed = await reverify({ cwd: root, pack }, services);
+  expect(refreshed.headline).toBeUndefined();
+  const body = readFileSync(refreshed.prBody, 'utf8');
+  expect(body).not.toContain('Decision for you');
+  expect(body).not.toContain('different API versions');
+}, 20000);

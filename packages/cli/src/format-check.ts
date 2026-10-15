@@ -501,6 +501,8 @@ export function formatCheck(report: CheckReport, opts: FormatCheckOptions = {}):
   const rows = checkRows(report, colors);
   for (const p of report.packages)
     if (p.packWarning) lines.push(colors.yellow(`${p.name}: ${p.packWarning}`), '');
+  for (const p of report.packages)
+    if (p.headline) lines.push(colors.yellow(`${p.name}: ${p.headline}`), '');
   if (opts.details) {
     lines.push(formatCheckDetails(report, { color: opts.color, all: opts.all }).trimEnd(), '');
   } else {

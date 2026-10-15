@@ -515,11 +515,18 @@ function planPackages(packages: PackageReport[], opts: CheckOptions): void {
   for (const p of packages) {
     if (!['breaking', 'deprecated'].includes(p.status) && p.findings.length === 0) continue;
     const pack = packsOf(opts).find((candidate) => candidate.name === p.name);
+    const context = p.planContext && {
+      from: p.installed,
+      to: p.target,
+      includeDeprecated: false,
+      ...p.planContext,
+    };
+    const headline = context && pack?.headline?.(context);
+    if (headline) p.headline = headline.line;
     const plan = planPackage(p, pack, read, p.planContext ?? {});
     if (plan.length === 0) continue;
     p.plan = plan;
-    if (!p.planContext) continue;
-    const context = { from: p.installed, to: p.target, includeDeprecated: false, ...p.planContext };
+    if (!context) continue;
     // A pack's own finding is worded once every workspace's evidence is in: the client created
     // in one package speaks for the fields another reads.
     if (pack?.describeFinding)
@@ -730,6 +737,12 @@ export function mergeAcrossWorkspaces(
       combined.planContext = {
         ...contexts[0],
         evidence: contexts.flatMap((c) => c.evidence ?? []),
+        // A workspace walk covers its nested ones: one client, one entry.
+        apiClients: [
+          ...new Map(
+            contexts.flatMap((c) => c.apiClients ?? []).map((c) => [`${c.file}:${c.line}`, c]),
+          ).values(),
+        ],
       };
     }
     const compiled = list.filter((p) => p.compile !== undefined);

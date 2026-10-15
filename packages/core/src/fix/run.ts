@@ -824,6 +824,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const rules = [...new Set(sites.map((s) => s.rule).filter((r): r is string => !!r))];
   result.packContext = packContext;
   refreshReview(result, pack);
+  // A pack that says something first reads the branch as the edits left it, not the base.
+  const settled = pack.headline
+    ? { ...packContext, ...pack.scanContext?.(root, workspaces) }
+    : packContext;
+  const headline = pack.headline?.(settled);
+  if (headline) result.headline = headline;
   const decisions = packDecisions(pack, packContext, rules, followed);
   if (decisions?.length) result.decisions = decisions;
   const remote = originOf(root);

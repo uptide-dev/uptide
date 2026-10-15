@@ -1,11 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
-import { Node, Project, SyntaxKind } from 'ts-morph';
+import { Node, Project, SyntaxKind, ts } from 'ts-morph';
 import { createTypescriptAdapter } from '../../adapters/typescript/index.js';
 import type { Finding } from '../../domain/report.js';
 import { type Usage, usagePaths } from '../../domain/usage.js';
 import { importSpecifier } from '../import-specifier.js';
-import type { FollowUp, MigrationEvidence, SharedHelper } from '../types.js';
+import type { FollowUp, MigrationEvidence, PackContext, SharedHelper } from '../types.js';
 import type { StripeEntry } from './changelog.js';
 
 export interface StripeTouches {
@@ -376,6 +376,113 @@ export function unpinnedClients(
     }
   }
   return found;
+}
+/** A `new Stripe(...)`, the version it pins (`null`: the SDK default) and what its file calls. */
+export type ApiClient = NonNullable<PackContext['apiClients']>[number];
+/**
+ * Every `new Stripe(...)` in the workspaces' TS and JS sources, scripts included, with the
+ * version it pins: a literal, a top-level `const` of the same file, or none (the SDK default).
+ * Options built elsewhere (a variable, a spread, an imported constant) leave the client out:
+ * its version is unknown here, and a guess would invent a divergence.
+ */
+export function apiClients(root: string, workspaces: string[]): ApiClient[] {
+  const files: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (SKIPPED.has(entry.name)) continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (SOURCE.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+        const text = readFileSync(path, 'utf8');
+        // Only a file that names the package constructs its client (under an alias too).
+        if (/\bnew\s+[\w$.]+\s*\(/.test(text) && /['"]stripe['"]/.test(text)) files.push(path);
+      }
+    }
+  };
+  for (const workspace of workspaces) {
+    // The root holds scripts of its own (`sync-stripe.js`): walked too, nested workspaces
+    // included, so a client is found once whichever workspaces the run names.
+    try {
+      walk(join(root, workspace));
+    } catch {
+      // An unreadable directory has no client to report.
+    }
+  }
+  if (files.length === 0) return [];
+  // The repository's own node_modules on disk: the checker resolves `stripe` from each file,
+  // `require` in JS included, so a receiver is a Stripe client by its type, whatever its name.
+  const project = new Project({
+    skipAddingFilesFromTsConfig: true,
+    compilerOptions: {
+      allowJs: true,
+      noEmit: true,
+      skipLibCheck: true,
+      esModuleInterop: true,
+      module: ts.ModuleKind.NodeNext,
+      moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    },
+  });
+  const sources = files.map((f) => project.addSourceFileAtPath(f));
+  const isClient = (node: Node): boolean => {
+    const symbol = node.getType().getSymbol();
+    return (
+      symbol?.getName() === 'Stripe' &&
+      symbol
+        .getDeclarations()
+        .some((d) => /[\\/]node_modules[\\/]stripe[\\/]/.test(d.getSourceFile().getFilePath()))
+    );
+  };
+  const literal = (node: Node | undefined): string | undefined =>
+    node && (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node))
+      ? node.getLiteralValue()
+      : undefined;
+  const found: ApiClient[] = [];
+  for (const source of sources) {
+    const constant = (name: string) =>
+      literal(source.getVariableDeclaration(name)?.getInitializer());
+    const clients = source
+      .getDescendantsOfKind(SyntaxKind.NewExpression)
+      .filter((n) => n.getExpression().getText() === 'Stripe' || isClient(n));
+    if (clients.length === 0) continue;
+    // Typed: every member read on a Stripe instance. Untyped (no `stripe` types reachable):
+    // ponytail: receivers named like a client; one kept under another name adds no resource,
+    // so its changelog list is the empty one, never a wrong one.
+    const paths = clients.some(isClient)
+      ? source
+          .getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)
+          .filter((p) => isClient(p.getExpression()))
+          .map((p) => p.getName())
+      : [...source.getFullText().matchAll(/\b[\w$]*[Ss]tripe[\w$]*((?:\.[a-z]\w*)+)\s*\(/g)].map(
+          (m) => m[1] as string,
+        );
+    const resources = usedResources(paths, []);
+    for (const node of clients) {
+      const options = node.getArguments()[1];
+      let version: string | null | undefined = null;
+      if (options !== undefined) {
+        if (!Node.isObjectLiteralExpression(options)) continue;
+        const pin = options.getProperty('apiVersion');
+        if (pin === undefined) {
+          if (options.getProperties().some((p) => Node.isSpreadAssignment(p))) continue;
+        } else if (Node.isShorthandPropertyAssignment(pin)) version = constant('apiVersion');
+        else if (Node.isPropertyAssignment(pin)) {
+          const value = pin.getInitializer();
+          version =
+            literal(value) ?? (Node.isIdentifier(value) ? constant(value.getText()) : undefined);
+        } else continue;
+        if (version === undefined) continue;
+      }
+      found.push({
+        file: relative(root, source.getFilePath()),
+        line: node.getStartLineNumber(),
+        version,
+        resources,
+      });
+    }
+  }
+  return [...new Map(found.map((c) => [`${c.file}:${c.line}`, c])).values()].sort(
+    (a, b) => a.file.localeCompare(b.file) || a.line - b.line,
+  );
 }
 /**
  * `api_version: "2026-07-29.dahlia"` inside payload objects: webhook fixtures and recorded
