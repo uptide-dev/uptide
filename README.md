@@ -57,6 +57,7 @@ verified with two or more public repositories and no false positive. The contrac
 | Package | Range | Precision | Recall | Ground-truth repositories | Status |
 | --- | --- | ---: | ---: | --- | --- |
 | `ai` | 6.x → 7.x | 100% | 82% | vercel/chatbot, miurla/morphic | verified |
+| `ioredis` | 5.x → 6.x | n/a | 0% | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
 | `lucide-react` | 0.x → 1.x | 100% | 100% | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
 | `next` | 15.x → 16.x | 100% | 85% | sambecker/exif-photo-blog, stoczec/wortkarte | verified |
 | `react` | 18.x → 19.x | 100% | 69% | excalidraw/excalidraw, tldraw/tldraw | verified |
