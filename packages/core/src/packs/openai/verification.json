@@ -3,8 +3,17 @@
   "truth": "sha256-ff39a7277a212ba12d5cedb40a97a79ebefd6729d2f0cbdd89bee78e1aa3f7cc",
   "repos": 7,
   "breaking": {
-    "precision": 0.4286,
+    "precision": 1,
     "recall": 0.15,
-    "falsePositives": 4
+    "falsePositives": 0,
+    "truePositives": 3,
+    "falseNegatives": 17
+  },
+  "behavior": {
+    "precision": 1,
+    "recall": 1,
+    "falsePositives": 0,
+    "truePositives": 0,
+    "falseNegatives": 0
   }
 }

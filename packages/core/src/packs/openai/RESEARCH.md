@@ -2,10 +2,12 @@
 
 Read date for every source below: **2026-10-14**. Scope: `openai` (openai-node) `>=4 <5` to
 `>=7 <8`; sources pinned at tag **v7.32.0** (7.33.0 was published the same day and is not
-read). Status: **candidate**. The pack's own rules and detectors add no false positive on
-seven public upgrades, but the gate is not met: `check` itself reports four breaking sites
-that the ground truth excludes, and leaves behind packages two of the real upgrades moved.
-Both are engine gaps (below), not rule errors. No engine change is part of this pack.
+read). Status: **candidate**. Re-scored 2026-10-15 on main after #138 (compile scope), #142
+(required moves) and #154 (verification records): breaking precision is now 100% (3 TP,
+0 FP), but the gate still fails because `check` reports two upgrades as blocked on companion
+moves that the real upgrades made (guardrails) or did not need (prompty). The pack's own rules
+and detectors add no false positive on the seven public upgrades. No engine change is part of
+this pack.
 
 ## Source ledger
 
@@ -129,26 +131,28 @@ repository on npm); uptide-test/alanagoyal (the smoke test, by instruction).
 
 ## Measured: `pnpm uptide pack test openai --write`
 
+Rebased on main `0db5640` (2026-10-15), ground truth unchanged (digest
+`sha256-ff39a727…`):
+
 | Rule / scoring group | Precision | Recall | TP | FP | FN |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | tool-call-union | 100% | 33% | 1 | 0 | 2 |
-| generic | 2% | 6% | 1 | 57 | 16 |
-| Overall sites | 5% | 15% | 3 | 56 | 17 |
-| **Breaking sites** | **42.86%** | **15%** | **3** | **4** | **17** |
+| generic | 2% | 6% | 1 | 53 | 16 |
+| Overall sites | 5% | 15% | 3 | 52 | 17 |
+| Behavior notes | n/a | n/a | 0 | 0 | 0 |
+| **Breaking sites** | **100%** | **15%** | **3** | **0** | **17** |
 
 Fixtures: 6 cases, 37 sites, pass. No other rule or note has an expected site in this truth;
-none of them predicted one either (zero false positives from the pack's own detectors across
-the seven repositories).
+none of them predicted one either. `verification.json` records **candidate**: the run itself
+does not measure verified, because two repositories are blocked on companion moves (below).
 
-False positives:
+Before #138 the same truth scored 42.86% breaking precision: `check` compiled guardrails'
+`examples/`, which no tsconfig includes, and reported four real 7.9.0 errors there that the
+tsconfig-scoped truth does not list. With the compile scope respected they are gone and
+`src/base-client.ts:368` (TS2345) is still found.
 
-- 4 breaking, guardrails `examples/basic/multiturn_with_prompt_injection_detection.ts:331,
-  413, 428, 430`: real TS2345/TS2769 errors at 7.9.0 (`ResponseOutputItem` is no longer
-  assignable to `ResponseInputItem`), reported by `check`'s generic compile of files that
-  import openai. The repository's tsconfig excludes `examples/`, so its upgrade left them, and
-  the truth (tsconfig-scoped) does not have them. They stay false positives.
-- 52 non-breaking, prompty: `check` could not compile (its workspace packages import an
-  unbuilt `@prompty/core`), so it lists type-diff sites as `unverified`.
+False positives (all non-breaking): 52 in prompty, where `check` cannot compile (its workspace
+packages import an unbuilt `@prompty/core`) and lists type-diff sites as `unverified`.
 
 False negatives, and why:
 
@@ -164,24 +168,34 @@ False negatives, and why:
 - ux-struggle-detector ×2: a request-parameter change; the pack never changes what the
   application sends.
 
+Companion moves in this run:
+
+- batch-ai: `check` now moves zod 3.24.2 → 3.25.0 because openai 7.4.0 requires
+  `zod ^3.25 || ^4.0` (#142). The real upgrade chose 4.4.3; `with` only requires the name.
+- guardrails: **blocked.** `@openai/agents` 0.1.11 depends on openai `^5.20.2`; only a new
+  major (0.15.0, which needs zod `^4.0.0`) accepts openai 7.9.0, and `check` reports a required
+  major as a blocker instead of planning it. The real upgrade made exactly that move
+  (`@openai/agents` 0.17.2, zod 4.5.4), so `with` is not met.
+- prompty: **blocked.** `@azure/ai-projects` 2.4.0 depends on openai `^6.16.0` and no release
+  accepts 7.10.0. That is a regular dependency, not a peer: the real upgrade kept it and its
+  lockfile nests openai 6.49.0 under `@azure/ai-projects`. The block is the planner's, not
+  the upgrade's.
+
 ## What the engine could not express (separate tasks)
 
-1. **Companion planning for the target's own peers and dependents.** `check/companions.ts`
-   moves packages that depend or peer on the lead, never the lead's own peers: batch-ai keeps
-   zod 3.24.2 although openai 7 peers on `zod ^3.25 || ^4.0`, so `fix` would produce an install
-   the real upgrade never had. `@openai/agents` 0.1.x (a regular dependency on openai 5) is
-   also left where guardrails moved it with openai. Both fail `with` (`leftBehind`).
-2. **Compile scope.** `check` compiles files that import the package even outside every
-   tsconfig; `packs:truth` compiles tsconfigs only. Any repository with untype-checked
-   examples turns real errors into false positives (guardrails).
+1. **Required majors and nested regular dependencies in companion planning.** Since #142 the
+   planner moves a required minor (batch-ai's zod) but reports a required major as a blocker
+   (guardrails' `@openai/agents` 0.1 → 0.15+ with zod 3 → 4), and treats a regular dependency
+   whose range rejects the target as a blocker even though the package manager nests its own
+   copy (prompty's `@azure/ai-projects`). Either the planner moves or nests these, or a
+   blocked repository needs a policy in the gate; until then this pack cannot reach verified
+   on this truth.
+2. ~~Compile scope.~~ Fixed by #138: `check` now respects TypeScript project scope.
 3. **Decision evidence from sources.** `applies()` sees only the declared inventory, so the
    pack declares source globs (`src`, `app`, `lib`, …) to find helper imports and subclasses;
    files elsewhere are missed. A hook passing the usage files would be exact.
 4. **`--no-llm` report labels.** A site of an assisted rule that was not rewritten is labelled
    with its symbol path in the PR body, not the rule (the agent's task does use the rule).
-
-With 1 and 2 resolved and the same truth, the breaking predictions left in this run are the
-three true positives; the gate would then need a rerun to say so.
 
 ## Smoke test (not ground truth)
 

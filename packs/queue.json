@@ -223,7 +223,7 @@
       "to": ">=7 <8",
       "why": "declared directly in 16 of 52 sample repositories, 16 of them on an older major; 1299 breaking API changes, 825 distinct (801 removed or renamed, 24 change shapes) from 4.104.0 to 7.30.0",
       "status": "blocked",
-      "blockedReason": "A candidate pack exists (packages/core/src/packs/openai, RESEARCH.md) with ground truth from seven public 4.x to 7.x upgrades checked 2026-10-14; its own rules add no false positive, but the gate fails on two engine gaps: check compiles importers outside every tsconfig (4 breaking false positives in openai/openai-guardrails-js examples/), and the companion planner never moves the target's own peers or dependents (zod for grantsingleton/batch-ai; @openai/agents and zod for openai-guardrails-js). Rerun pack test --write once both land.",
+      "blockedReason": "A candidate pack exists (packages/core/src/packs/openai, RESEARCH.md) with ground truth from seven public 4.x to 7.x upgrades. Re-scored 2026-10-15 after #138 and #142: breaking 3 TP / 0 FP / 17 FN, but check reports two repositories blocked on companion moves: a required new major (@openai/agents 0.1 to 0.15+ with zod 4, which openai/openai-guardrails-js made) and a regular dependency whose range rejects openai 7 (@azure/ai-projects in microsoft/prompty, which npm nests). Rerun pack test --write once the planner handles both.",
       "repos": 16,
       "reposBehind": 16,
       "weeklyDownloads": 0,
