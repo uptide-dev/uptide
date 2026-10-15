@@ -1,13 +1,13 @@
 {
   "status": "verified",
-  "truth": "sha256-2a6e9096bda80f6f68f695261c9dc03192540f69ad11015e3b5ac4a8455ee3d7",
-  "repos": 2,
+  "truth": "sha256-ecb6dfda042b1c68a95c1754479f9496a33252bbce0ab6c47a5740971345f336",
+  "repos": 4,
   "breaking": {
     "precision": 1,
-    "recall": 0.8462,
+    "recall": 0.8824,
     "falsePositives": 0,
-    "truePositives": 11,
-    "falseNegatives": 2
+    "truePositives": 30,
+    "falseNegatives": 4
   },
   "behavior": {
     "precision": 1,
@@ -17,7 +17,7 @@
     "falseNegatives": 0
   },
   "class": "breaking",
-  "breakingSites": 13,
+  "breakingSites": 34,
   "behaviorSites": 0,
-  "unexercised": ["stable-cache-exports"]
+  "unexercised": []
 }

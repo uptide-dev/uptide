@@ -60,17 +60,17 @@ The contract: [migration packs](docs/packs.md).
 | `ioredis` | 5.x → 6.x | n/a | 0% | 2 | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
 | `joi` | 17.x → 18.x | n/a | n/a | — | edtech4good/edtech-lms-api, senacor/azure-function-middleware | candidate |
 | `lucide-react` | 0.x → 1.x | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
-| `next` | 15.x → 16.x | 100% | 85% | 13 | sambecker/exif-photo-blog, stoczec/wortkarte | verified |
+| `next` | 15.x → 16.x | 100% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
 | `react` | 18.x → 19.x | 100% | 69% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6.x → 7.x | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
 | `redis` | >=4 <6 → >=5 <7 | n/a | n/a | — | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, deanmoses/tacocat-gallery-sam, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | candidate |
 | `@sentry/browser` | 10.x → 11.x | 100% | 100% | 3 | Automancer-Ltd/automancer-site, sbomify/sbomify | candidate |
 | `@sentry/nextjs` | 10.x → 11.x | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `@sentry/react` | 10.x → 11.x | 100% | 100% | 2 | owine/youth-activity-scheduler, successible/cleanslate | candidate |
-| `stripe` | 14 and newer | 100% | 90% | 16 | unkeyed/unkey, nextjs/saas-starter | verified |
+| `stripe` | 14 and newer | 100% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
 | `typescript` | 5.x → 6.x | 100% | 17% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | candidate |
 | `vitest` | 4.x → 5.x | 100% | 50% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
-| `zod` | 3.x → 4.x | 100% | 74% | 85 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript | verified |
+| `zod` | 3.x → 4.x | 100% | 64% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
 <!-- packs:end -->
 
 Any other dependency gets the same analysis without a pack, and `fix` migrates it with the

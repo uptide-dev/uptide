@@ -846,6 +846,711 @@
           "note": "compiler TS6385"
         }
       ]
+    },
+    {
+      "repo": "vzdc-artcc/website",
+      "commit": "48a93f65a0976e342d4c15145b51de8eef030214",
+      "migration": "https://github.com/vzdc-artcc/website/commit/2ce24a26504268be2095c28df2f5226783ca4199",
+      "from": "3.25.76",
+      "to": "4.6.5",
+      "why": "Next.js app whose own zod 4 upgrade rewrote 13 required_error / invalid_type_error params to error (UPT-69), ZodError.errors to issues, message to error. Left out: the 36 implicit-any diagnostics (7006) in components that map over a ZodError.errors result typed any at zod 4 (evidence of the .errors sites, which are recorded), the renames of the app's own error/errors fields around them, and an unrelated JSX change in app/page.tsx.",
+      "findings": [
+        {
+          "file": "actions/airports.ts",
+          "line": 25,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/airports.ts",
+          "line": 68,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/airports.ts",
+          "line": 112,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/airports.ts",
+          "line": 153,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/broadcast.ts",
+          "line": 98,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/certificationTypes.ts",
+          "line": 17,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/certificationTypes.ts",
+          "line": 30,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/changeLog.ts",
+          "line": 12,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/changeLog.ts",
+          "line": 22,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/discordConfig.ts",
+          "line": 22,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/discordConfig.ts",
+          "line": 66,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/discordConfig.ts",
+          "line": 107,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/discordConfig.ts",
+          "line": 148,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 77,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 98,
+          "rule": "string-format"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 112,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 114,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 115,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 117,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 118,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 123,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 126,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 129,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 141,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 162,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/event.ts",
+          "line": 165,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 8,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 77,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 81,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 97,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 190,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 196,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 251,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 260,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 263,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 321,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/eventPosition.ts",
+          "line": 326,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/eventPreset.ts",
+          "line": 86,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/feedback.ts",
+          "line": 27,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/feedback.ts",
+          "line": 41,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/files.ts",
+          "line": 25,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/files.ts",
+          "line": 111,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/incident.ts",
+          "line": 18,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/incident.ts",
+          "line": 30,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/innovation.ts",
+          "line": 38,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/lesson.ts",
+          "line": 51,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/lessonCriteriaCell.ts",
+          "line": 26,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/lessonRosterChange.ts",
+          "line": 14,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/lessonRosterChange.ts",
+          "line": 27,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/lessonRubricCriteria.ts",
+          "line": 30,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/loa.ts",
+          "line": 16,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/loa.ts",
+          "line": 17,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/loa.ts",
+          "line": 23,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/loa.ts",
+          "line": 35,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/mail/general.ts",
+          "line": 13,
+          "rule": "string-format"
+        },
+        {
+          "file": "actions/mail/general.ts",
+          "line": 25,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/mistake.ts",
+          "line": 37,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/opsPlanFiles.ts",
+          "line": 40,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/performanceIndicator.ts",
+          "line": 64,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/performanceIndicatorCategory.ts",
+          "line": 24,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/performanceIndicatorCriteria.ts",
+          "line": 24,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/role.ts",
+          "line": 30,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/role.ts",
+          "line": 73,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/solo.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/staffingRequest.ts",
+          "line": 25,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/statisticsPrefixes.ts",
+          "line": 19,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/sua.ts",
+          "line": 31,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/sua.ts",
+          "line": 32,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/sua.ts",
+          "line": 45,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/trainingAppointment.ts",
+          "line": 134,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/trainingAppointment.ts",
+          "line": 135,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/trainingAppointment.ts",
+          "line": 136,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/trainingAppointment.ts",
+          "line": 139,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/trainingAppointment.ts",
+          "line": 154,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/trainingAssignment.ts",
+          "line": 129,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/trainingAssignmentRequest.ts",
+          "line": 208,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/trainingProgression.ts",
+          "line": 13,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/trainingProgression.ts",
+          "line": 28,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/trainingProgressionStep.ts",
+          "line": 28,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/trainingSession.ts",
+          "line": 88,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/trainingSession.ts",
+          "line": 89,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/trainingSession.ts",
+          "line": 90,
+          "rule": "error-params"
+        },
+        {
+          "file": "actions/trainingSession.ts",
+          "line": 94,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/trainingSession.ts",
+          "line": 97,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/trainingSession.ts",
+          "line": 110,
+          "rule": "generic"
+        },
+        {
+          "file": "actions/trainingSession.ts",
+          "line": 129,
+          "rule": "error-issues"
+        },
+        {
+          "file": "actions/visitor.ts",
+          "line": 38,
+          "rule": "error-issues"
+        },
+        {
+          "file": "components/Form/CidForm.tsx",
+          "line": 26,
+          "rule": "generic"
+        },
+        {
+          "file": "components/Lesson/LessonForm.tsx",
+          "line": 22,
+          "rule": "error-issues"
+        },
+        {
+          "file": "components/Profile/ProfileEditCard.tsx",
+          "line": 43,
+          "rule": "error-issues"
+        },
+        {
+          "file": "components/PurgeAssistant/RosterPurgeSelectionForm.tsx",
+          "line": 95,
+          "rule": "error-issues"
+        },
+        {
+          "file": "components/SoloCertification/SoloForm.tsx",
+          "line": 27,
+          "rule": "error-issues"
+        },
+        {
+          "file": "components/Statistics/StatisticsTimeSelector.tsx",
+          "line": 84,
+          "rule": "error-params"
+        },
+        {
+          "file": "components/Statistics/StatisticsTimeSelector.tsx",
+          "line": 95,
+          "rule": "error-issues"
+        },
+        {
+          "file": "components/TrainingStatistics/TrainingStatsTimeSelector.tsx",
+          "line": 84,
+          "rule": "error-params"
+        },
+        {
+          "file": "components/TrainingStatistics/TrainingStatsTimeSelector.tsx",
+          "line": 95,
+          "rule": "error-issues"
+        }
+      ]
+    },
+    {
+      "repo": "CANShift/canshift-core",
+      "commit": "3ad0a35edd902e94cb3014f1331cd38528532e3f",
+      "migration": "https://github.com/CANShift/canshift-core/commit/9cfa2c35df11d1f34795f16da89fcb18149389f9",
+      "from": "3.25.76",
+      "to": "4.4.3",
+      "why": "library whose own zod 4 upgrade rewrote two invalid_type_error params to error (UPT-69), alongside ZodIssue, passthrough, finite and errorMap deprecations. Left out: two hasForbiddenKey imports and insertions the same commit added that are not about zod.",
+      "findings": [
+        {
+          "file": "src/__tests__/usb-status.test.ts",
+          "line": 30,
+          "rule": "generic"
+        },
+        {
+          "file": "src/__tests__/usb-status.test.ts",
+          "line": 39,
+          "rule": "generic"
+        },
+        {
+          "file": "src/board-profile/serializer.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "src/board-profile/serializer.ts",
+          "line": 47,
+          "rule": "generic"
+        },
+        {
+          "file": "src/board-profile/serializer.ts",
+          "line": 49,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/ble-status.ts",
+          "line": 16,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/ble-status.ts",
+          "line": 40,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/ble-timer.ts",
+          "line": 32,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/ble-timer.ts",
+          "line": 59,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/ble-timer.ts",
+          "line": 80,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/canshift-file.ts",
+          "line": 37,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/canshift-file.ts",
+          "line": 129,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/device.ts",
+          "line": 92,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/input-bindings.ts",
+          "line": 112,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/project.ts",
+          "line": 10,
+          "rule": "string-format"
+        },
+        {
+          "file": "src/schemas/screen-settings.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/signal.ts",
+          "line": 57,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/signal.ts",
+          "line": 94,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/signal.ts",
+          "line": 95,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/signal.ts",
+          "line": 134,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/signal.ts",
+          "line": 147,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/signal.ts",
+          "line": 162,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/signal.ts",
+          "line": 177,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/track-telemetry.ts",
+          "line": 45,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/usb-status.ts",
+          "line": 17,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/usb-status.ts",
+          "line": 42,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/widgets/button-action.ts",
+          "line": 33,
+          "rule": "error-params"
+        },
+        {
+          "file": "src/schemas/widgets/button-action.ts",
+          "line": 47,
+          "rule": "error-params"
+        },
+        {
+          "file": "src/schemas/widgets/button-action.ts",
+          "line": 83,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/widgets/index.ts",
+          "line": 93,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/widgets/index.ts",
+          "line": 100,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/widgets/index.ts",
+          "line": 109,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/widgets/index.ts",
+          "line": 116,
+          "rule": "generic"
+        },
+        {
+          "file": "src/schemas/widgets/index.ts",
+          "line": 125,
+          "rule": "generic"
+        },
+        {
+          "file": "src/types/releases.ts",
+          "line": 6,
+          "rule": "generic"
+        },
+        {
+          "file": "src/validation/validate-dashboard.ts",
+          "line": 21,
+          "rule": "generic"
+        },
+        {
+          "file": "src/validation/validate-dashboard.ts",
+          "line": 34,
+          "rule": "generic"
+        },
+        {
+          "file": "src/validation/validate-dashboard.ts",
+          "line": 35,
+          "rule": "generic"
+        },
+        {
+          "file": "src/validation/validate-dashboard.ts",
+          "line": 39,
+          "rule": "generic"
+        },
+        {
+          "file": "src/validation/validate-dashboard.ts",
+          "line": 50,
+          "rule": "generic"
+        }
+      ]
     }
   ],
   "$comment": "Ground truth for the zod pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own zod 3 to 4 upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth and read by hand: the diagnostics the repository's TypeScript reports with zod 4.6.5 linked in and not without it (errors, and deprecations 6385/6387), and the lines the upgrade commit changed for zod (one site per construct; comments and other packages' changes left out). Rules are assigned from each site's code and text. The storefront fixture is synthetic: scored, never counted toward verified; its breaking sites are the tsc errors of fixtures/truth/storefront.json."

@@ -119,6 +119,184 @@
           "note": "One removed eslint config object, old lines 3-5; deliberately expected despite no import-based discovery for JSDoc-only config."
         }
       ]
+    },
+    {
+      "repo": "benshabbat/GamesForMyKids",
+      "commit": "793cb46f19f2bc279dbf741a74cf7083a5025310",
+      "migration": "https://github.com/benshabbat/GamesForMyKids/commit/030c5c14fba627fa4b238910deb8550a4f8f8bab",
+      "directory": "gamesformykids",
+      "from": "15.5.15",
+      "to": "16.2.6",
+      "with": {
+        "eslint-config-next": "16.2.6"
+      },
+      "why": "App Router app whose own 15 to 16 upgrade moved its aliased unstable_cacheLife/unstable_cacheTag import to the stable names (UPT-69) and its experimental flags. Left out: the ESLint flat-config rewrite (its ESLint companion), supabase cookie-type annotations, and the packs:truth helper's resolution artifacts (next/font/google TS2305, Script and styled-jsx TS2322, implicit-any cascades), as RESEARCH.md describes.",
+      "findings": [
+        {
+          "file": "lib/constants/gameItemsLoader.ts",
+          "line": 13,
+          "rule": "stable-cache-exports",
+          "note": "Actual upgrade drops the unstable_ prefix from this aliased next/cache import (UPT-69)."
+        },
+        {
+          "file": "next.config.ts",
+          "line": 7,
+          "rule": "generic",
+          "note": "TS2353: experimental.reactCompiler moves to the top level."
+        },
+        {
+          "file": "next.config.ts",
+          "line": 9,
+          "rule": "generic",
+          "note": "experimental.useCache removed; the upgrade adopts cacheComponents."
+        }
+      ]
+    },
+    {
+      "repo": "HiroshiIgarash/koremina",
+      "commit": "e9a1595083f746c8cb481e1ca7156aca6db6d4d0",
+      "migration": "https://github.com/HiroshiIgarash/koremina/commit/8bed7fc0ce99c791a7f5065e72e22f68fe2470f2",
+      "from": "15.5.10",
+      "to": "16.1.6",
+      "with": {
+        "@next/third-parties": "16.1.6",
+        "eslint-config-next": "16.1.6"
+      },
+      "why": "App Router app whose own 15 to 16 upgrade moved two aliased unstable_ next/cache imports to the stable names (UPT-69), gave every revalidateTag call a profile or updateTag, and renamed middleware.ts to proxy.ts. Left out: the revalidateTag/updateTag import lines, and the packs:truth helper's resolution artifacts (next/font/google TS2305, implicit-any cascades), as RESEARCH.md describes.",
+      "findings": [
+        {
+          "file": "app/action/deletePost.ts",
+          "line": 27,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/deletePost.ts",
+          "line": 28,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/getPostById.ts",
+          "line": 2,
+          "rule": "stable-cache-exports",
+          "note": "Actual upgrade drops the unstable_ prefix from this aliased next/cache import (UPT-69)."
+        },
+        {
+          "file": "app/action/getPostById.ts",
+          "line": 3,
+          "rule": "stable-cache-exports",
+          "note": "Actual upgrade drops the unstable_ prefix from this aliased next/cache import (UPT-69)."
+        },
+        {
+          "file": "app/action/updateAvatar.ts",
+          "line": 26,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateBio.ts",
+          "line": 33,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateBio.ts",
+          "line": 41,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateBookmark.ts",
+          "line": 41,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateFavoriteLivers.ts",
+          "line": 34,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateMostFavoriteLiver.ts",
+          "line": 49,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateNickname.ts",
+          "line": 33,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateNickname.ts",
+          "line": 41,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateNotification.ts",
+          "line": 64,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateNotificationEmail.ts",
+          "line": 48,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateNotifyNewPostByEmail.ts",
+          "line": 37,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateReaction.ts",
+          "line": 45,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateReadAllNotifications.ts",
+          "line": 25,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/action/updateSeenUsers.ts",
+          "line": 48,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/api/post/route.ts",
+          "line": 36,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/api/post/route.ts",
+          "line": 80,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "app/api/post/route.ts",
+          "line": 81,
+          "rule": "revalidate-tag-profile",
+          "note": "Actual upgrade replaces this single-argument revalidateTag call with updateTag or adds the \"max\" profile (TS2554 at Next 16)."
+        },
+        {
+          "file": "middleware.ts",
+          "line": 4,
+          "rule": "middleware-proxy",
+          "note": "Upgrade renames middleware.ts to proxy.ts and its export; parent path."
+        }
+      ]
     }
   ]
 }

@@ -145,6 +145,51 @@
           "note": "compiler TS2322"
         }
       ]
+    },
+    {
+      "repo": "starl3xx/wallet-to-social",
+      "commit": "b7f60f1167b4665746e455696f6aa34caa75ad0c",
+      "migration": "https://github.com/starl3xx/wallet-to-social/commit/c2ec264e33bb46ecd4837adcfad31fa3e7fa4ed1",
+      "from": "20.2.0",
+      "to": "22.6.2",
+      "why": "Next.js app whose own stripe 20 to 22 upgrade pinned its three unpinned clients to a shared STRIPE_API_VERSION constant (UPT-69); the compiler reports nothing new at 22.6.2. Left out: the new lib/stripe-version.ts and its imports.",
+      "findings": [
+        {
+          "file": "lib/stripe.ts",
+          "line": 7,
+          "rule": "api-version-unpinned"
+        },
+        {
+          "file": "scripts/check-stripe-packs.ts",
+          "line": 44,
+          "rule": "api-version-unpinned"
+        },
+        {
+          "file": "scripts/create-test-packs.ts",
+          "line": 62,
+          "rule": "api-version-unpinned"
+        }
+      ]
+    },
+    {
+      "repo": "AtlasDevHQ/atlas",
+      "commit": "cfaf3c3c500995a4dc1e918ef89de20e535af43f",
+      "migration": "https://github.com/AtlasDevHQ/atlas/commit/ca67b1e3e5bb34bf8ebdb8feca44ab19be513289",
+      "from": "21.0.1",
+      "to": "22.2.0",
+      "why": "bun monorepo whose own stripe 21 to 22 upgrade pinned its two unpinned clients in packages/api to a shared STRIPE_API_VERSION constant (UPT-69); the compiler reports nothing new at 22.2.0. Left out: the new stripe-api-version.ts and its imports.",
+      "findings": [
+        {
+          "file": "packages/api/src/api/routes/billing.ts",
+          "line": 471,
+          "rule": "api-version-unpinned"
+        },
+        {
+          "file": "packages/api/src/lib/auth/server.ts",
+          "line": 1687,
+          "rule": "api-version-unpinned"
+        }
+      ]
     }
   ],
   "$comment": "Ground truth for the stripe pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own stripe-node major upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth and read by hand: the errors the repository's TypeScript reports with the target SDK linked in and not without it, and the lines the upgrade commit changed for stripe (one site per construct; comments and unrelated changes left out). Rules are assigned from each site's code and text. The storefront fixture is synthetic: scored, never counted toward verified; its sites are the tsc errors of fixtures/truth/storefront.json."

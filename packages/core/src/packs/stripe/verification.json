@@ -1,12 +1,12 @@
 {
   "status": "verified",
-  "truth": "sha256-76142ce85f863173121202c804005de14fb0beacc54f40c5dbe560865ed7ef15",
-  "repos": 2,
+  "truth": "sha256-42cdb823d503cea6e0da7d8cd4b484458f704178d5bc607ffa6d2c2b973a353b",
+  "repos": 4,
   "breaking": {
     "precision": 1,
-    "recall": 0.9,
+    "recall": 0.92,
     "falsePositives": 0,
-    "truePositives": 18,
+    "truePositives": 23,
     "falseNegatives": 2
   },
   "behavior": {
@@ -17,7 +17,7 @@
     "falseNegatives": 0
   },
   "class": "breaking",
-  "breakingSites": 16,
+  "breakingSites": 21,
   "behaviorSites": 0,
-  "unexercised": ["api-version-unpinned", "fixture-cast"]
+  "unexercised": ["fixture-cast"]
 }
