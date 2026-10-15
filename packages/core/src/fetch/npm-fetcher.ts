@@ -200,7 +200,8 @@ export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
   return {
     metadata: (name, version) =>
       remembered(
-        [...packagePathSegments(name), `metadata-${version}`],
+        // `manifest-`, not the `metadata-` entries kept before `ownTypes` was read.
+        [...packagePathSegments(name), `manifest-${version}`],
         EXACT_VERSION.test(version),
         async () => {
           const manifest = await resolveVersion(name, version, config, fetchFn);
@@ -208,6 +209,7 @@ export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
             ...(manifest.dependencies ? { dependencies: manifest.dependencies } : {}),
             peerDependencies: manifest.peerDependencies ?? {},
             bin: manifest.bin,
+            ...(manifest.ownTypes ? { ownTypes: true } : {}),
           };
         },
       ),

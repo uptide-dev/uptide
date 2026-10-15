@@ -763,6 +763,13 @@ export function renderMigration(
       ...report.companionBlockers.map((b) => `- ${b}`),
       '',
     );
+  if (report.companionRemovals?.length)
+    lines.push(
+      'Removed:',
+      '',
+      ...report.companionRemovals.map((r) => `- \`${r.name}\`, ${r.reason}`),
+      '',
+    );
   if (report.companionStays?.length)
     lines.push(
       'Left where they are (not released with it):',

@@ -220,6 +220,8 @@ export interface FixReport {
   companionStays?: string[];
   /** Required moves only a new major makes, never made (`check/required.ts`). */
   companionBlockers?: string[];
+  /** `@types` stubs removed instead of upgraded, and why (`check/removed.ts`). */
+  companionRemovals?: { name: string; from: string; reason: string }[];
   /** `pin`: no upgrade; the SDK's default API version was written on every client (`--pin-current-api`). */
   mode?: 'pin';
   /** The API version the pin run wrote. */

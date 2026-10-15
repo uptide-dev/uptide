@@ -274,6 +274,33 @@ export function bumpVersions(
   return { files, workspaces, alreadyCompatible };
 }
 /**
+ * A `@types` stub the plan removes (`check/removed.ts`), taken out of every workspace that
+ * installs it. A peer declaration is the package's promise to its consumers and stays.
+ */
+export function removeDeclarations(
+  root: string,
+  name: string,
+): { files: string[]; workspaces: string[]; alreadyCompatible: string[] } {
+  const files: string[] = [];
+  const workspaces: string[] = [];
+  for (const workspace of workspacePackagesOf(root)) {
+    const file = join(root, workspace, 'package.json');
+    const original = readFileSync(file, 'utf8');
+    const json = JSON.parse(original);
+    let changed = false;
+    for (const section of ['dependencies', 'devDependencies', 'optionalDependencies'])
+      if (typeof json[section]?.[name] === 'string') {
+        delete json[section][name];
+        changed = true;
+      }
+    if (!changed) continue;
+    writeFileSync(file, `${JSON.stringify(json, null, original.match(/\n(\s+)"/)?.[1] ?? '  ')}\n`);
+    files.push(file);
+    workspaces.push(workspace);
+  }
+  return { files, workspaces, alreadyCompatible: [] };
+}
+/**
  * A lead the repository installs only through an alternate lead (`react-router` through
  * `react-router-dom`) is declared beside the alternate, at the target, in the same section
  * and range style, in each workspace that declares the alternate and not the lead: the

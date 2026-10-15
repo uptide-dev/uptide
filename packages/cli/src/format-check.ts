@@ -260,6 +260,12 @@ function sectionLines(row: Row, colors: Colors): string[] {
   const coverage = row.p.compile?.coverage
     ? [colors.dim(`  ${coverageLine(row.p.compile.coverage)}${preexisting}`)]
     : [];
+  // A deprecated `@types` stub the new version makes redundant: removed, not upgraded. Said
+  // even when nothing breaks, since `fix` changes the manifest for it.
+  const removals = (row.p.companionRemovals ?? []).map(
+    (r) =>
+      `  ${colors.cyan('−')} removed: ${r.name}, ${r.reason}   ${colors.dim(`npm deprecates its new release as a stub; was ${r.from}`)}`,
+  );
   if (
     acting.length === 0 &&
     possible.length === 0 &&
@@ -267,7 +273,7 @@ function sectionLines(row: Row, colors: Colors): string[] {
     importers.length === 0 &&
     peers.length === 0
   )
-    return row.summary ? [heading, ...coverage] : [];
+    return row.summary || removals.length ? [heading, ...coverage, ...removals] : [];
   const scope = (g: PlanGroup): string => {
     if (g.fixes !== g.sites)
       return `${plural(g.fixes, 'fix', 'fixes')}, ${plural(g.sites, 'error')}`;
@@ -340,6 +346,7 @@ function sectionLines(row: Row, colors: Colors): string[] {
     lines.push(
       `  ${colors.red('✗')} blocked: ${blocker}   ${colors.dim('a new major, never made by Uptide')}`,
     );
+  lines.push(...removals);
   for (const conflict of row.p.companionConflicts ?? [])
     lines.push(`  ${colors.red('✗')} ${conflict}: no consistent upgrade`);
   for (const stay of row.p.companionStays ?? []) lines.push(`  ${colors.dim(`· ${stay}`)}`);

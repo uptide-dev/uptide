@@ -18,6 +18,8 @@ export interface ResolvedVersion {
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   bin?: string | Record<string, string>;
+  /** Whether the version declares its own types: `types`, `typings` or a `types` export. */
+  ownTypes?: boolean;
   /** SRI string (`sha512-…`) when the registry provides one. */
   integrity?: string;
   /** Hex sha1, older registries only. */
@@ -28,6 +30,10 @@ interface Manifest {
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   bin?: string | Record<string, string>;
+  types?: unknown;
+  typings?: unknown;
+  exports?: unknown;
+  deprecated?: string;
   version?: string;
   dist?: { tarball?: string; integrity?: string; shasum?: string };
 }
@@ -165,9 +171,23 @@ function toResolved(name: string, manifest: Manifest | undefined): ResolvedVersi
     peerDependencies: manifest.peerDependencies ?? {},
   };
   if (manifest.bin) resolved.bin = manifest.bin;
+  if (declaresTypes(manifest)) resolved.ownTypes = true;
   if (manifest.dist.integrity) resolved.integrity = manifest.dist.integrity;
   if (manifest.dist.shasum) resolved.shasum = manifest.dist.shasum;
   return resolved;
+}
+
+/** `types`/`typings`, or a `types` condition anywhere in `exports` (stripe 18's `"./types/index.d.ts"`). */
+function declaresTypes(manifest: Manifest): boolean {
+  const condition = (value: unknown): boolean =>
+    typeof value === 'object' &&
+    value !== null &&
+    Object.entries(value).some(([key, v]) => key === 'types' || condition(v));
+  return (
+    typeof manifest.types === 'string' ||
+    typeof manifest.typings === 'string' ||
+    condition(manifest.exports)
+  );
 }
 
 /** Accepts an exact version or a dist-tag. Ranges are deliberately unsupported: a diff needs two exact points. */
@@ -244,6 +264,8 @@ export async function listVersions(
 export interface VersionDependencies {
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
+  /** npm's deprecation message: `@types/ioredis` 5.0.0 is "a stub types definition". */
+  deprecated?: string;
 }
 
 /**
@@ -268,6 +290,7 @@ export async function listManifests(
     out[version] = {
       ...(manifest.dependencies ? { dependencies: manifest.dependencies } : {}),
       ...(manifest.peerDependencies ? { peerDependencies: manifest.peerDependencies } : {}),
+      ...(manifest.deprecated ? { deprecated: manifest.deprecated } : {}),
     };
   }
   return out;

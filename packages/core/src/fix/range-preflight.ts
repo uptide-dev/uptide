@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import { hoistedPackageDir } from '../adapters/typescript/usages.js';
 import { companionsOf, type InstalledDependency } from '../check/companions.js';
+import { ownTypesFrom } from '../check/removed.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { installedManifest, type Manifest } from '../list/evidence.js';
@@ -40,6 +41,8 @@ export async function rangePreflight(
   validateVersionRanges(root, [{ name: options.only, to: target }], read);
   if (names.size === 1) return target;
   const manifests = services?.manifests ?? fetcher.manifests;
+  // Injected manifests come with their own metadata or none: never the network beside them.
+  const metadata = services?.manifests ? services.metadata : fetcher.metadata;
   if (!manifests) throw new Error('Registry manifests are required to plan companions');
   const plan = await companionsOf({
     name: options.only,
@@ -48,6 +51,7 @@ export async function rangePreflight(
     manifests,
     lockstep: pack?.companions?.map((c) => c.name) ?? [],
     releaseGroup: pack?.releaseGroup?.map((c) => c.name),
+    ...(metadata ? { ownTypes: ownTypesFrom(metadata) } : {}),
   });
   if (plan.conflicts.length) throw new Error(plan.conflicts.join('; '));
   validateVersionRanges(root, plan.companions, read);

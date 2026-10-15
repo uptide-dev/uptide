@@ -58,6 +58,7 @@ import {
 import { foldOptionCascades } from './option-cascades.js';
 import { mapWithLimit, mapWithSerialRetry } from './pool.js';
 import { isBehind, rankCandidates } from './rank.js';
+import { ownTypesFrom } from './removed.js';
 import { foldSharedRoots, groupRootCauses } from './root-cause.js';
 import { runtimeChangeFindings } from './runtime-changes.js';
 import { type StandIns, standInLeads } from './stand-ins.js';
@@ -713,6 +714,10 @@ export function mergeAcrossWorkspaces(
     if (stays.length > 0) combined.companionStays = stays;
     const blockers = [...new Set(list.flatMap((p) => p.companionBlockers ?? []))].sort();
     if (blockers.length > 0) combined.companionBlockers = blockers;
+    const removals = [
+      ...new Map(list.flatMap((p) => p.companionRemovals ?? []).map((r) => [r.name, r])).values(),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    if (removals.length > 0) combined.companionRemovals = removals;
     const peerConflicts = [...new Set(list.flatMap((p) => p.peerConflicts ?? []))].sort();
     if (peerConflicts.length > 0) combined.peerConflicts = peerConflicts;
     const members = [
@@ -1248,8 +1253,10 @@ async function companionPlans(
         releaseGroup: packsOf(opts)
           .find((p) => p.name === lead)
           ?.releaseGroup?.map((c) => c.name),
+        ...(fetcher.metadata ? { ownTypes: ownTypesFrom(fetcher.metadata) } : {}),
       });
       if (
+        plan.removals?.length ||
         plan.companions.length > 0 ||
         plan.conflicts.length > 0 ||
         plan.peerConflicts.length > 0 ||
@@ -1293,6 +1300,12 @@ function memoizingFetcher(inner: PackageFetcher): RunFetcher {
       ? {
           versions: (name: string) =>
             once(versions, name, () => inner.versions?.(name) ?? Promise.resolve([])),
+        }
+      : {}),
+    ...(inner.metadata
+      ? {
+          metadata: (name: string, version: string) =>
+            inner.metadata?.(name, version) ?? Promise.resolve({}),
         }
       : {}),
     ...(inner.manifests
@@ -1380,7 +1393,17 @@ interface Prepared {
   /** The installed version ships no declarations: no surface, no diff; loads and manifests still count. */
   untyped?: true;
   /** Declarations come from DefinitelyTyped: `installedDir` is the @types package, these are its versions. `baseline` when it differs from what is installed. */
-  types?: { name: string; installedVersion: string; target: string; baseline?: string };
+  types?: {
+    name: string;
+    installedVersion: string;
+    target: string;
+    baseline?: string;
+    /**
+     * The plan removes the @types stub (`removed.ts`): the target's declarations are the
+     * package's own, at `target`, the runtime's version.
+     */
+    own?: true;
+  };
   /** The runtime package's directory when `installedDir` is the @types package (for the manifest). */
   runtimeDir?: PackageDir;
   target: string;
@@ -1544,15 +1567,30 @@ async function prepare(
     // The @types release that types the target (its major.minor, else its major; never below
     // what is installed: @types/passport 1.x types passport 0.x), else the latest release. A
     // companion plan that moves the types package names the release outright.
-    const typesTarget =
-      ctx.opts.targets?.[typesName] ??
-      typesReleaseFor(published, target, typesInstalled) ??
-      typesInstalled;
-    if (major !== undefined && parseVersion(typesTarget)?.major !== major && published.length > 0)
+    // A stub the plan removes types nothing: the target is diffed as the package ships it.
+    const own = Object.values(ctx.opts.companions ?? {}).some((plan) =>
+      plan.removals?.some((r) => r.name === typesName),
+    );
+    const typesTarget = own
+      ? target
+      : (ctx.opts.targets?.[typesName] ??
+        typesReleaseFor(published, target, typesInstalled) ??
+        typesInstalled);
+    if (
+      !own &&
+      major !== undefined &&
+      parseVersion(typesTarget)?.major !== major &&
+      published.length > 0
+    )
       notes.push(
         `${typesName} has no ${major}.x release above ${typesInstalled}; diffed against ${typesTarget}`,
       );
-    types = { name: typesName, installedVersion: typesInstalled, target: typesTarget };
+    types = {
+      name: typesName,
+      installedVersion: typesInstalled,
+      target: typesTarget,
+      ...(own ? { own: true as const } : {}),
+    };
     runtimeDir = installedDir;
     installedDir = { ...typesDir, version: typesInstalled };
     // The baseline follows the runtime: express 4 is compared from @types/express 4.x even when
@@ -1765,6 +1803,7 @@ async function checkGroup(
     ...(plan?.conflicts.length ? { companionConflicts: plan.conflicts } : {}),
     ...(plan?.stays?.length ? { companionStays: plan.stays } : {}),
     ...(plan?.blockers?.length ? { companionBlockers: plan.blockers } : {}),
+    ...(plan?.removals?.length ? { companionRemovals: plan.removals } : {}),
     ...(plan?.peerConflicts.length ? { peerConflicts: plan.peerConflicts } : {}),
     majorsBehind: Math.max(...prepared.map((p) => majorsBehind(p.installedVersion, p.target))),
     findings: [],
@@ -1780,18 +1819,26 @@ async function checkGroup(
   for (const p of prepared) {
     try {
       // With DefinitelyTyped, the declarations diffed are @types/<name>'s; the runtime package is fetched for its manifest.
-      const pkg = p.types
-        ? await progress(ctx.opts.onProgress, { phase: 'fetch', package: p.name, workspace }, () =>
-            ctx.fetcher.fetch(p.types?.name ?? p.name, p.types?.target ?? p.target),
-          )
-        : await progress(ctx.opts.onProgress, { phase: 'fetch', package: p.name, workspace }, () =>
-            ctx.fetcher.fetch(p.name, p.target),
-          );
-      const runtime = p.types
-        ? await progress(ctx.opts.onProgress, { phase: 'fetch', package: p.name, workspace }, () =>
-            ctx.fetcher.fetch(p.name, p.target),
-          )
-        : undefined;
+      const pkg =
+        p.types && !p.types.own
+          ? await progress(
+              ctx.opts.onProgress,
+              { phase: 'fetch', package: p.name, workspace },
+              () => ctx.fetcher.fetch(p.types?.name ?? p.name, p.types?.target ?? p.target),
+            )
+          : await progress(
+              ctx.opts.onProgress,
+              { phase: 'fetch', package: p.name, workspace },
+              () => ctx.fetcher.fetch(p.name, p.target),
+            );
+      const runtime =
+        p.types && !p.types.own
+          ? await progress(
+              ctx.opts.onProgress,
+              { phase: 'fetch', package: p.name, workspace },
+              () => ctx.fetcher.fetch(p.name, p.target),
+            )
+          : undefined;
       fetched.push({
         p,
         pkg: p.installedDir.types ? { ...pkg, types: p.installedDir.types } : pkg,
@@ -1884,7 +1931,9 @@ async function checkGroup(
     // Declarations identical on both sides (the same @types release) leave the compiler nothing to judge.
     const sameDeclarations = prepared.every(
       (p) =>
-        p.types !== undefined && p.types.target === (p.types.baseline ?? p.types.installedVersion),
+        p.types !== undefined &&
+        !p.types.own &&
+        p.types.target === (p.types.baseline ?? p.types.installedVersion),
     );
     if (sameDeclarations) notes.push('type declarations unchanged; compile check skipped');
     if (ctx.opts.compile !== false && compileMany && !sameDeclarations) {
@@ -1911,7 +1960,7 @@ async function checkGroup(
             repo,
             [
               ...fetched.map(({ p, pkg }) =>
-                p.types
+                p.types && !p.types.own
                   ? { name: p.types.name, dir: pkg.dir, specifier: p.name }
                   : { name: p.name, dir: pkg.dir },
               ),
@@ -2298,7 +2347,7 @@ async function checkGroup(
       report.typesVia = viaTypes
         .map(
           (p) =>
-            `${p.types?.name} ${p.types?.baseline ?? p.types?.installedVersion} → ${p.types?.target}`,
+            `${p.types?.name} ${p.types?.baseline ?? p.types?.installedVersion} → ${p.types?.own ? `${p.name} ${p.types.target}'s own types` : p.types?.target}`,
         )
         .join(', ');
     }

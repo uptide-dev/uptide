@@ -19,6 +19,11 @@ export interface Upgrade {
    * and the lockfile may change inside any of their subtrees, never outside them.
    */
   also?: { name: string; version: string }[];
+  /**
+   * `@types` stubs the plan removes (`check/removed.ts`), already taken out of the manifests:
+   * the lockfile may lose them and what only they reached, nothing more.
+   */
+  remove?: string[];
   /** Packages whose peer edges the user explicitly overrides, without changing their ranges. */
   allowedPeers?: string[];
 }
@@ -57,7 +62,8 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
   const beforeText = readFileSync(lockfile, 'utf8');
   const moves = [{ name: upgrade.name, version: upgrade.version }, ...(upgrade.also ?? [])];
   const names = moves.map((m) => m.name);
-  const before = lockGraph(pm, beforeText, names);
+  const removed = upgrade.remove ?? [];
+  const before = lockGraph(pm, beforeText, [...names, ...removed]);
   const originals = new Map(
     upgrade.workspaces.map((w) => {
       const file = join(w, 'package.json');
@@ -134,7 +140,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       ? preserveNpmLibc(beforeText, written)
       : written;
   const scope = [...new Set([...names, ...(upgrade.allowedPeers ?? [])])];
-  const after = lockGraph(pm, afterText, names);
+  const after = lockGraph(pm, afterText, [...names, ...removed]);
   const peerReresolved = pm.kind === 'npm' ? npmPeerReresolutions(before, after, names, scope) : [];
   let diff: LockDiff;
   try {
@@ -143,6 +149,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       after,
       scope,
       peerReresolved.flatMap((p) => p.records),
+      removed,
     );
   } catch (error) {
     if (pm.kind === 'npm' && error instanceof UptideError && error.code === 'LOCKFILE_OUT_OF_SCOPE')
