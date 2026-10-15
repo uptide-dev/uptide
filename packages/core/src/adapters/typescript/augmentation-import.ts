@@ -1,6 +1,7 @@
 import { relative } from 'node:path';
 import type { ts } from 'ts-morph';
 import type { DiagnosticCause } from '../../domain/usage.js';
+import { onReset } from '../../shared-state.js';
 
 /** Whether a declaration sits inside `declare global` or `declare module "x"`. */
 export function isAugmentation(tsc: typeof ts, decl: ts.Node): boolean {
@@ -19,7 +20,10 @@ export function packageOf(fileName: string): string {
   return names.at(-1)?.[1] ?? (fileName.split('/').at(-2) ?? fileName).replace(/-v\d+$/, '');
 }
 
-const registrations = new WeakMap<ts.Program, Map<string, ts.ImportDeclaration | undefined>>();
+let registrations = new WeakMap<ts.Program, Map<string, ts.ImportDeclaration | undefined>>();
+onReset(() => {
+  registrations = new WeakMap();
+});
 
 /**
  * A dependency can supply the augmentation rather than the repository declaring it.
