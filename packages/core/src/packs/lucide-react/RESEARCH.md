@@ -158,3 +158,4 @@ lucide files.
 - **Workspace apps with a root lockfile** cannot be ground truth (inbox-zero above).
 - **`absoluteStrokeWidth`** is not in the type diff (a JSX attribute's deprecation), so it is
   detected syntactically on lucide components only; a wrapper that forwards it is not found.
+
