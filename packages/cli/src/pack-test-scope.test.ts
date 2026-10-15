@@ -5,10 +5,9 @@ import { describe, expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const script = join(root, 'scripts/pack-test-scope.mjs');
-const { packScope, registeredDirs, cacheKey } = (await import(script)) as {
+const { packScope, registeredDirs } = (await import(script)) as {
   packScope: (files: string[], registered: string[]) => string[] | null;
   registeredDirs: (root: string) => string[];
-  cacheKey: (root: string, ids: string[]) => string;
 };
 
 const registered = ['ai', 'sentry-nextjs', 'zod'];
@@ -50,18 +49,16 @@ describe('the script', () => {
     expect(registeredDirs(root)).toEqual(expect.arrayContaining(['zod', 'sentry-nextjs', 'ai']));
   });
 
-  it('prints ids and a per-pack cache key for $GITHUB_OUTPUT', () => {
+  it('prints the changed packs as the matrix', () => {
     const out = execFileSync('node', [script], {
       input: `${pack('zod/rules.ts')}\nREADME.md\n`,
       encoding: 'utf8',
     });
-    expect(out).toBe(`ids=zod\nkey=${cacheKey(root, ['zod'])}\nrestore=pack-zod-\n`);
-    expect(cacheKey(root, ['zod'])).toMatch(/^pack-zod-[0-9a-f]{16}$/);
-    expect(cacheKey(root, ['zod'])).not.toBe(cacheKey(root, ['ai']));
+    expect(out).toBe('packs=["zod"]\n');
   });
 
-  it('prints empty ids for a full run', () => {
+  it('prints every registered pack for a full run', () => {
     const out = execFileSync('node', [script], { input: 'pnpm-lock.yaml\n', encoding: 'utf8' });
-    expect(out).toBe('ids=\nkey=\nrestore=\n');
+    expect(out).toBe(`packs=${JSON.stringify(registeredDirs(root))}\n`);
   });
 });

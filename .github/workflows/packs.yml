@@ -1,13 +1,14 @@
 name: Packs
 
-# `uptide pack test` for every pack: fixtures, and `check` on each ground-truth repository
-# against the expected findings (docs/packs.md). It fails on a false positive among breaking
-# findings, a failing fixture, or a verification.json the evidence no longer supports.
+# `uptide pack test`: fixtures, and `check` on each ground-truth repository against the
+# expected findings (docs/packs.md). It fails on a false positive among breaking findings, a
+# failing fixture, or a verification.json the evidence no longer supports.
 #
-# The job always reports, so it can be a required check: on a pull request that touches
-# neither a pack nor the engine that produces their findings it passes without running. A pull
-# request that changes only pack directories (and the files listing packs) tests just those
-# packs, with a cache of just their repositories (scripts/pack-test-scope.mjs).
+# One job per pack, in parallel: every registered pack on a push to main or a pull request that
+# touches the engine, only the changed packs on a pull request that changes nothing else
+# (scripts/pack-test-scope.mjs). `Pack test` is the required check: it always reports, fails when
+# a pack job did not pass, and passes without running on a pull request that touches neither a
+# pack nor the engine that produces their findings.
 
 on:
   push:
@@ -15,12 +16,12 @@ on:
   pull_request:
 
 jobs:
-  pack-test:
-    name: Pack test
+  scope:
+    name: Pack scope
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+    outputs:
+      run: ${{ steps.scope.outputs.run }}
+      packs: ${{ steps.scope.outputs.packs }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -30,60 +31,109 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            node scripts/pack-test-scope.mjs < /dev/null | tee -a "$GITHUB_OUTPUT"
+            exit 0
+          fi
           changed=$(git diff --name-only --no-renames "$BASE" HEAD)
           echo "$changed"
           echo "$changed" | node scripts/pack-test-scope.mjs | tee -a "$GITHUB_OUTPUT"
-          if echo "$changed" | grep -Eq '^(packages/core/src/(packs|check|adapters|fix/plan\.ts|fix/report\.ts)|packages/core/package\.json|packs/|fixtures/repos/storefront/|scripts/pack-test-report\.ts|\.github/workflows/packs\.yml|pnpm-lock\.yaml)'; then
+          if echo "$changed" | grep -Eq '^(packages/core/src/(packs|check|adapters|fix/plan\.ts|fix/report\.ts)|packages/core/package\.json|packs/|fixtures/repos/storefront/|scripts/pack-test-(report\.ts|scope\.mjs)|\.github/workflows/packs\.yml|pnpm-lock\.yaml)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "No pack, and nothing their findings come from, changed: nothing to score."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
+
+  pack:
+    name: pack ${{ matrix.pack }}
+    needs: scope
+    if: needs.scope.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        pack: ${{ fromJSON(needs.scope.outputs.packs) }}
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+      # Only this pack's repositories (installed) and registry tarballs, so its cache holds no other's.
+      UPTIDE_CACHE_DIR: ${{ github.workspace }}/../uptide-cache
+    steps:
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-        if: steps.scope.outputs.run == 'true'
       - uses: actions/setup-node@v7
-        if: steps.scope.outputs.run == 'true'
         with:
           node-version: 22
           cache: pnpm
-      - if: steps.scope.outputs.run == 'true'
-        run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       # Some ground-truth repositories install with bun (scripts off, as every install here).
       - uses: oven-sh/setup-bun@v2
-        if: steps.scope.outputs.run == 'true'
-      # Ground-truth repositories (shallow, installed with scripts off) and the registry
-      # tarballs `check` extracts. Keyed on the ground truth: a new repository is fetched once.
-      - uses: actions/cache@v6
-        if: steps.scope.outputs.run == 'true' && steps.scope.outputs.ids == ''
-        with:
-          path: ~/.cache/uptide
-          key: packs-${{ runner.os }}-${{ hashFiles('packages/core/src/packs/*/ground-truth.json') }}
-          restore-keys: packs-${{ runner.os }}-
-      # Only the changed packs run: a cache of their repositories alone, keyed on their ground truth.
-      - uses: actions/cache@v6
-        if: steps.scope.outputs.run == 'true' && steps.scope.outputs.ids != ''
-        with:
-          path: ~/.cache/uptide-pack
-          key: ${{ runner.os }}-${{ steps.scope.outputs.key }}
-          restore-keys: ${{ runner.os }}-${{ steps.scope.outputs.restore }}
       # Ground-truth repositories that pin Yarn Berry via packageManager (tldraw) install with it.
-      - if: steps.scope.outputs.run == 'true'
-        run: corepack enable
-      - name: uptide pack test
-        if: steps.scope.outputs.run == 'true'
+      - run: corepack enable
+      # Saved on main only (a pull request restores main's): keyed on the pack, its ground truth
+      # and the lockfile. An older one of the same pack still saves most fetches and installs.
+      - uses: actions/cache/restore@v6
+        id: cache
+        with:
+          path: ${{ env.UPTIDE_CACHE_DIR }}
+          key: pack.${{ matrix.pack }}.${{ hashFiles(format('packages/core/src/packs/{0}/ground-truth.json', matrix.pack)) }}.${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pack.${{ matrix.pack }}.${{ hashFiles(format('packages/core/src/packs/{0}/ground-truth.json', matrix.pack)) }}.
+            pack.${{ matrix.pack }}.
+      - name: uptide pack test ${{ matrix.pack }}
         env:
-          IDS: ${{ steps.scope.outputs.ids }}
+          PACK: ${{ matrix.pack }}
         run: |
           set +e
-          if [ -n "$IDS" ]; then export UPTIDE_CACHE_DIR="$HOME/.cache/uptide-pack"; fi
-          # shellcheck disable=SC2086 # one argument per pack id
-          pnpm -s uptide pack test $IDS --json > pack-test.json
+          pnpm -s uptide pack test "$PACK" --json > "pack-test-$PACK.json"
           code=$?
-          node --conditions=source --import tsx scripts/pack-test-report.ts pack-test.json | tee -a "$GITHUB_STEP_SUMMARY"
+          node --conditions=source --import tsx scripts/pack-test-report.ts "pack-test-$PACK.json" | tee -a "$GITHUB_STEP_SUMMARY"
           exit $code
-      - uses: actions/upload-artifact@v7
-        if: always() && steps.scope.outputs.run == 'true'
+      - uses: actions/cache/save@v6
+        if: always() && github.event_name == 'push' && steps.cache.outputs.cache-hit != 'true'
         with:
-          name: pack-test
-          path: pack-test.json
+          path: ${{ env.UPTIDE_CACHE_DIR }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pack-test-${{ matrix.pack }}
+          path: pack-test-${{ matrix.pack }}.json
+
+  pack-test:
+    name: Pack test
+    needs: [scope, pack]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pack jobs
+        env:
+          SCOPE: ${{ needs.scope.result }}
+          RUN: ${{ needs.scope.outputs.run }}
+          PACKS: ${{ needs.pack.result }}
+        run: |
+          echo "scope: $SCOPE, run: $RUN, pack jobs: $PACKS"
+          if [ "$SCOPE" != success ]; then exit 1; fi
+          if [ "$RUN" != true ]; then echo "Nothing to score."; exit 0; fi
+          [ "$PACKS" = success ]
+      - uses: actions/checkout@v7
+        if: always() && needs.scope.outputs.run == 'true'
+      - uses: actions/download-artifact@v7
+        if: always() && needs.scope.outputs.run == 'true'
+        with:
+          pattern: pack-test-*
+          merge-multiple: true
+      - uses: pnpm/action-setup@v6
+        if: always() && needs.scope.outputs.run == 'true'
+      - uses: actions/setup-node@v7
+        if: always() && needs.scope.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+      - if: always() && needs.scope.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Report
+        if: always() && needs.scope.outputs.run == 'true'
+        run: node --conditions=source --import tsx scripts/pack-test-report.ts pack-test-*.json | tee -a "$GITHUB_STEP_SUMMARY"
