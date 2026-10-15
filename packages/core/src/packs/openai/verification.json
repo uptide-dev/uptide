@@ -15,5 +15,17 @@
     "falsePositives": 0,
     "truePositives": 0,
     "falseNegatives": 0
-  }
+  },
+  "class": "breaking",
+  "breakingSites": 20,
+  "behaviorSites": 0,
+  "unexercised": [
+    "beta-chat",
+    "core-paths",
+    "delete-method",
+    "named-path-params",
+    "removed-modules",
+    "request-options",
+    "runner-renames"
+  ]
 }

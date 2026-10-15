@@ -2,12 +2,11 @@
 
 Read date for every source below: **2026-10-14**. Scope: `openai` (openai-node) `>=4 <5` to
 `>=7 <8`; sources pinned at tag **v7.32.0** (7.33.0 was published the same day and is not
-read). Status: **candidate**. Re-scored 2026-10-15 on main after #138 (compile scope), #142
-(required moves) and #154 (verification records): breaking precision is now 100% (3 TP,
-0 FP), but the gate still fails because `check` reports two upgrades as blocked on companion
-moves that the real upgrades made (guardrails) or did not need (prompty). The pack's own rules
-and detectors add no false positive on the seven public upgrades. No engine change is part of
-this pack.
+read). Status: **candidate**, by choice. Last re-scored 2026-10-15 on main `9039e3c` (after
+#138 compile scope, #142 required moves, #154 records, #155 stricter gate, #156, #157 nested
+copies): breaking 3 TP / 0 FP / 17 FN, and the run measures **verified** under the current
+gate. The record says candidate anyway (below). The pack's own rules and detectors add no
+false positive on the seven public upgrades. No engine change is part of this pack.
 
 ## Source ledger
 
@@ -131,7 +130,7 @@ repository on npm); uptide-test/alanagoyal (the smoke test, by instruction).
 
 ## Measured: `pnpm uptide pack test openai --write`
 
-Rebased on main `0db5640` (2026-10-15), ground truth unchanged (digest
+Rebased on main `9039e3c` (2026-10-15), ground truth unchanged (digest
 `sha256-ff39a727…`):
 
 | Rule / scoring group | Precision | Recall | TP | FP | FN |
@@ -143,8 +142,13 @@ Rebased on main `0db5640` (2026-10-15), ground truth unchanged (digest
 | **Breaking sites** | **100%** | **15%** | **3** | **0** | **17** |
 
 Fixtures: 6 cases, 37 sites, pass. No other rule or note has an expected site in this truth;
-none of them predicted one either. `verification.json` records **candidate**: the run itself
-does not measure verified, because two repositories are blocked on companion moves (below).
+none of them predicted one either. `pack test` measures **verified** (7 public repositories,
+0 breaking false positives, 20 real breaking sites) and passes with a **candidate** record,
+which #154 allows (a record may claim less than the run measures). Why candidate: the gate
+counts seven rewrite rules as unexercised (`beta-chat`, `core-paths`, `delete-method`,
+`named-path-params`, `removed-modules`, `request-options`, `runner-renames`): no public
+repository in this truth has a site for them, so they would run as assisted. Recall is 15%,
+and 17 of the 20 expected sites are generic. Promoting is a maintainer's call.
 
 Before #138 the same truth scored 42.86% breaking precision: `check` compiled guardrails'
 `examples/`, which no tsconfig includes, and reported four real 7.9.0 errors there that the
@@ -172,24 +176,18 @@ Companion moves in this run:
 
 - batch-ai: `check` now moves zod 3.24.2 → 3.25.0 because openai 7.4.0 requires
   `zod ^3.25 || ^4.0` (#142). The real upgrade chose 4.4.3; `with` only requires the name.
-- guardrails: **blocked.** `@openai/agents` 0.1.11 depends on openai `^5.20.2`; only a new
-  major (0.15.0, which needs zod `^4.0.0`) accepts openai 7.9.0, and `check` reports a required
-  major as a blocker instead of planning it. The real upgrade made exactly that move
-  (`@openai/agents` 0.17.2, zod 4.5.4), so `with` is not met.
-- prompty: **blocked.** `@azure/ai-projects` 2.4.0 depends on openai `^6.16.0` and no release
-  accepts 7.10.0. That is a regular dependency, not a peer: the real upgrade kept it and its
-  lockfile nests openai 6.49.0 under `@azure/ai-projects`. The block is the planner's, not
-  the upgrade's.
+- guardrails: explained, not blocking (#157). `@openai/agents` 0.1.11 keeps its own
+  nested openai `^5.20.2`; only a new major (0.15.0, which needs zod `^4.0.0`) accepts openai
+  7.9.0, so `check` leaves it. The real upgrade chose that major (`@openai/agents` 0.17.2,
+  zod 4.5.4); `pack test` now reports the difference as an explained move.
+- prompty: explained, not blocking (#157). `@azure/ai-projects` 2.4.0 keeps its own nested
+  openai `^6.16.0`, as the real upgrade's lockfile does (openai 6.49.0 under it).
 
 ## What the engine could not express (separate tasks)
 
-1. **Required majors and nested regular dependencies in companion planning.** Since #142 the
-   planner moves a required minor (batch-ai's zod) but reports a required major as a blocker
-   (guardrails' `@openai/agents` 0.1 → 0.15+ with zod 3 → 4), and treats a regular dependency
-   whose range rejects the target as a blocker even though the package manager nests its own
-   copy (prompty's `@azure/ai-projects`). Either the planner moves or nests these, or a
-   blocked repository needs a policy in the gate; until then this pack cannot reach verified
-   on this truth.
+1. ~~Required majors and nested regular dependencies.~~ Nested copies are stays (#157) and
+   blocked or unrelated `with` moves count as explained (#157). `check` still does not plan
+   a dependent's required major (guardrails' `@openai/agents`); `fix` leaves it nested.
 2. ~~Compile scope.~~ Fixed by #138: `check` now respects TypeScript project scope.
 3. **Decision evidence from sources.** `applies()` sees only the declared inventory, so the
    pack declares source globs (`src`, `app`, `lib`, …) to find helper imports and subclasses;
