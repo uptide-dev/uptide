@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { Finding } from '../../domain/report.js';
 import type { Usage } from '../../domain/usage.js';
+import { ruleFor } from '../contract.js';
 import { errorMemberFindings, errorMemberSites, rewriteErrorMembers } from './error-members.js';
 import { zodPack } from './index.js';
 
@@ -133,7 +134,6 @@ describe('error-members rewrite', () => {
   it('leaves every other shape to the agent', () => {
     for (const read of [
       'error.formErrors',
-      'error.errors',
       'error?.formErrors?.fieldErrors',
       'error.formErrors.fieldErrors.name',
     ]) {
@@ -151,6 +151,20 @@ describe('error-members rewrite', () => {
       reason: expect.stringContaining('`z` names something else'),
     });
   });
+  it('renames errors to issues off a caught zod error, never off another try', () => {
+    for (const read of ['error.errors[0].message', '(error as any).errors?.length']) {
+      const text = form("import { z } from 'zod';", read);
+      const result = zodPack.transform(text, finding(text), context);
+      expect(result).toMatchObject({ applied: true, rule: 'error-members' });
+      expect(result.text).toBe(text.replace('.errors', '.issues'));
+    }
+    const text = form("import { z } from 'zod';", 'error.errors');
+    const site = finding(text);
+    const other = text.replace('schema.parse(values);', 'JSON.parse(values as string);');
+    expect(zodPack.transform(other, site, context).applied).toBe(false);
+    const write = form("import { z } from 'zod';", '(error.errors = [])');
+    expect(zodPack.transform(write, finding(write), context).applied).toBe(false);
+  });
   it('never edits a read detection would not report, and is idempotent', () => {
     const text = form("import { z } from 'zod';", 'error.formErrors.fieldErrors');
     const site = finding(text);
@@ -158,6 +172,62 @@ describe('error-members rewrite', () => {
     expect(zodPack.transform(migrated, site, context).applied).toBe(false);
     const other = text.replace('schema.parse(values);', 'await save(values);');
     expect(zodPack.transform(other, site, context).applied).toBe(false);
+  });
+});
+
+describe('error-issues', () => {
+  /** What the type diff reports at a typed read: the checker resolved the member's declaration. */
+  const typed = (text: string, at: string, path = 'ZodError#errors'): Finding => {
+    const line = text.split('\n').findIndex((l) => l.includes(at)) + 1;
+    const column = (text.split('\n')[line - 1] as string).indexOf(at) + 1;
+    return {
+      change: {
+        package: 'zod',
+        ...context,
+        path,
+        kind: 'removed',
+        severity: 'breaking',
+        source: 'types',
+        confidence: 1,
+      },
+      usage: {
+        file: 'a.ts',
+        line,
+        column,
+        endLine: line,
+        endColumn: column,
+        symbolPath: path,
+        access: 'read',
+        snippet: '',
+        via: 'direct',
+      },
+      severity: 'breaking',
+      confidence: 1,
+      fixability: 'manual',
+      reason: 'removed',
+    };
+  };
+  it('claims only the removed ZodError#errors', () => {
+    const text = 'r.error.errors';
+    expect(ruleFor(zodPack.rules, typed(text, 'errors'))?.id).toBe('error-issues');
+    for (const path of ['Form#errors', 'ZodError#formErrors', 'ZodIssue#errors'])
+      expect(ruleFor(zodPack.rules, typed(text, 'errors', path))?.id).not.toBe('error-issues');
+  });
+  it('renames the typed read and keeps a destructured local name', () => {
+    const text = 'const m = r.error.errors[0]?.message;\nconst { errors } = r.error;\n';
+    const read = zodPack.transform(text, typed(text, 'errors['), context);
+    expect(read).toMatchObject({ applied: true, rule: 'error-issues' });
+    expect(read.text).toBe(text.replace('errors[0]', 'issues[0]'));
+    const bound = zodPack.transform(text, typed(text, 'errors }'), context);
+    expect(bound.text).toBe(text.replace('{ errors }', '{ issues: errors }'));
+  });
+  it('declines writes, rest elements and a site with no errors read at it', () => {
+    for (const [text, at] of [
+      ['e.errors = [];', 'errors'],
+      ['delete e.errors;', 'errors'],
+      ['const { ...errors } = e;', '...errors'],
+    ] as const)
+      expect(zodPack.transform(text, typed(text, at), context).applied).toBe(false);
   });
 });
 
@@ -237,7 +307,7 @@ describe('error-members in check', () => {
     expect(
       run().map((f) => `${f.usage.file}:${f.usage.line} ${f.change.path} ${f.fixability}`),
     ).toEqual([
-      'components/account/UpdateEmail.tsx:6 ZodError#errors assisted',
+      'components/account/UpdateEmail.tsx:6 ZodError#errors mechanical',
       'components/account/UpdateName.tsx:6 ZodError#formErrors mechanical',
       'components/apiKey/NewAPIKey.tsx:7 ZodError#formErrors mechanical',
       'components/team/TeamSettings.tsx:7 ZodError#formErrors mechanical',

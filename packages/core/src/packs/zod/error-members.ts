@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import {
+  type BindingElement,
   type Expression,
   type Identifier,
   Node,
@@ -28,6 +29,8 @@ import type { TransformResult } from '../types.js';
  * reads one of the removed members off its own binding.
  */
 export const RULE = 'error-members';
+/** `ZodError#errors` where the compiler sees it: the type diff's finding, renamed to `issues`. */
+export const ISSUES_RULE = 'error-issues';
 const REMOVED = new Set(['formErrors', 'errors']);
 const FLAT = new Set(['fieldErrors', 'formErrors']);
 const MENTIONS = /\bformErrors\b|\.errors\b/;
@@ -377,12 +380,17 @@ export function errorMemberFindings(input: {
 
 const IMPORT_LINE = "import { z } from 'zod';";
 
-/** The read at the reported site, allowing for the one import line this rule may have added above it. */
+/**
+ * The read of `name` at the reported site, allowing for the one import line this rule may have
+ * added above it. Detection reports a read where it starts (`e.formErrors`); the type diff
+ * where the member is named (`errors` in `e.errors`, or in a destructured `{ errors }`).
+ */
 function readAt(
   source: SourceFile,
   text: string,
   finding: Finding,
-): PropertyAccessExpression | undefined {
+  name = 'formErrors',
+): PropertyAccessExpression | BindingElement | undefined {
   const lines = text.split('\n');
   const added = lines.indexOf(IMPORT_LINE);
   for (const shift of added >= 0 && added < finding.usage.line - 1 ? [0, 1] : [0]) {
@@ -396,9 +404,21 @@ function readAt(
     // The innermost: `e.formErrors.formErrors` starts both reads at one place.
     const access = source
       .getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)
-      .filter((a) => a.getStart() === position && a.getName() === 'formErrors')
+      .filter(
+        (a) =>
+          a.getName() === name &&
+          (a.getStart() === position || a.getNameNode().getStart() === position),
+      )
       .sort((x, y) => x.getWidth() - y.getWidth())[0];
     if (access) return access;
+    const element = source
+      .getDescendantsOfKind(SyntaxKind.BindingElement)
+      .find(
+        (e) =>
+          e.getStart() === position &&
+          (e.getPropertyNameNode() ?? e.getNameNode()).getText() === name,
+      );
+    if (element) return element;
   }
   return undefined;
 }
@@ -460,11 +480,13 @@ function zodName(
  */
 export function rewriteErrorMembers(text: string, finding: Finding): TransformResult {
   const decline = (reason: string): TransformResult => ({ text, applied: false, reason });
+  if (/ZodError#errors$/.test(finding.change.path)) return rewriteErrors(text, finding, true);
   if (!/ZodError#formErrors$/.test(finding.change.path))
     return decline('only formErrors.fieldErrors and formErrors.formErrors are rewritten by rule');
   const source = parse(text, finding.usage.file);
   const access = readAt(source, text, finding);
-  if (!access) return decline('the reported formErrors read is not at the site');
+  if (!access || Node.isBindingElement(access))
+    return decline('the reported formErrors read is not at the site');
   // Only a read detection reports: caught from a zod parse. Any imported name may be the schema
   // here, since `check` proved which ones are before it reported the site.
   if (!removedReads(source, localImports(source, /^(?!zod$)/)).includes(access))
@@ -507,5 +529,58 @@ export function rewriteErrorMembers(text: string, finding: Finding): TransformRe
     applied: true,
     rule: RULE,
     reason: `formErrors was flatten(); z.flattenError keeps .${parent.getName()}`,
+  };
+}
+
+/**
+ * `<err>.errors` becomes `<err>.issues`, and a destructured `{ errors }` keeps its local name as
+ * `{ issues: errors }`: zod 3's `errors` was an alias of `issues`
+ * (https://zod.dev/v4/changelog#drops-errors). `caught` is a site this rule detected off an
+ * untyped catch binding, rewritten only where detection still reports it; otherwise the site is
+ * the type diff's, whose receiver the checker resolved to `ZodError` (never the name alone).
+ */
+export function rewriteErrors(text: string, finding: Finding, caught = false): TransformResult {
+  const decline = (reason: string): TransformResult => ({ text, applied: false, reason });
+  if (!/ZodError#errors$/.test(finding.change.path))
+    return decline('only ZodError#errors is renamed to issues');
+  const source = parse(text, finding.usage.file);
+  const at = readAt(source, text, finding, 'errors');
+  if (!at) return decline('the reported errors read is not at the site');
+  let edit: { start: number; end: number; text: string };
+  if (Node.isBindingElement(at)) {
+    if (caught) return decline('not an errors read off an error caught from a zod parse');
+    if (at.getDotDotDotToken()) return decline('a rest element needs manual review');
+    const property = at.getPropertyNameNode();
+    edit = property
+      ? { start: property.getStart(), end: property.getEnd(), text: 'issues' }
+      : { start: at.getNameNode().getStart(), end: at.getNameNode().getStart(), text: 'issues: ' };
+  } else {
+    if (caught && !removedReads(source, localImports(source, /^(?!zod$)/)).includes(at))
+      return decline('not an errors read off an error caught from a zod parse');
+    let target: Node = at;
+    while (
+      Node.isParenthesizedExpression(target.getParent()) ||
+      Node.isNonNullExpression(target.getParent())
+    )
+      target = target.getParent() as Node;
+    const parent = target.getParent();
+    if (
+      (Node.isBinaryExpression(parent) &&
+        parent.getLeft() === target &&
+        parent.getOperatorToken().getKind() >= SyntaxKind.FirstAssignment &&
+        parent.getOperatorToken().getKind() <= SyntaxKind.LastAssignment) ||
+      Node.isDeleteExpression(parent) ||
+      ((Node.isPrefixUnaryExpression(parent) || Node.isPostfixUnaryExpression(parent)) &&
+        [SyntaxKind.PlusPlusToken, SyntaxKind.MinusMinusToken].includes(parent.getOperatorToken()))
+    )
+      return decline('a write to errors needs manual review');
+    const name = at.getNameNode();
+    edit = { start: name.getStart(), end: name.getEnd(), text: 'issues' };
+  }
+  return {
+    text: text.slice(0, edit.start) + edit.text + text.slice(edit.end),
+    applied: true,
+    rule: caught ? RULE : ISSUES_RULE,
+    reason: 'errors was an alias of issues',
   };
 }
