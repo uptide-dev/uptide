@@ -60,7 +60,7 @@ The contract: [migration packs](docs/packs.md).
 | `ioredis` | 5.x → 6.x | n/a | 0% | 2 | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
 | `joi` | 17.x → 18.x | n/a | n/a | — | edtech4good/edtech-lms-api, senacor/azure-function-middleware | candidate |
 | `lucide-react` | 0.x → 1.x | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
-| `next` | 15.x → 16.x | 100% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | candidate |
+| `next` | 15.x → 16.x | 100% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
 | `react` | 18.x → 19.x | 100% | 69% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6.x → 7.x | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
 | `redis` | >=4 <6 → >=5 <7 | n/a | n/a | — | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, deanmoses/tacocat-gallery-sam, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | candidate |

@@ -1,6 +1,6 @@
 {
-  "status": "candidate",
-  "truth": "sha256-8d6e1ed3b0f8aea6b37c447b56bb5efe6cdb871e02f41a504a35638f0272fa92",
+  "status": "verified",
+  "truth": "sha256-ecb6dfda042b1c68a95c1754479f9496a33252bbce0ab6c47a5740971345f336",
   "repos": 4,
   "breaking": {
     "precision": 1,
