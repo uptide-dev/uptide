@@ -10,7 +10,7 @@ import { typescriptPack } from './index.js';
 
 process.env.UPTIDE_CACHE_DIR = mkdtempSync(join(tmpdir(), 'uptide-ts-pack-cache-'));
 
-it('reports tsconfig sites as pack findings, in a workspace that imports nothing, outside the include scope', async () => {
+it('reports tsconfig option sites outside every tsconfig include, where the project scope (UPT-49) never drops them', async () => {
   const compiler = dirname(createRequire(import.meta.url).resolve('typescript/package.json'));
   const cwd = mkdtempSync(join(tmpdir(), 'uptide-ts-pack-'));
   const write = (file: string, text: string) => {
@@ -31,10 +31,16 @@ it('reports tsconfig sites as pack findings, in a workspace that imports nothing
   );
   mkdirSync(join(cwd, 'node_modules'));
   symlinkSync(compiler, join(cwd, 'node_modules', 'typescript'), 'dir');
-  // The tsconfig files are outside every project's `include`: read by the compiler, never compiled.
+  // No tsconfig file is inside any project's `include`: the compiler reads them, never compiles
+  // them, and the project scope covers none of them. `config/tsconfig.base.json` is not even a
+  // project (it is only extended), and its directory is excluded.
   write(
     'tsconfig.json',
-    '{\n  "compilerOptions": {\n    "baseUrl": ".",\n    "noEmit": true\n  },\n  "include": ["src/**/*.ts"]\n}\n',
+    '{\n  "extends": "./config/tsconfig.base.json",\n  "compilerOptions": {\n    "baseUrl": ".",\n    "noEmit": true\n  },\n  "include": ["src/**/*.ts"],\n  "exclude": ["config"]\n}\n',
+  );
+  write(
+    'config/tsconfig.base.json',
+    '{\n  "compilerOptions": {\n    "target": "es2019",\n    "downlevelIteration": true\n  }\n}\n',
   );
   write(
     'tools/tsconfig.json',
@@ -60,10 +66,13 @@ it('reports tsconfig sites as pack findings, in a workspace that imports nothing
   });
   const sites = result.packages
     .flatMap((p) => p.findings)
-    .filter((f) => f.usage.file.endsWith('tsconfig.json'))
+    .filter((f) => /(^|\/)tsconfig[^/]*\.json$/.test(f.usage.file))
     .map((f) => [f.usage.file, f.usage.line, f.rule, f.severity]);
   expect(sites).toEqual([
+    ['config/tsconfig.base.json', 4, 'downlevel-iteration', 'breaking'],
     ['tools/tsconfig.json', 3, 'module-resolution-node10', 'breaking'],
-    ['tsconfig.json', 3, 'base-url', 'breaking'],
+    ['tsconfig.json', 4, 'base-url', 'breaking'],
   ]);
+  // The compile ran under the project scope (a tsconfig was found), not the no-tsconfig fallback.
+  expect(result.packages[0]?.compile?.coverage?.noTsconfig).toBeUndefined();
 }, 60_000);

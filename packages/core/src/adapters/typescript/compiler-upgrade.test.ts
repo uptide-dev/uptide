@@ -40,6 +40,8 @@ const project = {
     include: ['*.ts'],
   }),
   'tools/b.ts': 'export function f(a, b?: string) { return b.length + a; }\n',
+  // Outside every project: the project scope (UPT-49) keeps its compiler errors out.
+  'examples/c.ts': 'module Outside { export const z = 3; }\n',
 };
 
 describe('compiling a TypeScript upgrade', () => {
@@ -90,6 +92,7 @@ describe.skipIf(!process.env.UPTIDE_NETWORK)('compiling against TypeScript 6.0.3
     expect(codes).toContain('src/a.ts:1 TS1540');
     // strict is on by default in 6.0: the nested project's untyped parameter.
     expect(codes).toContain('tools/b.ts:1 TS7006');
+    expect(codes.some((c) => c.startsWith('examples/'))).toBe(false);
     // The tsconfig's own deprecation (baseUrl, TS5101) is the pack's finding, not a compile one.
     expect(signal.diagnostics.some((d) => d.file.endsWith('.json'))).toBe(false);
     expect(signal.coverage.compilers?.map((c) => c.version)).toEqual(['5.9.3', '6.0.3']);

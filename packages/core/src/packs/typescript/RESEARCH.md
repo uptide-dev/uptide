@@ -43,11 +43,12 @@ compile with the old compiler and judge nothing. `compileCompilerUpgrade`
 - **Never the bundled compiler** (ts-morph's 6.0.2). Without an installed TypeScript the compile
   is skipped and the report says why. A target without `createProgram` (7.x) is skipped and named
   the same way. The coverage line names both versions: "with the repo's TypeScript 5.9.3 and 6.0.3".
-- **What is compiled:** each side builds the workspace's tsconfig, every project it references,
-  and every `tsconfig.json` below the workspace (depth 3, the directories `packs:truth` reads).
-  Every file of those projects is compiled, not only the files that import `typescript`. A
-  diagnostic present at 6.0.3 and absent at the installed version is new, matched the way the
-  overlay matches: file, code and message, or place and message shape.
+- **What is compiled:** each side builds the workspace's projects as the TypeScript project
+  scope finds them (UPT-49, `project-scope.ts`: every `tsconfig*.json`, their references, configs
+  that are only extended left out). Every file of those projects is compiled, not only the files
+  that import `typescript`, and a diagnostic counts only in a file a project covers, as for any
+  package. A diagnostic present at 6.0.3 and absent at the installed version is new, matched the
+  way the overlay matches: file, code and message, or place and message shape.
 - **Diagnostics on tsconfig files** (TS5101, TS5107, TS5011) are not compile findings. The
   compiler reports an inherited option at the extending config's `compilerOptions`, not where it
   is set. The pack reports each one in the file that sets it, as a pack finding from the
@@ -104,7 +105,7 @@ had no such conflict: typescript-eslint 8.68 and tsup accept 6.0.
 
 Seven merged public upgrades, 5.x → 6.0.3. Each was drafted with `pnpm packs:truth` (6.0.3 linked
 where the repository installs `typescript`, every `tsconfig.json` compiled before and after, and
-the upgrade's diff), then assigned by rule and committed (`2699e8c`, the first commit of this branch) **before the first
+the upgrade's diff), then assigned by rule and committed (`d128198`, the first commit of this branch) **before the first
 `pack test` run**. Nothing was changed after scoring.
 
 | Repository | Upgrade | Before | What it exercises |
@@ -181,6 +182,22 @@ The false negatives, all expected:
   under `noEmit`. `root-dir` reads `outDir`, and CroffZ has none.
 - **`changed-defaults` sites.** That note is a decision, not a finding, so its 4 sites are
   behavior-only misses, not missed breaks.
+
+### After rebasing on UPT-49 (#138): open
+
+On #138's project scope the compile also builds `tsconfig.*.json` projects, which `packs:truth` does
+not read (it compiles `tsconfig.json` only). Re-scored 2026-10-15, everything else is unchanged.
+shogo82148/typescript-action gains 14 false positives, all in `__tests__/` through
+`tsconfig.eslint.json`. They are `describe`, `it` and `expect` unresolved under `types: []`, and
+that repository's own upgrade fixed them by adding `"types": ["jest", "node"]` to the same file
+(already expected, under `changed-defaults`). Overall: precision 99%, breaking recall 99%.
+
+They are real 6.0 errors the truth method could not see, but changing the ground truth after scoring
+is not done here. Two ways to settle it, a decision for the maintainer:
+
+- make `packs:truth` compile the same projects (`tsconfig*.json`) and redraft the seven repositories
+  as a method change, said so;
+- or leave the truth and record the false positives.
 
 ## The verified gate, now and under UPT-48
 

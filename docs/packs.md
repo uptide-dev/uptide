@@ -417,8 +417,8 @@ because custom webpack configuration can fail with the default Turbopack build.
 ### When the package is the compiler
 
 `typescript` is the one package no overlay can swap: it judges every file, not the ones that
-import it. For it, `check` compiles each of the workspace's projects (its tsconfig, the projects
-it references, every `tsconfig.json` below it) twice: with the repository's installed
+import it. For it, `check` compiles each of the workspace's projects (the TypeScript project
+scope: every `tsconfig*.json` and its references) twice: with the repository's installed
 TypeScript, and with the target's, loaded from the copy `check` fetched. A diagnostic new at the
 target is a finding. The bundled compiler never stands in for either; a target with no
 JavaScript API (TypeScript 7) is not compiled, and the report says so. Diagnostics on tsconfig
