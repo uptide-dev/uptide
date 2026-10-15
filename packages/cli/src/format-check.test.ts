@@ -297,6 +297,50 @@ describe('formatCheck, the first screen', () => {
     );
   });
 
+  it('names a deprecated @types stub it removes, apart from what it upgrades', () => {
+    const out = formatCheck(
+      report([
+        pkg({
+          name: 'ioredis',
+          installed: '4.28.5',
+          latest: '5.4.1',
+          target: '5.4.1',
+          majorsBehind: 1,
+          status: 'breaking',
+          findings: [removed('src/index.ts', 3)],
+          companionRemovals: [
+            { name: '@types/ioredis', from: '4.28.10', reason: 'ioredis 5 ships its own types' },
+          ],
+        }),
+      ]),
+      { ...shown, fixable: ['ioredis'] },
+    );
+    expect(out).toContain(
+      '− removed: @types/ioredis, ioredis 5 ships its own types   npm deprecates its new release as a stub; was 4.28.10',
+    );
+    expect(out).not.toContain('upgrades with');
+  });
+
+  it('names a removed @types stub on a package where nothing breaks', () => {
+    const out = formatCheck(
+      report([
+        pkg({
+          name: 'ioredis',
+          installed: '4.28.5',
+          latest: '5.4.1',
+          target: '5.4.1',
+          majorsBehind: 1,
+          status: 'safe',
+          companionRemovals: [
+            { name: '@types/ioredis', from: '4.28.10', reason: 'ioredis 5 ships its own types' },
+          ],
+        }),
+      ]),
+      shown,
+    );
+    expect(out).toContain('− removed: @types/ioredis, ioredis 5 ships its own types');
+  });
+
   it('lists a peer conflict as possible impact, never as breaking', () => {
     const out = formatCheck(
       report([
