@@ -217,6 +217,7 @@ const V6: PackRule[] = [
   },
 ];
 
+// shared-state: not TS-dependent
 const MAJOR = new Map<string, number>([
   ...V5.map((r) => [r.id, 5] as const),
   ...V6.map((r) => [r.id, 6] as const),

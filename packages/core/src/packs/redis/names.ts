@@ -8,6 +8,7 @@ import type { TransformResult } from '../types.js';
  * lists the v4 members with no v5 member of the same name and value. Without them, importing
  * the constant under the old name changes nothing.
  */
+// shared-state: not TS-dependent
 export const CONSTANTS = new Map<
   string,
   { name: string; members?: string; changed?: string[]; type?: true }
