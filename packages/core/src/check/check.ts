@@ -2275,8 +2275,12 @@ async function checkGroup(
         targetDir: target?.runtime?.dir ?? target?.pkg.dir ?? p.installedDir.dir,
       };
     };
+    // Config files the pack reads (next.config.mjs): read by their tool, not compiled, so the
+    // TypeScript project scope does not apply to them.
+    let inventory: string[] = [];
     if (pack?.runtimeFindings && only) {
       try {
+        inventory = packInventory(ctx.opts.cwd, workspace, pack.inventory);
         findings.push(
           ...pack.runtimeFindings({
             root: ctx.opts.cwd,
@@ -2285,7 +2289,7 @@ async function checkGroup(
             to: only.target,
             ...packDirs(only),
             usages: only.scan.usages,
-            files: packInventory(ctx.opts.cwd, workspace, pack.inventory),
+            files: inventory,
             read: (file) => {
               try {
                 return readFileSync(resolve(ctx.opts.cwd, file), 'utf8');
@@ -2343,7 +2347,7 @@ async function checkGroup(
       }
     if (ctx.adapter.compileScope) {
       const scope = await ctx.adapter.compileScope(repo, [
-        ...new Set(findings.map((f) => f.usage.file)),
+        ...new Set(findings.map((f) => f.usage.file).filter((file) => !inventory.includes(file))),
       ]);
       const outside = new Set(scope.outside);
       const covered = findings.filter((f) => !outside.has(f.usage.file));
