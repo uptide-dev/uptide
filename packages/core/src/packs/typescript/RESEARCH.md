@@ -183,21 +183,26 @@ The false negatives, all expected:
 - **`changed-defaults` sites.** That note is a decision, not a finding, so its 4 sites are
   behavior-only misses, not missed breaks.
 
-### After rebasing on UPT-49 (#138): open
+### After rebasing on UPT-49 (#138)
 
-On #138's project scope the compile also builds `tsconfig.*.json` projects, which `packs:truth` does
-not read (it compiles `tsconfig.json` only). Re-scored 2026-10-15, everything else is unchanged.
-shogo82148/typescript-action gains 14 false positives, all in `__tests__/` through
-`tsconfig.eslint.json`. They are `describe`, `it` and `expect` unresolved under `types: []`, and
-that repository's own upgrade fixed them by adding `"types": ["jest", "node"]` to the same file
-(already expected, under `changed-defaults`). Overall: precision 99%, breaking recall 99%.
+On #138's project scope the compile also builds `tsconfig.*.json` projects, which `packs:truth`
+did not read (it compiled `tsconfig.json` alone). The first run on the new scope found 14 false
+positives, in shogo82148/typescript-action `__tests__/` through `tsconfig.eslint.json`:
+`describe`, `it` and `expect` unresolved under `types: []`. They are real 6.0 breaks for that
+repository: its `jest.config.js` runs ts-jest with that config, and its own upgrade added
+`"types": ["jest", "node"]` there.
 
-They are real 6.0 errors the truth method could not see, but changing the ground truth after scoring
-is not done here. Two ways to settle it, a decision for the maintainer:
+The gap was in the truth method, so the method changed, not the rule. `packs:truth` now drafts
+on `projectScope`, the same project list `check` compiles, and all seven repositories were
+redrafted (2026-10-15, committed before re-scoring):
 
-- make `packs:truth` compile the same projects (`tsconfig*.json`) and redraft the seven repositories
-  as a method change, said so;
-- or leave the truth and record the false positives.
+- shogo gains those 14 compiler sites under `generic`;
+- the other new diagnostics are inherited options on newly compiled leaf configs (signalk
+  `tsconfig.build.json:3`, Borewit `lib/tsconfig.prod.json:3`), expected where the option is set,
+  as before.
+
+Re-scored: 0 false positives, breaking recall 99% (1,393 of 1,413). The run measures verified and
+the record stays candidate by choice.
 
 ## The verified gate, now and under UPT-48
 
