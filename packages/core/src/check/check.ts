@@ -2125,8 +2125,11 @@ async function checkGroup(
 
     const findings: Finding[] = [];
     for (const p of prepared) {
-      // Curated behaviour changes the declarations do not show (express 5 routing).
-      const usageFiles = [...new Set(p.scan.usages.map((u) => u.file))];
+      // Curated behaviour changes the declarations do not show (express 5 routing); a pack in
+      // use for the package owns them, with detection that knows the receiver.
+      const usageFiles = packsOf(ctx.opts).some((pack) => pack.name === p.name)
+        ? []
+        : [...new Set(p.scan.usages.map((u) => u.file))];
       findings.push(
         ...runtimeChangeFindings(
           { package: p.name, from: p.installedVersion, to: p.target },
