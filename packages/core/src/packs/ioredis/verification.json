@@ -15,5 +15,9 @@
     "falsePositives": 3,
     "truePositives": 7,
     "falseNegatives": 6
-  }
+  },
+  "class": "behavior",
+  "breakingSites": 2,
+  "behaviorSites": 13,
+  "unexercised": []
 }

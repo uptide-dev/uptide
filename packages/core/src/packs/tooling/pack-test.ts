@@ -558,8 +558,23 @@ export function overclaims(recorded: PackStatus, measured: PackStatus): boolean 
 /** `--write`: the record the runtime gate reads, as this run measured it. */
 export function writeVerification(root: string, dir: string, record: PackVerification): string {
   const file = join(packsDir(root), dir, 'verification.json');
-  writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
+  writeFileSync(file, `${formatRecord(record)}\n`);
   return file;
+}
+
+/** JSON as the repository's formatter writes it: a list of strings on one line when it fits. */
+export function formatRecord(record: PackVerification): string {
+  return JSON.stringify(record, null, 2).replace(
+    /^( *"[^"\n]+": )\[\n((?: *"[^"\n]*",?\n)+) *\]/gm,
+    (whole, head: string, items: string) => {
+      const line = `${head}[${items
+        .trim()
+        .split('\n')
+        .map((item) => item.trim().replace(/,$/, ''))
+        .join(', ')}]`;
+      return line.length <= 100 ? line : whole;
+    },
+  );
 }
 
 /**

@@ -50,26 +50,26 @@ Everything else: [getting started](docs/getting-started.md).
 A pack is everything Uptide knows about one upgrade: rules, a guide for the agent, behavior
 checks, and ground truth from public repositories it is scored against. Precision and recall
 are for breaking findings on that ground truth, as recorded by `uptide pack test`; a pack is
-verified with two or more public repositories and no false positive. The contract:
-[migration packs](docs/packs.md).
+verified with two or more public repositories, five real breaking sites, and no false positive.
+The contract: [migration packs](docs/packs.md).
 
 <!-- packs:start -->
-| Package | Range | Precision | Recall | Ground-truth repositories | Status |
-| --- | --- | ---: | ---: | --- | --- |
-| `ai` | 6.x → 7.x | 100% | 82% | vercel/chatbot, miurla/morphic | verified |
-| `ioredis` | 5.x → 6.x | n/a | 0% | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
-| `joi` | 17.x → 18.x | n/a | n/a | edtech4good/edtech-lms-api, senacor/azure-function-middleware | candidate |
-| `lucide-react` | 0.x → 1.x | 100% | 100% | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
-| `next` | 15.x → 16.x | 100% | 85% | sambecker/exif-photo-blog, stoczec/wortkarte | verified |
-| `react` | 18.x → 19.x | 100% | 69% | excalidraw/excalidraw, tldraw/tldraw | verified |
-| `react-router` | 6.x → 7.x | 100% | 88% | Arize-ai/phoenix, getlago/lago-front | verified |
-| `redis` | >=4 <6 → >=5 <7 | n/a | n/a | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, deanmoses/tacocat-gallery-sam, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | candidate |
-| `@sentry/browser` | 10.x → 11.x | 100% | 100% | Automancer-Ltd/automancer-site, sbomify/sbomify | verified |
-| `@sentry/nextjs` | 10.x → 11.x | 100% | 100% | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
-| `@sentry/react` | 10.x → 11.x | 100% | 100% | owine/youth-activity-scheduler, successible/cleanslate | verified |
-| `stripe` | 14 and newer | 100% | 90% | unkeyed/unkey, nextjs/saas-starter | verified |
-| `vitest` | 4.x → 5.x | 100% | 50% | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
-| `zod` | 3.x → 4.x | 100% | 74% | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript | verified |
+| Package | Range | Precision | Recall | Breaking sites | Ground-truth repositories | Status |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| `ai` | 6.x → 7.x | 100% | 82% | 11 | vercel/chatbot, miurla/morphic | verified |
+| `ioredis` | 5.x → 6.x | n/a | 0% | 2 | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
+| `joi` | 17.x → 18.x | n/a | n/a | — | edtech4good/edtech-lms-api, senacor/azure-function-middleware | candidate |
+| `lucide-react` | 0.x → 1.x | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
+| `next` | 15.x → 16.x | 100% | 85% | 13 | sambecker/exif-photo-blog, stoczec/wortkarte | verified |
+| `react` | 18.x → 19.x | 100% | 69% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
+| `react-router` | 6.x → 7.x | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
+| `redis` | >=4 <6 → >=5 <7 | n/a | n/a | — | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, deanmoses/tacocat-gallery-sam, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | candidate |
+| `@sentry/browser` | 10.x → 11.x | 100% | 100% | 3 | Automancer-Ltd/automancer-site, sbomify/sbomify | candidate |
+| `@sentry/nextjs` | 10.x → 11.x | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
+| `@sentry/react` | 10.x → 11.x | 100% | 100% | 2 | owine/youth-activity-scheduler, successible/cleanslate | candidate |
+| `stripe` | 14 and newer | 100% | 90% | 16 | unkeyed/unkey, nextjs/saas-starter | verified |
+| `vitest` | 4.x → 5.x | 100% | 50% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
+| `zod` | 3.x → 4.x | 100% | 74% | 85 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript | verified |
 <!-- packs:end -->
 
 Any other dependency gets the same analysis without a pack, and `fix` migrates it with the

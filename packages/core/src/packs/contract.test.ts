@@ -86,6 +86,13 @@ describe('every registered pack meets the contract', () => {
       .map((e) => e.pack.name);
     expect(activePacks().map((p) => p.name)).toEqual(verified);
   });
+
+  it('runs each active pack with the unexercised rules its record lists', () => {
+    for (const pack of activePacks()) {
+      const entry = registeredPacks().find((e) => e.pack.name === pack.name);
+      expect(pack.unexercised ?? [], pack.name).toEqual(entry?.verification.unexercised ?? []);
+    }
+  });
 });
 
 describe('the verified gate', () => {

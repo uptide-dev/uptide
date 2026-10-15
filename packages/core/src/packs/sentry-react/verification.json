@@ -1,5 +1,5 @@
 {
-  "status": "verified",
+  "status": "candidate",
   "truth": "sha256-de564278fba5bea1bf2ff31af11745f79e4bcfa063889715bcaa23e3d0ff9b13",
   "repos": 2,
   "breaking": {
@@ -15,5 +15,15 @@
     "falsePositives": 0,
     "truePositives": 0,
     "falseNegatives": 0
-  }
+  },
+  "class": "breaking",
+  "breakingSites": 2,
+  "behaviorSites": 0,
+  "unexercised": [
+    "enable-logs",
+    "enable-metrics",
+    "integration-names",
+    "renamed-exports",
+    "streamed-span-wrapper"
+  ]
 }

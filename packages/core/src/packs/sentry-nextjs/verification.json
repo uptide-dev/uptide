@@ -15,5 +15,16 @@
     "falsePositives": 0,
     "truePositives": 0,
     "falseNegatives": 0
-  }
+  },
+  "class": "breaking",
+  "breakingSites": 8,
+  "behaviorSites": 0,
+  "unexercised": [
+    "enable-logs",
+    "enable-metrics",
+    "http-integration-options",
+    "integration-names",
+    "renamed-exports",
+    "streamed-span-wrapper"
+  ]
 }

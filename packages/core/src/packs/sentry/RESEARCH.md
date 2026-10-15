@@ -175,6 +175,18 @@ Misses and why:
   with no compiler signal and no general syntactic rule (renaming the active span is legitimate
   elsewhere); covered only by the `span-streaming`/`also-review` decisions.
 
+## Candidates under the UPT-48 gate
+
+`verified` now needs at least five expected breaking sites across the public repositories
+(`VERIFIED_MIN_BREAKING_SITES`). `@sentry/browser` has 3 and `@sentry/react` has 2, so both are
+recorded `candidate` until their ground truth has five or more real breaking sites each (precision
+and recall above are unchanged). `@sentry/nextjs` (8) stays verified. Public repositories to search
+later for real 10 → 11 upgrades of these leads: cal.com, midday, rallly, inbox-zero, unkey, twenty.
+
+The shared rules no real site exercises (`enable-logs`, `enable-metrics`,
+`http-integration-options`, `integration-names`, `renamed-exports`, `streamed-span-wrapper`, per lead
+as `verification.json` lists them under `unexercised`) run as assisted in `fix`.
+
 ## What the engine could not express
 
 1. **Same-scope packages versioned on their own.** `check/companions.ts` and `list/groups.ts`

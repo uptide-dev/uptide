@@ -15,5 +15,9 @@
     "falsePositives": 0,
     "truePositives": 0,
     "falseNegatives": 13
-  }
+  },
+  "class": "breaking",
+  "breakingSites": 32,
+  "behaviorSites": 13,
+  "unexercised": ["removed-entrypoints"]
 }

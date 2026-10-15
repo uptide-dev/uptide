@@ -25,6 +25,13 @@ import {
 } from './verify.js';
 import { bumpCatalog, bumpVersions } from './versions.js';
 
+// zod's required_error rewrite has no real ground-truth site yet, so the registry runs it as
+// assisted (UPT-48). These tests exercise the fix machinery with that rule as written.
+vi.mock('../packs/fixability.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../packs/fixability.js')>()),
+  withUnexercised: (pack: unknown) => pack,
+}));
+
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-fix-tests-'));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 const fixture = () => zodFixture(scratch);

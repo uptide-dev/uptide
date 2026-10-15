@@ -9,6 +9,7 @@ import type { PackVerification } from '../contract.js';
 import { registeredPacks } from '../index.js';
 import {
   companionOutcome,
+  formatRecord,
   gateOf,
   minimumProblems,
   overclaims,
@@ -275,4 +276,11 @@ it('takes a lower breaking-site minimum only with its reason written in RESEARCH
   );
   expect(minimumProblems(3, dir)).toEqual([]);
   expect(minimumProblems(0, dir)[0]).toContain('at least 1');
+});
+
+it('writes a record as the formatter would: a short list inline, a long one a line per item', () => {
+  for (const entry of registeredPacks()) {
+    const file = join(root, 'packages/core/src/packs', entry.dir, 'verification.json');
+    expect(`${formatRecord(entry.verification)}\n`, entry.dir).toBe(readFileSync(file, 'utf8'));
+  }
 });
