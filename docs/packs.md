@@ -235,6 +235,16 @@ executed. They are kept in `~/.cache/uptide/ground-truth` (`UPTIDE_GROUND_TRUTH_
 `pack test --offline` runs without network after the first time. `pnpm packs:fetch` fills
 the cache for every pack (and `--corpus` for the repositories in `fixtures/corpus.json`).
 
+The cache is large: each entry is a checkout with its dependencies installed. Measured on
+2026-10-14, per pack: ai 2.1 GB, lucide-react 3.6, next 1.4, react 4.3, @sentry/browser 0.7,
+@sentry/nextjs 4.3, @sentry/react 1.4, stripe 2.1, vitest 2.1, zod 2.2. Every pack at once is
+about 24 GB, more than the 14 GB of disk a standard GitHub-hosted Linux runner documents, and
+it grows with each pack. Keep it bounded the same way locally and on a runner: score one pack
+at a time and evict its repositories before the next (`rm -rf
+"$UPTIDE_GROUND_TRUTH_CACHE/<owner>__<repo>@<commit>"`, one directory per `ground-truth.json`
+entry), so the cache holds at most one pack's ground truth, under 5 GB today. Registry
+tarballs, kept beside it in `~/.cache/uptide`, add about 1 GB.
+
 ## Scoring: `uptide pack test`
 
 ```sh

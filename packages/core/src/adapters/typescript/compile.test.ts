@@ -119,6 +119,105 @@ describe('Signal B: compile against the target version', () => {
     ]);
   });
 
+  it('does not report a pre-existing error as new because the upgrade rewords it', async () => {
+    // `Mode` widens in v2: the same broken assignment, at the same place, names one more
+    // member. It was broken before the upgrade, and the upgrade did not break it.
+    const dir = consumerCopy((d) =>
+      writeFileSync(
+        join(d, 'src/mode.ts'),
+        "import type { Mode } from 'synthetic';\nexport const pick = (m: Mode): 'loose' => m;\n",
+      ),
+    );
+    const signal = await compileAgainstTarget({ dir }, 'synthetic', join(ROOT, 'synthetic-v2'));
+    expect(signal.baselineErrors).toBe(1);
+    expect(signal.diagnostics.map((d) => `${d.file}:${d.line} ${d.code}`)).toEqual([
+      'src/chains.ts:6 2554',
+    ]);
+  });
+
+  it('reports a different reason at the place of a pre-existing error', async () => {
+    // `shapes` 2 requires one more property: the literal that already missed `a` and `b` now
+    // misses `c` too. Same file, code and position as the baseline error, and a new break.
+    const root = mkdtempSync(join(tmpdir(), 'uptide-same-place-'));
+    const release = (version: string, props: string): string => {
+      const pkg = join(root, 'shapes', version);
+      mkdirSync(pkg, { recursive: true });
+      writeFileSync(
+        join(pkg, 'package.json'),
+        JSON.stringify({ name: 'shapes', version, types: 'index.d.ts' }),
+      );
+      writeFileSync(join(pkg, 'index.d.ts'), `export interface Opts { ${props} }\n`);
+      return pkg;
+    };
+    release('1.0.0', 'a: string; b: string;');
+    const target = release('2.0.0', 'a: string; b: string; c: string;');
+    const dir = join(root, 'repo');
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    cpSync(join(root, 'shapes', '1.0.0'), join(dir, 'node_modules/shapes'), { recursive: true });
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: 'repo', dependencies: { shapes: '1.0.0' } }),
+    );
+    writeFileSync(
+      join(dir, 'tsconfig.json'),
+      JSON.stringify({
+        compilerOptions: { strict: true, noEmit: true, skipLibCheck: true, types: [] },
+        include: ['src'],
+      }),
+    );
+    writeFileSync(
+      join(dir, 'src/index.ts'),
+      "import type { Opts } from 'shapes';\nexport const opts: Opts = {};\n",
+    );
+    const signal = await compileAgainstTarget({ dir }, 'shapes', target);
+    expect(signal.baselineErrors).toBe(1);
+    expect(signal.diagnostics.map((d) => `${d.file}:${d.line} ${d.code} ${d.message}`)).toEqual([
+      "src/index.ts:2 2739 Type '{}' is missing the following properties from type 'Opts': a, b, c",
+    ]);
+  });
+
+  it('reports a new error at the place of a pre-existing one that ends on the same reason', async () => {
+    // `opts` already breaks on property `a`; `shapes` 2 breaks `b` too and checks it first. Same
+    // file, code, position and last message (`Type 'string' is not assignable to type 'number'`),
+    // about another property: a new break, which only the property the chain names tells apart.
+    const root = mkdtempSync(join(tmpdir(), 'uptide-same-reason-'));
+    const release = (version: string, props: string): string => {
+      const pkg = join(root, 'shapes', version);
+      mkdirSync(pkg, { recursive: true });
+      writeFileSync(
+        join(pkg, 'package.json'),
+        JSON.stringify({ name: 'shapes', version, types: 'index.d.ts' }),
+      );
+      writeFileSync(join(pkg, 'index.d.ts'), `export interface Opts { ${props} }\n`);
+      return pkg;
+    };
+    release('1.0.0', 'a: number; b: string;');
+    const target = release('2.0.0', 'b: number; a: number;');
+    const dir = join(root, 'repo');
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    cpSync(join(root, 'shapes', '1.0.0'), join(dir, 'node_modules/shapes'), { recursive: true });
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: 'repo', dependencies: { shapes: '1.0.0' } }),
+    );
+    writeFileSync(
+      join(dir, 'tsconfig.json'),
+      JSON.stringify({
+        compilerOptions: { strict: true, noEmit: true, skipLibCheck: true, types: [] },
+        include: ['src'],
+      }),
+    );
+    writeFileSync(
+      join(dir, 'src/index.ts'),
+      "import type { Opts } from 'shapes';\nconst value = { a: 'x', b: 'y' };\nexport const opts: Opts = value;\n",
+    );
+    const signal = await compileAgainstTarget({ dir }, 'shapes', target);
+    expect(signal.baselineErrors).toBe(1);
+    expect(signal.diagnostics.map((d) => `${d.file}:${d.line} ${d.code} ${d.message}`)).toEqual([
+      expect.stringMatching(/^src\/index\.ts:3 2322 .*Types of property 'b' are incompatible/s),
+    ]);
+  });
+
   it('scopes both baseline and target roots, following imports without loading unrelated files', async () => {
     const dir = consumerCopy((d) => {
       writeFileSync(join(d, 'src/root.ts'), "import './chains';\n");
