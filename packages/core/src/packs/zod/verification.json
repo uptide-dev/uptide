@@ -1,13 +1,13 @@
 {
   "status": "verified",
-  "truth": "sha256-70bca83fb4e83f52958e0104fa6c3297dd8d907d310937239d381580c09a2948",
-  "repos": 3,
+  "truth": "sha256-d81c5d435d0dee86c75e9022674d2578ff9f04ed5651b5aeb0361d9f46ae5537",
+  "repos": 5,
   "breaking": {
     "precision": 1,
-    "recall": 0.7375,
+    "recall": 0.6408,
     "falsePositives": 0,
-    "truePositives": 59,
-    "falseNegatives": 21
+    "truePositives": 66,
+    "falseNegatives": 37
   },
   "behavior": {
     "precision": 1,
@@ -17,7 +17,7 @@
     "falseNegatives": 0
   },
   "class": "breaking",
-  "breakingSites": 85,
+  "breakingSites": 219,
   "behaviorSites": 0,
-  "unexercised": ["error-members", "error-params"]
+  "unexercised": ["error-members"]
 }
