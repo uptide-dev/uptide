@@ -5,7 +5,14 @@ import type { CheckReport, Finding } from '../../domain/report.js';
 import { aiPack } from '../ai/index.js';
 import type { PackVerification } from '../contract.js';
 import { registeredPacks } from '../index.js';
-import { companionOutcome, overclaims, predictedSites, testPack } from './pack-test.js';
+import {
+  companionOutcome,
+  gateOf,
+  overclaims,
+  predictedSites,
+  type RepoScore,
+  testPack,
+} from './pack-test.js';
 
 const root = fileURLToPath(new URL('../../../../../', import.meta.url));
 const verification = JSON.parse(
@@ -175,4 +182,73 @@ it('never finds a fixtures-only run over-claiming, whatever the record says', as
     { root, fixturesOnly: true },
   );
   expect(report).toMatchObject({ recorded: 'verified', status: 'candidate', overclaimed: false });
+});
+
+it('gates on real sites only: a fixture repository scores, never counts, and never exercises a rule', () => {
+  const pack = {
+    rules: [
+      {
+        id: 'rename',
+        summary: '',
+        severity: 'breaking' as const,
+        rewrite: () => ({ applied: false as const, reason: '' }),
+      },
+      {
+        id: 'json',
+        summary: '',
+        severity: 'breaking' as const,
+        rewrite: () => ({ applied: false as const, reason: '' }),
+      },
+      { id: 'look', summary: '', severity: 'breaking' as const },
+    ],
+    behavior: [],
+  } as unknown as Parameters<typeof gateOf>[0];
+  const site = (file: string, rule: string) => ({
+    file,
+    line: 1,
+    rule,
+    severity: 'breaking' as const,
+  });
+  const repo = (
+    label: string,
+    sites: ReturnType<typeof site>[],
+    over: Partial<RepoScore> = {},
+  ): RepoScore => ({
+    label,
+    from: '1.0.0',
+    to: '2.0.0',
+    predicted: sites,
+    expected: sites,
+    falsePositives: [],
+    falseNegatives: [],
+    wrongRule: [],
+    ...over,
+  });
+  const real = (i: number) =>
+    repo(`o/r${i}`, [site('a.ts', 'rename'), site('b.ts', 'look')], { repo: `o/r${i}` });
+  const truth = {
+    package: 'x',
+    repos: [0, 1].map((i) => ({
+      repo: `o/r${i}`,
+      commit: 'c',
+      from: '1.0.0',
+      to: '2.0.0',
+      why: '',
+      findings: [],
+    })),
+  };
+  const fixture = repo('fixture', [site('c.ts', 'json'), site('d.ts', 'json')], {
+    fixture: 'fixtures/repos/x',
+  });
+
+  const gate = gateOf(pack, truth, [real(0), real(1), fixture]);
+  expect(gate.breakingSites).toBe(4);
+  expect(gate.unexercised).toEqual(['json']);
+  expect(gate.reasons).toEqual(['4 breaking sites in public ground truth, verified needs 5']);
+
+  const third = repo('o/r2', [site('e.ts', 'rename')], { repo: 'o/r2' });
+  expect(gateOf(pack, truth, [real(0), real(1), third, fixture]).status).toBe('verified');
+  // A repository that could not be scored is no evidence.
+  const broken = { ...third, error: 'clone failed' };
+  expect(gateOf(pack, truth, [real(0), real(1), broken]).breakingSites).toBe(4);
 });

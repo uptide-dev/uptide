@@ -94,9 +94,11 @@ Rules for a pack change:
    by `uptide pack test`. Expected findings come from the repository's own upgrade and the
    compiler, never from Uptide's output. No private code, paths or names anywhere: fixtures
    are synthetic, ground truth is public.
-4. A pack is verified only with ground truth from two public repositories and no false
-   positive among its breaking findings; until then it ships as a candidate, and the CLI
-   treats the dependency as generic.
+4. A pack is verified only with ground truth from two public repositories, at least five
+   expected breaking sites across them, and no false positive among its breaking findings
+   (docs/packs.md has the behavior-only variant); until then it ships as a candidate, and
+   the CLI treats the dependency as generic. A rewrite no real site exercises is listed
+   as unexercised: give each mechanical rule at least one real site.
 5. Server API changes (Stripe API versions) are never rewritten by rule.
 
 ## Write a pack

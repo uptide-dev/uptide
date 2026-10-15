@@ -160,6 +160,13 @@ export interface PackVerification {
   breaking: VerificationTally;
   /** Sites of behavior notes, whatever their severity. Absent from records written before it. */
   behavior?: VerificationTally;
+  /** The gate's class (`verifiedGate`). Absent from records written before UPT-48. */
+  class?: 'breaking' | 'behavior';
+  /** Expected breaking and behavior-note sites across public repositories. */
+  breakingSites?: number;
+  behaviorSites?: number;
+  /** Mechanical rules no real site confirmed: `fix` runs their sites as assisted. */
+  unexercised?: string[];
 }
 
 /**
@@ -193,8 +200,8 @@ export function rateLabel(tally: VerificationTally, rate: 'precision' | 'recall'
 }
 
 /**
- * `verified`: ground truth from at least two public repositories and no false positive among
- * its breaking findings there. Anything else is a `candidate`: it ships, `uptide pack test`
+ * `verified`: what `verifiedGate` says: ground truth from at least two public repositories, no
+ * false positive among its breaking findings there, and enough real sites to trust it. Anything else is a `candidate`: it ships, `uptide pack test`
  * scores it, and `check`, `list` and `fix` treat the dependency as generic.
  */
 export type PackStatus = 'verified' | 'candidate';
@@ -205,16 +212,80 @@ export function publicRepos(truth: GroundTruth): GroundTruthRepo[] {
   return truth.repos.filter((r) => r.repo !== undefined && r.commit !== undefined);
 }
 
-/** The gate, from what `pack test` measured. */
-export function statusOf(
-  truth: GroundTruth,
-  breaking: { falsePositives: number; predicted: number },
-): PackStatus {
-  return publicRepos(truth).length >= VERIFIED_MIN_REPOS &&
-    breaking.falsePositives === 0 &&
-    breaking.predicted > 0
-    ? 'verified'
-    : 'candidate';
+/** Expected breaking sites, across public repositories, a `verified` pack needs (UPT-48). */
+export const VERIFIED_MIN_BREAKING_SITES = 5;
+
+/** Expected behavior-note sites, across public repositories, a behavior-only pack needs. */
+export const VERIFIED_MIN_BEHAVIOR_SITES = 5;
+
+/**
+ * What the gate reads, all of it from public repositories but the false positives, which count
+ * wherever `pack test` scored them. `mechanical` is every rule with a `rewrite`, with its real
+ * true and false positives.
+ */
+export interface GateEvidence {
+  repos: number;
+  /** Expected sites under a rule or `generic`: what the compiler or a rule sees, not a note. */
+  ruleSites: number;
+  breakingSites: number;
+  behaviorSites: number;
+  breaking: { truePositives: number; falsePositives: number };
+  behavior: { truePositives: number; falsePositives: number };
+  mechanical: Record<string, { truePositives: number; falsePositives: number }>;
+}
+
+/**
+ * The gate's verdict. `class` is `behavior` for an upgrade the compiler cannot see (every
+ * expected site is a behavior note's, whatever its severity: ioredis 6), judged on its notes;
+ * otherwise `breaking`. `reasons` say why a candidate is one. `unexercised` are mechanical rules
+ * no real site ever confirmed: their sites run as assisted, whatever the status.
+ */
+export interface GateResult {
+  status: PackStatus;
+  class: 'breaking' | 'behavior';
+  reasons: string[];
+  unexercised: string[];
+}
+
+const sites = (n: number, what: string): string => `${n} ${what} site${n === 1 ? '' : 's'}`;
+
+/** The verified gate, from what `pack test` measured. */
+export function verifiedGate(e: GateEvidence): GateResult {
+  const cls = e.ruleSites === 0 && e.behaviorSites > 0 ? 'behavior' : 'breaking';
+  const reasons: string[] = [];
+  if (e.repos < VERIFIED_MIN_REPOS)
+    reasons.push(
+      `${e.repos} public repositor${e.repos === 1 ? 'y' : 'ies'}, verified needs ${VERIFIED_MIN_REPOS}`,
+    );
+  if (e.breaking.falsePositives > 0)
+    reasons.push(
+      `${e.breaking.falsePositives} false positive${e.breaking.falsePositives === 1 ? '' : 's'} among breaking findings`,
+    );
+  if (cls === 'breaking') {
+    if (e.breakingSites < VERIFIED_MIN_BREAKING_SITES)
+      reasons.push(
+        `${sites(e.breakingSites, 'breaking')} in public ground truth, verified needs ${VERIFIED_MIN_BREAKING_SITES}`,
+      );
+    if (e.breaking.truePositives === 0) reasons.push('no breaking site found');
+  } else {
+    if (e.behavior.falsePositives > 0)
+      reasons.push(
+        `${e.behavior.falsePositives} false positive${e.behavior.falsePositives === 1 ? '' : 's'} among behavior-note sites`,
+      );
+    const ruleFp = Object.values(e.mechanical).reduce((n, r) => n + r.falsePositives, 0);
+    if (ruleFp > 0)
+      reasons.push(`${ruleFp} false positive${ruleFp === 1 ? '' : 's'} among mechanical rules`);
+    if (e.behaviorSites < VERIFIED_MIN_BEHAVIOR_SITES)
+      reasons.push(
+        `${sites(e.behaviorSites, 'behavior-note')} in public ground truth, verified needs ${VERIFIED_MIN_BEHAVIOR_SITES}`,
+      );
+    if (e.behavior.truePositives === 0) reasons.push('no behavior-note site found');
+  }
+  const unexercised = Object.entries(e.mechanical)
+    .filter(([, r]) => r.truePositives === 0)
+    .map(([id]) => id)
+    .sort();
+  return { status: reasons.length ? 'candidate' : 'verified', class: cls, reasons, unexercised };
 }
 
 /** The digest a verification record is tied to: the ground-truth file as committed. */

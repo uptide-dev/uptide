@@ -159,6 +159,17 @@ export function formatPackTest(report: PackTestReport, color = false): string {
     );
   }
   out.push('');
+  if (!report.fixturesOnly && report.repos.length > 0) {
+    const g = report.gate;
+    out.push(
+      `gate          ${g.class === 'behavior' ? 'behavior-only, ' : ''}${g.breakingSites} breaking site${g.breakingSites === 1 ? '' : 's'}, ${g.behaviorSites} behavior-note site${g.behaviorSites === 1 ? '' : 's'} in public ground truth · ${g.status}`,
+    );
+    for (const reason of g.reasons) out.push(`  ${c.yellow('·')} ${reason}`);
+    if (g.unexercised.length)
+      out.push(
+        `  ${c.yellow('·')} no real site exercises ${g.unexercised.join(', ')}: their rewrites run as assisted`,
+      );
+  }
   if (report.overclaimed)
     out.push(
       `${c.red('✗')} verification.json records verified; this run measures candidate: \`uptide pack test ${report.package} --write\` records it`,

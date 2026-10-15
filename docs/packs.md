@@ -297,9 +297,21 @@ measures verified`; one whose numbers merely differ passes with a note (`--write
 
 ## Verified or candidate
 
-A pack is **verified** only with ground truth from at least two public repositories and no
-false positive among its breaking findings there (precision 100%), with at least one
-breaking finding predicted. Anything else is a **candidate**:
+A pack is **verified** only with ground truth from at least two public repositories, no
+false positive among its breaking findings there (precision 100%), at least one breaking
+finding predicted, and at least five expected breaking sites across the public repositories
+(fixture repositories never count). An upgrade the compiler cannot see, where every
+expected site is a behavior note's (ioredis 6: new runtime defaults), is judged on its notes
+instead, whatever their severity: at least five expected note sites, one found, and no false positive on a note or a
+mechanical rule. `pack test` prints the gate's class, the site counts and every reason a
+pack is a candidate.
+
+A rule with a `rewrite` that no public repository's ground truth exercises (no true
+positive) is **unexercised**: `pack test` lists it and records it in `verification.json`
+(`unexercised`), because nothing real confirms its rewrite yet. Its sites are meant to run as
+assisted; detection is unaffected, and so is the pack's status.
+
+Anything else is a **candidate**:
 
 - it ships in the tree, and `pack test` scores it;
 - by default, `check`, `list` and `fix` treat the dependency as generic: no `verified` label, the

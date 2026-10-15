@@ -6,6 +6,7 @@ import type { Companion } from '../../check/companions.js';
 import type { CheckReport } from '../../domain/report.js';
 import {
   companionProblems,
+  type GateResult,
   type GroundTruth,
   type GroundTruthRepo,
   type Pack,
@@ -14,9 +15,9 @@ import {
   publicRepos,
   type RegisteredPack,
   recordedStatus,
-  statusOf,
   truthDigest,
   verificationTally,
+  verifiedGate,
 } from '../contract.js';
 import { type FixtureResult, fixturesPass, runFixtures } from './fixtures.js';
 import { type EnsureOptions, ensureFixture, ensureRepo, label, truthProblems } from './truth.js';
@@ -97,6 +98,8 @@ export interface PackTestReport {
   breaking: Tally;
   /** Ground truth, at the line level, the sites of behavior notes, whatever their severity. */
   behavior: Tally;
+  /** The verified gate's verdict, and the real-site counts it read. */
+  gate: GateResult & { breakingSites: number; behaviorSites: number };
   passed: boolean;
 }
 
@@ -422,20 +425,26 @@ export async function testPack(
     repos.filter((r) => !r.error),
   );
 
+  const gate = gateOf(pack, truth, repos);
   // A pack whose upgrade leaves part of the group behind produces an inconsistent install.
-  const status: PackStatus =
-    repos.some((r) => r.error || r.leftBehind?.length) || options.fixturesOnly
-      ? 'candidate'
-      : statusOf(truth, {
-          falsePositives: breaking.falsePositives,
-          predicted: breaking.truePositives + breaking.falsePositives,
-        });
+  if (options.fixturesOnly) gate.reasons.unshift('ground truth not scored (--fixtures-only)');
+  for (const r of repos) {
+    if (r.error) gate.reasons.unshift(`${r.label} could not be scored`);
+    if (r.leftBehind?.length)
+      gate.reasons.unshift(`${r.label}: check leaves part of the upgrade behind`);
+  }
+  const status: PackStatus = gate.reasons.length ? 'candidate' : 'verified';
+  gate.status = status;
   const verification: PackVerification = {
     status,
     truth: read ? truthDigest(read.text) : '',
     repos: publicRepos(truth).length,
     breaking: verificationTally(breaking),
     behavior: verificationTally(behavior),
+    class: gate.class,
+    breakingSites: gate.breakingSites,
+    behaviorSites: gate.behaviorSites,
+    unexercised: gate.unexercised,
   };
   const recorded = recordedStatus(entry.verification);
   // Fixtures alone say nothing about ground truth: only a full run can find the record stale.
@@ -470,8 +479,50 @@ export async function testPack(
     overall,
     breaking,
     behavior,
+    gate,
     passed,
   };
+}
+
+/**
+ * The gate over one run: real sites are those of public repositories (a fixture repository
+ * scores, never counts), and so are the true positives that exercise a mechanical rule.
+ */
+export function gateOf(
+  pack: Pick<Pack, 'rules' | 'behavior'>,
+  truth: GroundTruth,
+  repos: RepoScore[],
+): PackTestReport['gate'] {
+  const scored = repos.filter((r) => !r.error);
+  const real = scored.filter((r) => !r.fixture);
+  const notes = new Set(pack.behavior.map((b) => b.id));
+  const expected = real.flatMap((r) => r.expected);
+  const breakingSites = expected.filter((e) => siteSeverity(pack, e.rule) === 'breaking').length;
+  const behaviorSites = expected.filter((e) => notes.has(e.rule)).length;
+  const ruleSites = expected.length - behaviorSites;
+  const all = scoreTruth(pack, scored);
+  const { rules } = scoreTruth(pack, real);
+  const mechanical = Object.fromEntries(
+    pack.rules
+      .filter((r) => r.rewrite)
+      .map((r) => [
+        r.id,
+        {
+          truePositives: rules[r.id]?.truePositives ?? 0,
+          falsePositives: all.rules[r.id]?.falsePositives ?? 0,
+        },
+      ]),
+  );
+  const gate = verifiedGate({
+    repos: publicRepos(truth).length,
+    ruleSites,
+    breakingSites,
+    behaviorSites,
+    breaking: all.breaking,
+    behavior: all.behavior,
+    mechanical,
+  });
+  return { ...gate, breakingSites, behaviorSites };
 }
 
 /**
@@ -519,6 +570,14 @@ export function unfinishedPack(entry: RegisteredPack, reason: string): PackTestR
     overall: none,
     breaking: none,
     behavior: none,
+    gate: {
+      status: 'candidate',
+      class: 'breaking',
+      reasons: [reason],
+      unexercised: [],
+      breakingSites: 0,
+      behaviorSites: 0,
+    },
     passed: false,
   };
 }

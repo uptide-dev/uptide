@@ -6,11 +6,14 @@ import type { Finding } from '../domain/report.js';
 import {
   companionProblems,
   definePack,
+  type GateEvidence,
   type GroundTruth,
   recordedStatus,
   replaceAtSite,
-  statusOf,
   truthDigest,
+  VERIFIED_MIN_BEHAVIOR_SITES,
+  VERIFIED_MIN_BREAKING_SITES,
+  verifiedGate,
 } from './contract.js';
 import { activePacks, registeredPacks } from './index.js';
 import { runFixtures } from './tooling/fixtures.js';
@@ -85,32 +88,118 @@ describe('every registered pack meets the contract', () => {
 });
 
 describe('the verified gate', () => {
-  const truth = (repos: number, fixtures = 0): GroundTruth => ({
-    package: 'x',
-    repos: [
-      ...Array.from({ length: repos }, (_, i) => ({
-        repo: `o/r${i}`,
-        commit: 'a'.repeat(40),
-        from: '1.0.0',
-        to: '2.0.0',
-        why: '',
-        findings: [],
-      })),
-      ...Array.from({ length: fixtures }, () => ({
-        fixture: 'fixtures/repos/x',
-        from: '1.0.0',
-        to: '2.0.0',
-        why: '',
-        findings: [],
-      })),
-    ],
+  const evidence = (over: Partial<GateEvidence> = {}): GateEvidence => ({
+    repos: 2,
+    ruleSites: 5,
+    breakingSites: 5,
+    behaviorSites: 0,
+    breaking: { truePositives: 4, falsePositives: 0 },
+    behavior: { truePositives: 0, falsePositives: 0 },
+    mechanical: { rename: { truePositives: 3, falsePositives: 0 } },
+    ...over,
   });
-  it('needs two public repositories, no breaking false positive, and something found', () => {
-    expect(statusOf(truth(2), { falsePositives: 0, predicted: 3 })).toBe('verified');
-    expect(statusOf(truth(1, 3), { falsePositives: 0, predicted: 3 })).toBe('candidate');
-    expect(statusOf(truth(3), { falsePositives: 1, predicted: 3 })).toBe('candidate');
-    expect(statusOf(truth(2), { falsePositives: 0, predicted: 0 })).toBe('candidate');
+
+  it('verifies two public repositories, five breaking sites, none falsely predicted, some found', () => {
+    expect(verifiedGate(evidence())).toEqual({
+      status: 'verified',
+      class: 'breaking',
+      reasons: [],
+      unexercised: [],
+    });
   });
+
+  it('needs two public repositories', () => {
+    expect(verifiedGate(evidence({ repos: 1 })).reasons).toEqual([
+      '1 public repository, verified needs 2',
+    ]);
+  });
+
+  it('needs no false positive among breaking findings', () => {
+    const gate = verifiedGate(evidence({ breaking: { truePositives: 4, falsePositives: 1 } }));
+    expect(gate.status).toBe('candidate');
+    expect(gate.reasons).toEqual(['1 false positive among breaking findings']);
+  });
+
+  it(`needs ${VERIFIED_MIN_BREAKING_SITES} breaking sites in public ground truth`, () => {
+    expect(verifiedGate(evidence({ breakingSites: 4 })).reasons).toEqual([
+      '4 breaking sites in public ground truth, verified needs 5',
+    ]);
+    expect(verifiedGate(evidence({ breakingSites: 1 })).status).toBe('candidate');
+  });
+
+  it('needs a breaking site found', () => {
+    expect(
+      verifiedGate(evidence({ breaking: { truePositives: 0, falsePositives: 0 } })).reasons,
+    ).toEqual(['no breaking site found']);
+  });
+
+  it('turns a mechanical rule no real site confirmed into assisted, without demoting the pack', () => {
+    const gate = verifiedGate(
+      evidence({
+        mechanical: {
+          rename: { truePositives: 3, falsePositives: 0 },
+          json: { truePositives: 0, falsePositives: 0 },
+          defer: { truePositives: 0, falsePositives: 0 },
+        },
+      }),
+    );
+    expect(gate.status).toBe('verified');
+    expect(gate.unexercised).toEqual(['defer', 'json']);
+  });
+
+  describe("a behavior-only upgrade (every expected site a note's)", () => {
+    const behavior = (over: Partial<GateEvidence> = {}): GateEvidence =>
+      evidence({
+        ruleSites: 0,
+        breakingSites: 2,
+        behaviorSites: 6,
+        breaking: { truePositives: 0, falsePositives: 0 },
+        behavior: { truePositives: 5, falsePositives: 0 },
+        mechanical: {},
+        ...over,
+      });
+
+    it('is verified on its notes: sites, no false positive, something found', () => {
+      expect(verifiedGate(behavior())).toEqual({
+        status: 'verified',
+        class: 'behavior',
+        reasons: [],
+        unexercised: [],
+      });
+    });
+
+    it(`needs ${VERIFIED_MIN_BEHAVIOR_SITES} behavior-note sites and one found`, () => {
+      expect(
+        verifiedGate(
+          behavior({ behaviorSites: 2, behavior: { truePositives: 0, falsePositives: 0 } }),
+        ).reasons,
+      ).toEqual([
+        '2 behavior-note sites in public ground truth, verified needs 5',
+        'no behavior-note site found',
+      ]);
+    });
+
+    it('needs no false positive on a note or a mechanical rule', () => {
+      const gate = verifiedGate(
+        behavior({
+          behavior: { truePositives: 5, falsePositives: 2 },
+          mechanical: { 'pin-protocol': { truePositives: 1, falsePositives: 1 } },
+        }),
+      );
+      expect(gate.class).toBe('behavior');
+      expect(gate.reasons).toEqual([
+        '2 false positives among behavior-note sites',
+        '1 false positive among mechanical rules',
+      ]);
+    });
+
+    it('is never the class of a pack with an expected site under a rule', () => {
+      const gate = verifiedGate(behavior({ ruleSites: 1 }));
+      expect(gate.class).toBe('breaking');
+      expect(gate.status).toBe('candidate');
+    });
+  });
+
   it('a record that contradicts itself is a candidate', () => {
     const record = {
       status: 'verified' as const,
