@@ -1,11 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, extname, join, relative } from 'node:path';
 import { Node, Project, SyntaxKind } from 'ts-morph';
 import { createTypescriptAdapter } from '../../adapters/typescript/index.js';
 import type { Finding } from '../../domain/report.js';
 import { type Usage, usagePaths } from '../../domain/usage.js';
 import { importSpecifier } from '../import-specifier.js';
-import type { FollowUp, MigrationEvidence, SharedHelper } from '../types.js';
+import type { FollowUp, MigrationEvidence, PackContext, SharedHelper } from '../types.js';
 import type { StripeEntry } from './changelog.js';
 
 export interface StripeTouches {
@@ -376,6 +376,82 @@ export function unpinnedClients(
     }
   }
   return found;
+}
+/** A `new Stripe(...)`, the version it pins (`null`: the SDK default) and what its file calls. */
+export type ApiClient = NonNullable<PackContext['apiClients']>[number];
+/**
+ * Every `new Stripe(...)` in the workspaces' TS and JS sources, scripts included, with the
+ * version it pins: a literal, a top-level `const` of the same file, or none (the SDK default).
+ * Options built elsewhere (a variable, a spread, an imported constant) leave the client out:
+ * its version is unknown here, and a guess would invent a divergence.
+ */
+export function apiClients(root: string, workspaces: string[]): ApiClient[] {
+  const found: ApiClient[] = [];
+  const visit = (path: string): void => {
+    const text = readFileSync(path, 'utf8');
+    if (!/\bnew\s+Stripe\s*\(/.test(text)) return;
+    const ast = new Project({ useInMemoryFileSystem: true }).createSourceFile(
+      `source${extname(path).replace(/^\.[cm]/, '.')}`,
+      text,
+    );
+    const literal = (node: Node | undefined): string | undefined =>
+      node && (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node))
+        ? node.getLiteralValue()
+        : undefined;
+    const constant = (name: string) => literal(ast.getVariableDeclaration(name)?.getInitializer());
+    // ponytail: only receivers named like a Stripe client; a client kept under another name
+    // contributes no resources (its changelog list is then the empty one, never a wrong one).
+    const resources = usedResources(
+      [...text.matchAll(/\b[\w$]*[Ss]tripe[\w$]*((?:\.[a-z]\w*)+)\s*\(/g)].map(
+        (m) => m[1] as string,
+      ),
+      [],
+    );
+    for (const node of ast.getDescendantsOfKind(SyntaxKind.NewExpression)) {
+      if (node.getExpression().getText() !== 'Stripe') continue;
+      const options = node.getArguments()[1];
+      let version: string | null | undefined = null;
+      if (options !== undefined) {
+        if (!Node.isObjectLiteralExpression(options)) continue;
+        const pin = options.getProperty('apiVersion');
+        if (pin === undefined) {
+          if (options.getProperties().some((p) => Node.isSpreadAssignment(p))) continue;
+        } else if (Node.isShorthandPropertyAssignment(pin)) version = constant('apiVersion');
+        else if (Node.isPropertyAssignment(pin)) {
+          const value = pin.getInitializer();
+          version =
+            literal(value) ?? (Node.isIdentifier(value) ? constant(value.getText()) : undefined);
+        } else continue;
+        if (version === undefined) continue;
+      }
+      found.push({
+        file: relative(root, path),
+        line: node.getStartLineNumber(),
+        version,
+        resources,
+      });
+    }
+  };
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (SKIPPED.has(entry.name)) continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (SOURCE.test(entry.name) && !entry.name.endsWith('.d.ts')) visit(path);
+    }
+  };
+  for (const workspace of workspaces) {
+    // The root holds scripts of its own (`sync-stripe.js`): walked too, nested workspaces
+    // included, so a client is found once whichever workspaces the run names.
+    try {
+      walk(join(root, workspace));
+    } catch {
+      // An unreadable directory has no client to report.
+    }
+  }
+  return [...new Map(found.map((c) => [`${c.file}:${c.line}`, c])).values()].sort(
+    (a, b) => a.file.localeCompare(b.file) || a.line - b.line,
+  );
 }
 /**
  * `api_version: "2026-07-29.dahlia"` inside payload objects: webhook fixtures and recorded

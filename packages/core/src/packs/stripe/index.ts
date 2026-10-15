@@ -10,6 +10,8 @@ import type { PackContext, SharedHelper } from '../types.js';
 import { between, type StripeCatalog } from './changelog.js';
 import catalog from './changelog.v1.json' with { type: 'json' };
 import {
+  type ApiClient,
+  apiClients,
   calledResources,
   clientPins,
   evidencedEntries,
@@ -175,6 +177,51 @@ export function stripeConcerns(findings: Finding[], context: PackContext) {
       entries: api ? between(catalog as StripeCatalog, api.from, api.to) : [],
     },
   };
+}
+/**
+ * Clients that ask for different API versions once the SDK is at the target: an unpinned one
+ * speaks the target's default. Undefined when they agree, or when the target is unknown.
+ */
+function divergentClients(context: PackContext): (ApiClient & { speaks: string })[] | undefined {
+  const to = context.apiVersions?.to;
+  if (!to) return undefined;
+  const clients = (context.apiClients ?? []).map((c) => ({ ...c, speaks: c.version ?? to }));
+  return new Set(clients.map((c) => c.speaks)).size > 1 ? clients : undefined;
+}
+const CHANGELOG_SHOWN = 10;
+/** Which version each client pins is the owner's: the run never moves a pin the bump did not. */
+function divergenceDecision(context: PackContext): string[] {
+  const clients = divergentClients(context);
+  const to = context.apiVersions?.to;
+  if (!clients || !to) return [];
+  const where = (c: (typeof clients)[number]) =>
+    `\`${c.file}:${c.line}\` \`${c.speaks}\`${c.version === null ? ' (SDK default)' : ''}`;
+  const lines = [
+    `- Stripe clients pin different API versions: ${clients.map(where).join(', ')}. Which version each client pins is your decision; this PR leaves a pin the upgrade did not require where it is.`,
+  ];
+  for (const c of clients) {
+    if (c.speaks >= to) continue;
+    const entries = between(catalog as StripeCatalog, c.speaks, to);
+    const touched = resourceEntries(entries, [], c.resources);
+    const breaking = touched.filter((e) => e.breaking);
+    const link = `[Stripe's changelog](https://docs.stripe.com/changelog), ${c.speaks} → ${to}`;
+    if (!touched.length) {
+      lines.push(
+        `  - Aligning \`${c.file}\` on \`${to}\` crosses ${entries.length} API changes; none names a resource its calls were recognised for: review ${link}.`,
+      );
+      continue;
+    }
+    lines.push(
+      `  - Aligning \`${c.file}\` on \`${to}\` crosses ${touched.length} API changes to what it calls (${c.resources.map((r) => r.replaceAll('_', ' ')).join(', ')}), ${breaking.length} breaking${breaking.length ? ':' : '.'}`,
+      ...breaking
+        .slice(0, CHANGELOG_SHOWN)
+        .map((e) => `    - ${e.version}: [${e.title}](${e.url}) — ${e.products}`),
+      ...(breaking.length > CHANGELOG_SHOWN || touched.length > breaking.length
+        ? [`    - The rest: ${link}.`]
+        : []),
+    );
+  }
+  return lines;
 }
 const SDK_GUIDE =
   'Migrate the reported Stripe SDK usage while preserving payment, subscription and webhook semantics. Use the target diagnostic and checked-in API changelog. Never remove signature verification, change monetary amounts/currency, or introduce a cast to hide incompatible data.';
@@ -446,7 +493,7 @@ export const stripePack: Pack = {
     };
   },
   decisions(context, rules = []) {
-    const choices: string[] = [];
+    const choices: string[] = divergenceDecision(context);
     if (rules.includes('api-version-unpinned') && context.apiVersions) {
       const { from, to } = context.apiVersions;
       choices.push(
@@ -521,7 +568,17 @@ export const stripePack: Pack = {
     return {
       apiVersions: { from: sdkApiVersion(installedDir), to: sdkApiVersion(targetDir) },
       evidence: stripeEvidence(root, workspace, usages).evidence,
+      apiClients: apiClients(root, [workspace]),
     };
+  },
+  scanContext: (root, workspaces) => ({ apiClients: apiClients(root, workspaces) }),
+  headline(context) {
+    const clients = divergentClients(context);
+    if (!clients) return undefined;
+    const named = clients.map(
+      (c) => `${c.file}:${c.line} ${c.speaks}${c.version === null ? ' (SDK default)' : ''}`,
+    );
+    return `${clients.length} clients on different API versions: ${named.join(', ')}. Which version each one pins is your decision.`;
   },
   planNote(rule, context) {
     if (!['api-version', 'api-version-unpinned'].includes(rule) || !context.apiVersions)

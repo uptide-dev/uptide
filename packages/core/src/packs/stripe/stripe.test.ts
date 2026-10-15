@@ -16,6 +16,7 @@ import {
 } from './index.js';
 import {
   aboveDeclaration,
+  apiClients,
   calledResources,
   clientPins,
   evidencedEntries,
@@ -1087,6 +1088,61 @@ it('places subscriptionPeriod in the file of the site when no client module is i
     expect(stripePack.guide(other, shared)).toContain(
       'import { subscriptionPeriod } from "../billing/renewal"',
     );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it('reports clients on different API versions first, as a decision, with the changelog the lagging one would cross', () => {
+  // The layout of boxyhq/saas-starter-kit: the app's client on the SDK default, a JS sync
+  // script pinned years earlier.
+  const dir = mkdtempSync(join(tmpdir(), 'stripe-divergent-'));
+  try {
+    mkdirSync(join(dir, 'lib'));
+    writeFileSync(
+      join(dir, 'lib/stripe.ts'),
+      "import Stripe from 'stripe';\nimport env from './env';\n\nexport const stripe = new Stripe(env.stripe.secretKey ?? '');\n",
+    );
+    writeFileSync(
+      join(dir, 'sync-stripe.js'),
+      "const Stripe = require('stripe');\nasync function sync() {\n  const stripe = getStripeInstance();\n  await Promise.all([stripe.products.list({ active: true }), stripe.prices.list({ active: true })]);\n}\nfunction getStripeInstance() {\n  return new Stripe(process.env.STRIPE_SECRET_KEY || '', {\n    apiVersion: '2022-11-15',\n  });\n}\n",
+    );
+    // Options built elsewhere: the version is unknown, so the client is left out.
+    writeFileSync(
+      join(dir, 'lib/other.ts'),
+      "import Stripe from 'stripe';\nimport { options } from './options';\nexport const other = new Stripe('k', { ...options });\n",
+    );
+    const clients = apiClients(dir, ['.']);
+    expect(clients).toEqual([
+      { file: 'lib/stripe.ts', line: 4, version: null, resources: [] },
+      { file: 'sync-stripe.js', line: 7, version: '2022-11-15', resources: ['price', 'product'] },
+    ]);
+    const to = catalog.versions.filter((v) => !v.endsWith('.preview')).at(-1) as string;
+    const context = {
+      from: '17.7.0',
+      to: '23.0.0',
+      includeDeprecated: false,
+      apiVersions: { from: '2025-02-24.acacia', to },
+      apiClients: clients,
+    };
+    expect(stripePack.headline?.(context)).toBe(
+      `2 clients on different API versions: lib/stripe.ts:4 ${to} (SDK default), sync-stripe.js:7 2022-11-15. Which version each one pins is your decision.`,
+    );
+    const [decision, align, ...entries] = stripePack.decisions?.(context, []) ?? [];
+    expect(decision).toMatch(/^- Stripe clients pin different API versions: .*this PR leaves a pin/);
+    expect(align).toMatch(
+      new RegExp(`^  - Aligning \`sync-stripe.js\` on \`${to.replace('.', '\\.')}\` crosses \\d+ API changes to what it calls \\(price, product\\), \\d+ breaking`),
+    );
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.at(-1)).toContain("[Stripe's changelog](https://docs.stripe.com/changelog), 2022-11-15");
+    // Clients that agree, or one client alone, say nothing.
+    expect(stripePack.headline?.({ ...context, apiClients: clients.slice(0, 1) })).toBeUndefined();
+    expect(
+      stripePack.headline?.({
+        ...context,
+        apiClients: [clients[0], { ...clients[1], version: to }] as typeof clients,
+      }),
+    ).toBeUndefined();
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

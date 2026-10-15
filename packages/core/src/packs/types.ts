@@ -41,6 +41,8 @@ export interface PackContext {
   apiVersions?: { from: string; to: string };
   /** `api_version` literals in payload objects (webhook fixtures), with where they are. */
   payloadVersions?: { file: string; line: number; value: string }[];
+  /** Each `new Stripe(...)` and the API version it pins (`null`: the SDK default). */
+  apiClients?: { file: string; line: number; version: string | null; resources: string[] }[];
   /** Places that depend on the dependency's default messages, which the target words differently. */
   defaultMessages?: DefaultMessageSite[];
 }
@@ -235,7 +237,12 @@ export interface MigrationPack {
     installedDir: string;
     targetDir: string;
     usages: Usage[];
-  }): Pick<PackContext, 'apiVersions' | 'evidence'>;
+  }): Pick<PackContext, 'apiVersions' | 'evidence' | 'apiClients'>;
+  /**
+   * One owner decision said before anything else, at the top of `check` and of the PR body
+   * (stripe: clients pinned to different API versions). Never an edit.
+   */
+  headline?(context: PackContext): string | undefined;
   /** One line under a planned rule in `check` (stripe: how many API changes touch the code). */
   planNote?(rule: string, context: PackContext): string | undefined;
   /**

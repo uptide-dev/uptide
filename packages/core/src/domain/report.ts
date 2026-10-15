@@ -143,7 +143,10 @@ export interface PackageReport {
       file: string;
       line: number;
     }[];
+    apiClients?: { file: string; line: number; version: string | null; resources: string[] }[];
   };
+  /** One owner decision the pack says first (`MigrationPack.headline`). */
+  headline?: string;
   /** Workspace package this report belongs to, relative to the checked root (`.` for the root itself). */
   workspace: string;
   /** A dependency, or a release group (`@aws-sdk/*`) upgraded together; `members` lists the group. */
