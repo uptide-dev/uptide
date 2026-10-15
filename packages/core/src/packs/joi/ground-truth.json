@@ -1,0 +1,565 @@
+{
+  "$comment": "Expected findings drafted with pnpm packs:truth (each repository's own TypeScript, scripts off) and its merged upgrade commit, reviewed by hand and fixed before any rule existed. edtech4good: 108 TS2345 sites, the same 108 lines its upgrade changed; the 109th new ValidationError there is commented out and is not a site. The same 108 errors appear with joi 17.13.8 linked: the constructor typing changed in 17.7.0, so these sites exist only for an upgrade from 17.0-17.6. senacor is a negative control (16 TypeScript files use joi, no diagnostic, upgrade commit touches only the manifest and lockfile). See RESEARCH.md.",
+  "package": "joi",
+  "repos": [
+    {
+      "repo": "edtech4good/edtech-lms-api",
+      "commit": "ce2281005fcf0c41a883779c778f3123a48bbeec",
+      "migration": "https://github.com/edtech4good/edtech-lms-api/pull/88",
+      "from": "17.6.0",
+      "to": "18.2.9",
+      "why": "NestJS API, one package, npm, TypeScript 4.9.5. Upgrade 59fd4ca9222afd4ebbd4d0a28c4685cbbb1abcfd changes the details argument of 108 new ValidationError(message, {}, original) calls from {} to []: TS2345 against ValidationErrorItem[], typed so since joi 17.7.0.",
+      "findings": [
+        {
+          "file": "src/modules/auth/auth.business.validator.ts",
+          "line": 11,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/auth/auth.business.validator.ts",
+          "line": 27,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/auth/auth.business.validator.ts",
+          "line": 44,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/baselinequestion/baselinequestion.business.validator.ts",
+          "line": 14,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/baselinequestion/baselinequestion.business.validator.ts",
+          "line": 31,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/baselinequestion/baselinequestion.business.validator.ts",
+          "line": 54,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/baselinequestion/baselinequestion.business.validator.ts",
+          "line": 71,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/country/country.business.validator.ts",
+          "line": 19,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/country/country.business.validator.ts",
+          "line": 41,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/country/country.business.validator.ts",
+          "line": 58,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/country/country.business.validator.ts",
+          "line": 80,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/country/country.business.validator.ts",
+          "line": 92,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/country/country.business.validator.ts",
+          "line": 115,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculum/curriculum.business.validator.ts",
+          "line": 11,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculum/curriculum.business.validator.ts",
+          "line": 23,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculum/curriculum.business.validator.ts",
+          "line": 41,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculum/curriculum.business.validator.ts",
+          "line": 53,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculum/curriculum.business.validator.ts",
+          "line": 66,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculum/curriculum.business.validator.ts",
+          "line": 83,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculumbaseline/curriculumbaseline.business.validator.ts",
+          "line": 18,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculumbaseline/curriculumbaseline.business.validator.ts",
+          "line": 33,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculumbaseline/curriculumbaseline.business.validator.ts",
+          "line": 52,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculumbaseline/curriculumbaseline.business.validator.ts",
+          "line": 80,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculumbaseline/curriculumbaseline.business.validator.ts",
+          "line": 106,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/curriculumbaseline/curriculumbaseline.business.validator.ts",
+          "line": 129,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/document/document.business.validator.ts",
+          "line": 15,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/document/document.business.validator.ts",
+          "line": 32,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/document/document.business.validator.ts",
+          "line": 51,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/document/document.business.validator.ts",
+          "line": 68,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/documenttag/documenttag.business.validator.ts",
+          "line": 13,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/documenttag/documenttag.business.validator.ts",
+          "line": 30,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/documenttag/documenttag.business.validator.ts",
+          "line": 47,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/documenttag/documenttag.business.validator.ts",
+          "line": 64,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/feedback/feedback.business.validator.ts",
+          "line": 19,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/feedback/feedback.business.validator.ts",
+          "line": 41,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/feedback/feedback.business.validator.ts",
+          "line": 58,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/feedback/feedback.business.validator.ts",
+          "line": 80,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/feedback/feedback.business.validator.ts",
+          "line": 92,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/feedback/feedback.business.validator.ts",
+          "line": 115,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/grade/grade.business.validator.ts",
+          "line": 17,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/grade/grade.business.validator.ts",
+          "line": 34,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/grade/grade.business.validator.ts",
+          "line": 55,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/grade/grade.business.validator.ts",
+          "line": 72,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 26,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 43,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 67,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 84,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 100,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 116,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 133,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 150,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 167,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 184,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 201,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 218,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 235,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 252,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 269,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/lesson/lesson.business.validator.ts",
+          "line": 286,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/level/level.business.validator.ts",
+          "line": 18,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/level/level.business.validator.ts",
+          "line": 35,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/level/level.business.validator.ts",
+          "line": 56,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/level/level.business.validator.ts",
+          "line": 73,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/level/level.business.validator.ts",
+          "line": 90,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/level/level.business.validator.ts",
+          "line": 107,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/question/question.business.validator.ts",
+          "line": 10,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/question/question.business.validator.ts",
+          "line": 27,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/question/question.business.validator.ts",
+          "line": 43,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/question/question.business.validator.ts",
+          "line": 60,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/questiontag/questiontag.business.validator.ts",
+          "line": 9,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/questiontag/questiontag.business.validator.ts",
+          "line": 26,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/questiontag/questiontag.business.validator.ts",
+          "line": 40,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/questiontag/questiontag.business.validator.ts",
+          "line": 57,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/role-permission/role-perm.business.validator.ts",
+          "line": 12,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/role-permission/role-perm.business.validator.ts",
+          "line": 28,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/role-permission/role-perm.business.validator.ts",
+          "line": 48,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/role-permission/role-perm.business.validator.ts",
+          "line": 60,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school-contribute/school-contribute.business.validator.ts",
+          "line": 11,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school-contribute/school-contribute.business.validator.ts",
+          "line": 31,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school-contribute/school-contribute.business.validator.ts",
+          "line": 51,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school-contribute/school-contribute.business.validator.ts",
+          "line": 71,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school-contribute/school-contribute.business.validator.ts",
+          "line": 91,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school/school.business.validator.ts",
+          "line": 14,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school/school.business.validator.ts",
+          "line": 36,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school/school.business.validator.ts",
+          "line": 62,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school/school.business.validator.ts",
+          "line": 82,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school/school.business.validator.ts",
+          "line": 121,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/school/school.business.validator.ts",
+          "line": 133,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/standard/standard.business.validator.ts",
+          "line": 18,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/standard/standard.business.validator.ts",
+          "line": 40,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/standard/standard.business.validator.ts",
+          "line": 59,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/standard/standard.business.validator.ts",
+          "line": 81,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/standard/standard.business.validator.ts",
+          "line": 93,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/students/student.business.validator.ts",
+          "line": 16,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/students/student.business.validator.ts",
+          "line": 40,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/students/student.business.validator.ts",
+          "line": 60,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/subject/subject.business.validator.ts",
+          "line": 13,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/subject/subject.business.validator.ts",
+          "line": 30,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/subject/subject.business.validator.ts",
+          "line": 47,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/subject/subject.business.validator.ts",
+          "line": 64,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/subject/subject.business.validator.ts",
+          "line": 77,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/teachers/teacher.business.validator.ts",
+          "line": 15,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/teachers/teacher.business.validator.ts",
+          "line": 39,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/teachers/teacher.business.validator.ts",
+          "line": 56,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/user/user.business.validator.ts",
+          "line": 13,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/user/user.business.validator.ts",
+          "line": 35,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/user/user.business.validator.ts",
+          "line": 56,
+          "rule": "validation-error-details"
+        },
+        {
+          "file": "src/modules/user/user.business.validator.ts",
+          "line": 68,
+          "rule": "validation-error-details"
+        }
+      ]
+    },
+    {
+      "repo": "senacor/azure-function-middleware",
+      "commit": "5c2da676e7327681dde70db6229edeebfa76b0f4",
+      "migration": "https://github.com/senacor/azure-function-middleware/commit/1f6a7fed060bcabcb0890565e8790bca03217a70",
+      "from": "17.13.1",
+      "to": "18.0.1",
+      "why": "Azure Functions middleware library, one package, npm, TypeScript 5.9.2. Negative control: joi validates requests and responses in 16 TypeScript files; the upgrade commit (PR #690) changes only package.json and package-lock.json and the compiler reports nothing new at 18.0.1. The PR merge also carries an unrelated jest toThrowError rename, which is not a joi site.",
+      "findings": []
+    }
+  ]
+}
