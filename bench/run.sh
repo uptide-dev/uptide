@@ -58,8 +58,9 @@ uptide)
     --json >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
   branch=$(git for-each-ref --format='%(refname:short)' "refs/heads/uptide/$pkg-*" | head -1)
   [ -n "$branch" ] && git checkout -q "$branch"
-  [ -f .uptide/report.json ] && cost=$(jq '.llm.costUsd // 0' .uptide/report.json)
-  cp .uptide/pr-body.md "$dir/summary.md" 2>/dev/null || : >"$dir/summary.md"
+  cost=$(jq '.llm.costUsd // 0' "$dir/agent.json" 2>/dev/null || echo 0)
+  cp "$(jq -r '.prBody // empty' "$dir/agent.json" 2>/dev/null)" "$dir/summary.md" 2>/dev/null ||
+    tail -5 "$dir/agent.log" >"$dir/summary.md"
   ;;
 human)
   git checkout -q "$upgrade"
@@ -67,7 +68,7 @@ human)
   ;;
 *) echo "unknown arm $arm" >&2 && exit 2 ;;
 esac
-wall=$(($(date +%s) - start))
+wall=$(($(date +%s) - start)) cost=${cost:-0}
 dirty=$(git status --porcelain --untracked-files=no -- . ':!.uptide' | wc -l | tr -d ' ')
 jq -n --arg id "$id" --arg head "$(git rev-parse HEAD)" --argjson status "$status" \
   --argjson cost "$cost" --argjson wall "$wall" --argjson dirty "$dirty" \
