@@ -1,9 +1,12 @@
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import type { Finding } from '../../domain/report.js';
 import type { Usage } from '../../domain/usage.js';
 import { runFixtures } from '../tooling/fixtures.js';
-import { rewriteScanIterator } from './detect.js';
+import { rewriteScanIterator, scanCursorSites } from './detect.js';
 import { appliesTo, redisPack } from './index.js';
 
 it('redis: every fixture rewrites and detects exactly its marked sites', () => {
@@ -168,4 +171,146 @@ it('redis: compiler findings are claimed by the rule the diagnostic names', () =
       '5.12.1',
     ),
   ).toBe('renamed-exports');
+});
+
+it('redis: a scan call whose cursor variable starts as a number is a numeric cursor', () => {
+  const text = [
+    "import type { RedisClientType } from 'redis';",
+    'declare const client: RedisClientType;',
+    'export async function wipe() {',
+    '  let cursor = 0;',
+    "  const reply = await client.scan(cursor, { MATCH: 'k:*' });",
+    "  let next = '0';",
+    '  await client.scan(next);',
+    '}',
+  ].join('\n');
+  expect(scanCursorSites(text, 'a.ts').map((s) => s.line)).toEqual([5]);
+});
+
+describe('redis in check: a client reached through a local module', () => {
+  const root = mkdtempSync(join(tmpdir(), 'uptide-redis-wrapper-'));
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+  const write = (file: string, text: string) => {
+    mkdirSync(dirname(join(root, file)), { recursive: true });
+    writeFileSync(join(root, file), text);
+  };
+  const loop = (client: string) =>
+    [
+      '  let cursor = 0;',
+      '  do {',
+      `    const reply = await ${client}.scan(cursor, { MATCH: 'k:*', COUNT: 100 });`,
+      '    cursor = Number(reply.cursor);',
+      '  } while (cursor !== 0);',
+    ].join('\n');
+  // UNN-Devotek/FCM-Fallout-Chat-Mod (backend): a getter typed off createClient, imported by
+  // relative path.
+  write('fcm/tsconfig.json', JSON.stringify({ compilerOptions: { strict: true } }));
+  write(
+    'fcm/src/config/redis.ts',
+    [
+      "import { createClient } from 'redis';",
+      'const client = createClient();',
+      'async function getRedisClient(): Promise<ReturnType<typeof createClient>> {',
+      '  return client;',
+      '}',
+      'export { getRedisClient };',
+    ].join('\n'),
+  );
+  write(
+    'fcm/src/controllers/nuke.ts',
+    [
+      "import { getRedisClient } from '../config/redis';",
+      'export async function nuke() {',
+      '  const redis = await getRedisClient();',
+      loop('redis'),
+      '}',
+    ].join('\n'),
+  );
+  // Not redis: a local helper's own cursor.
+  write(
+    'fcm/src/lib/page.ts',
+    'export const pages = { scan: async (c: number) => ({ cursor: c }) };\n',
+  );
+  write(
+    'fcm/src/controllers/list.ts',
+    [
+      "import { pages } from '../lib/page';",
+      'export async function list() {',
+      loop('pages'),
+      '}',
+    ].join('\n'),
+  );
+  // tearingItUp786/blog: the client behind a `~/` path alias, and a helper that only takes a
+  // structural client type and never names redis.
+  write(
+    'blog/tsconfig.json',
+    JSON.stringify({ compilerOptions: { baseUrl: '.', paths: { '~/*': ['./app/*'] } } }),
+  );
+  write(
+    'blog/app/utils/redis.server.ts',
+    [
+      "import * as redis from 'redis';",
+      'function createRedisClient(): redis.RedisClientType {',
+      '  return redis.createClient();',
+      '}',
+      'const redisClient = createRedisClient();',
+      'export { redisClient };',
+    ].join('\n'),
+  );
+  write(
+    'blog/app/inngest/refresh-cache.ts',
+    [
+      "import { redisClient } from '~/utils/redis.server';",
+      "import { scanRedisKeys } from './utils';",
+      'export async function refresh() {',
+      loop('redisClient'),
+      "  return scanRedisKeys(redisClient, 'gql:*');",
+      '}',
+    ].join('\n'),
+  );
+  write(
+    'blog/app/inngest/utils.ts',
+    [
+      'type Client = { scan: (c: number, o: object) => Promise<{ cursor: string; keys: string[] }> };',
+      'export async function scanRedisKeys(redisClient: Client, pattern: string) {',
+      loop('redisClient'),
+      '}',
+    ].join('\n'),
+  );
+  const run = (workspace: string, usages: string[]) =>
+    (
+      redisPack.runtimeFindings?.({
+        root,
+        workspace,
+        from: '4.7.1',
+        to: '6.0.0',
+        installedDir: '',
+        targetDir: '',
+        usages: usages.map((file) => ({ file }) as Usage),
+        read: (file) => {
+          try {
+            return readFileSync(join(root, file), 'utf8');
+          } catch {
+            return undefined;
+          }
+        },
+      }) ?? []
+    )
+      .filter((f) => f.rule === 'scan-cursor')
+      .map((f) => `${f.usage.file}:${f.usage.line}`)
+      .sort();
+  it('reports the cursor of a client typed off createClient in another module (FCM)', () => {
+    expect(run('fcm', ['src/config/redis.ts', 'src/controllers/nuke.ts'])).toEqual([
+      'src/controllers/nuke.ts:6',
+      'src/controllers/nuke.ts:8',
+    ]);
+  });
+  it('reads files the compile scope left out, through tsconfig paths (blog)', () => {
+    // refresh-cache.ts is not among the usages: the importer cap left it out of the program.
+    // utils.ts never takes anything from a redis module, so it stays out of reach.
+    expect(run('blog', ['app/utils/redis.server.ts'])).toEqual([
+      'app/inngest/refresh-cache.ts:6',
+      'app/inngest/refresh-cache.ts:8',
+    ]);
+  });
 });
