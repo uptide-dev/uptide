@@ -10,7 +10,7 @@ import {
 import { builtinModules } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative } from 'node:path';
-import { ts } from 'ts-morph';
+import { Project, ts } from 'ts-morph';
 import type { CompileOptions, RepoDir } from '../../domain/adapter.js';
 import type {
   CompileCoverage,
@@ -29,6 +29,7 @@ import {
   unresolvedConfig,
 } from './compiler.js';
 import { jsxNamespaceCause } from './config-cause.js';
+import { parentTypecheckFailure } from './parent-typecheck.js';
 import { type CompileProject, projectScope } from './project-scope.js';
 import { inheritedTsconfigOf, type LoadedRepo, loadedRepo, loadRepo, ownsFile } from './repo.js';
 import {
@@ -358,6 +359,18 @@ function checkedOptions(base: ts.Program): ts.CompilerOptions {
   };
 }
 
+// A separate project serves bundled virtual libs without adding roots to the parent program.
+let bundledLibs: Project | undefined;
+onReset(() => {
+  bundledLibs = undefined;
+});
+
+function bundledLib(fileName: string): string | undefined {
+  if (!/^lib(?:\..+)?\.d\.ts$/.test(basename(fileName))) return undefined;
+  bundledLibs ??= new Project({ useInMemoryFileSystem: true });
+  return bundledLibs.addSourceFileAtPathIfExists(fileName)?.getFullText();
+}
+
 /**
  * A compiler host that shares the ts-morph program's parsed and bound source files, its
  * standard library and its module resolutions, so a second program costs binding and
@@ -403,7 +416,9 @@ function sharedHost(
   }
   const defaultFileExists = host.fileExists;
   host.fileExists = (fileName) =>
-    base.getSourceFile(fileName) !== undefined || defaultFileExists(fileName);
+    base.getSourceFile(fileName) !== undefined ||
+    defaultFileExists(fileName) ||
+    (!compiler.own && bundledLib(fileName) !== undefined);
   const defaultGetSourceFile = host.getSourceFile;
   // Everything the baseline already parsed and bound is shared; only overlay files are new.
   host.getSourceFile = (fileName, languageVersion, onError, shouldCreate) => {
@@ -414,7 +429,11 @@ function sharedHost(
     // Overlay files are parsed once per compile, not once per round.
     let file = parsed.get(fileName);
     if (!file) {
-      file = defaultGetSourceFile(fileName, languageVersion, onError, shouldCreate);
+      const lib = !compiler.own ? bundledLib(fileName) : undefined;
+      file =
+        lib === undefined
+          ? defaultGetSourceFile(fileName, languageVersion, onError, shouldCreate)
+          : tsc.createSourceFile(fileName, lib, languageVersion, true);
       if (file) parsed.set(fileName, file);
     }
     return file;
@@ -1016,12 +1035,19 @@ async function compileProject(
       : checked.getSemanticDiagnostics(f).filter((d) => isRepoError(d, repo.dir)),
   );
   if (baselineOverlayDir) rmSync(baselineOverlayDir, { recursive: true, force: true });
+  const setupFailure = !compiler.own
+    ? parentTypecheckFailure(
+        repo,
+        files.map((f) => f.fileName),
+        baseline.length,
+      )
+    : undefined;
   const baselineMs = Date.now() - t0;
-  const skipped = structuralFailure(checked, files, baseline);
+  const skipped = setupFailure ?? structuralFailure(checked, files, baseline);
   if (skipped) {
     return {
       diagnostics: [],
-      baselineErrors: baseline.length,
+      baselineErrors: setupFailure ? 0 : baseline.length,
       skipped,
       coverage: withNotCompiled(
         coverageOf(compiler, 0, missing, {

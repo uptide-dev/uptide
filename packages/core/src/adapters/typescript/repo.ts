@@ -4,6 +4,7 @@ import { Project, type ResolutionHostFactory, ts } from 'ts-morph';
 import type { RepoDir } from '../../domain/adapter.js';
 import { UptideError } from '../../errors.js';
 import { onReset } from '../../shared-state.js';
+import { repositoryLibDir } from './compiler.js';
 import { repositoryTypescriptMajor, typescriptFiveDefaults } from './legacy-options.js';
 import { type Lockfile, readLockfile } from './lockfile.js';
 import { declaredPaths, workspaceSourceMap } from './workspace-source.js';
@@ -185,6 +186,7 @@ export function loadRepo(cwd: string, rootFiles?: string[], configPath?: string)
   // Workspace dependencies resolve to their source, not to whatever their last build left in dist.
   const sources = workspaceSourceMap(dir, installed);
   const sourcePaths = Object.keys(sources.paths).length > 0 ? sources.paths : undefined;
+  const libFolderPath = repositoryLibDir(dirname(tsconfig));
   let project: Project;
   // A repository on TypeScript 5 is read with TypeScript 5's defaults for what its tsconfig
   // leaves unset (legacy-options.ts); one on TypeScript 6 with the compiler's own.
@@ -196,6 +198,7 @@ export function loadRepo(cwd: string, rootFiles?: string[], configPath?: string)
     const declared = sourcePaths ? declaredPaths(tsconfig) : { paths: {} };
     const legacy = legacyDefaults(tsconfig);
     project = new Project({
+      libFolderPath,
       tsConfigFilePath: tsconfig,
       skipAddingFilesFromTsConfig: rootFiles !== undefined,
       skipFileDependencyResolution: true,
@@ -219,6 +222,7 @@ export function loadRepo(cwd: string, rootFiles?: string[], configPath?: string)
     // No tsconfig of its own: the options of the one above it (a monorepo root's `include`
     // often covers the workspace), over the defaults below; the file list is the workspace's.
     project = new Project({
+      libFolderPath,
       skipAddingFilesFromTsConfig: true,
       skipFileDependencyResolution: true,
       compilerOptions: {
