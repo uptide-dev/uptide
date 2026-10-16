@@ -1,5 +1,17 @@
 # uptide
 
+## 0.14.0
+
+### Minor Changes
+
+- [#160](https://github.com/uptide-dev/uptide/pull/160) [`2062939`](https://github.com/uptide-dev/uptide/commit/2062939f6e4fbb406bd42fd3cdff87b0152bf8dc) Thanks [@lucasbraum](https://github.com/lucasbraum)! - The typescript 5 to 6 and express 4 to 5 packs are now verified, so `check`, `list` and `fix` use them by default. Both measure verified under the stricter gate on unchanged ground truth: typescript across 7 public repositories (1,399 real breaking sites, no breaking false positive; its `downlevel-iteration`, `import-assertions` and `module-keyword` rewrites stay assisted until a real site exercises them), express across 4 (86 real breaking sites, no breaking false positive).
+
+### Patch Changes
+
+- [#168](https://github.com/uptide-dev/uptide/pull/168) [`7c14ad0`](https://github.com/uptide-dev/uptide/commit/7c14ad03e18d68548ae9122c0cc386e6419d10ca) Thanks [@lucasbraum](https://github.com/lucasbraum)! - The redis (node-redis) 4 to 5 and 5 to 6 pack is verified: 5 public upgrades, 20 real breaking sites, breaking precision 100% and recall 83%; its four rewrites no real site exercises (`keepAlive`, `quit`/`disconnect`, scan iterators, `unstableResp3`) run as assisted. It now reports numeric SCAN cursors in files that use the client through the repository's own module (`getRedisClient` from `../config/redis`, `redisClient` from `~/utils/redis.server`) without importing redis, including files the compile scope left out under the importer memory cap, and treats `scan(cursor)` after `let cursor = 0` as a numeric cursor. The resolver behind it, shared with the zod pack's form-error rule, moves to `check/importers.ts` as `packageImports`.
+
+- [#160](https://github.com/uptide-dev/uptide/pull/160) [`2062939`](https://github.com/uptide-dev/uptide/commit/2062939f6e4fbb406bd42fd3cdff87b0152bf8dc) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `uptide pack test` counts a ground-truth site that a folded finding lists as its evidence as covered by that finding, so recall reflects what `check` reports. The typescript pack's breaking recall goes from 17% to 99% on unchanged ground truth: its TypeScript 6 `types` default errors fold into one tsconfig finding each.
+
 ## 0.13.1
 
 ### Patch Changes
