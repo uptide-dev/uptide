@@ -99,7 +99,7 @@ or PR, preferably for 18-specific changes (generics on `array().items()`, `alter
 `try()`, `when()`, the `cidr` assertion, `@hapi/*` moves), or a second < 17.7 → 18 upgrade that
 hits the `ValidationError` details typing. Read-only, through the GitHub API; no repository
 was cloned, installed or run, so no `packs:truth` draft was made and **the truth file is
-unchanged** (hash `1d66ba37…` before this PR's scoring is not touched).
+unchanged**.
 
 Queries (`gh search`, merged only; titles, then title and body):
 
@@ -116,9 +116,9 @@ Queries (`gh search`, merged only; titles, then title and body):
 
 Funnel: 633 PR titles and 232 commit messages mentioned joi; 199 PRs moved joi to 18 (the rest
 were 17.x → 17.y or 18.x → 18.y); 393 body-search PRs were checked for a `package.json` diff from
-`^17` to `^18`. Of all of them, 14 changed any file besides the manifest, lockfile and CI config,
-and only the two below changed TypeScript or JavaScript in a joi-related way. About 150 PRs and
-commits are Renovate or Dependabot bumps whose diff is the manifest and lockfile (e.g.
+`^17` to `^18`. Almost all changed only the manifest, lockfile and CI config; the few that also changed
+TypeScript or JavaScript are in the table below. The bumps whose diff is the manifest and
+lockfile include (e.g.
 hmcts/civil-citizen-ui#8185, openedx/frontend-app-learning#2049, hmcts/sscs-cor-frontend#1355,
 fastify/fastify#6347, react-hook-form/resolvers#873, carbon-design-system/carbon#22838, the 1024pix
 repositories, form8ion/*, DEFRA/nrf-backend#8, Goodwiinz/NOUS-Research-Assistant#226,
