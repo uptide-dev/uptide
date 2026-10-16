@@ -293,6 +293,7 @@ export interface FixReport {
     /** The SDK would have been the default but is not installed: the patch agent ran. */
     sdkMissing?: true;
     tasks?: AgentTaskRecord[];
+    feedback?: { roundsUsed: number; maxRounds: number; maxCostUsd: number };
   };
   timingMs: number;
   prBody: string;

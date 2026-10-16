@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, expect, it, vi } from 'vitest';
 import { zodPack } from '../packs/zod/index.js';
 import { git } from './process.js';
-import { prBody } from './report.js';
+import { formatFix, prBody } from './report.js';
 import { fix } from './run.js';
 import type { TaskRunner } from './sdk-agent.js';
 import { zodFixture } from './test-fixture.js';
@@ -133,6 +133,8 @@ it('rejects attempts to skip tests or introduce any during feedback', async () =
     const result = await fix(options(root), { ...services, agentRunner: runner });
     expect(readFileSync(join(root, file), 'utf8')).toBe(original);
     expect(result.verification.passed).toBe(false);
+    expect(result.llm.tasks?.[0]?.gate).toBe('rejected');
+    expect(prBody(result)).toContain('rejected');
   }
 });
 
@@ -237,3 +239,134 @@ it('stops feedback when a runner throws without reporting usage', async () => {
   expect(runner).toHaveBeenCalledTimes(1);
   expect(result.llm.unreportedCostUsd).toBe(0.25);
 });
+
+it('flags an explained update of an old expected value for review', async () => {
+  const { root, services } = await fixture();
+  const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  manifest.scripts.test = 'node message.test.cjs';
+  writeFileSync(join(root, 'package.json'), JSON.stringify(manifest));
+  const test = `const assert = require('node:assert/strict');
+const version = require('./node_modules/zod/package.json').version;
+const message = version.startsWith('4.') ? 'new message' : 'old message';
+assert.equal(message, 'old message');\n`;
+  writeFileSync(join(root, 'message.test.cjs'), test);
+  git(root, 'add', '.');
+  git(root, 'commit', '-m', 'old expected message fixture');
+  const reason = 'Zod 4 changes the default error message; keep asserting the exact new message.';
+  const runner = vi.fn<TaskRunner>(async () => {
+    writeFileSync(
+      join(root, 'message.test.cjs'),
+      test.replace("assert.equal(message, 'old message')", "assert.equal(message, 'new message')"),
+    );
+    return {
+      ...runResult,
+      summary: {
+        changed: [{ file: 'message.test.cjs', what: reason }],
+        newFiles: [],
+        decisions: [],
+        assumptions: [],
+        couldNotDo: [],
+      },
+    };
+  });
+  const result = await fix(options(root), { ...services, agentRunner: runner });
+  expect(result.verification.passed).toBe(true);
+  expect(runner).toHaveBeenCalledTimes(1);
+  expect(prBody(result)).toContain('Tests changed: review');
+  expect(prBody(result)).toContain(reason);
+});
+
+it.each(['failed', 'timeout', 'missing'] as const)(
+  'never iterates tests or builds with a %s parent command',
+  async (status) => {
+    const { root, services } = await fixture();
+    const target = () =>
+      JSON.parse(
+        readFileSync(join(root, 'node_modules/zod/package.json'), 'utf8'),
+      ).version.startsWith('4.');
+    services.tests = async () => [
+      {
+        workspace: '.',
+        command: 'test',
+        status: target() ? 'failed' : status,
+        output: 'pre-existing test failure',
+      },
+    ];
+    services.build = async () => [
+      {
+        workspace: '.',
+        command: 'build',
+        status: target() ? 'failed' : status,
+        output: 'pre-existing build failure',
+      },
+    ];
+    services.diagnostics = () => [
+      { file: 'index.ts', line: 1, column: 1, code: 2322, message: 'pre-existing type failure' },
+    ];
+    const runner = vi.fn<TaskRunner>(async () => runResult);
+    const result = await fix(
+      { ...options(root), pack: { ...zodPack, requiresBuild: true } },
+      { ...services, agentRunner: runner },
+    );
+    expect(runner).not.toHaveBeenCalled();
+    expect(prBody(result)).toContain('pre-existing test failure');
+    expect(prBody(result)).toContain('pre-existing build failure');
+    expect(prBody(result)).toContain('pre-existing type failure');
+  },
+);
+
+it('reports rounds used/max and total spend/cap, including zero feedback rounds', async () => {
+  for (const passes of [true, false]) {
+    const { root, services } = await fixture();
+    if (passes) services.tests = async () => [{ workspace: '.', status: 'passed', output: '' }];
+    const runner = vi.fn<TaskRunner>(async () => runResult);
+    const result = await fix(options(root), { ...services, agentRunner: runner });
+    expect(prBody(result)).toContain(`Feedback rounds: ${passes ? 0 : 3}/3`);
+    expect(formatFix(result)).toContain(`Feedback rounds: ${passes ? 0 : 3}/3`);
+    expect(prBody(result)).toContain(`Spend: $${passes ? '0.00' : '0.30'} / $0.25 cap`);
+  }
+});
+
+it('does not retry a build that already timed out at the parent', async () => {
+  const { root, services } = await fixture();
+  services.tests = async () => [{ workspace: '.', status: 'passed', output: '' }];
+  services.build = async () => [
+    { workspace: '.', status: 'timeout', command: 'build', output: 'pre-existing timeout' },
+  ];
+  const runner = vi.fn<TaskRunner>(async () => runResult);
+  const result = await fix(
+    { ...options(root), pack: { ...zodPack, requiresBuild: true } },
+    { ...services, agentRunner: runner },
+  );
+  expect(runner).not.toHaveBeenCalled();
+  expect(prBody(result)).toContain('pre-existing timeout');
+});
+
+it.each(['failed', 'timeout'] as const)(
+  'sends only the new failure when a different parent suite is %s and types already fail',
+  async (status) => {
+    const { root, services } = await fixture();
+    const tests = services.tests;
+    services.tests = async (...args) => [
+      ...(await tests(...args)),
+      { workspace: 'legacy', command: 'test', status, output: 'legacy failure sentinel' },
+    ];
+    services.diagnostics = () => [
+      { file: 'index.ts', line: 1, column: 1, code: 2322, message: 'old type sentinel' },
+    ];
+    const runner = vi.fn<TaskRunner>(async ({ prompt }) => {
+      expect(prompt).toContain('Invalid UUID');
+      expect(prompt).not.toContain('legacy failure sentinel');
+      expect(prompt).not.toContain('old type sentinel');
+      writeFileSync(
+        join(root, 'index.ts'),
+        readFileSync(join(root, 'index.ts'), 'utf8').replace('.uuid()', '.guid()'),
+      );
+      return runResult;
+    });
+    const result = await fix(options(root), { ...services, agentRunner: runner });
+    expect(runner).toHaveBeenCalledTimes(1);
+    expect(prBody(result)).toContain('legacy failure sentinel');
+    expect(prBody(result)).toContain('old type sentinel');
+  },
+);

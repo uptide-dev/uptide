@@ -811,6 +811,15 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const unverified = typeResolutionFailure(root, baseline);
   if (unverified && canAssist) fallback.push(`Unknown baseline: ${unverified}`);
   for (const b of canAssist ? build : []) {
+    if (
+      baselineBuild.some(
+        (p) =>
+          p.workspace === b.workspace &&
+          p.command === b.command &&
+          (p.status === 'failed' || p.status === 'timeout'),
+      )
+    )
+      continue;
     if ((pack.requiresBuild && b.status === 'missing') || b.cause || b.status === 'timeout')
       fallback.push(`Build cannot run (${b.workspace}): ${b.cause ?? trimOutput(b.output)}`);
   }
@@ -846,8 +855,14 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     : fixer
       ? feedbackPatchRunner(fixer, feedbackFinding)
       : undefined;
+  const feedbackLimits = {
+    roundsUsed: 0,
+    maxRounds: 3,
+    maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD,
+  };
+  llm.feedback = feedbackLimits;
   let previousAttempt = '';
-  for (let round = 1; canAssist && round <= 3; round++) {
+  for (let round = 1; canAssist && round <= feedbackLimits.maxRounds; round++) {
     const feedback = verificationFeedback(
       newDiagnostics(baseline, after, gitLineMoves(root, baseHead)),
       ran,
@@ -901,6 +916,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         : {}),
       ...(feedbackRunner ? { runner: feedbackRunner } : {}),
     });
+    feedbackLimits.roundsUsed++;
     const lastAttempt = next.tasks?.at(-1);
     previousAttempt = lastAttempt?.rejection ?? lastAttempt?.stop ?? '';
     llm.inputTokens += next.inputTokens;

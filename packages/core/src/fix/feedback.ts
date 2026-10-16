@@ -8,16 +8,17 @@ import { applySitePatch } from './patch.js';
 import { git } from './process.js';
 import { protectedFile, type TaskRunner } from './sdk-agent.js';
 import { safeFile } from './settle.js';
+import { isTestFile } from './test-edits.js';
 import type { BuildResult, FixDiagnostic, Fixer, FixRequest, TestResult } from './types.js';
 
-/** Source files are editable; tests, manifests and verification settings stay read-only. */
+/** Tests may only receive explained expected-value edits; verification settings stay read-only. */
 export function feedbackFiles(root: string): string[] {
   return git(root, 'ls-files', '-z')
     .split('\0')
     .filter(
       (file) =>
         /\.[cm]?[jt]sx?$/.test(file) &&
-        !protectedFile(file) &&
+        (!protectedFile(file) || isTestFile(file)) &&
         !file.split('/').includes('node_modules'),
     );
 }
@@ -117,7 +118,9 @@ export function feedbackPatchRunner(fixer: Fixer, finding: Finding): TaskRunner 
         summary: {
           changed: [...edits.keys()].map((file) => ({
             file,
-            what: answer.explanation ?? 'Repaired after verification feedback',
+            what:
+              answer.explanation ??
+              (isTestFile(file) ? '' : 'Repaired after verification feedback'),
           })),
           newFiles: [],
           decisions: [],

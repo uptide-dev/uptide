@@ -12,6 +12,7 @@ import { uniqueSites } from './paired.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import { agentDecisionLines, testOutput } from './review-evidence.js';
 import { stripeChangelog } from './stripe-changelog.js';
+import { isTestFile } from './test-edits.js';
 import type { FixDiagnostic, FixReport, FixSite, ReviewSection } from './types.js';
 import { missingPackages, newDiagnostics } from './verify.js';
 
@@ -957,6 +958,35 @@ export function renderMigration(
       ),
       '',
     );
+  if (report.llm.feedback) {
+    const { roundsUsed, maxRounds, maxCostUsd } = report.llm.feedback;
+    lines.push(
+      '',
+      `Feedback rounds: ${roundsUsed}/${maxRounds}. Spend: $${report.llm.costUsd.toFixed(2)} / $${maxCostUsd.toFixed(2)} cap${report.llm.unreportedCostUsd ? `; $${report.llm.unreportedCostUsd.toFixed(2)} additionally reserved (usage unknown)` : ''}.`,
+    );
+  }
+  const changedTests = (report.changedFiles ?? []).filter(isTestFile);
+  if (changedTests.length)
+    lines.push(
+      '',
+      '**Tests changed: review**',
+      '',
+      ...changedTests.map((file) => {
+        const agent = (report.llm.tasks ?? [])
+          .filter((task) => task.gate === 'accepted' && task.diffs?.[file])
+          .flatMap((task) => task.summary?.changed ?? [])
+          .filter((change) => change.file === file)
+          .map((change) => change.what);
+        const sites = report.sites
+          .filter(
+            (site) =>
+              site.outcome !== 'manual' &&
+              (site.finding.usage.file === file || site.editedFiles?.includes(file)),
+          )
+          .map((site) => site.reason);
+        return `- ${file}: ${[...new Set([...agent, ...sites])].join('; ') || 'No explanation retained; review this test change before merging.'}`;
+      }),
+    );
   if (mode === 'compact')
     return `${lines
       .filter((l): l is string => typeof l === 'string')
@@ -1253,6 +1283,20 @@ function verificationDetails(report: FixReport, bounded: boolean): (string | Pie
         `**Tests: ${t.workspace}**`,
         droppable(2, ['```text', testOutput(t.output), '```'], `Test output (${t.status})`),
       );
+  for (const b of v.build ?? [])
+    if ((b.status === 'failed' || b.status === 'timeout') && b.output) {
+      const preexisting = v.baselineBuild?.some(
+        (p) =>
+          p.workspace === b.workspace &&
+          p.command === b.command &&
+          (p.status === 'failed' || p.status === 'timeout'),
+      );
+      lines.push(
+        '',
+        `**Build: ${b.workspace}${preexisting ? ' (failed at the parent; not iterated)' : ''}**`,
+        droppable(2, ['```text', testOutput(b.output), '```'], `Build output (${b.status})`),
+      );
+    }
   const feedbackTasks = (report.llm.tasks ?? []).filter((task) =>
     task.id.startsWith('verification-'),
   );

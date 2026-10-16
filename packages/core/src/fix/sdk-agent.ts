@@ -10,6 +10,7 @@ import type { MigrationPack, PackContext } from '../packs/types.js';
 import { git } from './process.js';
 import { commit, safeFile } from './settle.js';
 import { formatFiles, lintFiles } from './style.js';
+import { isTestFile, testEditObjection } from './test-edits.js';
 import type {
   AgentSummary,
   AgentTaskRecord,
@@ -209,15 +210,25 @@ export function editRules(
   const declared = new Set(declaredFiles(root, summary));
   const undeclared = added.filter((f) => !declared.has(f) && !task.files.includes(f));
   if (undeclared.length) return `created files it did not declare: ${undeclared.join(', ')}`;
+  for (const file of [...modified, ...added].filter(isTestFile)) {
+    const objection = testEditObjection(
+      file,
+      added.includes(file) ? '' : git(root, 'show', `HEAD:${file}`),
+      existsSync(join(root, file)) ? readFileSync(join(root, file), 'utf8') : '',
+      summary?.changed.find((change) => change.file === file)?.what,
+    );
+    if (objection) return objection;
+  }
   const diff = git(root, 'diff', '--no-color', '-U0', 'HEAD');
   const addedLines = [
     ...diff.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')),
     ...added.flatMap((f) => readFileSync(join(root, f), 'utf8').split('\n')),
   ];
   if (inputProtected(task)) {
-    const protectedEdit = [...modified, ...added].find(protectedFile);
-    if (protectedEdit)
-      return `tests and verification configuration are read-only: ${protectedEdit}`;
+    const protectedEdit = [...modified, ...added].find(
+      (file) => protectedFile(file) && !isTestFile(file),
+    );
+    if (protectedEdit) return `verification configuration is read-only: ${protectedEdit}`;
   }
   const silenced = addedLines.find(
     (l) => ESCAPES.test(l) || (inputProtected(task) && /\bany\b/.test(l)),
@@ -226,7 +237,7 @@ export function editRules(
   return undefined;
 }
 
-/** Feedback must repair production code, never the tests or their verification configuration. */
+/** Feedback protects verification inputs; test expectations have a separate review guard. */
 export function protectedFile(file: string): boolean {
   return /(?:^|\/)(?:__tests__|tests?|specs?|fixtures?|__fixtures__)(?:\/|$)|\.(?:test|spec)\.|(?:^|\/)(?:package\.json|.*lock.*|tsconfig[^/]*|[^/]*(?:vitest|jest|eslint|biome)[^/]*|uptide\.ya?ml)$/.test(
     file,
@@ -548,7 +559,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         conventions: conventions(root, workspaces, task.files),
       }),
       input.feedback ?? '',
-      'Never weaken or skip tests. Never introduce any or TypeScript suppression directives.',
+      'Never weaken or skip tests. Only static expected values in existing exact assertions may change for changed upgrade behavior; explain why for each test file in changed.what. Such edits are flagged as Tests changed: review. Never introduce any or TypeScript suppression directives.',
     ].join('\n\n');
     let run: TaskRun;
     let error: string | undefined;
