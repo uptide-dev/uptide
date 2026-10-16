@@ -16,7 +16,8 @@
         "codeload.github.com",
         "objects.githubusercontent.com"
       ],
-      "strictAllowlist": true
+      "strictAllowlist": true,
+      "allowLocalBinding": true
     }
   },
   "permissions": {
