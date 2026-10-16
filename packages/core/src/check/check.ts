@@ -40,8 +40,10 @@ import type { MigrationPack } from '../packs/types.js';
 import { diffRuntime, probeRuntime } from '../runtime/runtime.js';
 import { resetSharedState } from '../shared-state.js';
 import {
+  importersOf,
   needsBuildReason,
   prepareWorkspace,
+  type Unbuilt,
   unbuiltWorkspaces,
 } from '../verify/prepare-workspace.js';
 import { requireFindUsages } from './capabilities.js';
@@ -98,7 +100,7 @@ export interface CheckOptions {
   /** Internal: fix's verification runner, only in its clone. Standalone check runs no scripts. */
   workspaceBuild?: typeof buildWorkspaces;
   /** Internal: each workspace's consumed workspaces whose build output is missing. */
-  unbuilt?: Record<string, string[]>;
+  unbuilt?: Record<string, Unbuilt[]>;
   assignability?: boolean;
   /** Also analyze `@types/*` and dependencies the repo never imports. Default false. */
   allDeps?: boolean;
@@ -1985,30 +1987,7 @@ async function checkGroup(
         p.types.target === (p.types.baseline ?? p.types.installedVersion),
     );
     if (sameDeclarations) notes.push('type declarations unchanged; compile check skipped');
-    // A consumed workspace without its build output: the compiler would judge these files
-    // against declarations that do not exist, so they are not verified, never breaking.
-    const unbuilt = ctx.opts.unbuilt?.[workspace];
-    if (ctx.opts.compile !== false && compileMany && !sameDeclarations && unbuilt?.length) {
-      const reason = needsBuildReason(unbuilt);
-      const files = new Set([
-        ...allUsages.map((u) => u.file),
-        ...(repo.rootFiles ?? []).map((file) => relative(repo.dir, file)),
-      ]);
-      compile = {
-        baselineErrors: 0,
-        skipped: reason,
-        unresolvedInTarget: [],
-        unresolvedFiles: [],
-        unattributed: [],
-        coverage: {
-          compiled: 0,
-          total: files.size,
-          workspaces: 1,
-          skipped: [{ reason, count: files.size }],
-        },
-      };
-      notes.push(reason);
-    } else if (ctx.opts.compile !== false && compileMany && !sameDeclarations) {
+    if (ctx.opts.compile !== false && compileMany && !sameDeclarations) {
       outOfTime(ctx);
       const t2 = Date.now();
       // The baseline overlay links what the installed side is: the installed copy, or the
@@ -2023,6 +2002,14 @@ async function checkGroup(
           const dir = installedPackageDirOf(ctx.adapter, repo, c.name, c.installed)?.dir;
           return dir ? [{ name: c.name, dir }] : [];
         }),
+      ];
+      const compileFiles = [
+        ...new Set([
+          ...allUsages.map((u) => u.file),
+          // A removed JSX/import binding can have no attributed usage. Every scoped
+          // importer must still receive baseline/target diagnostics.
+          ...(repo.rootFiles ?? []).map((file) => relative(repo.dir, file)),
+        ]),
       ];
       const signal = await progress(
         ctx.opts.onProgress,
@@ -2040,14 +2027,7 @@ async function checkGroup(
             ],
             {
               fetcher: ctx.fetcher,
-              files: [
-                ...new Set([
-                  ...allUsages.map((u) => u.file),
-                  // A removed JSX/import binding can have no attributed usage. Every scoped
-                  // importer must still receive baseline/target diagnostics.
-                  ...(repo.rootFiles ?? []).map((file) => relative(repo.dir, file)),
-                ]),
-              ],
+              files: compileFiles,
               ...(baselineTargets.length > 0 ? { baselineTargets } : {}),
             },
           ),
@@ -2081,6 +2061,22 @@ async function checkGroup(
         newErrors: signal.diagnostics.length,
         coverage: { ...signal.coverage, workspaces: 1 },
       };
+      // Files importing a consumed workspace without its build output are judged against
+      // declarations that do not exist (unresolved on both sides, so subtracted, never a
+      // breaking site): the coverage says they are not verified. The rest compiled as usual.
+      const unbuilt = ctx.opts.unbuilt?.[workspace];
+      const unbuiltImporters =
+        unbuilt?.length && !signal.skipped ? importersOf(repo.dir, compileFiles, unbuilt) : [];
+      if (unbuilt?.length && unbuiltImporters.length && compile.coverage) {
+        const reason = needsBuildReason(unbuilt);
+        const count = Math.min(unbuiltImporters.length, compile.coverage.compiled);
+        compile.coverage = {
+          ...compile.coverage,
+          compiled: compile.coverage.compiled - count,
+          skipped: [...compile.coverage.skipped, { reason, count }],
+        };
+        notes.push(`types not verified in ${count} file${count === 1 ? '' : 's'}: ${reason}`);
+      }
       if (signal.skipped) notes.push(signal.skipped);
       else if (signal.baselineErrors > 0)
         notes.push(

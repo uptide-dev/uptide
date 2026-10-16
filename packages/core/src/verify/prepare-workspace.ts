@@ -114,24 +114,50 @@ function plan(root: string, workspaces: string[], moved: string[] = []): Plan {
   return { needed, consumers };
 }
 
+/** A consumed workspace whose build output is missing. */
+export interface Unbuilt {
+  dir: string;
+  name?: string;
+}
+
 /**
  * The workspaces whose consumed build output is missing, by the requested workspace that
  * consumes them. Standalone check runs no repository scripts: it reports these instead.
  */
-export function unbuiltWorkspaces(root: string, workspaces: string[]): Record<string, string[]> {
+export function unbuiltWorkspaces(root: string, workspaces: string[]): Record<string, Unbuilt[]> {
   const { consumers } = plan(root, workspaces);
-  const unbuilt: Record<string, string[]> = {};
+  const unbuilt: Record<string, Unbuilt[]> = {};
   for (const [workspace, dirs] of consumers) {
     // A linked package whose declarations map to its source compiles without its build.
     const dir = join(root, workspace);
     const mapped = Object.keys(workspaceSourceMap(dir, readInstalled(dir).installed).paths);
-    const missing = [...dirs].filter((dep) => {
-      const name = nameOf(root, dep);
-      return !name || !mapped.some((key) => key === name || key.startsWith(`${name}/`));
-    });
+    const missing = [...dirs]
+      .map((dep) => ({ dir: dep, name: nameOf(root, dep) }))
+      .filter(
+        ({ name }) => !name || !mapped.some((key) => key === name || key.startsWith(`${name}/`)),
+      );
     if (missing.length) unbuilt[workspace] = missing;
   }
   return unbuilt;
+}
+
+/**
+ * The files (relative to `dir`) that import one of the unbuilt packages: their types are
+ * judged against declarations that do not exist. The rest of the workspace compiles as usual.
+ */
+export function importersOf(dir: string, files: string[], unbuilt: Unbuilt[]): string[] {
+  const names = unbuilt.flatMap((u) => (u.name ? [u.name] : []));
+  if (!names.length) return [];
+  const specifier = new RegExp(
+    `(?:from|import|require\\()\\s*['"](?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|')})(?:/[^'"]*)?['"]`,
+  );
+  return files.filter((file) => {
+    try {
+      return specifier.test(readFileSync(join(dir, file), 'utf8'));
+    } catch {
+      return false;
+    }
+  });
 }
 
 function nameOf(root: string, workspace: string): string | undefined {
@@ -144,8 +170,8 @@ function nameOf(root: string, workspace: string): string | undefined {
 }
 
 /** `needs build of packages/internal`: why a consumer's types were not verified. */
-export function needsBuildReason(dirs: string[]): string {
-  return `needs build of ${dirs.join(', ')}`;
+export function needsBuildReason(unbuilt: Unbuilt[]): string {
+  return `needs build of ${unbuilt.map((u) => u.dir).join(', ')}`;
 }
 
 /**

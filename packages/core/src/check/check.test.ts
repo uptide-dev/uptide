@@ -457,7 +457,7 @@ describe('check on a pnpm workspace', () => {
       notImported: 1,
     });
   });
-  it('continues when a consumed workspace is not built: its consumers are not verified, never breaking', async () => {
+  it('continues when a consumed workspace is not built: only its importers are not verified, and the missing build is never a breaking site', async () => {
     const root = mkdtempSync(join(tmpdir(), 'uptide-unbuilt-'));
     cpSync(join(ROOT, 'repos/workspace-consumer'), root, { recursive: true });
     // Neither built output nor source the compiler could map to: only a build would provide it.
@@ -466,14 +466,29 @@ describe('check on a pnpm workspace', () => {
     mkdirSync(join(root, 'packages/app/node_modules'), { recursive: true });
     symlinkSync(join(ROOT, 'synthetic'), join(root, 'packages/app/node_modules/synthetic'), 'dir');
     symlinkSync('../../lib', join(root, 'packages/app/node_modules/lib'), 'dir');
+    const index = join(root, 'packages/app/src/index.ts');
+    writeFileSync(
+      index,
+      `import { fresh } from 'lib';\nvoid fresh;\n${readFileSync(index, 'utf8')}`,
+    );
+    for (const name of ['a', 'b'])
+      writeFileSync(
+        join(root, `packages/app/src/${name}.ts`),
+        "import { VERSION } from 'synthetic';\nexport const v: string = VERSION;\n",
+      );
     const result = await check({ cwd: root, adapter, fetcher, cache: memoryCache() });
     const app = result.packages.find((p) => p.name === 'synthetic');
-    expect(app?.verdict).toMatchObject({
-      breaking: 0,
-      notVerified: 'needs build of packages/lib',
-      summary: expect.stringMatching(/· types not verified: needs build of packages\/lib$/),
+    // The workspace still compiles: only the file importing the unbuilt package is not verified.
+    expect(app?.compile?.skipped).toBeUndefined();
+    expect(app?.compile?.coverage?.skipped).toContainEqual({
+      reason: 'needs build of packages/lib',
+      count: 1,
     });
-    expect(app?.findings.filter((f) => f.severity === 'breaking')).toEqual([]);
+    expect(app?.verdict?.summary).toMatch(/skipped: needs build of packages\/lib \(1\)/);
+    // The real break still compiles to a site; the unresolved `lib` import never becomes one.
+    expect(
+      app?.findings.filter((f) => f.severity === 'breaking').map((f) => f.change.path),
+    ).toEqual(['makeClient']);
   });
 });
 

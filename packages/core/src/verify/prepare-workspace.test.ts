@@ -66,7 +66,7 @@ it.each([
     true,
   );
   expect(unbuiltWorkspaces(root, ['packages/app'])).toEqual({
-    'packages/app': ['packages/internal'],
+    'packages/app': [{ dir: 'packages/internal', name: 'internal' }],
   });
 });
 it('reports a runner that cannot run instead of throwing', async () => {

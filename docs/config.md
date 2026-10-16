@@ -59,8 +59,9 @@ internal packages depending directly or transitively on a moved dependency are r
 when their output exists. The report names each build and whether it ran before the baseline
 or after the upgrade. A build that cannot run or fails is reported, and fix verifies what it
 can without it. Standalone `check` runs no repository scripts: when a consumed workspace's
-output is missing, the files of the workspaces that consume it read
-`types not verified: needs build of <workspace>`, never breaking sites.
+output is missing, the consumer still compiles, and the files that import the unbuilt
+package are counted as not verified (`skipped: needs build of <workspace>`), never as
+breaking sites.
 
 A `build` that needs a database or secrets (`prisma db push`, migrations, a `DATABASE_URL`)
 fails in Uptide's clone before the framework's build starts. Uptide says so in the pull request
