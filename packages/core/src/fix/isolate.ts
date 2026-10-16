@@ -21,7 +21,7 @@ import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { activePack, assertCandidateLocal } from '../packs/index.js';
 import { uptideVersionInfo } from '../version.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
-import { peerPreflight } from './peer-preflight.js';
+import { PeerPreflightError, peerPreflight } from './peer-preflight.js';
 import { git, projectRoot } from './process.js';
 import { rangePreflight } from './range-preflight.js';
 import { prBody } from './report.js';
@@ -568,10 +568,23 @@ export async function isolatedFix(
     assertNpmLockSync(options.cwd, (file) =>
       git(source, 'show', `${preflight.head}:${join(project, file)}`),
     );
-  const peerPlan = await peerPreflight(options, services, (file) =>
-    git(source, 'show', `${preflight.head}:${join(project, file)}`),
-  );
-  if (peerPlan) options = { ...options, target: peerPlan.target, peerPlan };
+  try {
+    const peerPlan = await peerPreflight(options, services, (file) =>
+      git(source, 'show', `${preflight.head}:${join(project, file)}`),
+    );
+    if (peerPlan) options = { ...options, target: peerPlan.target, peerPlan };
+  } catch (error) {
+    if (
+      error instanceof PeerPreflightError ||
+      options.fixer === null ||
+      !(options.fixer || selected.available || (options.agent === 'sdk' && services?.agentRunner))
+    )
+      throw error;
+    options = {
+      ...options,
+      plannerFailure: `Planner refused; upgrading the lead only: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
   const before = snapshot(source);
   const base = options.base ?? remoteDefaultBranch(source)?.name;
   const clone = isolate(source, undefined, project);

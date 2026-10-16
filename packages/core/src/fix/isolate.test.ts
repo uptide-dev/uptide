@@ -25,6 +25,7 @@ import {
   snapshot,
   storedRunFile,
 } from './isolate.js';
+import * as peers from './peer-preflight.js';
 import { openPr } from './pr.js';
 import { command, git, quietEnv } from './process.js';
 import { zodFixture } from './test-fixture.js';
@@ -844,4 +845,39 @@ it('reuses an existing identical tree without updating its branch ref', async ()
   expect(second.verification.passed).toBe(true);
   expect(git(root, 'rev-parse', first.branch)).toBe(first.head);
   expect(second.verifiedTree).toBe(first.verifiedTree);
+});
+
+it('carries a planner refusal through isolation into an agent-led draft result', async () => {
+  const { root, services } = zodFixture(scratch);
+  const planner = vi
+    .spyOn(peers, 'peerPreflight')
+    .mockRejectedValue(new Error('fixture planner refusal'));
+  const runner = vi.fn(async () => ({
+    turns: 1,
+    inputTokens: 0,
+    outputTokens: 0,
+    costUsd: 0.1,
+    durationMs: 0,
+    toolCalls: {},
+  }));
+  try {
+    const result = await isolatedFix(
+      {
+        cwd: root,
+        only: 'zod',
+        target: '4.6.5',
+        tool: TOOL,
+        agent: 'sdk',
+        provider: 'anthropic',
+        maxCostUsd: 0.25,
+      },
+      { ...services, agentRunner: runner },
+    );
+    expect(runner).toHaveBeenCalled();
+    expect(result.agentFallback?.join(';')).toContain('fixture planner refusal');
+    expect(result.verification.passed).toBe(false);
+    expect(git(root, 'rev-parse', result.branch)).toBe(result.head);
+  } finally {
+    planner.mockRestore();
+  }
 });

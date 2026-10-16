@@ -289,15 +289,18 @@ describe('fix for a dependency without a pack', () => {
     );
   }, 30000);
 
-  it('leaves a site nothing confirmed to a person', async () => {
+  it('repairs an unconfirmed site when final verification proves a new type error', async () => {
     const { root, services, fixer, report, finding } = paintFixture();
     (report.packages[0] as (typeof report.packages)[number]).findings = [
       finding('wall1.ts', 'unverified'),
     ];
     const seen: FixRequest[] = [];
     const result = await fix({ cwd: root, only: 'paint', fixer: fixer(0.01, seen) }, services);
-    expect(seen).toEqual([]);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.compilerError).toContain('TS2345');
     expect(result.sites).toEqual([]);
+    expect(result.verification.passed).toBe(true);
+    expect(result.llm.tasks?.[0]?.gate).toBe('accepted');
   }, 20000);
 });
 
@@ -393,7 +396,7 @@ describe('fix never publishes an upgrade nothing analyzed', () => {
       { cwd: root, only: 'paint', tool: CLEAN_TOOL, fixer: fixer(0.01) },
       services,
     );
-    expect(built).toEqual([['.']]);
+    expect(built).toEqual([['.'], ['.']]);
     expect(result.verification.build).toEqual([
       { workspace: '.', status: 'passed', command: 'next build', output: '' },
     ]);
@@ -573,16 +576,17 @@ describe('fix with companions', () => {
     expect(body).not.toContain('Upgraded with paint');
   }, 20000);
 
-  it('changes nothing when a companion has no version that agrees', async () => {
+  it('falls back to the lead when a companion has no version that agrees', async () => {
     const { root, services, fixer, installs } = withBrush([
       'brush 1.0.0 has no release that agrees with paint 2.0.0',
     ]);
-    const head = git(root, 'rev-parse', 'HEAD');
-    await expect(
-      fix({ cwd: root, only: 'paint', fixer: fixer(0.01) }, services),
-    ).rejects.toMatchObject({ code: 'INCONSISTENT_UPGRADE' });
-    expect(installs).toEqual([]);
-    expect(git(root, 'rev-parse', 'HEAD')).toBe(head);
-    expect(git(root, 'status', '--porcelain')).toBe('');
+    const result = await fix({ cwd: root, only: 'paint', fixer: fixer(0.01) }, services);
+    expect(installs).toHaveLength(1);
+    expect(installs[0]?.also).toBeUndefined();
+    expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies.brush).toBe(
+      '1.0.0',
+    );
+    expect(result.verification.passed).toBe(false);
+    expect(prBody(result)).toContain('Agent-led fallback: Planner refused');
   });
 });

@@ -9,14 +9,7 @@ import { assertVerifiedTree } from './verified-tree.js';
 
 const count = (n: number, one: string): string => `${n} ${one}${n === 1 ? '' : 's'}`;
 
-/**
- * Why a run may not reach GitHub, for opening a PR and for updating one alike; empty when it
- * may. Nothing overrides this list: not `--yes`, not `--no-llm`. A failed verification names
- * what failed, and a run produced by an Uptide checkout with uncommitted changes is not
- * reproducible from its recorded commit, so it is never published either. Neither is an upgrade
- * no pack analyzed, unless it is a minor or patch the repository's own build and tests verified
- * (no-pack.ts).
- */
+/** Publication guards still apply to fallback drafts; only verification and pack coverage may be incomplete. */
 export function publicationBlockers(
   report: FixReport,
   tool: { uptideDirty: boolean } = uptideVersionInfo(),
@@ -25,7 +18,12 @@ export function publicationBlockers(
   if (report.packWarning) blockers.push(report.packWarning);
   if (report.exportError) blockers.push(`export failed: ${report.exportError}`);
   const v = report.verification;
-  if (v.buildRequired && (!v.build?.length || v.build.some((b) => b.status !== 'passed')))
+  const fallback = !!report.agentFallback?.length;
+  if (
+    !fallback &&
+    v.buildRequired &&
+    (!v.build?.length || v.build.some((b) => b.status !== 'passed'))
+  )
     blockers.push(
       'build required by the migration pack: ' +
         (!v.build?.length
@@ -38,7 +36,7 @@ export function publicationBlockers(
               .join('; ')),
     );
   if (report.verificationPending) blockers.push('verification has not run');
-  else if (!v.passed && !report.exportError) {
+  else if (!fallback && !v.passed && !report.exportError) {
     const failing = (v.tests ?? []).filter((t) => t.status === 'failed' || t.status === 'timeout');
     // What the upgrade introduced, apart from what was already broken (`fixVerdict`): on an
     // unhealthy baseline the pre-existing errors and failing runs are named, never blamed.
@@ -69,7 +67,7 @@ export function publicationBlockers(
       `verification failed${reasons.length ? `: ${reasons.join(', ')}` : ' (files were left uncommitted)'}`,
     );
   }
-  blockers.push(...noPackBlockers(report));
+  if (!fallback) blockers.push(...noPackBlockers(report));
   if (report.sourceChanged?.length)
     blockers.push(`your checkout changed during the run (${report.sourceChanged.join('; ')})`);
   if (report.uptideDirty || tool.uptideDirty)
@@ -200,6 +198,7 @@ async function otherAuthors(
   }
 }
 interface OpenPr {
+  isDraft?: boolean;
   number: number;
   url: string;
 }
@@ -220,7 +219,7 @@ async function openPullRequest(
     '--state',
     'open',
     '--json',
-    'number,url',
+    'number,url,isDraft',
   ]);
   try {
     // An answer that cannot be read means no PR is known: one is created, as before.
@@ -457,7 +456,8 @@ export async function publish(
   const branch = report.branch;
   if (!/^uptide\//.test(branch))
     throw new Error('publication branch does not match the verified migration');
-  if (report.verification.passed) assertVerifiedTree(cwd, report, io.git);
+  if (report.verification.passed || report.agentFallback?.length)
+    assertVerifiedTree(cwd, report, io.git);
   const blockers = publicationBlockers(report, { uptideDirty: false });
   if (blockers.length)
     throw new UptideError(
@@ -547,6 +547,22 @@ export async function publish(
       noted,
     );
   }
+  if (report.agentFallback?.length && onOrigin.open && !onOrigin.open.isDraft) {
+    const draft = await io.command(cwd, 'gh', [
+      'pr',
+      'ready',
+      String(onOrigin.open.number),
+      '--undo',
+      '--repo',
+      nameWithOwner,
+    ]);
+    if (draft.code)
+      throw new PublishError(
+        'PUBLICATION_FAILED',
+        'could not make the fallback PR a draft',
+        'Nothing was pushed: the existing PR must be a draft before publishing fallback results.',
+      );
+  }
   const published = onOrigin.branch;
   // Idempotent: a branch already on the remote at the verified commit is not pushed again.
   if (onOrigin.remoteHead === head)
@@ -614,7 +630,7 @@ export async function publish(
       'create',
       '--repo',
       nameWithOwner,
-      ...(options.draft === false ? [] : ['--draft']),
+      ...(options.draft === false && !report.agentFallback?.length ? [] : ['--draft']),
       '--base',
       base,
       ...(label ? ['--label', 'uptide'] : []),

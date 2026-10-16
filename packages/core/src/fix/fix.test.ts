@@ -159,9 +159,7 @@ describe('fix transaction', () => {
       expect(report.llm.sdkMissing).toBe(fellBack || undefined);
       expect(formatFix(report).includes('@anthropic-ai/claude-agent-sdk')).toBe(fellBack);
       expect(tests.mock.calls.length).toBeGreaterThanOrEqual(2);
-      expect(tests.mock.calls.every(([, , , , options]) => !!options?.fullSuite === sdk)).toBe(
-        true,
-      );
+      expect(tests.mock.calls.every(([, , , , options]) => options?.fullSuite === true)).toBe(true);
     } finally {
       assist.mockRestore();
       vi.unstubAllEnvs();

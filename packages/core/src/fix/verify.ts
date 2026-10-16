@@ -1060,9 +1060,12 @@ export function describeServices(root: string, workspaces: string[]): string[] {
  */
 export function markPreexisting(tests: TestResult[], baseline: TestResult[]): TestResult[] {
   return tests.map((t) => {
-    if (t.status !== 'failed') return t;
+    if (t.status !== 'failed' && t.status !== 'timeout') return t;
     const before = baseline.find(
-      (b) => b.workspace === t.workspace && (b.status === 'failed' || b.status === 'timeout'),
+      (b) =>
+        b.workspace === t.workspace &&
+        b.command === t.command &&
+        (b.status === 'failed' || b.status === 'timeout'),
     );
     if (!before) return t;
     const now = failedTestFiles(t.output);

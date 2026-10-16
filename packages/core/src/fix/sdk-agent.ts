@@ -10,6 +10,7 @@ import type { MigrationPack, PackContext } from '../packs/types.js';
 import { git } from './process.js';
 import { commit, safeFile } from './settle.js';
 import { formatFiles, lintFiles } from './style.js';
+import { isTestFile, testEditObjection } from './test-edits.js';
 import type {
   AgentSummary,
   AgentTaskRecord,
@@ -42,6 +43,7 @@ export interface TaskRun {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+  unreportedCostUsd?: number;
   durationMs: number;
   toolCalls: Record<string, number>;
   stop?: string;
@@ -83,6 +85,9 @@ export interface SdkAssistInput {
   onProgress?: ProgressListener;
   /** Injected by tests; the Agent SDK otherwise. */
   runner?: TaskRunner;
+  /** Repository-wide fallback or verification feedback, after the site session. */
+  task?: AgentTask;
+  feedback?: string;
 }
 
 /**
@@ -205,15 +210,40 @@ export function editRules(
   const declared = new Set(declaredFiles(root, summary));
   const undeclared = added.filter((f) => !declared.has(f) && !task.files.includes(f));
   if (undeclared.length) return `created files it did not declare: ${undeclared.join(', ')}`;
+  for (const file of [...modified, ...added].filter(isTestFile)) {
+    const objection = testEditObjection(
+      file,
+      added.includes(file) ? '' : git(root, 'show', `HEAD:${file}`),
+      existsSync(join(root, file)) ? readFileSync(join(root, file), 'utf8') : '',
+      summary?.changed.find((change) => change.file === file)?.what,
+    );
+    if (objection) return objection;
+  }
   const diff = git(root, 'diff', '--no-color', '-U0', 'HEAD');
   const addedLines = [
     ...diff.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')),
     ...added.flatMap((f) => readFileSync(join(root, f), 'utf8').split('\n')),
   ];
-  const silenced = addedLines.find((l) => ESCAPES.test(l));
+  if (inputProtected(task)) {
+    const protectedEdit = [...modified, ...added].find(
+      (file) => protectedFile(file) && !isTestFile(file),
+    );
+    if (protectedEdit) return `verification configuration is read-only: ${protectedEdit}`;
+  }
+  const silenced = addedLines.find(
+    (l) => ESCAPES.test(l) || (inputProtected(task) && /\bany\b/.test(l)),
+  );
   if (silenced) return `silences the compiler: ${silenced.replace(/^\+/, '').trim()}`;
   return undefined;
 }
+
+/** Feedback protects verification inputs; test expectations have a separate review guard. */
+export function protectedFile(file: string): boolean {
+  return /(?:^|\/)(?:__tests__|tests?|specs?|fixtures?|__fixtures__)(?:\/|$)|\.(?:test|spec)\.|(?:^|\/)(?:package\.json|.*lock.*|tsconfig[^/]*|[^/]*(?:vitest|jest|eslint|biome)[^/]*|uptide\.ya?ml)$/.test(
+    file,
+  );
+}
+const inputProtected = (task: AgentTask) => task.id.startsWith('verification-');
 
 /** Facts about how this repository writes imports, for the agent to follow. Not orders. */
 export function conventions(root: string, workspaces: string[], files: string[]): string[] {
@@ -363,7 +393,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
   const { root, workspaces, pack, context } = input;
   const runner = input.runner ?? sdkRunner;
   let current = input.diagnostics();
-  const tasks = planTasks(input.sites, context, current);
+  const tasks = input.task ? [input.task] : planTasks(input.sites, context, current);
   const records: AgentTaskRecord[] = [];
   const format = input.format ?? ((files) => formatFiles(root, files));
   // Formatting is the repository's tool's job, not the agent's: lint judges formatted files.
@@ -521,12 +551,16 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         ].join('\n');
       },
     };
-    const prompt = taskPrompt({
-      pack,
-      context,
-      task,
-      conventions: conventions(root, workspaces, task.files),
-    });
+    const prompt = [
+      taskPrompt({
+        pack,
+        context,
+        task,
+        conventions: conventions(root, workspaces, task.files),
+      }),
+      input.feedback ?? '',
+      'Never weaken or skip tests. Only static expected values in existing exact assertions may change for changed upgrade behavior; explain why for each test file in changed.what. Such edits are flagged as Tests changed: review. Never introduce any or TypeScript suppression directives.',
+    ].join('\n\n');
     let run: TaskRun;
     let error: string | undefined;
     try {
@@ -546,6 +580,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         inputTokens: 0,
         outputTokens: 0,
         costUsd: 0,
+        unreportedCostUsd: share,
         durationMs: 0,
         toolCalls: {},
       };
@@ -613,6 +648,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     inputTokens: sum('inputTokens'),
     outputTokens: sum('outputTokens'),
     costUsd: sum('costUsd'),
+    unreportedCostUsd: records.reduce((sum, r) => sum + (r.unreportedCostUsd ?? 0), 0),
     agent: 'sdk',
     tasks: records,
   };

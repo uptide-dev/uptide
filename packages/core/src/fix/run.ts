@@ -11,6 +11,7 @@ import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { DEFAULT_MAX_COST_USD, providerFixer } from '../llm/fixer.js';
+import { nanos } from '../llm/pricing.js';
 import { decidedRules, decisionInventory, packDecisions } from '../packs/decisions.js';
 import { genericPack } from '../packs/generic.js';
 import {
@@ -29,6 +30,13 @@ import { assist } from './assisted.js';
 import { baselineHealth } from './baseline.js';
 import { behaviorCheck } from './behavior.js';
 import { buildWorkspaces, configuredBuildScript } from './build.js';
+import {
+  fallbackReport,
+  feedbackFiles,
+  feedbackPatchRunner,
+  trimOutput,
+  verificationFeedback,
+} from './feedback.js';
 import { fileTransaction } from './file-transaction.js';
 import { type Generated, generateClients } from './generate.js';
 import { assertManagerAvailable } from './managers/availability.js';
@@ -95,6 +103,8 @@ export interface FixOptions {
   allowPeer?: string[];
   /** Frozen read-only plan made before the CLI clone. */
   peerPlan?: PeerPlan;
+  /** Read-only planning failed before isolation; continue with the lead and record why. */
+  plannerFailure?: string;
   target?: string;
   includeDeprecated?: boolean;
   pr?: boolean;
@@ -279,7 +289,19 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       `uptide fix --pr refuses to run from an Uptide checkout with uncommitted changes (at ${tool.uptideCommit.slice(0, 12)}); commit or stash them, rebuild, and run again`,
     );
   if (!options.pinCurrentApi) assertNpmLockSync(root);
-  const peerPlan = options.peerPlan ?? (await peerPreflight(options, services));
+  const fallback: string[] = options.plannerFailure ? [options.plannerFailure] : [];
+  const canAssist = sdkAgent || !!fixer;
+  let peerPlan = options.peerPlan;
+  if (!peerPlan && !options.plannerFailure) {
+    try {
+      peerPlan = await peerPreflight(options, services);
+    } catch (error) {
+      if (!canAssist) throw error;
+      fallback.push(
+        `Planner refused; upgrading the lead only: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
   // Without an injected resolver, the repository's own registry and release-age policy.
   const registry = services.resolve
     ? undefined
@@ -303,31 +325,43 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const branch = `uptide/${pack.name}-${target}`;
   packageManager(root);
   if (services.install === install) await assertManagerAvailable(root);
-  const report = await services.check({
-    ...(options.onProgress ? { onProgress: options.onProgress } : {}),
-    cwd: root,
-    only: [pack.name],
-    targets: { [pack.name]: target },
-    runtime: false,
-    plan: false,
-    ...(options.allowCandidate ? { allowCandidate: true } : {}),
-    workspaceConcurrency: 1,
-  });
+  const report = await services
+    .check({
+      ...(options.onProgress ? { onProgress: options.onProgress } : {}),
+      cwd: root,
+      only: [pack.name],
+      targets: { [pack.name]: target },
+      runtime: false,
+      plan: false,
+      ...(options.allowCandidate ? { allowCandidate: true } : {}),
+      workspaceConcurrency: 1,
+    })
+    .catch((error: unknown) => {
+      if (!canAssist) throw error;
+      const reason = `Planner refused: ${error instanceof Error ? error.message : String(error)}`;
+      fallback.push(reason);
+      return fallbackReport(root, pack.name, target, reason);
+    });
   const packages = report.packages.filter(
     (p) => p.name === pack.name && !p.notes.includes('up to date'),
   );
   if (!packages.length) throw new Error(`${pack.name} has no upgrade to ${target}`);
   // A pack that does not cover this upgrade (zod 4 → 4) leaves it to the generic path.
-  if (!options.pack && packages.some((p) => !pack.supports(p.installed, target))) {
+  if (
+    !options.pack &&
+    !fallback.length &&
+    packages.some((p) => !pack.supports(p.installed, target))
+  ) {
     pack = genericPack(options.only);
     needsAgent(pack);
   }
-  const generic = pack.rules.length === 0;
+  let generic = pack.rules.length === 0;
   const lowest = [...packages].sort((a, b) => compareVersions(a.installed, b.installed))[0];
   // Nothing analyzed a major upgrade without a pack: it is never published, so a --pr run
   // spends nothing on it (no-pack.ts).
   if (
     generic &&
+    !fallback.length &&
     (options.pr || options.forPublication) &&
     isMajorUpgrade(lowest?.installed, target)
   )
@@ -336,17 +370,17 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       `${NO_PACK_YET}: ${pack.name} ${lowest?.installed ?? 'unknown'} → ${target} is a major upgrade, and Uptide opens a pull request for one only with a verified migration pack. Nothing was changed.`,
     );
   for (const p of packages) {
-    if (!pack.supports(p.installed, target))
+    if (!fallback.length && !pack.supports(p.installed, target))
       throw new Error(`${pack.name} pack does not support ${p.installed} → ${target}`);
     if (
       ['skipped', 'no-types', 'private', 'unknown', 'partial'].includes(p.status) ||
       p.compile?.skipped ||
       p.unanalyzed.length
-    )
-      throw new UptideError(
-        p.skipReason ?? 'INCOMPLETE_CHECK',
-        `cannot fix an incomplete check: ${p.name} ${p.notes.join('; ')}`,
-      );
+    ) {
+      const reason = `incomplete check: ${p.name} ${p.notes.join('; ')}`;
+      if (!canAssist) throw new UptideError(p.skipReason ?? 'INCOMPLETE_CHECK', reason);
+      fallback.push(reason);
+    }
   }
   // What moves with it (check/companions.ts): one install at versions that agree, or none.
   const conflicts = [...new Set(packages.flatMap((p) => p.companionConflicts ?? []))];
@@ -357,16 +391,27 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const removals = [
     ...new Map(packages.flatMap((p) => p.companionRemovals ?? []).map((r) => [r.name, r])).values(),
   ].sort((a, b) => a.name.localeCompare(b.name));
-  if (conflicts.length > 0)
+  if (conflicts.length > 0 && !canAssist)
     throw new UptideError(
       'INCONSISTENT_UPGRADE',
       `${pack.name} ${target} cannot be installed consistently: ${conflicts.join('; ')}. Nothing was changed.`,
     );
-  const companions = [
-    ...new Map(
-      (peerPlan?.companions ?? packages.flatMap((p) => p.companions ?? [])).map((c) => [c.name, c]),
-    ).values(),
-  ].sort((a, b) => a.name.localeCompare(b.name));
+  if (conflicts.length) fallback.push(`Planner refused: ${conflicts.join('; ')}`);
+  if (fallback.length) {
+    pack = genericPack(options.only);
+    generic = true;
+    removals.length = 0;
+  }
+  const companions = fallback.length
+    ? []
+    : [
+        ...new Map(
+          (peerPlan?.companions ?? packages.flatMap((p) => p.companions ?? [])).map((c) => [
+            c.name,
+            c,
+          ]),
+        ).values(),
+      ].sort((a, b) => a.name.localeCompare(b.name));
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...companions]);
   assertNoPinningOverrides(root, [{ name: pack.name, to: target }, ...companions]);
   validateVersionRanges(root, [{ name: pack.name, to: target }, ...companions]);
@@ -411,6 +456,36 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const generated = await verify('generate', () =>
     (services.generate ?? generateClients)(root, workspaces),
   );
+  const needsBuild = generic || pack.requiresBuild === true;
+  const runBuild = async (): Promise<BuildResult[]> => {
+    if (!needsBuild) return [];
+    const clean = !git(root, 'status', '--porcelain', '--untracked-files=all');
+    try {
+      return await verify(`build (${names(workspaces)})`, () =>
+        (services.build ?? buildWorkspaces)(
+          root,
+          workspaces,
+          undefined,
+          options.buildScript ?? configuredBuildScript(root),
+        ),
+      );
+    } catch (error) {
+      return [
+        {
+          workspace: '.',
+          status: 'failed',
+          cause: 'build could not run',
+          output: error instanceof Error ? error.message : String(error),
+        },
+      ];
+    } finally {
+      if (clean && git(root, 'status', '--porcelain', '--untracked-files=all')) {
+        git(root, 'checkout', '--', '.');
+        git(root, 'clean', '-fdq');
+      }
+    }
+  };
+  const baselineBuild = await runBuild();
   const baseline = await verify(`types (${names(workspaces)})`, () =>
     services.diagnostics(root, workspaces),
   );
@@ -426,7 +501,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const baselineTests = await verify(`tests (${names(workspaces)})`, () =>
     services.tests(root, workspaces, options.testTimeoutMs, affected, {
       withServices: options.withServices === true,
-      fullSuite: sdkAgent,
+      fullSuite: true,
     }),
   );
   if (git(root, 'status', '--porcelain', '--untracked-files=all'))
@@ -710,8 +785,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   }
   // Release cached programs before final verification builds independent ones.
   targetChecker?.clear();
-  const behavior = pack.name === 'zod' ? behaviorCheck(root, originals, sites) : undefined;
-  const {
+  let build = await runBuild();
+  let {
     tests: ran,
     after,
     lint,
@@ -728,37 +803,150 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     target,
     baselineLint,
     services,
-    fullSuite: sdkAgent,
+    fullSuite: true,
     withServices: options.withServices === true,
     ...(options.onProgress ? { onProgress: options.onProgress } : {}),
     ...(options.testTimeoutMs ? { testTimeoutMs: options.testTimeoutMs } : {}),
   });
-  // Without a pack the type-check does not see what the upgrade changed in the build (its
-  // configuration, removed commands): the repository's own build has to pass too.
-  const needsBuild = generic || pack.requiresBuild === true;
-  const beforeBuild = needsBuild ? git(root, 'status', '--porcelain', '--untracked-files=all') : '';
-  const build = needsBuild
-    ? await verify(`build (${names(workspaces)})`, () =>
-        (services.build ?? buildWorkspaces)(
-          root,
-          workspaces,
-          undefined,
-          options.buildScript ?? configuredBuildScript(root),
-        ),
+  const unverified = typeResolutionFailure(root, baseline);
+  if (unverified && canAssist) fallback.push(`Unknown baseline: ${unverified}`);
+  for (const b of canAssist ? build : []) {
+    if (
+      baselineBuild.some(
+        (p) =>
+          p.workspace === b.workspace &&
+          p.command === b.command &&
+          (p.status === 'failed' || p.status === 'timeout'),
       )
-    : [];
-  // What the build wrote and git does not ignore is not part of the migration. Files left
-  // before it stay, for the check below to report.
-  if (needsBuild && !beforeBuild && git(root, 'status', '--porcelain', '--untracked-files=all')) {
-    git(root, 'checkout', '--', '.');
-    git(root, 'clean', '-fdq');
+    )
+      continue;
+    if ((pack.requiresBuild && b.status === 'missing') || b.cause || b.status === 'timeout')
+      fallback.push(`Build cannot run (${b.workspace}): ${b.cause ?? trimOutput(b.output)}`);
+  }
+  const feedbackFinding: Finding = {
+    severity: 'breaking',
+    confidence: 1,
+    fixability: 'assisted',
+    reason: 'verification feedback',
+    change: {
+      package: pack.name,
+      from: initialContext.from,
+      to: target,
+      path: 'verification',
+      kind: 'type',
+      severity: 'breaking',
+      confidence: 1,
+      source: 'types',
+    },
+    usage: {
+      file: '',
+      line: 1,
+      column: 1,
+      endLine: 1,
+      endColumn: 1,
+      symbolPath: '',
+      access: 'read',
+      snippet: '',
+      via: 'inferred',
+    },
+  };
+  const feedbackRunner = sdkAgent
+    ? services.agentRunner
+    : fixer
+      ? feedbackPatchRunner(fixer, feedbackFinding)
+      : undefined;
+  const feedbackLimits = {
+    roundsUsed: 0,
+    maxRounds: 3,
+    maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD,
+  };
+  llm.feedback = feedbackLimits;
+  let previousAttempt = '';
+  for (let round = 1; canAssist && round <= feedbackLimits.maxRounds; round++) {
+    const feedback = verificationFeedback(
+      newDiagnostics(baseline, after, gitLineMoves(root, baseHead)),
+      ran,
+      baselineTests,
+      build,
+      baselineBuild,
+    );
+    if (!feedback && !(round === 1 && fallback.length)) break;
+    const remaining =
+      (nanos(options.maxCostUsd ?? DEFAULT_MAX_COST_USD) -
+        nanos(llm.costUsd) -
+        nanos(llm.unreportedCostUsd ?? 0)) /
+      1e9;
+    if (remaining < 0.02 || llm.unreportedCostUsd) break;
+    // Never let a rejected agent task reset files written by a check.
+    if (git(root, 'status', '--porcelain', '--untracked-files=all')) break;
+    const files = feedbackFiles(root);
+    const task = { id: `verification-${round}`, rule: 'verification feedback', sites: [], files };
+    const next = await assistWithSdk({
+      root,
+      workspaces,
+      sites,
+      pack,
+      context: packContext,
+      model: selection.model,
+      maxCostUsd: remaining,
+      task,
+      feedback: [
+        fallback.length ? `Agent-led fallback: ${fallback.join('; ')}` : '',
+        'Failures at the target that passed at the parent (repair production code, preserve behavior):',
+        feedback,
+        previousAttempt,
+      ].join('\n'),
+      diagnostics: () => services.diagnostics(root, workspaces),
+      tests: () =>
+        services.tests(root, workspaces, options.testTimeoutMs, affected, {
+          fullSuite: true,
+          withServices: options.withServices === true,
+        }),
+      baselineTests,
+      baselineLint,
+      affected,
+      ...(services.format
+        ? { format: (f: string[]) => services.format?.(root, f) ?? Promise.resolve([]) }
+        : {}),
+      ...(services.lint
+        ? {
+            lint: (f: string[], b?: LintResult[]) =>
+              services.lint?.(root, f, b) ?? Promise.resolve([]),
+          }
+        : {}),
+      ...(feedbackRunner ? { runner: feedbackRunner } : {}),
+    });
+    feedbackLimits.roundsUsed++;
+    const lastAttempt = next.tasks?.at(-1);
+    previousAttempt = lastAttempt?.rejection ?? lastAttempt?.stop ?? '';
+    llm.inputTokens += next.inputTokens;
+    llm.outputTokens += next.outputTokens;
+    llm.costUsd = (nanos(llm.costUsd) + nanos(next.costUsd)) / 1e9;
+    if (next.unreportedCostUsd)
+      llm.unreportedCostUsd =
+        (nanos(llm.unreportedCostUsd ?? 0) + nanos(next.unreportedCostUsd)) / 1e9;
+    llm.tasks = [...(llm.tasks ?? []), ...(next.tasks ?? [])];
+    for (const task of next.tasks ?? [])
+      for (const file of Object.keys(task.diffs ?? {}))
+        if (!affected.includes(file)) affected.push(file);
+    build = await runBuild();
+    lint = await (services.lint ?? lintFiles)(root, affected, baselineLint);
+    after = await verify('types after feedback', () => services.diagnostics(root, workspaces));
+    ran = await verify('tests after feedback', () =>
+      services.tests(root, workspaces, options.testTimeoutMs, affected, {
+        fullSuite: true,
+        withServices: options.withServices === true,
+      }),
+    );
   }
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
   const newErrors = newDiagnostics(baseline, after, gitLineMoves(root, baseHead));
-  const unverified = typeResolutionFailure(root, baseline);
+  const behavior = pack.name === 'zod' ? behaviorCheck(root, originals, sites) : undefined;
   const result: FixReport = {
+    ...(fallback.length ? { agentFallback: fallback } : {}),
+    ...(pending ? { verificationPending: true } : {}),
     ...(lockfile ? { lockfile } : {}),
     ...(generated.length ? { generated } : {}),
     repo: root,
@@ -792,7 +980,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       newErrors,
       baselineTests,
       tests,
-      ...(needsBuild ? { build } : {}),
+      ...(needsBuild ? { build, baselineBuild } : {}),
       ...(pack.requiresBuild ? { buildRequired: true } : {}),
       ...(lint.length ? { lint } : {}),
       ...(formatted.length ? { formatted } : {}),
@@ -800,6 +988,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       baselineHealth: baselineHealth(baseline, baselineTests),
       passed:
         !unverified &&
+        !fallback.some((reason) =>
+          /incomplete check|Unknown baseline|Planner refused/.test(reason),
+        ) &&
         newErrors.length === 0 &&
         !pending &&
         tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
@@ -812,6 +1003,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     timingMs: Date.now() - started,
     prBody: join(root, '.uptide/pr-body.md'),
     notes: [
+      ...fallback.map((reason) => `Agent-led fallback: ${reason}`),
       ...pack.reviewNotes(packContext),
       ...bumps.flatMap((b) =>
         b.alreadyCompatible.map((w) => `${w}: already compatible; range left unchanged.`),

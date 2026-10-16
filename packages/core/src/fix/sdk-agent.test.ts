@@ -14,7 +14,14 @@ import { describe, expect, it } from 'vitest';
 import { PERIOD_KNOWLEDGE, stripePack } from '../packs/stripe/index.js';
 import type { MigrationPack } from '../packs/types.js';
 import { fix } from './run.js';
-import { assistWithSdk, guard, planTasks, type TaskRun, taskPrompt } from './sdk-agent.js';
+import {
+  assistWithSdk,
+  editRules,
+  guard,
+  planTasks,
+  type TaskRun,
+  taskPrompt,
+} from './sdk-agent.js';
 import type { AgentSummary, FixDiagnostic, FixSite, TestResult } from './types.js';
 
 const git = (cwd: string, ...args: string[]) =>
@@ -508,3 +515,24 @@ describe('--agent sdk', () => {
     expect(git(root, 'status', '--porcelain')).toBe('');
   });
 });
+
+for (const edit of [
+  '',
+  "it.skip('validates', () => { expect(valid()).toBe(true); });",
+  "it('validates', () => {});",
+  "it('validates', () => { expect(true).toBe(true); });",
+]) {
+  it('rejects deleting, skipping or weakening a test in the initial agent task', () => {
+    const root = repo({
+      'validation.test.ts': "it('validates', () => { expect(valid()).toBe(true); });",
+    });
+    writeFileSync(join(root, 'validation.test.ts'), edit);
+    expect(
+      editRules(
+        root,
+        { id: 'initial', rule: 'validation', sites: [], files: ['validation.test.ts'] },
+        summary({ changed: [{ file: 'validation.test.ts', what: 'make the test pass' }] }),
+      ),
+    ).toMatch(/test/i);
+  });
+}
