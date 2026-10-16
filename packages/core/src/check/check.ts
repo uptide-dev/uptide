@@ -30,9 +30,8 @@ import { createNpmFetcher, releasePackage } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { maxSatisfying } from '../fetch/range.js';
 import { heldBackText } from '../fetch/release-age.js';
-import { planPackage } from '../fix/plan.js';
+import { FIXABILITY, planPackage, siteOutcome } from '../fix/plan.js';
 import { scanImports } from '../list/scan.js';
-import { packFixability } from '../packs/fixability.js';
 import { activePacks, CANDIDATE_WARNING, candidatePack } from '../packs/index.js';
 import { packInventory } from '../packs/inventory.js';
 import { leadName, leadNames } from '../packs/leads.js';
@@ -432,34 +431,6 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
         1,
         guarded((job) => checkWorkspace(ctx, job)),
       );
-  // Pack rules preview their actual edit; check and fix must promise the same work.
-  if (adapter.id === 'typescript')
-    for (const report of results.flat()) {
-      // Packs whose rules carry their own rewrite (zod, and every pack built on the contract).
-      const pack = packsOf(opts).find((p) => p.name === report.name);
-      if (
-        !pack ||
-        !(
-          (pack.rules as readonly { rewrite?: unknown }[]).some((r) => r.rewrite) ||
-          pack.unexercised?.length
-        )
-      )
-        continue;
-      const sources = new Map<string, string>();
-      report.findings = report.findings.map((finding) => {
-        const file = resolve(opts.cwd, report.workspace, finding.usage.file);
-        let source = sources.get(file);
-        if (source === undefined) {
-          try {
-            source = readFileSync(file, 'utf8');
-          } catch {
-            return finding;
-          }
-          sources.set(file, source);
-        }
-        return packFixability(finding, source, pack);
-      });
-    }
   // Implicit-any errors inside an option the pack reports as removed are that option's site.
   if (adapter.id === 'typescript')
     for (const report of results.flat()) {
@@ -492,7 +463,7 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
   );
   for (const p of packages) p.tier ??= tierOf(packsOf(opts), p.name, p.installed, p.target);
   for (const p of packages) groupRootCauses(p);
-  if (adapter.id === 'typescript' && opts.plan !== false) planPackages(packages, opts);
+  if (adapter.id === 'typescript') planPackages(packages, opts);
   else for (const p of packages) delete p.planContext;
   await ctx.fetcher.dispose();
 
@@ -511,12 +482,17 @@ export function importersNotAnalyzedMessage(count: number): string {
   return `${count} importing file${count === 1 ? '' : 's'} not analyzed (memory cap); findings in them may be missed`;
 }
 
+const PLANNED: Finding['severity'][] = ['breaking', 'unverified', 'deprecated'];
+
 /**
  * The migration plan per package: what `fix` would do, from a dry run of its pack, plus the
  * pack's note per rule (stripe: how many API changelog entries touch the code) from the
  * context each workspace gathered while it had the usages in hand.
  */
-function planPackages(packages: PackageReport[], opts: CheckOptions): void {
+export function planPackages(
+  packages: PackageReport[],
+  opts: Pick<CheckOptions, 'cwd' | 'packs' | 'allowCandidate' | 'plan'>,
+): void {
   const sources = new Map<string, string | undefined>();
   const read = (file: string): string | undefined => {
     if (!sources.has(file)) {
@@ -537,6 +513,16 @@ function planPackages(packages: PackageReport[], opts: CheckOptions): void {
       includeDeprecated: false,
       ...p.planContext,
     };
+    // Pack rules preview their actual edit; check and fix must promise the same work, and
+    // every view of a site (the summary, --details, --json) must say the same (UPT-70).
+    for (const f of p.findings) {
+      if (!PLANNED.includes(f.severity) || (f.change.kind === 'cause' && !f.anchorOnly)) continue;
+      const file =
+        p.workspace === '.' || p.workspace === '*' ? f.usage.file : join(p.workspace, f.usage.file);
+      const site = { ...f, usage: { ...f.usage, file } };
+      f.fixability = FIXABILITY[siteOutcome(p, site, pack, read, p.planContext ?? {}).outcome];
+    }
+    if (opts.plan === false) continue;
     const headline = context && pack?.headline?.(context);
     if (headline) p.headline = headline.line;
     const plan = planPackage(p, pack, read, p.planContext ?? {});

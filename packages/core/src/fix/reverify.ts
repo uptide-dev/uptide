@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import type { ProgressListener } from '../domain/progress.js';
 import { UptideError } from '../errors.js';
-import { packDecisions } from '../packs/decisions.js';
+import { decidedRules, packDecisions } from '../packs/decisions.js';
 import { activePack } from '../packs/index.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { uptideVersionInfo } from '../version.js';
@@ -158,6 +158,9 @@ export async function reverify(
       ...(packDecisions(pack, context, rules, followed) ?? []),
     ]),
   ];
+  const decided = [
+    ...new Set([...(report.decidedRules ?? []), ...decidedRules(pack, context, rules, followed)]),
+  ];
   const { headline: _stored, ...kept } = report;
   const result: FixReport = {
     ...kept,
@@ -194,6 +197,7 @@ export async function reverify(
         lint.every((l) => l.status !== 'failed'),
     },
     ...(decisions.length ? { decisions } : {}),
+    ...(decided.length ? { decidedRules: decided } : {}),
     notes: [
       ...report.notes.filter((n) => !n.startsWith('Verified again')),
       `Verified again at a new HEAD: ${sites.length - known} follow-up edit${sites.length - known === 1 ? '' : 's'} and ${formatted.length ? 'formatting' : 'no formatting'} were added as new commits; earlier commits are unchanged.`,

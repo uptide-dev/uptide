@@ -178,6 +178,19 @@ it('counts a required move as moved, and a move check reports only a new major m
     blockers: [blocker],
     explained: [`zod: the upgrade moved it to 4.5.4, check leaves it (blocked: ${blocker})`],
   });
+  // A stub the upgrade bumped and check removes is reported, and explained (UPT-62).
+  const removal = {
+    name: '@types/ioredis',
+    from: '4.28.10',
+    reason: 'ioredis 5 ships its own types',
+  };
+  const removed = [{ companionRemovals: [removal] }] as unknown as CheckReport['packages'];
+  expect(companionOutcome(removed, { '@types/ioredis': '5.0.0' })).toEqual({
+    removals: [removal],
+    explained: [
+      '@types/ioredis: the upgrade moved it to 5.0.0, check removes it (ioredis 5 ships its own types)',
+    ],
+  });
   // netlify/cli: http-proxy-middleware 2 peers on @types/express ^4, which moves to 5 with
   // express; check reports the conflict and never moves it across its major.
   const conflict = 'http-proxy-middleware 2.0.9 declares @types/express ^4.17.13';

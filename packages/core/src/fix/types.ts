@@ -316,6 +316,8 @@ export interface FixReport {
   apiChanges?: ApiChangeFacts;
   /** Pack-provided decisions from facts of this repository, rendered under "Decisions for you". */
   decisions?: string[];
+  /** The rules `decisions` speaks for: an agent's restatement of one is not said again. */
+  decidedRules?: string[];
   /** One owner decision the pack says first, at the top of the PR body (`MigrationPack.headline`). */
   headline?: Headline;
   /** The user's checkout the run was made for; `repo` is the private clone it ran in. */

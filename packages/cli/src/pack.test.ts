@@ -86,3 +86,45 @@ it('fails a record that claims verified where the run measures candidate, and sa
   expect(drifted).toContain('verification.json differs from this run');
   expect(drifted).not.toContain('✗');
 });
+
+it('prints what check plans in each repository: companions, required moves, stays, blockers and removals (UPT-62)', () => {
+  const entry = registeredPacks()[0];
+  if (!entry) throw new Error('no registered pack');
+  const tally = { truePositives: 0, falsePositives: 0, falseNegatives: 0, precision: 1, recall: 1 };
+  const out = formatPackTest({
+    ...unfinishedPack(entry, ''),
+    package: 'ioredis',
+    problems: [],
+    repos: [
+      {
+        label: 'owner/name',
+        from: '4.28.5',
+        to: '5.4.1',
+        predicted: [],
+        expected: [],
+        falsePositives: [],
+        falseNegatives: [],
+        wrongRule: [],
+        companions: [
+          { name: 'ioredis-mock', from: '7.4.0', to: '8.9.0', reason: 'release group' },
+          {
+            name: 'denque',
+            from: '1.5.1',
+            to: '2.1.0',
+            reason: 'ioredis 5.4.1 requires denque ^2.1.0',
+            required: true,
+          },
+        ],
+        stays: ['bull stays at 3.29.3 (versioned on its own)'],
+        blockers: ['ioredis 5.4.1 needs node >=12.22; only a new major satisfies it'],
+        removals: [
+          { name: '@types/ioredis', from: '4.28.10', reason: 'ioredis 5 ships its own types' },
+        ],
+      },
+    ],
+    overall: tally,
+    breaking: tally,
+  });
+  const repo = out.slice(out.indexOf('ground truth'), out.indexOf('\n\n'));
+  expect(repo).toMatchSnapshot();
+});

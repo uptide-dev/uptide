@@ -1,6 +1,13 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { CheckReport, Finding, PackageReport } from '@uptide/core';
+import {
+  type CheckReport,
+  type Finding,
+  type PackageReport,
+  planPackages,
+  stripePack,
+} from '@uptide/core';
 import { describe, expect, it } from 'vitest';
 import { formatCheck } from './format-check.js';
 import { ESC } from './test-utils.js';
@@ -339,6 +346,71 @@ describe('formatCheck, the first screen', () => {
       shown,
     );
     expect(out).toContain('− removed: @types/ioredis, ioredis 5 ships its own types');
+  });
+
+  describe('prints the plan on a row where nothing breaks (UPT-62)', () => {
+    const quiet = (over: Partial<PackageReport>): PackageReport =>
+      pkg({ name: 'ioredis', installed: '4.28.5', latest: '5.4.1', target: '5.4.1', ...over });
+    const kinds: [string, Partial<PackageReport>][] = [
+      [
+        'a companion',
+        {
+          companions: [
+            { name: 'ioredis-mock', from: '7.4.0', to: '8.9.0', reason: 'release group' },
+          ],
+        },
+      ],
+      [
+        'a move the target requires',
+        {
+          companions: [
+            {
+              name: 'denque',
+              from: '1.5.1',
+              to: '2.1.0',
+              reason: 'ioredis 5.4.1 requires denque ^2.1.0',
+              required: true,
+            },
+          ],
+        },
+      ],
+      [
+        'a blocker',
+        {
+          companionBlockers: [
+            'ioredis 5.4.1 needs denque ^3.0.0; installed 1.5.1, and only a new major satisfies it (denque 3.0.0)',
+          ],
+        },
+      ],
+      [
+        'a removal',
+        {
+          companionRemovals: [
+            { name: '@types/ioredis', from: '4.28.10', reason: 'ioredis 5 ships its own types' },
+          ],
+        },
+      ],
+      ['a stay', { companionStays: ['bull stays at 3.29.3 (versioned on its own)'] }],
+    ];
+    it.each(kinds)('%s', (_, over) => {
+      const out = formatCheck(report([quiet(over)]), { ...shown, fixable: ['ioredis'] });
+      expect(out).toMatchSnapshot();
+    });
+
+    it('is never folded with the rows that have nothing to say', () => {
+      const clean = ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => pkg({ name }));
+      const blocked = quiet(kinds[2]?.[1] ?? {});
+      const out = formatCheck(report([...clean, blocked]), shown);
+      expect(out).toContain('6 more with no impact on your code: a, b, c, d, e, f');
+      expect(out).toContain('✗ blocked: ioredis 5.4.1 needs denque ^3.0.0');
+    });
+
+    it('in --details too', () => {
+      const all: Partial<PackageReport> = Object.assign({}, ...kinds.map(([, over]) => over), {
+        companions: kinds.flatMap(([, over]) => over.companions ?? []),
+      });
+      expect(formatCheck(report([quiet(all)]), { ...shown, details: true })).toMatchSnapshot();
+    });
   });
 
   it('lists a peer conflict as possible impact, never as breaking', () => {
@@ -728,4 +800,68 @@ it.each([false, true])('shows the candidate banner in check output (details=%s)'
   expect(formatCheck(report, { ...shown, details })).toContain(
     `${first.name}: candidate pack, not verified`,
   );
+});
+
+it('gives a site the same fixability in the summary, --details and --json (UPT-70)', () => {
+  // uptide-demo/saas-starter-kit @ c72d774, stripe 17.7.0: a client with no apiVersion. `fix`
+  // pins it by rule once check knows the API versions, and every view says so.
+  const root = mkdtempSync(join(tmpdir(), 'uptide-fixability-'));
+  try {
+    mkdirSync(join(root, 'lib'));
+    writeFileSync(
+      join(root, 'lib', 'stripe.ts'),
+      "import Stripe from 'stripe';\nimport env from '@/lib/env';\nimport { updateTeam } from 'models/team';\n\nexport const stripe = new Stripe(env.stripe.secretKey ?? '');\n",
+    );
+    const unpinned: Finding = {
+      severity: 'breaking',
+      confidence: 0.9,
+      // What detection said, before the dry run: the stale value --details and --json printed.
+      fixability: 'manual',
+      rule: 'api-version-unpinned',
+      reason: 'client without apiVersion: the API version changes at runtime',
+      change: {
+        package: 'stripe',
+        from: '17.7.0',
+        to: '19.1.0',
+        path: 'Stripe.StripeConfig#apiVersion',
+        kind: 'type',
+        severity: 'breaking',
+        source: 'pack',
+        confidence: 1,
+      },
+      usage: {
+        file: 'lib/stripe.ts',
+        line: 5,
+        column: 23,
+        endLine: 5,
+        endColumn: 63,
+        symbolPath: 'Stripe.StripeConfig#apiVersion',
+        access: 'construct',
+        snippet: "new Stripe(env.stripe.secretKey ?? '')",
+        via: 'direct',
+      },
+    };
+    const stripe = pkg({
+      name: 'stripe',
+      installed: '17.7.0',
+      latest: '19.1.0',
+      target: '19.1.0',
+      majorsBehind: 2,
+      status: 'breaking',
+      findings: [unpinned],
+      planContext: { apiVersions: { from: '2025-02-24.acacia', to: '2025-09-30.clover' } },
+    });
+    planPackages([stripe], { cwd: root, packs: [stripePack] });
+    const checked = report([stripe]);
+    const summary = formatCheck(checked, shown);
+    const details = formatCheck(checked, { ...shown, details: true });
+    const json = JSON.parse(JSON.stringify(checked)) as CheckReport;
+
+    expect(summary).toMatch(/client without apiVersion.*stripe\.ts:5\s+auto-fixable/);
+    expect(details).toMatch(/lib\/stripe\.ts:5[\s\S]*?mechanical \(90%\)/);
+    expect(details).not.toContain('manual (90%)');
+    expect(json.packages[0]?.findings[0]?.fixability).toBe('mechanical');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

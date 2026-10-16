@@ -1,10 +1,17 @@
 import type { FixReport } from './types.js';
 
-/** Accepted agent choices belong beside the pack's owner decisions, not buried in logs. */
+/**
+ * Accepted agent choices belong beside the pack's owner decisions, not buried in logs. One
+ * bullet per rule and resource (UPT-70): a choice the pack already puts to the owner for that
+ * rule is not said again, and the same choice in several files is one bullet naming them all.
+ */
 export function agentDecisionLines(report: FixReport): string[] {
-  return (report.llm.tasks ?? [])
+  const decided = new Set(report.decidedRules ?? []);
+  type Said = { files: string[]; decisions: string[] };
+  const said = new Map<string, Said>();
+  const lines = (report.llm.tasks ?? [])
     .filter((task) => task.gate === 'accepted')
-    .flatMap((task) => {
+    .flatMap((task, index): (string | Said)[] => {
       const sites = report.sites.filter(
         (site) => site.outcome === 'agent' && task.files.includes(site.finding.usage.file),
       );
@@ -41,11 +48,32 @@ export function agentDecisionLines(report: FixReport): string[] {
           return `- ${count} revalidateTag calls in \`${file}\` now pass \`{ expire: 0 }\` (immediate expiry, as in Next 15). Next recommends [\`"max"\`](https://nextjs.org/docs/app/api-reference/functions/revalidateTag) (stale-while-revalidate) for most cases; \`updateTag\` is another option for Server Actions: confirm or change.`;
         });
       }
-      return (task.summary?.decisions ?? []).map(
-        (decision) =>
-          `- ${task.files.map((file) => `\`${file}\``).join(', ')}: ${decision.trim()}${/[.!?]$/.test(decision.trim()) ? '' : '.'} Confirm or change.`,
-      );
+      const decisions = task.summary?.decisions ?? [];
+      const rules = [...new Set(sites.map((site) => site.rule ?? ''))].sort();
+      if (decisions.length === 0 || (rules.length > 0 && rules.every((r) => decided.has(r))))
+        return [];
+      // The resource is what the sites' changed symbols belong to: `Stripe.Subscription`.
+      const resources = [
+        ...new Set(sites.map((site) => site.finding.change.path.split('#')[0])),
+      ].sort();
+      const key = rules.length > 0 ? `${rules.join(',')}|${resources.join(',')}` : `#${index}`;
+      const first = said.get(key);
+      if (first) {
+        first.files.push(...task.files.filter((file) => !first.files.includes(file)));
+        return [];
+      }
+      const entry = { files: [...task.files], decisions };
+      said.set(key, entry);
+      return [entry];
     });
+  return lines.flatMap((line) =>
+    typeof line === 'string'
+      ? [line]
+      : line.decisions.map(
+          (decision) =>
+            `- ${line.files.map((file) => `\`${file}\``).join(', ')}: ${decision.trim()}${/[.!?]$/.test(decision.trim()) ? '' : '.'} Confirm or change.`,
+        ),
+  );
 }
 
 /** First failing suite's error, bounded, plus counts; repeated noise is printed once. */

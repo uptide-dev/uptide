@@ -4,7 +4,6 @@ import { ts } from 'ts-morph';
 import { describe, expect, it } from 'vitest';
 import type { Finding } from '../../domain/report.js';
 import { ruleFor } from '../contract.js';
-import { packFixability } from '../fixability.js';
 import { fixtureFinding, parseMarkers, runFixtures } from '../tooling/fixtures.js';
 import { zodPack } from './index.js';
 
@@ -136,9 +135,7 @@ it('check promises a mechanical fix only when the actual rule passes its safety 
   ] as const) {
     const source = `import {z} from 'zod'; const schema = z.string({${options}});`;
     const finding = { ...at(source, 'required_error'), fixability: 'assisted' as const };
-    expect(packFixability(finding, source, zodPack).fixability).toBe(
-      mechanical ? 'mechanical' : 'assisted',
-    );
+    expect(zodPack.transform(source, finding, context).applied).toBe(mechanical);
   }
 });
 
@@ -155,9 +152,6 @@ it('record-key fixtures classify real finding shapes and preserve safe before/af
     delete finding.rule;
     finding.fixability = 'assisted';
     expect(ruleFor(zodPack.rules, finding)?.id).toBe('record-key');
-    expect(packFixability(finding, text, zodPack).fixability).toBe(
-      site.keep ? 'assisted' : 'mechanical',
-    );
     const transformed = zodPack.transform(text, finding, context);
     expect(transformed.applied).toBe(!site.keep);
     expect(zodPack.transform(transformed.text, finding, context).applied).toBe(false);

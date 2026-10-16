@@ -261,7 +261,8 @@ describe('check on the synthetic consumer', () => {
           f.usage.file === 'src/direct.ts',
       ),
     ).toMatchObject({ confidence: 0.3 });
-    expect(rows).toContain('src/direct.ts:13 VERSION deprecated mechanical');
+    // No pack edits it: the plan says manual, and so does the finding (UPT-70).
+    expect(rows).toContain('src/direct.ts:13 VERSION deprecated manual');
     expect(pkg.findings.find((f) => f.change.path === 'makeClient')?.usage.compileError).toBe(
       'Expected 2 arguments, but got 1.',
     );
@@ -273,7 +274,7 @@ describe('check on the synthetic consumer', () => {
       unaffected: 0,
       notImported: 0,
       partiallyAnalyzed: 0,
-      autoFixable: 1,
+      autoFixable: 0,
       skippedForTime: 0,
       failed: 0,
     });

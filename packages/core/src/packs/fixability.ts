@@ -41,18 +41,3 @@ export function withUnexercised(
   };
   return wrapped;
 }
-
-/** Use the actual transform as a dry run, including its safety guards. */
-export function packFixability(finding: Finding, source: string, pack: MigrationPack): Finding {
-  if (!['breaking', 'unverified', 'deprecated'].includes(finding.severity)) return finding;
-  const result = pack.transform(source, finding, {
-    from: finding.change.from,
-    to: finding.change.to,
-    includeDeprecated: true,
-  });
-  if (result.applied) return { ...finding, fixability: 'mechanical' };
-  // A site its detection already called mechanical (a rule's own detect) is not, unexercised.
-  return finding.fixability === 'mechanical' && isUnexercised(pack, finding)
-    ? { ...finding, fixability: 'assisted' }
-    : finding;
-}

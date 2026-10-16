@@ -72,6 +72,8 @@ export interface RepoScore {
   repoChoice?: string[];
   /** Required moves `check` will not make, each only a new major (`check/required.ts`). */
   blockers?: string[];
+  /** Deprecated `@types` stubs `check` removes instead of upgrading (UPT-54). */
+  removals?: { name: string; from: string; reason: string }[];
   /**
    * Wall time of each step in milliseconds (0 when the cache already had it), and this
    * process's peak resident memory in MB once the repository is checked.
@@ -382,7 +384,8 @@ function dependsOn(project: string, root: string, name: string, lead: string): b
  * What `check` moves with the package in one repository, against what its real upgrade moved
  * (`with`). A package the upgrade moved that `check` does not is explained when check reports
  * why it stays: a blocker or a stay that names it as a new major (`check/required.ts`), or a
- * peer conflict (`check/companions.ts`), none of which check ever moves. It is the repository's choice when
+ * peer conflict (`check/companions.ts`), none of which check ever moves, or a deprecated `@types`
+ * stub check removes instead (UPT-54). It is the repository's choice when
  * it does not depend on the lead (openhab's body-parser with express), and left behind otherwise.
  */
 export function companionOutcome(
@@ -391,13 +394,16 @@ export function companionOutcome(
   dependsOnLead: (name: string) => boolean = () => true,
 ): Pick<
   RepoScore,
-  'companions' | 'stays' | 'leftBehind' | 'blockers' | 'explained' | 'repoChoice'
+  'companions' | 'stays' | 'leftBehind' | 'blockers' | 'removals' | 'explained' | 'repoChoice'
 > {
   const companions = [
     ...new Map(own.flatMap((p) => p.companions ?? []).map((c) => [c.name, c])).values(),
   ].sort((a, b) => a.name.localeCompare(b.name));
   const stays = [...new Set(own.flatMap((p) => p.companionStays ?? []))].sort();
   const blockers = [...new Set(own.flatMap((p) => p.companionBlockers ?? []))].sort();
+  const removals = [
+    ...new Map(own.flatMap((p) => p.companionRemovals ?? []).map((r) => [r.name, r])).values(),
+  ].sort((a, b) => a.name.localeCompare(b.name));
   const names = (blocker: string, name: string) =>
     new RegExp(`(^|[ (])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} `).test(blocker);
   const leftBehind: string[] = [...new Set(own.flatMap((p) => p.companionConflicts ?? []))];
@@ -407,11 +413,13 @@ export function companionOutcome(
     if (companions.some((c) => c.name === name)) continue;
     const left = `${name}: the upgrade moved it to ${version}`;
     const blocker = blockers.find((b) => names(b, name));
+    const removal = removals.find((r) => r.name === name);
     const stay = stays.find((s) => s.includes('only a new major') && names(s, name));
     const conflict = own
       .flatMap((p) => p.peerConflicts ?? [])
       .find((c) => c.startsWith(`${name} `));
-    if (blocker) explained.push(`${left}, check leaves it (blocked: ${blocker})`);
+    if (removal) explained.push(`${left}, check removes it (${removal.reason})`);
+    else if (blocker) explained.push(`${left}, check leaves it (blocked: ${blocker})`);
     else if (conflict) explained.push(`${left}, check leaves it (peer conflict: ${conflict})`);
     else if (stay) explained.push(`${left}, check leaves it (${stay})`);
     else if (!dependsOnLead(name))
@@ -422,6 +430,7 @@ export function companionOutcome(
     ...(companions.length ? { companions } : {}),
     ...(stays.length ? { stays } : {}),
     ...(blockers.length ? { blockers } : {}),
+    ...(removals.length ? { removals } : {}),
     ...(leftBehind.length ? { leftBehind } : {}),
     ...(explained.length ? { explained } : {}),
     ...(repoChoice.length ? { repoChoice } : {}),
