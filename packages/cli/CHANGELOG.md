@@ -1,5 +1,19 @@
 # uptide
 
+## 0.14.1
+
+### Patch Changes
+
+- [#172](https://github.com/uptide-dev/uptide/pull/172) [`a4b0767`](https://github.com/uptide-dev/uptide/commit/a4b0767a09c6b06bb05d01b8f550bb204a898527) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Fix standard-library resolution in TypeScript 7 repositories using the bundled compiler, avoiding invented baseline errors such as missing Object.hasOwn. Compare the parent baseline with the repository's tsc directly without running package scripts, identify that checker in report notes, and report mismatches as an Uptide setup problem.
+
+- [#170](https://github.com/uptide-dev/uptide/pull/170) [`666759b`](https://github.com/uptide-dev/uptide/commit/666759be7f3d49e2e24e75937a8aa10959b6e96e) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Stop treating unrelated packages in the same npm scope as upgrade companions. Include the blocking package, requirement range, and next step in planner refusal messages.
+
+- [#173](https://github.com/uptide-dev/uptide/pull/173) [`5298b85`](https://github.com/uptide-dev/uptide/commit/5298b8558c23eb339f42a3c5c58870cdb2ea1e0c) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Pin the Uptide Action to v0.14.0
+
+- [#174](https://github.com/uptide-dev/uptide/pull/174) [`90485aa`](https://github.com/uptide-dev/uptide/commit/90485aa2f028cf5075e994cbb78dd765f88a2b04) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Repair upgrade-caused type, build, and test failures with bounded agent feedback, retain draft agent-led upgrades when pack verification cannot proceed, and report feedback rounds and budget. Guard test edits against deletion, skipping, and weakened assertions; flag explained expected-value migrations for review.
+
+- [#171](https://github.com/uptide-dev/uptide/pull/171) [`97119ea`](https://github.com/uptide-dev/uptide/commit/97119ea7c315d9bd094ad6de80ff77eb9cee8854) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Prepare missing workspace declarations for fix verification, and rebuild internal packages affected by upgraded dependencies even when build output exists. Use the configured verification build script and report each build. A build that cannot run or fails is reported, never thrown. Standalone checks run no repository scripts and count the files importing a workspace with missing output as not verified (`needs build of <workspace>`) while the rest still compiles.
+
 ## 0.14.0
 
 ### Minor Changes
