@@ -18,12 +18,18 @@ fork=$org/${repo%%/*}--${repo##*/}
 
 if [ "${2:-}" = --collect ]; then
   pr=$(jq -r .number "$dir/pr.json")
+  [ "$pr" = null ] && exit 0
   gh pr checks "$pr" --repo "$fork" --watch --interval 60 >/dev/null 2>&1 || :
   gh pr checks "$pr" --repo "$fork" --json name,workflow,state,bucket >"$dir/ci.json" || :
   echo "$run $(jq -c 'group_by(.bucket) | map({(.[0].bucket): length}) | add' "$dir/ci.json")"
   exit 0
 fi
 
+if [ "$head" = "$parent" ]; then
+  echo '{"number": null, "skipped": "no commits"}' >"$dir/pr.json"
+  echo "$run no commits, no pull request"
+  exit 0
+fi
 if ! gh repo view "$fork" >/dev/null 2>&1; then
   gh repo fork "$repo" --org "$org" --fork-name "${fork#*/}" --clone=false --default-branch-only
   sleep 5
