@@ -27,6 +27,7 @@ git clone -q "https://github.com/$repo.git" "$dir/repo"
 cd "$dir/repo"
 git checkout -q -b bench-base "$parent"
 git remote set-url --push origin no-push
+git config user.name "UpgradeBench" && git config user.email bench@uptide.invalid
 export npm_config_ignore_scripts=true YARN_ENABLE_SCRIPTS=0
 
 start=$(date +%s) status=0 cost=0
@@ -40,7 +41,14 @@ claude)
     --settings "$here/claude-sandbox.json" --permission-mode acceptEdits --permission-prompts none \
     --no-session-persistence --output-format json --max-budget-usd "${CLAUDE_CAP_USD:-6}" \
     "$prompt" >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
-  cost=$(jq '.total_cost_usd // 0' "$dir/agent.json" 2>/dev/null || echo 0)
+  # Claude Code does not know this model's price and reports it at an older Sonnet's; price its
+  # tokens with Uptide's table (pricing.ts, per million: input, output, cache read, 5m write),
+  # the one Uptide's own cost uses.
+  cost=$(jq '[.modelUsage // {} | to_entries[]
+    | (if (.key | test("haiku")) then [1, 5, 0.1, 1.25] else [2, 10, 0.2, 2.5] end) as $p
+    | (.value.inputTokens * $p[0] + .value.outputTokens * $p[1]
+      + .value.cacheReadInputTokens * $p[2] + .value.cacheCreationInputTokens * $p[3]) / 1e6]
+    | add // 0' "$dir/agent.json" 2>/dev/null || echo 0)
   jq -r '.result // ""' "$dir/agent.json" >"$dir/summary.md" 2>/dev/null || : >"$dir/summary.md"
   ;;
 uptide)
