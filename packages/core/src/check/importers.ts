@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { ts } from 'ts-morph';
 
 const SOURCE = /\.(?:[cm]?[jt]sx?)$/;
@@ -298,4 +298,105 @@ export function importersOf(
     if (hits.size === 0) return false;
     return packages === undefined || takesDependent(file, hits);
   });
+}
+
+/** The repository file a specifier names, the way the compiler resolves it; never a package. */
+function localModule(
+  specifier: string,
+  from: string,
+  options: ts.CompilerOptions,
+): string | undefined {
+  const target = ts.resolveModuleName(specifier, from, options, ts.sys).resolvedModule
+    ?.resolvedFileName;
+  return target && !target.includes('/node_modules/') && !/\.d\.[cm]?ts$/.test(target)
+    ? resolve(target)
+    : undefined;
+}
+
+/**
+ * What a repository module exports that depends on `packages` (`packageExports`), through its
+ * own re-exports too: `export * from './schema'` is how a `lib/zod/index.ts` hands on its schemas.
+ */
+function localExports(
+  file: string,
+  packages: ReadonlySet<string>,
+  options: ts.CompilerOptions,
+  seen: Map<string, Set<string>>,
+): Set<string> {
+  const known = seen.get(file);
+  if (known) return known;
+  const exported = packageExports(file, packages);
+  seen.set(file, exported);
+  for (const statement of parseFile(file)?.statements ?? []) {
+    if (
+      !ts.isExportDeclaration(statement) ||
+      statement.isTypeOnly ||
+      !statement.moduleSpecifier ||
+      !ts.isStringLiteral(statement.moduleSpecifier)
+    )
+      continue;
+    const target = localModule(statement.moduleSpecifier.text, file, options);
+    if (!target) continue;
+    const inner = localExports(target, packages, options, seen);
+    const clause = statement.exportClause;
+    if (!clause) {
+      for (const name of inner) if (name !== 'default') exported.add(name);
+    } else if (ts.isNamespaceExport(clause)) {
+      if (inner.size) exported.add(clause.name.text);
+    } else
+      for (const e of clause.elements)
+        if (inner.has((e.propertyName ?? e.name).text)) exported.add(e.name.text);
+  }
+  return exported;
+}
+
+/**
+ * The names `file` imports from the repository's own modules that depend on one of `packages`
+ * there (a zod schema behind `@/lib/zod`, a redis client behind `../config/redis`), resolved the
+ * way the compiler resolves them. Type-only imports are left out: they hold no value.
+ */
+export function packageImports(
+  file: string,
+  packages: ReadonlySet<string>,
+  options: ts.CompilerOptions,
+): Set<string> {
+  const names = new Set<string>();
+  const seen = new Map<string, Set<string>>();
+  for (const statement of parseFile(file)?.statements ?? []) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
+      continue;
+    const clause = statement.importClause;
+    if (!clause || clause.isTypeOnly) continue;
+    const target = localModule(statement.moduleSpecifier.text, file, options);
+    if (!target) continue;
+    const exported = localExports(target, packages, options, seen);
+    if (exported.size === 0) continue;
+    if (clause.name && exported.has('default')) names.add(clause.name.text);
+    const bindings = clause.namedBindings;
+    if (bindings && ts.isNamespaceImport(bindings)) names.add(bindings.name.text);
+    else if (bindings)
+      for (const e of bindings.elements)
+        if (!e.isTypeOnly && (exported.has((e.propertyName ?? e.name).text) || exported.has('*')))
+          names.add(e.name.text);
+  }
+  return names;
+}
+
+/**
+ * A workspace's own TypeScript files (workspace-relative; no declarations, nothing under
+ * `node_modules` or outside it) and compiler options, from its `tsconfig.json`.
+ */
+export function projectFiles(dir: string): { files: string[]; options: ts.CompilerOptions } {
+  const config = join(dir, 'tsconfig.json');
+  const parsed = existsSync(config)
+    ? ts.getParsedCommandLineOfConfigFile(
+        config,
+        {},
+        { ...ts.sys, onUnRecoverableConfigFileDiagnostic: () => {} },
+      )
+    : undefined;
+  const files = (parsed?.fileNames ?? [])
+    .map((f) => relative(dir, resolve(f)))
+    .filter((f) => !f.startsWith('..') && !f.includes('node_modules/') && !/\.d\.[cm]?ts$/.test(f));
+  return { files, options: parsed?.options ?? {} };
 }

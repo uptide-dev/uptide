@@ -356,7 +356,7 @@ export function ruleFor<R extends MigrationRule & { message?: RegExp }>(
 }
 
 /** Rule and note sites found in one file's text, as `check` reports a pack's own finding. */
-function detected(
+export function detected(
   pack: Pick<Pack, 'meta' | 'rules' | 'behavior'>,
   input: { file: string; text: string; from: string; to: string },
 ): Finding[] {

@@ -98,7 +98,8 @@ repository's own fix, and deprecations the code already had at the installed ver
 
 ## Measured pack test
 
-`uptide pack test redis`, 2026-10-14:
+Recorded **verified** on 2026-10-15 (UPT-66): `uptide pack test redis --write` under UPT-48's gate,
+ground truth unchanged (the record's digest is that of the committed `ground-truth.json`):
 
 ```
   rule                         precision  recall    tp   fp   fn
@@ -106,32 +107,63 @@ repository's own fix, and deprecations the code already had at the installed ver
   client-type                       100%     33%     2    0    4
   generic                            50%    100%     2    2    0
   renamed-exports                   100%    100%     2    0    0
-  scan-cursor                       100%     30%     3    0    7
-  breaking (sites)                  100%     61%    11    0    7
+  scan-cursor                       100%     70%     7    0    3
+  overall (sites)                    89%     77%    17    2    5
   behavior notes (sites)             50%     50%     2    2    2
+  breaking (sites)                  100%     83%    15    0    3
+
+gate          20 breaking sites, 2 behavior-note sites in public ground truth · verified
+  · no real site exercises keep-alive, quit-disconnect, scan-iterators, unstable-resp3: their rewrites run as assisted
 ```
 
-Breaking misses, none of them a rule that did not match:
+5 repositories, 20 real breaking sites, no breaking false positive. The four rewrites no real site
+exercises (`keep-alive`, `quit-disconnect`, `scan-iterators`, `unstable-resp3`) are listed as
+`unexercised` in `verification.json`, so `fix` hands those sites to the agent (assisted) instead of
+applying the rewrite.
 
-- blog (5 scan-cursor): `refresh-cache.ts` and `utils.ts` reach the client through a local module
-  and a local `RedisScanClient` type and never import `redis`; `check` reports no compile error
-  there, and runtime detection reads importing files only.
-- FCM and tacocat 5 → 6 (4 client-type): the repositories' own `tsc` reports TS2322 at these lines,
-  `check` reports nothing there. Both lines already had a different TS2322 at the installed version
-  (`ReturnType<typeof createClient>` against a configured client) and `check` subtracts errors it
-  finds at the installed version, which is most likely why (not confirmed in the engine).
-- FCM `cursor !== 0` (2): the files import a local wrapper, not `redis`.
+The three remaining breaking misses, all in tearingItUp786/blog:
+
+- `app/inngest/refresh-cache.ts:204` and `:206`: TS2345 at `scanRedisKeys(redisClient, …)`, a
+  compile error only. `check` follows the file's import of `redisClient` from
+  `~/utils/redis.server` (`importersOf`), but the importer memory cap (`IMPORTER_GROWTH`, 0.2 of the
+  roots' own estimated heap) leaves it out of the program, and the run says so: "4 importing files
+  not analyzed (memory cap)". A growth of 0.5 would take it. The cap is engine-wide and stays as it
+  is here; raising it is a separate decision.
+- `app/inngest/utils.ts:106`: `cursor !== 0` in a helper that takes a local structural
+  `RedisScanClient` and imports nothing from redis or from a module that depends on it. Following
+  imports cannot reach it; only a call-graph step (the caller passes the client in) could.
+
+Reported under another rule (they count as found for breaking, against `client-type` in the rule
+rows): FCM `src/config/redis.ts:39`, `:46` (as `generic`) and tacocat 5 → 6
+`redisClientUtils.ts:16`, `:21` (as `client-defaults`).
 
 Behavior: the two `client-defaults` false positives are clients whose repositories accepted the
 RESP3 default without pinning (mcp-coordinator, blog). The defaults did change for them; the ground
 truth rule (only what the repository changed) counts them against the note. FCM pins RESP2 in an
 options function the detector cannot read (it reads inline literals only).
 
+### Clients reached through a local module (UPT-66)
+
+The first score (2026-10-14) had breaking recall 61% (11/18): 7 `scan-cursor` misses, FCM's two
+`cursor !== 0` and blog's five. The detector read only files that import redis, and those files
+take the client from the repository's own module.
+
+`scan-cursor` now also reads files that never import redis but import a value from a repository
+module that depends on it (`getRedisClient` from `../config/redis`, `redisClient` from
+`~/utils/redis.server`), resolved the way the compiler resolves it, `export *` chains included:
+`packageImports` in `check/importers.ts`, the resolver the zod pack's `error-members` uses. Every
+tsconfig file is a candidate, so a file the importer cap left out is read too. Such a file needs a
+scan call; the other detectors still read importing files only (their sites are option names, not
+client calls). `scan(cursor)` after `let cursor = 0` counts as a numeric cursor (fixture
+`scan-cursor` line 9 is now marked). Found since: FCM `adminNukeController.ts:68`,
+`roleVerificationService.ts:72`; blog `refresh-cache.ts:322`, `:326`. 61% → 83%, no new false
+positive.
+
 ### Per-rule evidence (for the UPT-48 gate)
 
 Exercised by a real site: `renamed-exports` (its rewrite too), `scan-cursor`, `client-type`.
 Rewrites with no real site: `scan-iterators`, `keep-alive`, `quit-disconnect`, `unstable-resp3`;
-under UPT-48 they run as assisted. Rules and notes with no real site: `legacy-mode`,
+they run as assisted (`unexercised` in the record). Rules and notes with no real site: `legacy-mode`,
 `command-options`, `number-replies`, `deep-imports`, `graph-removed`, `set-expiration`,
 `sentinel-node-command-options`, `search-dialect-2` and the decision-only notes.
 
@@ -147,4 +179,5 @@ has `client-type` in four repositories, two of them scored.
   gate in `transform` only refuses rewrites of a major the upgrade already passed.
 - A site reported but deliberately not rewritten (a scan loop with `break`) cannot be a fixture
   marker; it is a unit test.
-- Compile errors in files that use the client without importing the package are not reported (blog).
+- Compile errors in an importing file the importer memory cap leaves out are not reported (blog
+  `refresh-cache.ts:204`, `:206`); only the syntactic `scan-cursor` sites there are.

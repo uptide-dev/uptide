@@ -1,5 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import {
   type BindingElement,
   type Expression,
@@ -11,7 +10,7 @@ import {
   SyntaxKind,
   ts,
 } from 'ts-morph';
-import { packageExports } from '../../check/importers.js';
+import { packageImports, projectFiles } from '../../check/importers.js';
 import type { Finding } from '../../domain/report.js';
 import type { Usage } from '../../domain/usage.js';
 import { onReset } from '../../shared-state.js';
@@ -36,6 +35,7 @@ const FLAT = new Set(['fieldErrors', 'formErrors']);
 const MENTIONS = /\bformErrors\b|\.errors\b/;
 /** The specifier whose `ZodError` lost the members: zod 4's root. `zod/v3` keeps them. */
 const ZOD = 'zod';
+const ZODS = new Set([ZOD]);
 
 const parsed = new Map<string, SourceFile>();
 onReset(() => parsed.clear());
@@ -182,7 +182,7 @@ function usesZod(source: SourceFile, schemas: ReadonlySet<string>): boolean {
 const LOCAL = /^(?:\.{1,2}\/|[@~#]\/)/;
 /**
  * Without the repository (fixtures, `detect`), the names imported from a local specifier stand
- * in for the resolved ones `schemaImports` gives `check`.
+ * in for the resolved ones `packageImports` gives `check`.
  */
 function localImports(source: SourceFile, local = LOCAL): Set<string> {
   const names = new Set<string>();
@@ -200,7 +200,7 @@ function localImports(source: SourceFile, local = LOCAL): Set<string> {
 
 /**
  * Sites in one file. `schemas` are the names it imports from the repository's own modules
- * that are zod schemas there (`schemaImports`); without them, the names it imports from local
+ * that are zod schemas there (`packageImports`); without them, the names it imports from local
  * specifiers. A file that neither imports zod nor such a name has none.
  */
 export function errorMemberSites(
@@ -223,99 +223,6 @@ export function errorMemberSites(
   });
 }
 
-const sourceOf = (file: string): ts.SourceFile | undefined => {
-  try {
-    return ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, false);
-  } catch {
-    return undefined;
-  }
-};
-/** The repository file a specifier names, the way the compiler resolves it; never a package. */
-function local(specifier: string, from: string, options: ts.CompilerOptions): string | undefined {
-  const target = ts.resolveModuleName(specifier, from, options, ts.sys).resolvedModule
-    ?.resolvedFileName;
-  return target && !target.includes('/node_modules/') && !/\.d\.[cm]?ts$/.test(target)
-    ? resolve(target)
-    : undefined;
-}
-
-/**
- * What a repository module exports that depends on zod (`packageExports`), through its own
- * re-exports too: `export * from './schema'` is how a `lib/zod/index.ts` hands on its schemas.
- */
-function zodExports(
-  file: string,
-  options: ts.CompilerOptions,
-  seen = new Map<string, Set<string>>(),
-): Set<string> {
-  const known = seen.get(file);
-  if (known) return known;
-  const exported = packageExports(file, new Set([ZOD]));
-  seen.set(file, exported);
-  const source = sourceOf(file);
-  for (const statement of source?.statements ?? []) {
-    if (
-      !ts.isExportDeclaration(statement) ||
-      statement.isTypeOnly ||
-      !statement.moduleSpecifier ||
-      !ts.isStringLiteral(statement.moduleSpecifier)
-    )
-      continue;
-    const target = local(statement.moduleSpecifier.text, file, options);
-    if (!target) continue;
-    const inner = zodExports(target, options, seen);
-    const clause = statement.exportClause;
-    if (!clause) {
-      for (const name of inner) if (name !== 'default') exported.add(name);
-    } else if (ts.isNamespaceExport(clause)) {
-      if (inner.size) exported.add(clause.name.text);
-    } else
-      for (const e of clause.elements)
-        if (inner.has((e.propertyName ?? e.name).text)) exported.add(e.name.text);
-  }
-  return exported;
-}
-
-/**
- * The names `file` imports from the repository's own modules that depend on zod there
- * (`export const createApiKeySchema = z.object(...)` behind `@/lib/zod`), resolved the way the
- * compiler resolves them.
- */
-export function schemaImports(file: string, options: ts.CompilerOptions): Set<string> {
-  const names = new Set<string>();
-  const seen = new Map<string, Set<string>>();
-  for (const statement of sourceOf(file)?.statements ?? []) {
-    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
-      continue;
-    const clause = statement.importClause;
-    if (!clause || clause.isTypeOnly) continue;
-    const target = local(statement.moduleSpecifier.text, file, options);
-    if (!target) continue;
-    const exported = zodExports(target, options, seen);
-    if (exported.size === 0) continue;
-    if (clause.name && exported.has('default')) names.add(clause.name.text);
-    const bindings = clause.namedBindings;
-    if (bindings && ts.isNamespaceImport(bindings)) names.add(bindings.name.text);
-    else if (bindings)
-      for (const e of bindings.elements)
-        if (!e.isTypeOnly && (exported.has((e.propertyName ?? e.name).text) || exported.has('*')))
-          names.add(e.name.text);
-  }
-  return names;
-}
-
-function compilerOptions(dir: string): { files: string[]; options: ts.CompilerOptions } {
-  const config = join(dir, 'tsconfig.json');
-  const parsed = existsSync(config)
-    ? ts.getParsedCommandLineOfConfigFile(
-        config,
-        {},
-        { ...ts.sys, onUnRecoverableConfigFileDiagnostic: () => {} },
-      )
-    : undefined;
-  return { files: parsed?.fileNames ?? [], options: parsed?.options ?? {} };
-}
-
 /**
  * The pack's own findings for one workspace: the files that use zod, and the files importing
  * a zod schema from one of them, which the type scan does not visit (a form validating with
@@ -333,16 +240,17 @@ export function errorMemberFindings(input: {
 }): Finding[] {
   const dir = resolve(input.root, input.workspace);
   const direct = [...new Set(input.usages.map((u) => u.file))].sort();
-  const { files, options } = compilerOptions(dir);
   // The project's own files, not only those the scan visited: the text test is the cheap part.
-  const own = files
-    .map((f) => relative(dir, resolve(f)))
-    .filter((f) => !f.startsWith('..') && !f.includes('node_modules/') && !/\.d\.[cm]?ts$/.test(f));
+  const { files: own, options } = projectFiles(dir);
   const findings: Finding[] = [];
   for (const file of [...new Set([...direct, ...own])].sort()) {
     const text = input.read(join(input.workspace, file));
     if (text === undefined || !MENTIONS.test(text)) continue;
-    for (const site of errorMemberSites(text, file, schemaImports(join(dir, file), options))) {
+    for (const site of errorMemberSites(
+      text,
+      file,
+      packageImports(join(dir, file), ZODS, options),
+    )) {
       const finding: Finding = {
         change: {
           package: ZOD,

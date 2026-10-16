@@ -6,7 +6,7 @@ export async function keys(pattern: string) {
   const found: string[] = [];
   let cursor = 0;
   do {
-    const reply = await client.scan(cursor, { MATCH: pattern, COUNT: 100 });
+    const reply = await client.scan(cursor, { MATCH: pattern, COUNT: 100 }); // @uptide scan-cursor
     cursor = reply.cursor;
     found.push(...reply.keys);
   } while (cursor !== 0); // @uptide scan-cursor
