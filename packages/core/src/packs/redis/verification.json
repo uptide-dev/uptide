@@ -1,19 +1,23 @@
 {
-  "status": "candidate",
-  "truth": "sha256-8a955c4e896f7c89acebcb71f61869a533cdca703fd82a3d5da78af9e129fc6e",
-  "repos": 0,
+  "status": "verified",
+  "truth": "sha256-c1f3f368599bf3da7dfe06384c336917a4cd38e25451a0e0a2f4e5749d4b5b46",
+  "repos": 5,
   "breaking": {
     "precision": 1,
-    "recall": 1,
+    "recall": 0.8333,
     "falsePositives": 0,
-    "truePositives": 0,
-    "falseNegatives": 0
+    "truePositives": 15,
+    "falseNegatives": 3
   },
   "behavior": {
-    "precision": 1,
-    "recall": 1,
-    "falsePositives": 0,
-    "truePositives": 0,
-    "falseNegatives": 0
-  }
+    "precision": 0.5,
+    "recall": 0.5,
+    "falsePositives": 2,
+    "truePositives": 2,
+    "falseNegatives": 2
+  },
+  "class": "breaking",
+  "breakingSites": 20,
+  "behaviorSites": 2,
+  "unexercised": ["keep-alive", "quit-disconnect", "scan-iterators", "unstable-resp3"]
 }

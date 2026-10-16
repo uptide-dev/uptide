@@ -65,7 +65,7 @@ The contract: [migration packs](docs/packs.md).
 | `openai` | 4.x → 7.x | 100% | 15% | 20 | zeikar/charivo, openai/openai-guardrails-js, wardby/wardby, csnyder256/ux-struggle-detector, grantsingleton/batch-ai, digitalchokro/askchokro, microsoft/prompty | candidate |
 | `react` | 18.x → 19.x | 100% | 69% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6.x → 7.x | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
-| `redis` | >=4 <6 → >=5 <7 | n/a | n/a | — | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, deanmoses/tacocat-gallery-sam, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | candidate |
+| `redis` | >=4 <6 → >=5 <7 | 100% | 83% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, deanmoses/tacocat-gallery-sam, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
 | `@sentry/browser` | 10.x → 11.x | 100% | 100% | 3 | Automancer-Ltd/automancer-site, sbomify/sbomify | candidate |
 | `@sentry/nextjs` | 10.x → 11.x | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `@sentry/react` | 10.x → 11.x | 100% | 100% | 2 | owine/youth-activity-scheduler, successible/cleanslate | candidate |
