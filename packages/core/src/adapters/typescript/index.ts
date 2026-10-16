@@ -7,6 +7,7 @@ import type { ApiSurface, ApiSymbol } from '../../domain/surface.js';
 import { compareTypesWithChecker } from './compat.js';
 import { compileAgainstTarget, compileAgainstTargets } from './compile.js';
 import { resolveEntryPoints } from './entry-points.js';
+import { parentTypecheckNotes } from './parent-typecheck.js';
 import { forgetProjectScope } from './project-scope.js';
 import { forgetRepo, loadedRepo, readInstalled, workspacePackagesOf } from './repo.js';
 import {
@@ -160,7 +161,11 @@ export function createTypescriptAdapter(opts: TypescriptAdapterOptions = {}): Ty
       return workspacePackagesOf(root.dir);
     },
     async repoWarnings(repo) {
-      return loadedRepo(realpathSync(repo.dir), repo.rootFiles).warnings;
+      const dir = realpathSync(repo.dir);
+      return [
+        ...loadedRepo(dir, repo.rootFiles).warnings,
+        ...(parentTypecheckNotes.get(dir) ?? []),
+      ];
     },
     async declaredSpecifiers(repo) {
       const { packageJson } = readInstalled(realpathSync(repo.dir));
@@ -174,6 +179,7 @@ export function createTypescriptAdapter(opts: TypescriptAdapterOptions = {}): Ty
     },
     forgetRepo(repo) {
       forgetRepo(realpathSync(repo.dir));
+      parentTypecheckNotes.delete(realpathSync(repo.dir));
       if (!repo.root) forgetProjectScope();
     },
     async installedSurface(repo, pkg, version) {

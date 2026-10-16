@@ -57,7 +57,11 @@ export function resolveCompiler(
   try {
     const own = find(dir);
     if (own === undefined) throw new Error('the repository installs no TypeScript');
-    return load(own);
+    const loaded = load(own);
+    // TypeScript 7 can expose version metadata without a JavaScript compiler API.
+    if (Number.parseInt(loaded.version, 10) >= 7 && typeof loaded.createProgram !== 'function')
+      throw new Error('the repository compiler has no JavaScript API');
+    return loaded;
   } catch {
     if (bundled) return bundled;
     throw new UptideError(
@@ -127,4 +131,11 @@ export function unresolvedConfig(tsc: typeof ts, tsconfig: string): string | und
   } catch {
     return undefined;
   }
+}
+
+/** The repo's standard libraries survive the TS 7 move away from the JavaScript API. */
+export function repositoryLibDir(dir: string): string | undefined {
+  const own = consumerCompilerDir(dir);
+  const lib = own && join(own, 'lib');
+  return lib && existsSync(join(lib, 'lib.d.ts')) ? lib : undefined;
 }
