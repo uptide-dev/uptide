@@ -27,8 +27,8 @@ it('pins the Uptide Action in this repository by a release tag', () => {
   expect(UPTIDE_ACTION.tag).toMatch(/^v\d+\.\d+\.\d+$/);
   expect(UPTIDE_ACTION.sha).toMatch(/^[0-9a-f]{40}$/);
   expect(UPTIDE_ACTION).toMatchObject({
-    sha: '530f90c683b0dee18b42a07b49bc82af70f3a7b6',
-    tag: 'v0.13.0',
+    sha: '3266db6d17e64c0f72f3e6a8775dd4e5d009e175',
+    tag: 'v0.14.0',
     released: true,
   });
 });
