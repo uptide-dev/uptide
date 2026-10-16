@@ -151,6 +151,7 @@ export interface AgentTaskRecord {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+  unreportedCostUsd?: number;
   durationMs: number;
   toolCalls: Record<string, number>;
   gate: 'accepted' | 'rejected' | 'no-change' | 'error';
@@ -198,6 +199,8 @@ export interface Fixer {
   fix(input: FixRequest, remainingUsd?: number): Promise<FixResponse>;
 }
 export interface FixReport {
+  /** Pack pipeline limitations: agent-led results can be published only as drafts. */
+  agentFallback?: string[];
   /** A local candidate smoke run; never eligible for publication. */
   packWarning?: 'candidate pack, not verified';
   peerConflicts?: PeerBlockerGroup[];
@@ -261,6 +264,7 @@ export interface FixReport {
     buildRequired?: boolean;
     /** The repository's build after the bump; required by a pack or the generic path. */
     build?: BuildResult[];
+    baselineBuild?: BuildResult[];
     /** Lint of the edited files with the repository's own tools; a new failure fails verification. */
     lint?: LintResult[];
     /** Formatters run on the edited files (`biome`, `prettier`), when any changed them. */

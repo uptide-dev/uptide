@@ -397,3 +397,22 @@ it.each([false, true])(
     expect(m.calls.some((c) => c[0] === 'gh' || c.includes('push'))).toBe(false);
   },
 );
+
+it('publishes an agent-led fallback only as a draft, preserving tree and provenance checks', async () => {
+  const fallback: FixReport = {
+    ...report,
+    agentFallback: ['unknown baseline'],
+    tier: 'generic',
+    from: '3.0.0',
+    verification: { ...report.verification, passed: false, tests: [], newErrors: [] },
+  };
+  const m = mock();
+  expect(await publish(fallback, true, m.io, { draft: false })).toContain('/pull/1');
+  expect(m.calls.find((c) => c[1] === 'pr' && c[2] === 'create')).toContain('--draft');
+  expect(
+    publicationBlockers({ ...fallback, uptideDirty: true }, { uptideDirty: false }),
+  ).not.toEqual([]);
+  expect(
+    publicationBlockers({ ...fallback, exportError: 'tree changed' }, { uptideDirty: false }),
+  ).not.toEqual([]);
+});

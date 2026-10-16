@@ -23,6 +23,10 @@ export function fixCounts(report: FixReport) {
     manual: report.sites.filter((s) => s.outcome === 'manual').length,
   };
 }
+const hasFeedbackEdits = (report: FixReport): boolean =>
+  (report.llm.tasks ?? []).some(
+    (task) => task.id.startsWith('verification-') && Object.keys(task.diffs ?? {}).length > 0,
+  );
 const cell = (s: string) => s.replaceAll('|', '\\|').replace(/[\r\n]/g, ' ');
 const sentence = (s: string) => {
   const text = s
@@ -333,6 +337,8 @@ export function migrationRisk(report: FixReport): {
       : []),
   ];
   if (high.length) return { level: 'High', reason: high.join('; ') };
+  if (hasFeedbackEdits(report))
+    return { level: 'Medium', reason: 'agent edits after verification feedback need review' };
   // No pack: nothing analyzed the upgrade, so its build and tests passing is not Low either.
   if (report.tier === 'generic' && report.sites.length === 0)
     return {
@@ -733,9 +739,10 @@ export function renderMigration(
             : !report.sites.length && migrationRisk(report).level === 'Low'
               ? 'Types compile and the tests pass.'
               : 'Types compile; runtime behavior needs review.';
-    const what = report.sites.length
-      ? `The code was migrated to ${report.package} ${from.split('.')[0] === report.target.split('.')[0] ? report.target : report.target.split('.')[0]}${workspaces.length ? ` in ${listed(workspaces)}` : ''}.`
-      : 'No code changes were needed; only versions and the lockfile changed.';
+    const what =
+      report.sites.length || hasFeedbackEdits(report)
+        ? `The code was migrated to ${report.package} ${from.split('.')[0] === report.target.split('.')[0] ? report.target : report.target.split('.')[0]}${workspaces.length ? ` in ${listed(workspaces)}` : ''}.`
+        : 'No code changes were needed; only versions and the lockfile changed.';
     lines.push(
       `**${ready ? 'Ready for review.' : 'Review required before merging.'}** ${what} ${typeVerdict}${report.apiChanges ? ` ${sentenceCase(apiChangeSummary(report.apiChanges))} between ${report.apiChanges.from} and ${report.apiChanges.to}.` : ''}`,
       '',
@@ -1246,6 +1253,27 @@ function verificationDetails(report: FixReport, bounded: boolean): (string | Pie
         `**Tests: ${t.workspace}**`,
         droppable(2, ['```text', testOutput(t.output), '```'], `Test output (${t.status})`),
       );
+  const feedbackTasks = (report.llm.tasks ?? []).filter((task) =>
+    task.id.startsWith('verification-'),
+  );
+  if (feedbackTasks.length) {
+    lines.push(
+      '',
+      '**After verification feedback**',
+      '',
+      `By rule: ${report.sites.filter((s) => s.outcome === 'mechanical').length} sites. By the agent before feedback: ${report.sites.filter((s) => s.outcome === 'agent').length} sites.`,
+      ...feedbackTasks.map(
+        (task) =>
+          `- Round ${task.id.replace('verification-', '')}: ${task.gate}${task.rejection ? ` — ${task.rejection}` : ''}${task.stop ? ` — ${task.stop}` : ''}. ${Object.keys(task.diffs ?? {}).join(', ') || 'No accepted edits.'}`,
+      ),
+      ...feedbackTasks.flatMap((task) =>
+        task.gate === 'accepted'
+          ? (task.summary?.changed ?? []).map((change) => `- ${change.file}: ${change.what}`)
+          : [],
+      ),
+      `Remaining: ${v.newErrors.length} new type errors; ${v.tests.filter((t) => t.status === 'failed' || t.status === 'timeout').length} failing or timed-out test runs; ${(v.build ?? []).filter((b) => b.status !== 'passed').length} unsuccessful builds.`,
+    );
+  }
   // What happened to the publish step is the terminal's news, not the description's.
   const agentEdits = report.sites.some((s) => s.outcome === 'agent');
   const notes = report.notes.filter(

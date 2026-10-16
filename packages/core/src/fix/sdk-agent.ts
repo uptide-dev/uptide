@@ -42,6 +42,7 @@ export interface TaskRun {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
+  unreportedCostUsd?: number;
   durationMs: number;
   toolCalls: Record<string, number>;
   stop?: string;
@@ -83,6 +84,9 @@ export interface SdkAssistInput {
   onProgress?: ProgressListener;
   /** Injected by tests; the Agent SDK otherwise. */
   runner?: TaskRunner;
+  /** Repository-wide fallback or verification feedback, after the site session. */
+  task?: AgentTask;
+  feedback?: string;
 }
 
 /**
@@ -210,10 +214,25 @@ export function editRules(
     ...diff.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')),
     ...added.flatMap((f) => readFileSync(join(root, f), 'utf8').split('\n')),
   ];
-  const silenced = addedLines.find((l) => ESCAPES.test(l));
+  if (inputProtected(task)) {
+    const protectedEdit = [...modified, ...added].find(protectedFile);
+    if (protectedEdit)
+      return `tests and verification configuration are read-only: ${protectedEdit}`;
+  }
+  const silenced = addedLines.find(
+    (l) => ESCAPES.test(l) || (inputProtected(task) && /\bany\b/.test(l)),
+  );
   if (silenced) return `silences the compiler: ${silenced.replace(/^\+/, '').trim()}`;
   return undefined;
 }
+
+/** Feedback must repair production code, never the tests or their verification configuration. */
+export function protectedFile(file: string): boolean {
+  return /(?:^|\/)(?:__tests__|tests?|specs?|fixtures?|__fixtures__)(?:\/|$)|\.(?:test|spec)\.|(?:^|\/)(?:package\.json|.*lock.*|tsconfig[^/]*|[^/]*(?:vitest|jest|eslint|biome)[^/]*|uptide\.ya?ml)$/.test(
+    file,
+  );
+}
+const inputProtected = (task: AgentTask) => task.id.startsWith('verification-');
 
 /** Facts about how this repository writes imports, for the agent to follow. Not orders. */
 export function conventions(root: string, workspaces: string[], files: string[]): string[] {
@@ -363,7 +382,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
   const { root, workspaces, pack, context } = input;
   const runner = input.runner ?? sdkRunner;
   let current = input.diagnostics();
-  const tasks = planTasks(input.sites, context, current);
+  const tasks = input.task ? [input.task] : planTasks(input.sites, context, current);
   const records: AgentTaskRecord[] = [];
   const format = input.format ?? ((files) => formatFiles(root, files));
   // Formatting is the repository's tool's job, not the agent's: lint judges formatted files.
@@ -521,12 +540,16 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         ].join('\n');
       },
     };
-    const prompt = taskPrompt({
-      pack,
-      context,
-      task,
-      conventions: conventions(root, workspaces, task.files),
-    });
+    const prompt = [
+      taskPrompt({
+        pack,
+        context,
+        task,
+        conventions: conventions(root, workspaces, task.files),
+      }),
+      input.feedback ?? '',
+      'Never weaken or skip tests. Never introduce any or TypeScript suppression directives.',
+    ].join('\n\n');
     let run: TaskRun;
     let error: string | undefined;
     try {
@@ -546,6 +569,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         inputTokens: 0,
         outputTokens: 0,
         costUsd: 0,
+        unreportedCostUsd: share,
         durationMs: 0,
         toolCalls: {},
       };
@@ -613,6 +637,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     inputTokens: sum('inputTokens'),
     outputTokens: sum('outputTokens'),
     costUsd: sum('costUsd'),
+    unreportedCostUsd: records.reduce((sum, r) => sum + (r.unreportedCostUsd ?? 0), 0),
     agent: 'sdk',
     tasks: records,
   };

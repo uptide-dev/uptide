@@ -1,0 +1,239 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, expect, it, vi } from 'vitest';
+import { zodPack } from '../packs/zod/index.js';
+import { git } from './process.js';
+import { prBody } from './report.js';
+import { fix } from './run.js';
+import type { TaskRunner } from './sdk-agent.js';
+import { zodFixture } from './test-fixture.js';
+
+const scratch = mkdtempSync(join(tmpdir(), 'uptide-feedback-'));
+afterAll(() => rmSync(scratch, { recursive: true, force: true }));
+const runResult = {
+  turns: 1,
+  inputTokens: 10,
+  outputTokens: 10,
+  costUsd: 0.1,
+  durationMs: 1,
+  toolCalls: {},
+};
+async function fixture() {
+  const { root, services } = zodFixture(scratch);
+  const report = await services.check({ cwd: root });
+  for (const p of report.packages) p.findings = [];
+  writeFileSync(
+    join(root, 'index.ts'),
+    "import { z } from 'zod';\nexport const schema = z.string().uuid();\n",
+  );
+  const types = 'export declare const z: { string(): { uuid(): boolean; guid(): boolean } };';
+  writeFileSync(join(root, 'node_modules/zod/index.d.ts'), types);
+  const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  manifest.scripts = { test: 'node uuid.test.cjs' };
+  writeFileSync(join(root, 'package.json'), JSON.stringify(manifest));
+  // Stand-in for zod 4's stricter UUID validator: the legacy GUID is not RFC 9562.
+  writeFileSync(
+    join(root, 'uuid.test.cjs'),
+    `const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const target = JSON.parse(fs.readFileSync('node_modules/zod/package.json')).version.startsWith('4.');
+const source = fs.readFileSync('index.ts', 'utf8');
+const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const schema = pattern => ({ safeParse: value => ({ success: pattern.test(value) }) });
+const context = { z: { string: () => ({ uuid: () => schema(target ? uuid : guid), guid: () => schema(guid) }) } };
+require('node:vm').runInNewContext(source.split('\\n').slice(1).join('\\n').replace('export const schema =', 'globalThis.schema ='), context);
+assert.ok(context.schema.safeParse('00000000-0000-0000-0000-000000000001').success, 'accepts legacy GUID: Invalid UUID');\n`,
+  );
+  git(root, 'add', '.');
+  git(root, 'commit', '-m', 'uuid behavioral fixture');
+  const install = services.install;
+  services.install = async (...args) => {
+    await install(...args);
+    writeFileSync(join(root, 'node_modules/zod/index.d.ts'), types);
+  };
+  services.format = async () => [];
+  services.lint = async () => [];
+  return { root, services, report };
+}
+const options = (root: string) => ({
+  cwd: root,
+  only: 'zod',
+  agent: 'sdk' as const,
+  provider: 'anthropic',
+  maxCostUsd: 0.25,
+});
+
+it('feeds a test-only UUID regression to the agent and verifies the guid repair', async () => {
+  const { root, services } = await fixture();
+  const runner = vi.fn<TaskRunner>(async ({ prompt }) => {
+    expect(prompt).toContain('accepts legacy GUID: Invalid UUID');
+    expect(prompt).toContain('Never weaken or skip tests');
+    writeFileSync(
+      join(root, 'index.ts'),
+      readFileSync(join(root, 'index.ts'), 'utf8').replace('.uuid()', '.guid()'),
+    );
+    return runResult;
+  });
+  const result = await fix(options(root), { ...services, agentRunner: runner });
+  expect(runner).toHaveBeenCalledTimes(1);
+  expect(result.verification.baselineTests[0]?.status).toBe('passed');
+  expect(result.verification.tests[0]?.status).toBe('passed');
+  expect(result.verification.passed).toBe(true);
+  expect(prBody(result)).toContain('After verification feedback');
+  expect(prBody(result)).toContain('index.ts');
+  expect(prBody(result)).not.toContain('No code changes were needed');
+});
+
+it('bounds feedback rounds by the remaining run budget and reports unresolved tests', async () => {
+  const { root, services } = await fixture();
+  const runner = vi.fn<TaskRunner>(async () => runResult);
+  const result = await fix(options(root), { ...services, agentRunner: runner });
+  expect(runner).toHaveBeenCalledTimes(3);
+  expect(runner.mock.calls.map(([input]) => input.maxBudgetUsd)).toEqual([0.25, 0.15, 0.05]);
+  expect(result.verification.passed).toBe(false);
+  expect(prBody(result)).toContain('Invalid UUID');
+});
+
+it('does not send failures already present at the parent to the agent', async () => {
+  const { root, services } = await fixture();
+  services.tests = async () => [{ workspace: '.', status: 'failed', output: 'old failure' }];
+  const runner = vi.fn<TaskRunner>(async () => runResult);
+  await fix(options(root), { ...services, agentRunner: runner });
+  expect(runner).not.toHaveBeenCalled();
+});
+
+it('degrades an incomplete check to an agent-led lead upgrade', async () => {
+  const { root, services, report } = await fixture();
+  for (const p of report.packages) {
+    p.status = 'unknown';
+    p.notes = ['unknown baseline'];
+  }
+  services.build = async () => [{ workspace: '.', status: 'missing', output: 'build cannot run' }];
+  const runner = vi.fn<TaskRunner>(async () => runResult);
+  const result = await fix(options(root), { ...services, agentRunner: runner });
+  expect(runner).toHaveBeenCalled();
+  expect(result.target).toBe('4.6.5');
+  expect(prBody(result)).toContain('unknown baseline');
+  expect(result.verification.passed).toBe(false);
+});
+
+it('rejects attempts to skip tests or introduce any during feedback', async () => {
+  for (const file of ['uuid.test.cjs', 'index.ts']) {
+    const { root, services } = await fixture();
+    const original = readFileSync(join(root, file), 'utf8');
+    const runner: TaskRunner = async () => {
+      writeFileSync(
+        join(root, file),
+        file.endsWith('.cjs') ? '' : 'export const schema: any = {};',
+      );
+      return runResult;
+    };
+    const result = await fix(options(root), { ...services, agentRunner: runner });
+    expect(readFileSync(join(root, file), 'utf8')).toBe(original);
+    expect(result.verification.passed).toBe(false);
+  }
+});
+
+it('degrades an unavailable required build to an agent-led upgrade', async () => {
+  const { root, services } = await fixture();
+  services.build = async () => [{ workspace: '.', status: 'missing', output: 'no build script' }];
+  const runner = vi.fn<TaskRunner>(async () => runResult);
+  const result = await fix(
+    { ...options(root), pack: { ...zodPack, requiresBuild: true } },
+    { ...services, agentRunner: runner },
+  );
+  expect(runner.mock.calls[0]?.[0].prompt).toContain('build');
+  expect(prBody(result)).toContain('Agent-led fallback');
+});
+
+it('continues after the check planner throws, without a registry or LLM call', async () => {
+  const { root, services } = await fixture();
+  services.check = async () => {
+    throw new Error('planner refusal fixture');
+  };
+  services.build = async () => [];
+  const runner = vi.fn<TaskRunner>(async () => runResult);
+  const result = await fix(options(root), { ...services, agentRunner: runner });
+  expect(runner).toHaveBeenCalled();
+  expect(prBody(result)).toContain('planner refusal fixture');
+});
+
+it('repairs test feedback with a mocked patch provider', async () => {
+  const { root, services } = await fixture();
+  const patch = vi.fn(async () => ({
+    diff: '--- a/index.ts\n+++ b/index.ts\n@@ -2 +2 @@\n-export const schema = z.string().uuid();\n+export const schema = z.string().guid();\n',
+    inputTokens: 10,
+    outputTokens: 10,
+    costUsd: 0.01,
+  }));
+  const result = await fix(
+    { cwd: root, only: 'zod', fixer: { id: 'mock', estimate: () => 0.02, fix: patch } },
+    services,
+  );
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(result.verification.passed).toBe(true);
+});
+
+it('feeds a build regression only when the same parent build passed', async () => {
+  const { root, services } = await fixture();
+  services.tests = async () => [{ workspace: '.', status: 'passed', output: '' }];
+  services.build = async () => {
+    const target = JSON.parse(
+      readFileSync(join(root, 'node_modules/zod/package.json'), 'utf8'),
+    ).version.startsWith('4.');
+    const failed = target && readFileSync(join(root, 'index.ts'), 'utf8').includes('.uuid()');
+    return [
+      {
+        workspace: '.',
+        status: failed ? 'failed' : 'passed',
+        command: 'build',
+        output: failed ? 'build error: legacy GUID validator' : '',
+      },
+    ];
+  };
+  const runner = vi.fn<TaskRunner>(async ({ prompt }) => {
+    expect(prompt).toContain('build error: legacy GUID validator');
+    writeFileSync(
+      join(root, 'index.ts'),
+      readFileSync(join(root, 'index.ts'), 'utf8').replace('.uuid()', '.guid()'),
+    );
+    return runResult;
+  });
+  const result = await fix(
+    { ...options(root), pack: { ...zodPack, requiresBuild: true } },
+    { ...services, agentRunner: runner },
+  );
+  expect(runner).toHaveBeenCalledTimes(1);
+  expect(result.verification.build?.[0]?.status).toBe('passed');
+});
+
+it('reserves patch costs across rounds, even when the provider throws', async () => {
+  const { root, services } = await fixture();
+  const patch = vi.fn(async () => {
+    throw new Error('mock provider unavailable');
+  });
+  const result = await fix(
+    {
+      cwd: root,
+      only: 'zod',
+      maxCostUsd: 0.05,
+      fixer: { id: 'mock', estimate: () => 0.03, fix: patch },
+    },
+    services,
+  );
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(result.llm.unreportedCostUsd).toBe(0.03);
+  expect(result.verification.passed).toBe(false);
+});
+
+it('stops feedback when a runner throws without reporting usage', async () => {
+  const { root, services } = await fixture();
+  const runner = vi.fn<TaskRunner>(async () => {
+    throw new Error('mock SDK transport failed');
+  });
+  const result = await fix(options(root), { ...services, agentRunner: runner });
+  expect(runner).toHaveBeenCalledTimes(1);
+  expect(result.llm.unreportedCostUsd).toBe(0.25);
+});
