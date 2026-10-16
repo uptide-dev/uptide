@@ -1,5 +1,15 @@
 # uptide
 
+## 0.13.1
+
+### Patch Changes
+
+- [#161](https://github.com/uptide-dev/uptide/pull/161) [`1d05cab`](https://github.com/uptide-dev/uptide/commit/1d05cabd0b732ddab454b86ef326ce3feeff8474) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `check` prints what moves with a package, what the target requires, what blocks it, the `@types` stubs it removes and what stays on every row that has any, a row where nothing breaks included, in the summary and in `--details`; such a row is never folded away. `pack test` reports removals. A site's fixability now comes from the same dry run as the plan, so the summary, `--details` and `--json` agree (an unpinned Stripe client is `mechanical` in all three). The PR body says each decision once: an agent's restatement of a decision the pack already asks for is dropped, and the same choice in several files is one bullet.
+
+- [#164](https://github.com/uptide-dev/uptide/pull/164) [`8b80410`](https://github.com/uptide-dev/uptide/commit/8b80410524d18083dc9cef9437bb4c274afe874e) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Peer warnings in `check` and `plan` report the version the upgraded package actually resolves, found from its own installed directory as Node does, instead of another copy of the peer the repository has (an older one nested under a workspace, for example).
+
+- [#162](https://github.com/uptide-dev/uptide/pull/162) [`5eccf06`](https://github.com/uptide-dev/uptide/commit/5eccf06d9179bd7f101d6d2655b305e762992d3e) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Pin the Uptide Action to v0.13.0
+
 ## 0.13.0
 
 ### Minor Changes
