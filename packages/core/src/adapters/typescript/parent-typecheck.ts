@@ -1,14 +1,17 @@
 import childProcess from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { onReset } from '../../shared-state.js';
 import { consumerCompilerDir } from './compiler.js';
 import type { LoadedRepo } from './repo.js';
 
+export const parentTypecheckNotes = new Map<string, Set<string>>();
+
 let parents = new WeakMap<LoadedRepo, Map<string, number> | null>();
 onReset(() => {
   parents = new WeakMap();
+  parentTypecheckNotes.clear();
 });
 
 /** TS 7 has no compiler API: compare the unchanged parent with its installed tsc. */
@@ -28,6 +31,12 @@ export function parentTypecheckFailure(
     };
     const bin = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin?.tsc;
     if (!bin) return undefined;
+    // Always call tsc directly: this adapter has no authorization to run package scripts.
+    const notes = parentTypecheckNotes.get(repo.dir) ?? new Set<string>();
+    notes.add(
+      `Parent type-check: ran ${relative(repo.dir, resolve(own, bin))} --project ${relative(repo.dir, config)} directly (no package scripts).`,
+    );
+    parentTypecheckNotes.set(repo.dir, notes);
     const scratch = mkdtempSync(join(tmpdir(), 'uptide-parent-tsc-'));
     let output: string | undefined;
     try {

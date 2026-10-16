@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { resetSharedState } from '../../shared-state.js';
 import { compileAgainstTargets } from './compile.js';
+import { createTypescriptAdapter } from './index.js';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -192,4 +193,47 @@ it('rejects a nonzero parent exit without parseable diagnostics', async () => {
   });
   const signal = await compileAgainstTargets({ dir }, []);
   expect(signal.skipped).toMatch(/Uptide setup problem/);
+});
+
+it('uses direct tsc with scripts off and identifies the checker in report notes', async () => {
+  const dir = fixture();
+  writeFileSync(
+    join(dir, 'package.json'),
+    JSON.stringify({
+      name: 'app',
+      devDependencies: { typescript: '7.0.2' },
+      scripts: { typecheck: 'node side-effect.cjs', pretypecheck: 'node side-effect.cjs' },
+    }),
+  );
+  writeFileSync(join(dir, 'side-effect.cjs'), 'throw new Error("package scripts must not run");');
+  writeFileSync(
+    join(dir, 'node_modules/typescript/package.json'),
+    JSON.stringify({
+      name: 'typescript',
+      version: '7.0.2',
+      bin: { tsc: 'bin/tsc' },
+    }),
+  );
+  const run = vi.spyOn(childProcess, 'execFileSync').mockReturnValue('');
+  const adapter = createTypescriptAdapter();
+  await adapter.compileAgainstMany?.({ dir }, []);
+  expect(run).toHaveBeenCalledExactlyOnceWith(
+    process.execPath,
+    [
+      join(dir, 'node_modules/typescript/bin/tsc'),
+      '--project',
+      join(dir, 'tsconfig.json'),
+      '--noEmit',
+      '--pretty',
+      'false',
+      '--tsBuildInfoFile',
+      expect.any(String),
+    ],
+    expect.objectContaining({ cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] }),
+  );
+  expect(await adapter.repoWarnings?.({ dir })).toContain(
+    'Parent type-check: ran node_modules/typescript/bin/tsc --project tsconfig.json directly (no package scripts).',
+  );
+  adapter.forgetRepo?.({ dir });
+  expect(await adapter.repoWarnings?.({ dir })).toEqual([]);
 });
