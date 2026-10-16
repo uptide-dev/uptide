@@ -35,8 +35,8 @@ export const PINNED_ACTIONS = {
  */
 export const UPTIDE_ACTION: PinnedAction & { released: boolean } = {
   repo: 'uptide-dev/uptide',
-  sha: 'a594790b1338cda902cac1427dea06e9ea88a5c8',
-  tag: 'v0.12.0',
+  sha: '530f90c683b0dee18b42a07b49bc82af70f3a7b6',
+  tag: 'v0.13.0',
   released: true,
 };
 
