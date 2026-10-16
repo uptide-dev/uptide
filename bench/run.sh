@@ -29,6 +29,8 @@ git checkout -q -b bench-base "$parent"
 git remote set-url --push origin no-push
 git config user.name "UpgradeBench" && git config user.email bench@uptide.invalid
 export npm_config_ignore_scripts=true YARN_ENABLE_SCRIPTS=0
+# A developer's checkout is installed; Uptide refuses one that is not. Untimed, both arms.
+bash -c "$(sel .checks.install)" >"$dir/setup.log" 2>&1
 
 start=$(date +%s) status=0 cost=0
 case $arm in
