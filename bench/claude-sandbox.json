@@ -5,7 +5,12 @@
     "allowUnsandboxedCommands": false,
     "autoAllowBashIfSandboxed": true,
     "filesystem": {
-      "allowWrite": ["~/.npm", "~/Library/pnpm", "~/Library/Caches", "~/.cache"]
+      "allowWrite": [
+        "~/.npm",
+        "~/Library/pnpm",
+        "~/Library/Caches",
+        "~/.cache"
+      ]
     },
     "network": {
       "allowedDomains": [
@@ -20,6 +25,13 @@
     }
   },
   "permissions": {
-    "deny": ["Bash(dangerouslyDisableSandbox:true)", "WebFetch", "WebSearch"]
+    "deny": [
+      "Bash(dangerouslyDisableSandbox:true)",
+      "WebFetch",
+      "WebSearch"
+    ],
+    "allow": [
+      "Bash"
+    ]
   }
 }
