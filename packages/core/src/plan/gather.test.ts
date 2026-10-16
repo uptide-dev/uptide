@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,4 +90,61 @@ it('plans each installed version of a package listed once with versions[]', asyn
   expect(plan.notes).toContain(
     'drift-sdk: current versions 5.0.0 (apps/a); 7.0.0 (apps/b, apps/c); one target for all, highest estimated effort shown.',
   );
+});
+
+it("reads a target's peer as the copy the installed dependent resolves, not an older nested one", async () => {
+  // npm workspaces: hooks and i18n 25 hoisted to the root, an old i18n 1.6.0 nested under
+  // apps/web. hooks resolves i18n from its own directory and gets 25, which hooks@2 accepts.
+  const cwd = mkdtempSync(join(tmpdir(), 'uptide-plan-peer-'));
+  const write = (file: string, json: object) => {
+    mkdirSync(join(cwd, file, '..'), { recursive: true });
+    writeFileSync(join(cwd, file), JSON.stringify(json));
+  };
+  try {
+    write('package.json', { workspaces: ['apps/web'] });
+    write('node_modules/hooks/package.json', {
+      name: 'hooks',
+      version: '1.0.0',
+      peerDependencies: { i18n: '>=1' },
+    });
+    write('node_modules/i18n/package.json', { name: 'i18n', version: '25.10.9' });
+    write('apps/web/node_modules/i18n/package.json', { name: 'i18n', version: '1.6.0' });
+    write('apps/web/package.json', { dependencies: { hooks: '1.0.0', i18n: '1.6.0' } });
+    const listed = (name: string, current: string, latest: string) => ({
+      name,
+      current,
+      latest,
+      change: 'major' as const,
+      tier: 'generic' as const,
+      classification: 'used' as const,
+      majorGap: 1,
+      reasons: [],
+      workspaces: ['apps/web'],
+      usage: { references: 0, files: 1, callSites: 1, topSymbols: [], workspaces: ['apps/web'] },
+    });
+    const discovery: ListReport = {
+      repo: cwd,
+      groups: [],
+      workspaces: ['apps/web'],
+      packages: [listed('hooks', '1.0.0', '2.0.0'), listed('i18n', '1.6.0', '25.10.9')],
+      failures: [],
+      timing: { totalMs: 1 },
+    };
+    const { plan } = await upgradePlan(
+      { cwd },
+      {
+        list: async () => discovery,
+        fetcher: {
+          fetch: vi.fn(),
+          resolve: async () => '',
+          metadata: async (name: string) => ({
+            peerDependencies: name === 'hooks' ? { i18n: '>=2' } : ({} as Record<string, string>),
+          }),
+        },
+      },
+    );
+    expect(plan.steps.flatMap((s) => s.constraints)).toEqual([]);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });

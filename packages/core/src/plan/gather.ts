@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { hoistedPackageDir } from '../adapters/typescript/usages.js';
 import type { CheckOptions, CheckResult } from '../check/check.js';
 import { summarize } from '../check/check.js';
 import { mapWithLimit } from '../check/pool.js';
@@ -89,6 +90,7 @@ export async function upgradePlan(
     timing: discovery.timing,
   };
   const installed: PeerLookup['installed'] = {};
+  const dirs = new Map<string, string>(); // where `installed` read each package
   for (const workspace of discovery.workspaces) {
     const dir = resolve(opts.cwd, workspace);
     const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {
@@ -102,6 +104,7 @@ export async function upgradePlan(
             readFileSync(join(at, 'node_modules', name, 'package.json'), 'utf8'),
           ) as { version: string; peerDependencies?: Record<string, string> };
           installed[name] ??= { version: pkg.version, peers: pkg.peerDependencies ?? {} };
+          if (!dirs.has(name)) dirs.set(name, join(at, 'node_modules', name));
           break;
         } catch {
           if (dirname(at) === at) break;
@@ -123,6 +126,19 @@ export async function upgradePlan(
   const plan = planUpgrades(report, {
     installed,
     ofTarget: (name, version) => targets.get(`${name}@${version}`),
+    // Node resolution from the installed dependent, which may reach another copy than the workspace.
+    resolvedBy: (dependent, peer) => {
+      const dir = dirs.get(dependent);
+      const found = dir === undefined ? undefined : hoistedPackageDir(realpathSync(dir), peer);
+      if (found === undefined) return undefined;
+      try {
+        return (
+          JSON.parse(readFileSync(join(found, 'package.json'), 'utf8')) as { version?: string }
+        ).version;
+      } catch {
+        return undefined;
+      }
+    },
   });
   plan.notes = [
     'Based on discovery and matching saved check results; unknown effort requires uptide check <package>.',
