@@ -1,6 +1,14 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import type { ProgressEvent } from '../domain/progress.js';
 import { stripePack } from '../packs/stripe/index.js';
@@ -1390,3 +1398,42 @@ it('says the headline only while the tree still shows it: re-verify drops it onc
   expect(body).not.toContain('Decision for you');
   expect(body).not.toContain('different API versions');
 }, 20000);
+
+it('prepares missing workspace output after the upgrade before verification', async () => {
+  const { root, services } = fixture();
+  const internal = join(root, 'packages/internal');
+  cpSync(
+    resolve(import.meta.dirname, '../../../../fixtures/workspaces/build-types/packages/internal'),
+    internal,
+    { recursive: true },
+  );
+  const file = join(root, 'package.json');
+  const pkg = JSON.parse(readFileSync(file, 'utf8'));
+  writeFileSync(
+    file,
+    JSON.stringify({
+      ...pkg,
+      workspaces: ['packages/*'],
+      dependencies: { ...pkg.dependencies, internal: 'workspace:*' },
+    }),
+  );
+  writeFileSync(join(root, '.gitignore'), 'node_modules\ndist\n');
+  git(root, 'add', '.');
+  git(root, 'commit', '-m', 'workspace build fixture');
+  let upgraded = false;
+  await fix(
+    { cwd: root, only: 'zod', pack: zodPack },
+    {
+      ...services,
+      install: async (...args) => {
+        await services.install(...args);
+        upgraded = true;
+      },
+      diagnostics: (r, w) => {
+        if (upgraded) expect(existsSync(join(internal, 'dist/index.d.ts'))).toBe(true);
+        return services.diagnostics(r, w);
+      },
+    },
+  );
+  expect(upgraded).toBe(true);
+});

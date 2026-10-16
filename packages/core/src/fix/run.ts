@@ -25,6 +25,7 @@ import { leadName } from '../packs/leads.js';
 import { payloadApiVersions, stripeUsageContext } from '../packs/stripe/relevance.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { resetSharedState } from '../shared-state.js';
+import { prepareWorkspace } from '../verify/prepare-workspace.js';
 import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
 import { assist } from './assisted.js';
 import { baselineHealth } from './baseline.js';
@@ -569,6 +570,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   // The install replaced node_modules, and what was generated into it with them.
   if (generated.length)
     await verify('generate', () => (services.generate ?? generateClients)(root, workspaces));
+  await prepareWorkspace(root, workspaces, {
+    buildScript: options.buildScript,
+    onProgress: options.onProgress,
+  });
   const targetChecker =
     sdkAgent && services.diagnostics === diagnostics ? typeChecker(root, workspaces) : undefined;
   const checkTarget = targetChecker?.check ?? (() => services.diagnostics(root, workspaces));

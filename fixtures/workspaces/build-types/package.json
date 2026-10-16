@@ -1,0 +1,7 @@
+{
+  "name": "build-types",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ]
+}

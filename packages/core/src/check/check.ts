@@ -38,6 +38,7 @@ import { leadName, leadNames } from '../packs/leads.js';
 import type { MigrationPack } from '../packs/types.js';
 import { diffRuntime, probeRuntime } from '../runtime/runtime.js';
 import { resetSharedState } from '../shared-state.js';
+import { prepareWorkspace } from '../verify/prepare-workspace.js';
 import { requireFindUsages } from './capabilities.js';
 import { type CompanionPlan, companionsOf, type InstalledDependency } from './companions.js';
 import { arbitrateUnchecked } from './file-kind.js';
@@ -182,6 +183,8 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
   // while the small config/import index is reused until the next check starts.
   adapter.forgetRepo?.(root);
   const workspaces = (await adapter.workspacePackages?.(root)) ?? ['.'];
+  if (opts.compile !== false)
+    await prepareWorkspace(opts.cwd, workspaces, { onProgress: opts.onProgress });
   const memo = memoizingFetcher(fetcher);
   const installedByWorkspace: Record<string, Record<string, string>> = {};
   const catalogByWorkspace: Record<string, string[]> = {};

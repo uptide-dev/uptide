@@ -1,0 +1,14 @@
+{
+  "name": "internal",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "node build.cjs",
+    "prebuild": "exit 1",
+    "postbuild": "exit 1"
+  }
+}

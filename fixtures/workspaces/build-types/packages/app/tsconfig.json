@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "types": [],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  },
+  "files": ["index.ts"]
+}
