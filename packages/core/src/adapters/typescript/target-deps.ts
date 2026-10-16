@@ -1,10 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PackageDir } from '../../domain/adapter.js';
 import type { PackageFetcher } from '../../domain/io.js';
 import { maxSatisfying, satisfies } from '../../fetch/range.js';
 import type { LoadedRepo } from './repo.js';
-import { resolvePackageDir } from './usages.js';
+import { hoistedPackageDir, resolvePackageDir } from './usages.js';
 
 /**
  * The target tarball has no node_modules. Its own imports must still resolve to versions
@@ -101,11 +101,20 @@ export function isPeerOnly(dir: string, dep: string): boolean {
   return m?.peerDependencies?.[dep] !== undefined && m.dependencies?.[dep] === undefined;
 }
 
+/**
+ * The installed copy of `dep`: the one `dependent` resolves from its own directory when given
+ * and installed (a peer is whatever copy Node finds from there, which may not be the repo's),
+ * otherwise the one the repo resolves.
+ */
 export function installedVersion(
   repo: LoadedRepo,
   dep: string,
+  dependent?: string,
 ): { dir: string; version: string } | undefined {
-  const dir = resolvePackageDir(repo, dep);
+  const at = dependent === undefined ? undefined : resolvePackageDir(repo, dependent);
+  const fromDependent = at === undefined ? undefined : hoistedPackageDir(at, dep);
+  const dir =
+    fromDependent === undefined ? resolvePackageDir(repo, dep) : realpathSync(fromDependent);
   if (!dir || !existsSync(join(dir, 'package.json'))) return undefined;
   const version = readManifest(dir)?.version;
   return version ? { dir, version } : undefined;

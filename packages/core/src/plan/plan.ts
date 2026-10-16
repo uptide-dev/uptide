@@ -72,6 +72,8 @@ export interface PeerLookup {
   ofTarget(name: string, version: string): Peers;
   /** `peerDependencies` of a direct dependency as installed, and its version. */
   installed: Record<string, { version: string; peers: Record<string, string> }>;
+  /** The version of `peer` the installed `dependent` resolves from its own directory. */
+  resolvedBy?(dependent: string, peer: string): string | undefined;
 }
 
 const sitesOf = (groups: PlanGroup[], pick: (g: PlanGroup) => number): number =>
@@ -179,7 +181,10 @@ export function planUpgrades(report: CheckReport, peers: PeerLookup): UpgradePla
   for (const a of planned.values()) {
     // What the target of A asks of its peers.
     for (const [on, range] of Object.entries(peers.ofTarget(a.name, a.target) ?? {})) {
-      const installed = planned.get(on)?.installed ?? peers.installed[on]?.version;
+      const installed =
+        peers.resolvedBy?.(a.name, on) ??
+        planned.get(on)?.installed ??
+        peers.installed[on]?.version;
       if (installed === undefined || within(installed, range)) continue;
       const b = planned.get(on);
       if (b && within(b.target, range)) {
