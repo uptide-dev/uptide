@@ -30,6 +30,7 @@ import { createNpmFetcher, releasePackage } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { maxSatisfying } from '../fetch/range.js';
 import { heldBackText } from '../fetch/release-age.js';
+import type { buildWorkspaces } from '../fix/build.js';
 import { FIXABILITY, planPackage, siteOutcome } from '../fix/plan.js';
 import { scanImports } from '../list/scan.js';
 import { activePacks, CANDIDATE_WARNING, candidatePack } from '../packs/index.js';
@@ -90,6 +91,8 @@ export interface CheckOptions {
   only?: string[];
   /** Run Signal B (compile against the target). Default true; it only runs for packages with at least one usage. */
   compile?: boolean;
+  /** Internal: fix's verification runner, only in its clone. Standalone check runs no scripts. */
+  workspaceBuild?: typeof buildWorkspaces;
   assignability?: boolean;
   /** Also analyze `@types/*` and dependencies the repo never imports. Default false. */
   allDeps?: boolean;
@@ -184,7 +187,10 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
   adapter.forgetRepo?.(root);
   const workspaces = (await adapter.workspacePackages?.(root)) ?? ['.'];
   if (opts.compile !== false)
-    await prepareWorkspace(opts.cwd, workspaces, { onProgress: opts.onProgress });
+    await prepareWorkspace(opts.cwd, workspaces, {
+      onProgress: opts.onProgress,
+      build: opts.workspaceBuild,
+    });
   const memo = memoizingFetcher(fetcher);
   const installedByWorkspace: Record<string, Record<string, string>> = {};
   const catalogByWorkspace: Record<string, string[]> = {};
@@ -299,7 +305,15 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
       };
     }),
   );
-  const { adapter: _a, fetcher: _f, cache: _c, onProgress: _p, packs: _k, ...givenOpts } = opts;
+  const {
+    adapter: _a,
+    fetcher: _f,
+    cache: _c,
+    onProgress: _p,
+    packs: _k,
+    workspaceBuild: _b,
+    ...givenOpts
+  } = opts;
   const plainOpts: WorkspaceJob['opts'] = {
     ...givenOpts,
     // Compiler overlays share a workspace program; serialize them within its memory slot.

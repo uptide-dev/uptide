@@ -12,8 +12,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { check } from '../check/check.js';
+import { buildWorkspaces } from '../fix/build.js';
 import { diagnostics } from '../fix/verify.js';
-import { prepareWorkspace } from './prepare-workspace.js';
+import { prepareWorkspace as prepare } from './prepare-workspace.js';
+
+const prepareWorkspace = (root: string, workspaces: string[], options = {}) =>
+  prepare(root, workspaces, { build: buildWorkspaces, ...options });
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-prepare-'));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -94,7 +98,9 @@ it('check prepares the baseline before adapter analysis, unless compile is disab
   };
   await check({ ...options, compile: false });
   expect(existsSync(join(root, 'packages/internal/dist/index.d.ts'))).toBe(false);
-  await check(options);
+  await expect(check(options)).rejects.toThrow(/check does not run repository scripts/);
+  expect(existsSync(join(root, 'packages/internal/dist/index.d.ts'))).toBe(false);
+  await check({ ...options, workspaceBuild: buildWorkspaces });
   expect(diagnostics(root, ['packages/app'])).toEqual([]);
 });
 it('supports wildcard exports and root build fallback', async () => {
@@ -132,4 +138,60 @@ it('builds transitive workspace dependencies first', async () => {
     'packages/base',
     'packages/internal',
   ]);
+});
+
+it.each([false, true])(
+  'rebuilds existing declarations affected by a moved dependency (transitive: %s)',
+  async (transitive) => {
+    const root = fixture();
+    const upstream = join(root, 'node_modules/moved');
+    mkdirSync(upstream);
+    writeFileSync(
+      join(upstream, 'package.json'),
+      JSON.stringify({ name: 'moved', types: 'index.d.ts' }),
+    );
+    writeFileSync(join(upstream, 'index.d.ts'), 'export interface Payload { value: number }');
+    writeFileSync(
+      join(root, 'packages/internal/index.ts'),
+      "export type { Payload } from 'moved';",
+    );
+    writeFileSync(
+      join(root, 'packages/app/index.ts'),
+      "import type { Payload } from 'internal';\ndeclare const payload: Payload;\nexport const result: number = payload.value;\n",
+    );
+    manifest(root, {
+      dependencies: { [transitive ? 'bridge' : 'moved']: '*' },
+      scripts: { build: 'node reexport.cjs' },
+    });
+    if (transitive) {
+      mkdirSync(join(root, 'packages/bridge'));
+      writeFileSync(
+        join(root, 'packages/bridge/package.json'),
+        JSON.stringify({ name: 'bridge', dependencies: { moved: '*' } }),
+      );
+    }
+    await prepareWorkspace(root, ['packages/app']);
+    expect(diagnostics(root, ['packages/app'])).toEqual([]);
+    writeFileSync(join(upstream, 'index.d.ts'), 'export interface Payload { value: string }');
+    // The old bundled declaration masks the breaking type change until the workspace rebuilds.
+    expect(diagnostics(root, ['packages/app'])).toEqual([]);
+    expect(await prepareWorkspace(root, ['packages/app'])).toEqual([]);
+    expect(await prepareWorkspace(root, ['packages/app'], { moved: ['unrelated'] })).toEqual([]);
+    expect(await prepareWorkspace(root, ['packages/internal'], { moved: ['moved'] })).toMatchObject(
+      [{ workspace: 'packages/internal', status: 'passed' }],
+    );
+    expect(diagnostics(root, ['packages/app']).map((d) => d.code)).toContain(2322);
+  },
+);
+
+it('does not rebuild packages that expose TypeScript source directly', async () => {
+  const root = fixture();
+  writeFileSync(join(root, 'packages/internal/index.ts'), 'export const value = 1;');
+  manifest(root, {
+    types: './index.ts',
+    exports: './index.ts',
+    dependencies: { moved: '*' },
+    scripts: {},
+  });
+  expect(await prepareWorkspace(root, ['packages/app'], { moved: ['moved'] })).toEqual([]);
 });

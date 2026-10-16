@@ -1,12 +1,4 @@
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -15,6 +7,7 @@ import { stripePack } from '../packs/stripe/index.js';
 import { apiClients } from '../packs/stripe/relevance.js';
 import { zodPack } from '../packs/zod/index.js';
 import { published, version } from '../version.js';
+import { buildWorkspaces } from './build.js';
 import { git } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { formatFix, prBody, summaryCells } from './report.js';
@@ -1399,7 +1392,7 @@ it('says the headline only while the tree still shows it: re-verify drops it onc
   expect(body).not.toContain('different API versions');
 }, 20000);
 
-it('prepares missing workspace output after the upgrade before verification', async () => {
+it('records baseline builds and rebuilds affected output after the upgrade through the verification runner', async () => {
   const { root, services } = fixture();
   const internal = join(root, 'packages/internal');
   cpSync(
@@ -1407,6 +1400,17 @@ it('prepares missing workspace output after the upgrade before verification', as
     internal,
     { recursive: true },
   );
+  const internalManifest = join(internal, 'package.json');
+  const internalPkg = JSON.parse(readFileSync(internalManifest, 'utf8'));
+  writeFileSync(
+    internalManifest,
+    JSON.stringify({
+      ...internalPkg,
+      dependencies: { zod: '*' },
+      scripts: { 'build:ci': 'node build.cjs' },
+    }),
+  );
+  const build = vi.fn(buildWorkspaces);
   const file = join(root, 'package.json');
   const pkg = JSON.parse(readFileSync(file, 'utf8'));
   writeFileSync(
@@ -1421,19 +1425,41 @@ it('prepares missing workspace output after the upgrade before verification', as
   git(root, 'add', '.');
   git(root, 'commit', '-m', 'workspace build fixture');
   let upgraded = false;
-  await fix(
-    { cwd: root, only: 'zod', pack: zodPack },
+  const result = await fix(
+    { cwd: root, only: 'zod', pack: zodPack, buildScript: 'build:ci' },
     {
       ...services,
+      build,
+      check: async (options) => {
+        await options.workspaceBuild?.(root, ['packages/internal']);
+        return services.check(options);
+      },
       install: async (...args) => {
         await services.install(...args);
+        writeFileSync(join(internal, 'dist/index.d.ts'), 'stale output');
         upgraded = true;
       },
       diagnostics: (r, w) => {
-        if (upgraded) expect(existsSync(join(internal, 'dist/index.d.ts'))).toBe(true);
+        if (upgraded)
+          expect(readFileSync(join(internal, 'dist/index.d.ts'), 'utf8')).toContain(
+            'export declare const value: number',
+          );
         return services.diagnostics(r, w);
       },
     },
   );
   expect(upgraded).toBe(true);
+  expect(build).toHaveBeenCalledTimes(2);
+  expect(build).toHaveBeenNthCalledWith(1, root, ['packages/internal'], undefined, 'build:ci');
+  expect(build).toHaveBeenNthCalledWith(2, root, ['packages/internal'], undefined, 'build:ci');
+  expect(result.verification.build).toMatchObject([
+    { phase: 'baseline', workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
+    { workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
+  ]);
+  expect(prBody(result)).toContain(
+    'Build before the baseline in `packages/internal` (`build:ci` script)',
+  );
+  expect(prBody(result)).toContain(
+    'Build after the bump in `packages/internal` (`build:ci` script)',
+  );
 });

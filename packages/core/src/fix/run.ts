@@ -161,8 +161,8 @@ export interface FixServices {
   format?(root: string, files: string[]): Promise<string[]>;
   /** The repository's lint on these files; `baseline` marks failures that were already there. */
   lint?(root: string, files: string[], baseline?: LintResult[]): Promise<LintResult[]>;
-  /** The repository's `build` script after the bump, when no pack covers the upgrade. */
-  build?(root: string, workspaces: string[], timeoutMs?: number): Promise<BuildResult[]>;
+  /** The repository's build runner for workspace preparation and required verification builds. */
+  build?: typeof buildWorkspaces;
   /** Generated code the repository needs before it can be measured (a Prisma client). */
   generate?(root: string, workspaces: string[]): Promise<Generated[]>;
   /** A dist-tag to an exact version (`latest`); the registry by default. */
@@ -326,8 +326,21 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const branch = `uptide/${pack.name}-${target}`;
   packageManager(root);
   if (services.install === install) await assertManagerAvailable(root);
+  const workspaceBuilds: BuildResult[] = [];
   const report = await services
     .check({
+      workspaceBuild: async (dir, scopes, timeout) => {
+        const results = await (services.build ?? buildWorkspaces)(
+          dir,
+          scopes,
+          timeout,
+          options.buildScript ?? configuredBuildScript(root),
+        );
+        workspaceBuilds.push(
+          ...results.map((result) => ({ ...result, phase: 'baseline' as const })),
+        );
+        return results;
+      },
       ...(options.onProgress ? { onProgress: options.onProgress } : {}),
       cwd: root,
       only: [pack.name],
@@ -570,10 +583,14 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   // The install replaced node_modules, and what was generated into it with them.
   if (generated.length)
     await verify('generate', () => (services.generate ?? generateClients)(root, workspaces));
-  await prepareWorkspace(root, workspaces, {
-    buildScript: options.buildScript,
-    onProgress: options.onProgress,
-  });
+  workspaceBuilds.push(
+    ...(await prepareWorkspace(root, workspaces, {
+      build: services.build ?? buildWorkspaces,
+      moved: [pack.name, ...companions.map((c) => c.name), ...removals.map((r) => r.name)],
+      buildScript: options.buildScript,
+      onProgress: options.onProgress,
+    })),
+  );
   const targetChecker =
     sdkAgent && services.diagnostics === diagnostics ? typeChecker(root, workspaces) : undefined;
   const checkTarget = targetChecker?.check ?? (() => services.diagnostics(root, workspaces));
@@ -985,7 +1002,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       newErrors,
       baselineTests,
       tests,
-      ...(needsBuild ? { build, baselineBuild } : {}),
+      ...(needsBuild || workspaceBuilds.length
+        ? { build: [...workspaceBuilds, ...build], ...(needsBuild ? { baselineBuild } : {}) }
+        : {}),
       ...(pack.requiresBuild ? { buildRequired: true } : {}),
       ...(lint.length ? { lint } : {}),
       ...(formatted.length ? { formatted } : {}),

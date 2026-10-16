@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { type ProgressListener, progress } from '../domain/progress.js';
 import { UptideError } from '../errors.js';
-import { buildWorkspaces, configuredBuildScript } from '../fix/build.js';
+import { type buildWorkspaces, configuredBuildScript } from '../fix/build.js';
 import type { BuildResult } from '../fix/types.js';
 import { globRegExp, workspacePackagesOf } from '../workspaces.js';
 
@@ -34,11 +34,25 @@ function present(dir: string, target: string): boolean {
   );
 }
 
-/** Build only consumed workspace packages whose declared entry points are missing. */
+function dependencies(pkg: Manifest): string[] {
+  return Object.keys({
+    ...pkg.dependencies,
+    ...pkg.devDependencies,
+    ...pkg.peerDependencies,
+    ...pkg.optionalDependencies,
+  });
+}
+
+/** Prepare consumed workspace outputs; only fix's verification supplies a script runner. */
 export async function prepareWorkspace(
   root: string,
   workspaces: string[],
-  options: { buildScript?: string; onProgress?: ProgressListener } = {},
+  options: {
+    buildScript?: string;
+    onProgress?: ProgressListener;
+    build?: typeof buildWorkspaces;
+    moved?: string[];
+  } = {},
 ): Promise<BuildResult[]> {
   const packages = new Map<string, Manifest>();
   for (const workspace of workspacePackagesOf(root)) {
@@ -46,6 +60,19 @@ export async function prepareWorkspace(
     if (existsSync(file)) packages.set(workspace, JSON.parse(readFileSync(file, 'utf8')));
   }
   const named = new Map([...packages].flatMap(([dir, pkg]) => (pkg.name ? [[pkg.name, dir]] : [])));
+  // Propagate through the whole graph before ordering builds, including dependency cycles.
+  const affected = new Set(options.moved);
+  const rebuild = new Set<string>();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [dir, pkg] of packages) {
+      if (rebuild.has(dir) || !dependencies(pkg).some((name) => affected.has(name))) continue;
+      rebuild.add(dir);
+      if (pkg.name) affected.add(pkg.name);
+      changed = true;
+    }
+  }
   const visited = new Set<string>();
   const needed = new Map<string, string[]>();
   const visit = (workspace: string, consumed: boolean): void => {
@@ -53,33 +80,36 @@ export async function prepareWorkspace(
     if (!pkg) return;
     if (!visited.has(workspace)) {
       visited.add(workspace);
-      for (const name of Object.keys({
-        ...pkg.dependencies,
-        ...pkg.devDependencies,
-        ...pkg.peerDependencies,
-        ...pkg.optionalDependencies,
-      })) {
+      for (const name of dependencies(pkg)) {
         const dependency = named.get(name);
         if (dependency !== undefined && dependency !== workspace) visit(dependency, true);
       }
     }
     if (!consumed || needed.has(workspace)) return;
     const dir = join(root, workspace);
-    const missing = [...new Set([pkg.types, pkg.typings, ...targets(pkg.exports)])]
-      .filter((target): target is string => typeof target === 'string')
-      .filter((target) => !present(dir, target));
-    if (missing.length) needed.set(workspace, missing);
+    const entries = [...new Set([pkg.types, pkg.typings, ...targets(pkg.exports)])].filter(
+      (target): target is string => typeof target === 'string',
+    );
+    const required = entries.filter(
+      (target) =>
+        !present(dir, target) ||
+        (rebuild.has(workspace) &&
+          (!/\.(?:[cm]?tsx?|json)$/.test(target) || /\.d\.[cm]?ts$/.test(target))),
+    );
+    if (required.length) needed.set(workspace, required);
   };
   for (const workspace of workspaces) visit(workspace, false);
+  for (const workspace of rebuild) visit(workspace, true);
   if (!needed.size) return [];
   const detail = `workspace build needed: ${[...needed].map(([dir, files]) => `${dir} (${files.join(', ')})`).join('; ')}`;
+  if (!options.build)
+    throw new UptideError(
+      'WORKSPACE_BUILD_FAILED',
+      `${detail}; check does not run repository scripts. Build these workspaces first or run fix, which builds in its verification clone.`,
+    );
+  const build = options.build;
   const results = await progress(options.onProgress, { phase: 'verify', detail }, () =>
-    buildWorkspaces(
-      root,
-      [...needed.keys()],
-      undefined,
-      options.buildScript ?? configuredBuildScript(root),
-    ),
+    build(root, [...needed.keys()], undefined, options.buildScript ?? configuredBuildScript(root)),
   );
   const failed = results.filter((result) => result.status !== 'passed');
   const missing = [...needed].filter(([dir, files]) =>

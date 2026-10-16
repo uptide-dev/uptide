@@ -53,6 +53,13 @@ Some migration packs need the repository's own build to pass before a migration 
 package.json script for it, per workspace (the workspace's, else the root's): `verify.build`
 when it is set, else the first of `build:ci`, `build-ci` and `build` that exists.
 
+Fix uses the same script selection to prepare workspace packages before type-checking in
+its clone. Missing entry-point output is built before the baseline. After installation,
+internal packages depending directly or transitively on a moved dependency are rebuilt even
+when their output exists. The report names each build and whether it ran before the baseline
+or after the upgrade. Standalone `check` runs no repository scripts: if output is missing,
+it names the workspaces to build first.
+
 A `build` that needs a database or secrets (`prisma db push`, migrations, a `DATABASE_URL`)
 fails in Uptide's clone before the framework's build starts. Uptide says so in the pull request
 and the report (`build needs DATABASE_URL; set verify.build`) instead of a bare "build failed".
