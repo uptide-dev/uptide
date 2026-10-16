@@ -1,0 +1,25 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
+    "filesystem": {
+      "allowWrite": ["~/.npm", "~/Library/pnpm", "~/Library/Caches", "~/.cache"]
+    },
+    "network": {
+      "allowedDomains": [
+        "registry.npmjs.org",
+        "registry.yarnpkg.com",
+        "repo.yarnpkg.com",
+        "github.com",
+        "codeload.github.com",
+        "objects.githubusercontent.com"
+      ],
+      "strictAllowlist": true
+    }
+  },
+  "permissions": {
+    "deny": ["Bash(dangerouslyDisableSandbox:true)", "WebFetch", "WebSearch"]
+  }
+}
