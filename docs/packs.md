@@ -140,7 +140,9 @@ site is reported is part of the contract (`reported`):
   findings are claimed and folds compiler errors that one edit elsewhere resolves into a
   finding at that edit, as their evidence. The typescript pack folds the "Cannot find
   name" errors of the 6.0 `types: []` default into one at the tsconfig that leaves
-  `types` unset.
+  `types` unset. `pack test` counts a ground-truth site listed as such evidence as
+  covered, at the site's own rule and severity; evidence the truth does not name is not
+  scored.
 - `decision`: the pull request lists it under "Decisions for you", with the files and lines.
 - `test-follow-up`: an assertion is updated only after the migrated code made that test
   fail, and the test then has to pass (zod's reworded default messages).

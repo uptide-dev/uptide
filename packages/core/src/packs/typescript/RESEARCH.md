@@ -217,6 +217,13 @@ The recall figure measures the original truth's convention (every error line a s
 the engine's (one site per edit). It is not a count of breaks `check` misses: every folded
 error is listed under its tsconfig finding.
 
+**Scoring the folded evidence.** Since then `pack test` counts a ground-truth site that an
+anchored finding lists as evidence as covered by that finding, at the site's own rule and
+severity (`predictedSites`, as for #136's option cascades). The ground truth did not change.
+Re-scored 2026-10-15: breaking recall **99% (1,379 of 1,399)**, 0 breaking false positives,
+the same as before the fold. The 20 breaking misses are the second-round and same-change lines
+listed under "Measured `pack test`".
+
 ## Verified under UPT-48
 
 `pnpm uptide pack test typescript --write` on main (`530f90c`, UPT-48's gate), with its own
@@ -226,7 +233,7 @@ is unchanged (same digest as the candidate record).
 - Repositories: 7 public (gate: ≥2).
 - Real breaking sites: 1,399 expected (gate: ≥5).
 - Breaking false positives: 0 (gate: 0). Breaking precision 100%, recall 17% (240 of 1,399; the
-  folded `types` errors above).
+  folded `types` errors above), 99% (1,379) once the scorer counts folded evidence (above).
 - Behavior notes: precision 20%, recall 50% (2 TP, 8 FP, 2 FN), all `changed-defaults` anchors at
   `tsconfig*.json:1`. Notes do not count against a breaking-class gate.
 - Per-rule real-world true positives: `base-url` 4, `module-resolution-node10` 2, `target-es5` 1,
