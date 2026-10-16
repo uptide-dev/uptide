@@ -69,6 +69,6 @@ it('blocks a declared member with no provably compatible release', async () => {
       name === 'next' ? { '16.0.1': {} } : { '15.5.5': {} },
   };
   expect((await companionsOf(input)).conflicts).toEqual([
-    '@next/mdx 15.5.5 has no release that agrees with next 16.0.1',
+    '@next/mdx 15.5.5 has no release that agrees with next 16.0.1 (declared release group requires @next/mdx 16.0.1); next: keep next at 15.5.5 until a compatible @next/mdx release is available',
   ]);
 });

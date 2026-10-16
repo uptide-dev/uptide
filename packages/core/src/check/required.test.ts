@@ -123,7 +123,7 @@ describe('what the target requires', () => {
     });
     expect(plan.companions).toEqual([]);
     expect(plan.blockers).toEqual([
-      'schema 2.0.0 needs zod ^4.0.0; installed 3.25.76, and only a new major satisfies it (zod 4.0.0)',
+      'schema 2.0.0 needs zod ^4.0.0; installed 3.25.76, and only a new major satisfies it (zod 4.0.0); next: keep schema at 1.0.0 and plan the required peer upgrade explicitly',
     ]);
   });
 
@@ -143,7 +143,7 @@ describe('what the target requires', () => {
     });
     expect(plan.companions).toEqual([]);
     expect(plan.blockers).toEqual([
-      'lead 2.0.0 needs tiny ^0.2.0; installed 0.1.4, and only a new major satisfies it (tiny 0.2.0)',
+      'lead 2.0.0 needs tiny ^0.2.0; installed 0.1.4, and only a new major satisfies it (tiny 0.2.0); next: keep lead at 1.0.0 and plan the required peer upgrade explicitly',
     ]);
   });
 
