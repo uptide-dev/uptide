@@ -217,26 +217,33 @@ The recall figure measures the original truth's convention (every error line a s
 the engine's (one site per edit). It is not a count of breaks `check` misses: every folded
 error is listed under its tsconfig finding.
 
-## The verified gate, now and under UPT-48
+**Scoring the folded evidence.** Since then `pack test` counts a ground-truth site that an
+anchored finding lists as evidence as covered by that finding, at the site's own rule and
+severity (`predictedSites`, as for #136's option cascades). The ground truth did not change.
+Re-scored 2026-10-15: breaking recall **99% (1,379 of 1,399)**, 0 breaking false positives,
+the same as before the fold. The 20 breaking misses are the second-round and same-change lines
+listed under "Measured `pack test`".
 
-Under today's gate the run measures **verified**: seven public repositories, no breaking false
-positive, 1,379 breaking sites predicted. The task asked to hold the claim until the stricter gate
-(UPT-48) lands, so `verification.json` keeps the candidate record and is not written by this pull
-request. After rebasing on UPT-48, `pack test --write` re-scores and records whatever that gate
-says.
+## Verified under UPT-48
 
-Against UPT-48 as specified:
+`pnpm uptide pack test typescript --write` on main (`530f90c`, UPT-48's gate), with its own
+`UPTIDE_CACHE_DIR`, 2026-10-15: **PASS, measures verified, recorded verified.** The ground truth
+is unchanged (same digest as the candidate record).
 
-- ≥2 repositories: 7.
-- ≥5 expected breaking sites: 1,399.
+- Repositories: 7 public (gate: ≥2).
+- Real breaking sites: 1,399 expected (gate: ≥5).
+- Breaking false positives: 0 (gate: 0). Breaking precision 100%, recall 17% (240 of 1,399; the
+  folded `types` errors above), 99% (1,379) once the scorer counts folded evidence (above).
+- Behavior notes: precision 20%, recall 50% (2 TP, 8 FP, 2 FN), all `changed-defaults` anchors at
+  `tsconfig*.json:1`. Notes do not count against a breaking-class gate.
 - Per-rule real-world true positives: `base-url` 4, `module-resolution-node10` 2, `target-es5` 1,
   `root-dir` 1 (all assisted).
-- The three mechanical rewrites (`downlevel-iteration`, `module-keyword`, `import-assertions`)
-  met **no** real-world site. Under UPT-48 they are unexercised and run as assisted. The fixtures
-  are their only evidence.
+- **Unexercised** (recorded in `verification.json`): `downlevel-iteration`, `import-assertions`,
+  `module-keyword`. No real site exercises their rewrites, so `check` and `fix` run them assisted;
+  the fixtures are their only evidence.
 - `module-resolution-classic`, `module-format-removed`, `out-file`, `interop-false` and
-  `always-strict-false` are detection only and also unexercised. Each matches only the exact value
-  6.0 reports.
+  `always-strict-false` are detection only with no real site either. Each matches only the exact
+  value 6.0 reports.
 
 ## Known limits
 

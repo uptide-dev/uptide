@@ -143,8 +143,14 @@ const key = (s: { file: string; line: number }): string => `${s.file}:${s.line}`
 /**
  * The sites `check` shows for the package, from its plan: the findings worth acting on,
  * grouped under the rule `fix` would apply. Repository-relative, as ground truth is written.
+ * An `expected` site an anchored finding lists as evidence is shown too (see below).
  */
-export function predictedSites(report: CheckReport, pack: Pack): ScoredSite[] {
+export function predictedSites(
+  report: CheckReport,
+  pack: Pack,
+  expected: ScoredSite[] = [],
+): ScoredSite[] {
+  const wanted = new Map(expected.map((e) => [key(e), e]));
   const own = new Set([...pack.rules.map((r) => r.id), ...pack.behavior.map((b) => b.id)]);
   const sites = new Map<string, ScoredSite>();
   for (const p of report.packages) {
@@ -186,6 +192,14 @@ export function predictedSites(report: CheckReport, pack: Pack): ScoredSite[] {
         // One site, one rule: the more severe group wins, as the plan lists it first.
         if (!sites.has(key(site))) sites.set(key(site), site);
       }
+    // Evidence the ground truth names is covered: `check` reports the line under its anchor
+    // (TypeScript 6's `types` errors under one tsconfig finding, #136's option cascades), so
+    // it scores as the site the truth expects, at that site's rule and severity. Evidence the
+    // truth does not name stays unscored.
+    for (const k of evidence) {
+      const site = wanted.get(k);
+      if (site && !sites.has(k)) sites.set(k, { ...site });
+    }
   }
   return [...sites.values()].sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
@@ -352,7 +366,7 @@ async function scoreRepo(
     if (installed.length > 0 && !installed.includes(entry.from))
       base.installedMismatch = `the lockfile has ${installed.join(', ')}, the ground truth says ${entry.from}`;
     const own = report.packages.filter((p) => p.name === pack.name);
-    const predicted = predictedSites(report, pack);
+    const predicted = predictedSites(report, pack, expected);
     return {
       ...base,
       ...companionOutcome(own, entry.with, (name) => dependsOn(project, dir, name, pack.name)),

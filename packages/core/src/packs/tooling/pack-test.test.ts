@@ -142,6 +142,15 @@ it('scores an anchored finding at its anchor; the call sites listed as evidence 
   expect(predictedSites(report, aiPack).map((s) => `${s.file}:${s.line} ${s.rule}`)).toEqual([
     'packages/lib/hook.ts:6 tool-context',
   ]);
+  // Evidence the ground truth names is covered by the anchor, at the truth's rule and severity;
+  // evidence it does not name (x.tsx:11) stays unscored.
+  const expected = [
+    { file: 'apps/b/src/y.tsx', line: 59, rule: 'generic', severity: 'breaking' as const },
+  ];
+  expect(predictedSites(report, aiPack, expected)).toEqual([
+    { file: 'apps/b/src/y.tsx', line: 59, rule: 'generic', severity: 'breaking' },
+    { file: 'packages/lib/hook.ts', line: 6, rule: 'tool-context', severity: 'breaking' },
+  ]);
 });
 
 it('counts a required move as moved, and a move check reports only a new major makes as explained', () => {

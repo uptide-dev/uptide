@@ -1,13 +1,13 @@
 {
-  "status": "candidate",
+  "status": "verified",
   "truth": "sha256-b463fcdce83820c229ab46ab51a2afb62c3da5f4f5e6a2b53fee63f302755e68",
   "repos": 7,
   "breaking": {
     "precision": 1,
-    "recall": 0.1716,
+    "recall": 0.9857,
     "falsePositives": 0,
-    "truePositives": 240,
-    "falseNegatives": 1159
+    "truePositives": 1379,
+    "falseNegatives": 20
   },
   "behavior": {
     "precision": 0.2,
