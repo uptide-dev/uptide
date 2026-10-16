@@ -107,6 +107,8 @@ export interface TestResult {
  * type-check does not see build configuration, and a build does.
  */
 export interface BuildResult {
+  /** Workspace preparation before the baseline; absent for builds after the bump. */
+  phase?: 'baseline';
   workspace: string;
   status: 'passed' | 'failed' | 'missing' | 'timeout';
   /** What ran, from the workspace's directory. Absent when there was no build script. */
@@ -262,7 +264,7 @@ export interface FixReport {
     tests: TestResult[];
     /** The pack requires a successful build, including on later verification runs. */
     buildRequired?: boolean;
-    /** The repository's build after the bump; required by a pack or the generic path. */
+    /** Workspace preparation and builds required by a pack or the generic path. */
     build?: BuildResult[];
     baselineBuild?: BuildResult[];
     /** Lint of the edited files with the repository's own tools; a new failure fails verification. */

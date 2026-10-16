@@ -1,0 +1,9 @@
+lockfileVersion: '9.0'
+importers:
+  .: {}
+  packages/app:
+    dependencies:
+      internal:
+        specifier: workspace:*
+        version: link:../internal
+  packages/internal: {}

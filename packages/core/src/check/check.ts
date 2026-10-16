@@ -30,6 +30,7 @@ import { createNpmFetcher, releasePackage } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { maxSatisfying } from '../fetch/range.js';
 import { heldBackText } from '../fetch/release-age.js';
+import type { buildWorkspaces } from '../fix/build.js';
 import { FIXABILITY, planPackage, siteOutcome } from '../fix/plan.js';
 import { scanImports } from '../list/scan.js';
 import { activePacks, CANDIDATE_WARNING, candidatePack } from '../packs/index.js';
@@ -38,6 +39,13 @@ import { leadName, leadNames } from '../packs/leads.js';
 import type { MigrationPack } from '../packs/types.js';
 import { diffRuntime, probeRuntime } from '../runtime/runtime.js';
 import { resetSharedState } from '../shared-state.js';
+import {
+  importersOf,
+  needsBuildReason,
+  prepareWorkspace,
+  type Unbuilt,
+  unbuiltWorkspaces,
+} from '../verify/prepare-workspace.js';
 import { requireFindUsages } from './capabilities.js';
 import { type CompanionPlan, companionsOf, type InstalledDependency } from './companions.js';
 import { arbitrateUnchecked } from './file-kind.js';
@@ -89,6 +97,10 @@ export interface CheckOptions {
   only?: string[];
   /** Run Signal B (compile against the target). Default true; it only runs for packages with at least one usage. */
   compile?: boolean;
+  /** Internal: fix's verification runner, only in its clone. Standalone check runs no scripts. */
+  workspaceBuild?: typeof buildWorkspaces;
+  /** Internal: each workspace's consumed workspaces whose build output is missing. */
+  unbuilt?: Record<string, Unbuilt[]>;
   assignability?: boolean;
   /** Also analyze `@types/*` and dependencies the repo never imports. Default false. */
   allDeps?: boolean;
@@ -182,6 +194,14 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
   // while the small config/import index is reused until the next check starts.
   adapter.forgetRepo?.(root);
   const workspaces = (await adapter.workspacePackages?.(root)) ?? ['.'];
+  // Only fix's verification clone builds; a build that did not produce the output, and every
+  // missing output in standalone check, leaves the consumers' types not verified.
+  if (opts.compile !== false && opts.workspaceBuild)
+    await prepareWorkspace(opts.cwd, workspaces, {
+      onProgress: opts.onProgress,
+      build: opts.workspaceBuild,
+    });
+  const unbuilt = opts.compile !== false ? unbuiltWorkspaces(opts.cwd, workspaces) : {};
   const memo = memoizingFetcher(fetcher);
   const installedByWorkspace: Record<string, Record<string, string>> = {};
   const catalogByWorkspace: Record<string, string[]> = {};
@@ -296,9 +316,18 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
       };
     }),
   );
-  const { adapter: _a, fetcher: _f, cache: _c, onProgress: _p, packs: _k, ...givenOpts } = opts;
+  const {
+    adapter: _a,
+    fetcher: _f,
+    cache: _c,
+    onProgress: _p,
+    packs: _k,
+    workspaceBuild: _b,
+    ...givenOpts
+  } = opts;
   const plainOpts: WorkspaceJob['opts'] = {
     ...givenOpts,
+    ...(Object.keys(unbuilt).length ? { unbuilt } : {}),
     // Compiler overlays share a workspace program; serialize them within its memory slot.
     concurrency: 1,
     targets: {
@@ -1974,6 +2003,14 @@ async function checkGroup(
           return dir ? [{ name: c.name, dir }] : [];
         }),
       ];
+      const compileFiles = [
+        ...new Set([
+          ...allUsages.map((u) => u.file),
+          // A removed JSX/import binding can have no attributed usage. Every scoped
+          // importer must still receive baseline/target diagnostics.
+          ...(repo.rootFiles ?? []).map((file) => relative(repo.dir, file)),
+        ]),
+      ];
       const signal = await progress(
         ctx.opts.onProgress,
         { phase: 'compile', package: prepared.map((p) => p.name).join(', '), workspace },
@@ -1990,14 +2027,7 @@ async function checkGroup(
             ],
             {
               fetcher: ctx.fetcher,
-              files: [
-                ...new Set([
-                  ...allUsages.map((u) => u.file),
-                  // A removed JSX/import binding can have no attributed usage. Every scoped
-                  // importer must still receive baseline/target diagnostics.
-                  ...(repo.rootFiles ?? []).map((file) => relative(repo.dir, file)),
-                ]),
-              ],
+              files: compileFiles,
               ...(baselineTargets.length > 0 ? { baselineTargets } : {}),
             },
           ),
@@ -2031,6 +2061,22 @@ async function checkGroup(
         newErrors: signal.diagnostics.length,
         coverage: { ...signal.coverage, workspaces: 1 },
       };
+      // Files importing a consumed workspace without its build output are judged against
+      // declarations that do not exist (unresolved on both sides, so subtracted, never a
+      // breaking site): the coverage says they are not verified. The rest compiled as usual.
+      const unbuilt = ctx.opts.unbuilt?.[workspace];
+      const unbuiltImporters =
+        unbuilt?.length && !signal.skipped ? importersOf(repo.dir, compileFiles, unbuilt) : [];
+      if (unbuilt?.length && unbuiltImporters.length && compile.coverage) {
+        const reason = needsBuildReason(unbuilt);
+        const count = Math.min(unbuiltImporters.length, compile.coverage.compiled);
+        compile.coverage = {
+          ...compile.coverage,
+          compiled: compile.coverage.compiled - count,
+          skipped: [...compile.coverage.skipped, { reason, count }],
+        };
+        notes.push(`types not verified in ${count} file${count === 1 ? '' : 's'}: ${reason}`);
+      }
       if (signal.skipped) notes.push(signal.skipped);
       else if (signal.baselineErrors > 0)
         notes.push(

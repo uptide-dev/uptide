@@ -1153,8 +1153,8 @@ function verificationDetails(report: FixReport, bounded: boolean): (string | Pie
           '',
           ...v.build.map((b) =>
             b.command
-              ? `Build after the bump in \`${b.workspace}\`${b.script ? ` (\`${b.script}\` script)` : ''}: \`${b.command}\` — ${b.status === 'timeout' ? 'timed out' : b.status}${b.cause ? `: the build ${b.cause} before the framework build started. Set \`verify.build\` in uptide.yml to a script that builds without it (\`build-ci\`).` : ''}`
-              : `Build after the bump in \`${b.workspace}\`: ${b.output === 'no build script' ? 'no build script' : b.output}`,
+              ? `Build ${b.phase === 'baseline' ? 'before the baseline' : 'after the bump'} in \`${b.workspace}\`${b.script ? ` (\`${b.script}\` script)` : ''}: \`${b.command}\` — ${b.status === 'timeout' ? 'timed out' : b.status}${b.cause ? `: the build ${b.cause} before the framework build started. Set \`verify.build\` in uptide.yml to a script that builds without it (\`build-ci\`).` : ''}`
+              : `Build ${b.phase === 'baseline' ? 'before the baseline' : 'after the bump'} in \`${b.workspace}\`: ${b.output === 'no build script' ? 'no build script' : b.output}`,
           ),
         ]
       : []),
