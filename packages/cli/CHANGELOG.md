@@ -1,5 +1,11 @@
 # uptide
 
+## 0.14.2
+
+### Patch Changes
+
+- [#176](https://github.com/uptide-dev/uptide/pull/176) [`738a57b`](https://github.com/uptide-dev/uptide/commit/738a57bceb6ba8255dd57eae05162216223068b1) Thanks [@lucasbraum](https://github.com/lucasbraum)! - setup PRs pin Action v0.14.1
+
 ## 0.14.1
 
 ### Patch Changes
