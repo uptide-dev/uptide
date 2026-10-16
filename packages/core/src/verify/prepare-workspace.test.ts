@@ -14,7 +14,7 @@ import { afterAll, expect, it } from 'vitest';
 import { check } from '../check/check.js';
 import { buildWorkspaces } from '../fix/build.js';
 import { diagnostics } from '../fix/verify.js';
-import { prepareWorkspace as prepare } from './prepare-workspace.js';
+import { prepareWorkspace as prepare, unbuiltWorkspaces } from './prepare-workspace.js';
 
 const prepareWorkspace = (root: string, workspaces: string[], options = {}) =>
   prepare(root, workspaces, { build: buildWorkspaces, ...options });
@@ -46,9 +46,9 @@ it('builds missing workspace declarations before measuring types, and skips exis
 it('honors verify.build and reports a missing configured script', async () => {
   const root = fixture();
   writeFileSync(join(root, 'uptide.yml'), 'version: 1\nverify:\n  build: build:custom\n');
-  await expect(prepareWorkspace(root, ['packages/app'])).rejects.toThrow(
-    /build.*needed.*internal.*build:custom/i,
-  );
+  expect(await prepareWorkspace(root, ['packages/app'])).toMatchObject([
+    { workspace: 'packages/internal', status: 'missing' },
+  ]);
   manifest(root, { scripts: { 'build:custom': 'node build.cjs' } });
   expect(await prepareWorkspace(root, ['packages/app'])).toMatchObject([
     { script: 'build:custom' },
@@ -58,12 +58,26 @@ it.each([
   ['missing', {}],
   ['failed', { build: 'exit 1' }],
   ['output still missing', { build: 'true' }],
-])('reports %s builds instead of accepting an invalid baseline', async (_reason, scripts) => {
+])('reports %s builds instead of throwing', async (_reason, scripts) => {
   const root = fixture();
   manifest(root, { scripts });
-  await expect(prepareWorkspace(root, ['packages/app'])).rejects.toThrow(
-    /workspace build needed.*internal/i,
+  const results = await prepareWorkspace(root, ['packages/app']);
+  expect(results.some((r) => r.workspace === 'packages/internal' && r.status !== 'passed')).toBe(
+    true,
   );
+  expect(unbuiltWorkspaces(root, ['packages/app'])).toEqual({
+    'packages/app': ['packages/internal'],
+  });
+});
+it('reports a runner that cannot run instead of throwing', async () => {
+  const root = fixture();
+  expect(
+    await prepare(root, ['packages/app'], {
+      build: async () => {
+        throw new Error('spawn ENOENT');
+      },
+    }),
+  ).toMatchObject([{ status: 'failed', output: expect.stringMatching(/could not run.*ENOENT/) }]);
 });
 it('does not build an unrelated workspace', async () => {
   const root = fixture();
@@ -80,7 +94,7 @@ it('finds nested exports without a top-level types field', async () => {
   expect(await prepareWorkspace(root, ['packages/app'])).toMatchObject([{ status: 'passed' }]);
 });
 
-it('check prepares the baseline before adapter analysis, unless compile is disabled', async () => {
+it('check runs no scripts: consumers of missing output are not verified, never breaking', async () => {
   const root = fixture();
   const options = {
     cwd: root,
@@ -97,11 +111,11 @@ it('check prepares the baseline before adapter analysis, unless compile is disab
     },
   };
   await check({ ...options, compile: false });
-  expect(existsSync(join(root, 'packages/internal/dist/index.d.ts'))).toBe(false);
-  await expect(check(options)).rejects.toThrow(/check does not run repository scripts/);
+  await check(options);
   expect(existsSync(join(root, 'packages/internal/dist/index.d.ts'))).toBe(false);
   await check({ ...options, workspaceBuild: buildWorkspaces });
   expect(diagnostics(root, ['packages/app'])).toEqual([]);
+  expect(unbuiltWorkspaces(root, ['packages/app'])).toEqual({});
 });
 it('supports wildcard exports and root build fallback', async () => {
   const root = fixture();

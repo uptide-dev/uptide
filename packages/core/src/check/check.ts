@@ -39,7 +39,11 @@ import { leadName, leadNames } from '../packs/leads.js';
 import type { MigrationPack } from '../packs/types.js';
 import { diffRuntime, probeRuntime } from '../runtime/runtime.js';
 import { resetSharedState } from '../shared-state.js';
-import { prepareWorkspace } from '../verify/prepare-workspace.js';
+import {
+  needsBuildReason,
+  prepareWorkspace,
+  unbuiltWorkspaces,
+} from '../verify/prepare-workspace.js';
 import { requireFindUsages } from './capabilities.js';
 import { type CompanionPlan, companionsOf, type InstalledDependency } from './companions.js';
 import { arbitrateUnchecked } from './file-kind.js';
@@ -93,6 +97,8 @@ export interface CheckOptions {
   compile?: boolean;
   /** Internal: fix's verification runner, only in its clone. Standalone check runs no scripts. */
   workspaceBuild?: typeof buildWorkspaces;
+  /** Internal: each workspace's consumed workspaces whose build output is missing. */
+  unbuilt?: Record<string, string[]>;
   assignability?: boolean;
   /** Also analyze `@types/*` and dependencies the repo never imports. Default false. */
   allDeps?: boolean;
@@ -186,11 +192,14 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
   // while the small config/import index is reused until the next check starts.
   adapter.forgetRepo?.(root);
   const workspaces = (await adapter.workspacePackages?.(root)) ?? ['.'];
-  if (opts.compile !== false)
+  // Only fix's verification clone builds; a build that did not produce the output, and every
+  // missing output in standalone check, leaves the consumers' types not verified.
+  if (opts.compile !== false && opts.workspaceBuild)
     await prepareWorkspace(opts.cwd, workspaces, {
       onProgress: opts.onProgress,
       build: opts.workspaceBuild,
     });
+  const unbuilt = opts.compile !== false ? unbuiltWorkspaces(opts.cwd, workspaces) : {};
   const memo = memoizingFetcher(fetcher);
   const installedByWorkspace: Record<string, Record<string, string>> = {};
   const catalogByWorkspace: Record<string, string[]> = {};
@@ -316,6 +325,7 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
   } = opts;
   const plainOpts: WorkspaceJob['opts'] = {
     ...givenOpts,
+    ...(Object.keys(unbuilt).length ? { unbuilt } : {}),
     // Compiler overlays share a workspace program; serialize them within its memory slot.
     concurrency: 1,
     targets: {
@@ -1975,7 +1985,30 @@ async function checkGroup(
         p.types.target === (p.types.baseline ?? p.types.installedVersion),
     );
     if (sameDeclarations) notes.push('type declarations unchanged; compile check skipped');
-    if (ctx.opts.compile !== false && compileMany && !sameDeclarations) {
+    // A consumed workspace without its build output: the compiler would judge these files
+    // against declarations that do not exist, so they are not verified, never breaking.
+    const unbuilt = ctx.opts.unbuilt?.[workspace];
+    if (ctx.opts.compile !== false && compileMany && !sameDeclarations && unbuilt?.length) {
+      const reason = needsBuildReason(unbuilt);
+      const files = new Set([
+        ...allUsages.map((u) => u.file),
+        ...(repo.rootFiles ?? []).map((file) => relative(repo.dir, file)),
+      ]);
+      compile = {
+        baselineErrors: 0,
+        skipped: reason,
+        unresolvedInTarget: [],
+        unresolvedFiles: [],
+        unattributed: [],
+        coverage: {
+          compiled: 0,
+          total: files.size,
+          workspaces: 1,
+          skipped: [{ reason, count: files.size }],
+        },
+      };
+      notes.push(reason);
+    } else if (ctx.opts.compile !== false && compileMany && !sameDeclarations) {
       outOfTime(ctx);
       const t2 = Date.now();
       // The baseline overlay links what the installed side is: the installed copy, or the

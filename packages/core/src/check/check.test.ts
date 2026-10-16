@@ -1,4 +1,12 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ts } from 'ts-morph';
@@ -448,6 +456,24 @@ describe('check on a pnpm workspace', () => {
       deprecated: 1,
       notImported: 1,
     });
+  });
+  it('continues when a consumed workspace is not built: its consumers are not verified, never breaking', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'uptide-unbuilt-'));
+    cpSync(join(ROOT, 'repos/workspace-consumer'), root, { recursive: true });
+    // Neither built output nor source the compiler could map to: only a build would provide it.
+    rmSync(join(root, 'packages/lib/dist'), { recursive: true });
+    rmSync(join(root, 'packages/lib/src'), { recursive: true });
+    mkdirSync(join(root, 'packages/app/node_modules'), { recursive: true });
+    symlinkSync(join(ROOT, 'synthetic'), join(root, 'packages/app/node_modules/synthetic'), 'dir');
+    symlinkSync('../../lib', join(root, 'packages/app/node_modules/lib'), 'dir');
+    const result = await check({ cwd: root, adapter, fetcher, cache: memoryCache() });
+    const app = result.packages.find((p) => p.name === 'synthetic');
+    expect(app?.verdict).toMatchObject({
+      breaking: 0,
+      notVerified: 'needs build of packages/lib',
+      summary: expect.stringMatching(/· types not verified: needs build of packages\/lib$/),
+    });
+    expect(app?.findings.filter((f) => f.severity === 'breaking')).toEqual([]);
   });
 });
 

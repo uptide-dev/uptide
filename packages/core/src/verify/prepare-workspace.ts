@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
+import { readInstalled } from '../adapters/typescript/repo.js';
+import { workspaceSourceMap } from '../adapters/typescript/workspace-source.js';
 import { type ProgressListener, progress } from '../domain/progress.js';
-import { UptideError } from '../errors.js';
 import { type buildWorkspaces, configuredBuildScript } from '../fix/build.js';
 import type { BuildResult } from '../fix/types.js';
 import { globRegExp, workspacePackagesOf } from '../workspaces.js';
@@ -43,17 +44,14 @@ function dependencies(pkg: Manifest): string[] {
   });
 }
 
-/** Prepare consumed workspace outputs; only fix's verification supplies a script runner. */
-export async function prepareWorkspace(
-  root: string,
-  workspaces: string[],
-  options: {
-    buildScript?: string;
-    onProgress?: ProgressListener;
-    build?: typeof buildWorkspaces;
-    moved?: string[];
-  } = {},
-): Promise<BuildResult[]> {
+interface Plan {
+  /** Workspaces whose consumed output must be built, with the entries that need it. */
+  needed: Map<string, string[]>;
+  /** Each requested workspace, with the needed workspaces it consumes (directly or not). */
+  consumers: Map<string, Set<string>>;
+}
+
+function plan(root: string, workspaces: string[], moved: string[] = []): Plan {
   const packages = new Map<string, Manifest>();
   for (const workspace of workspacePackagesOf(root)) {
     const file = join(root, workspace, 'package.json');
@@ -61,7 +59,7 @@ export async function prepareWorkspace(
   }
   const named = new Map([...packages].flatMap(([dir, pkg]) => (pkg.name ? [[pkg.name, dir]] : [])));
   // Propagate through the whole graph before ordering builds, including dependency cycles.
-  const affected = new Set(options.moved);
+  const affected = new Set(moved);
   const rebuild = new Set<string>();
   let changed = true;
   while (changed) {
@@ -75,19 +73,27 @@ export async function prepareWorkspace(
   }
   const visited = new Set<string>();
   const needed = new Map<string, string[]>();
-  const visit = (workspace: string, consumed: boolean): void => {
+  const reach = new Map<string, Set<string>>();
+  const visit = (workspace: string, consumed: boolean): Set<string> => {
     const pkg = packages.get(workspace);
-    if (!pkg) return;
+    if (!pkg) return new Set();
     if (!visited.has(workspace)) {
       visited.add(workspace);
+      const below = new Set<string>();
+      reach.set(workspace, below);
       for (const name of dependencies(pkg)) {
         const dependency = named.get(name);
-        if (dependency !== undefined && dependency !== workspace) visit(dependency, true);
+        if (dependency === undefined || dependency === workspace) continue;
+        for (const dir of visit(dependency, true)) below.add(dir);
+        if (needed.has(dependency)) below.add(dependency);
       }
     }
-    if (!consumed || needed.has(workspace)) return;
+    const below = reach.get(workspace) ?? new Set();
+    if (!consumed || needed.has(workspace)) return below;
     const dir = join(root, workspace);
-    const entries = [...new Set([pkg.types, pkg.typings, ...targets(pkg.exports)])].filter(
+    // What the type-check reads: a runtime-only `default: ./dist/index.js` does not need a build here.
+    const typed = targets(pkg.exports).filter((target) => /\.[cm]?tsx?$/.test(target));
+    const entries = [...new Set([pkg.types, pkg.typings, ...typed])].filter(
       (target): target is string => typeof target === 'string',
     );
     const required = entries.filter(
@@ -97,28 +103,99 @@ export async function prepareWorkspace(
           (!/\.(?:[cm]?tsx?|json)$/.test(target) || /\.d\.[cm]?ts$/.test(target))),
     );
     if (required.length) needed.set(workspace, required);
+    return below;
   };
-  for (const workspace of workspaces) visit(workspace, false);
+  const consumers = new Map<string, Set<string>>();
+  for (const workspace of workspaces) {
+    const below = new Set([...visit(workspace, false)].filter((dir) => dir !== workspace));
+    if (below.size) consumers.set(workspace, below);
+  }
   for (const workspace of rebuild) visit(workspace, true);
+  return { needed, consumers };
+}
+
+/**
+ * The workspaces whose consumed build output is missing, by the requested workspace that
+ * consumes them. Standalone check runs no repository scripts: it reports these instead.
+ */
+export function unbuiltWorkspaces(root: string, workspaces: string[]): Record<string, string[]> {
+  const { consumers } = plan(root, workspaces);
+  const unbuilt: Record<string, string[]> = {};
+  for (const [workspace, dirs] of consumers) {
+    // A linked package whose declarations map to its source compiles without its build.
+    const dir = join(root, workspace);
+    const mapped = Object.keys(workspaceSourceMap(dir, readInstalled(dir).installed).paths);
+    const missing = [...dirs].filter((dep) => {
+      const name = nameOf(root, dep);
+      return !name || !mapped.some((key) => key === name || key.startsWith(`${name}/`));
+    });
+    if (missing.length) unbuilt[workspace] = missing;
+  }
+  return unbuilt;
+}
+
+function nameOf(root: string, workspace: string): string | undefined {
+  try {
+    return (JSON.parse(readFileSync(join(root, workspace, 'package.json'), 'utf8')) as Manifest)
+      .name;
+  } catch {
+    return undefined;
+  }
+}
+
+/** `needs build of packages/internal`: why a consumer's types were not verified. */
+export function needsBuildReason(dirs: string[]): string {
+  return `needs build of ${dirs.join(', ')}`;
+}
+
+/**
+ * Build consumed workspace outputs with fix's verification runner. A build that cannot run
+ * or fails is returned as a result, never thrown: the caller reports it and falls back.
+ */
+export async function prepareWorkspace(
+  root: string,
+  workspaces: string[],
+  options: {
+    build: typeof buildWorkspaces;
+    buildScript?: string;
+    onProgress?: ProgressListener;
+    moved?: string[];
+  },
+): Promise<BuildResult[]> {
+  const { needed } = plan(root, workspaces, options.moved);
   if (!needed.size) return [];
   const detail = `workspace build needed: ${[...needed].map(([dir, files]) => `${dir} (${files.join(', ')})`).join('; ')}`;
-  if (!options.build)
-    throw new UptideError(
-      'WORKSPACE_BUILD_FAILED',
-      `${detail}; check does not run repository scripts. Build these workspaces first or run fix, which builds in its verification clone.`,
+  let results: BuildResult[];
+  try {
+    results = await progress(options.onProgress, { phase: 'verify', detail }, () =>
+      options.build(
+        root,
+        [...needed.keys()],
+        undefined,
+        options.buildScript ?? configuredBuildScript(root),
+      ),
     );
-  const build = options.build;
-  const results = await progress(options.onProgress, { phase: 'verify', detail }, () =>
-    build(root, [...needed.keys()], undefined, options.buildScript ?? configuredBuildScript(root)),
-  );
-  const failed = results.filter((result) => result.status !== 'passed');
+  } catch (error) {
+    return [
+      {
+        workspace: '.',
+        status: 'failed',
+        output: `${detail}; build could not run: ${error instanceof Error ? error.message : String(error)}`,
+      },
+    ];
+  }
+  // A build that passed without writing what the consumer reads did not prepare it.
   const missing = [...needed].filter(([dir, files]) =>
     files.some((file) => !present(join(root, dir), file)),
   );
-  if (failed.length || missing.length)
-    throw new UptideError(
-      'WORKSPACE_BUILD_FAILED',
-      `${detail}; cannot type-check: ${failed.length ? failed.map((result) => `${result.workspace}: ${result.status}${result.status === 'missing' ? ` (${result.output})` : result.cause ? ` (${result.cause})` : ''}`).join('; ') : 'build passed but required output is still missing'}. Run the workspace build or set verify.build in uptide.yml.`,
-    );
-  return results;
+  return [
+    ...results,
+    ...(results.every((result) => result.status === 'passed')
+      ? missing.map(([workspace, files]) => ({
+          workspace,
+          status: 'failed' as const,
+          output: `build passed but required output is still missing: ${files.join(', ')}`,
+        }))
+      : []),
+  ];
 }

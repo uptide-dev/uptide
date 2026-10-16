@@ -1463,3 +1463,50 @@ it('records baseline builds and rebuilds affected output after the upgrade throu
     'Build after the bump in `packages/internal` (`build:ci` script)',
   );
 });
+
+it('reports a workspace build that fails instead of throwing', async () => {
+  const { root, services } = fixture();
+  const internal = join(root, 'packages/internal');
+  cpSync(
+    resolve(import.meta.dirname, '../../../../fixtures/workspaces/build-types/packages/internal'),
+    internal,
+    { recursive: true },
+  );
+  const internalManifest = join(internal, 'package.json');
+  writeFileSync(
+    internalManifest,
+    JSON.stringify({
+      ...JSON.parse(readFileSync(internalManifest, 'utf8')),
+      scripts: { 'build:ci': 'exit 1' },
+    }),
+  );
+  const file = join(root, 'package.json');
+  const pkg = JSON.parse(readFileSync(file, 'utf8'));
+  writeFileSync(
+    file,
+    JSON.stringify({
+      ...pkg,
+      workspaces: ['packages/*'],
+      dependencies: { ...pkg.dependencies, internal: 'workspace:*' },
+    }),
+  );
+  writeFileSync(join(root, '.gitignore'), 'node_modules\ndist\n');
+  git(root, 'add', '.');
+  git(root, 'commit', '-m', 'workspace build fixture');
+  const result = await fix(
+    { cwd: root, only: 'zod', pack: zodPack, buildScript: 'build:ci' },
+    {
+      ...services,
+      build: buildWorkspaces,
+      check: async (options) => {
+        await options.workspaceBuild?.(root, ['packages/internal']);
+        return services.check(options);
+      },
+    },
+  );
+  expect(result.verification.build).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ workspace: 'packages/internal', status: 'failed' }),
+    ]),
+  );
+});

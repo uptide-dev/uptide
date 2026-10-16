@@ -832,6 +832,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   });
   const unverified = typeResolutionFailure(root, baseline);
   if (unverified && canAssist) fallback.push(`Unknown baseline: ${unverified}`);
+  // A workspace build that could not prepare consumed declarations is reported, not thrown.
+  for (const b of canAssist ? workspaceBuilds : [])
+    if (b.status !== 'passed')
+      fallback.push(`Build cannot run (${b.workspace}): ${b.cause ?? trimOutput(b.output)}`);
   for (const b of canAssist ? build : []) {
     if (
       baselineBuild.some(
