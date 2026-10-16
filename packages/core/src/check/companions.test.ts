@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import enki from './__fixtures__/enki-companions.json' with { type: 'json' };
 import radix from './__fixtures__/radix-companions.json' with { type: 'json' };
 import { companionsOf, compatiblePeerVersion, type InstalledDependency } from './companions.js';
 import { compareVersions } from './version.js';
@@ -101,7 +102,7 @@ describe('companionsOf', () => {
           : manifests(name),
     });
     expect(plan.conflicts).toEqual([
-      '@ai-sdk/react 3.0.118 has no release that agrees with ai 7.0.9',
+      '@ai-sdk/react 3.0.118 has no release that agrees with ai 7.0.9 (requires ai 6.0.116, @ai-sdk/provider-utils 4.0.5); next: keep ai at 6.0.116 until a compatible @ai-sdk/react release is available',
     ]);
   });
 
@@ -486,16 +487,14 @@ describe('a scope with packages released on their own', () => {
     ]);
   });
 
-  it('without a pack, moves a same-scope package at the lead version that has a release at the target', async () => {
+  it('without a pack, leaves unrelated same-scope packages even with matching release versions', async () => {
     const plan = await companionsOf({
       name: '@sentry/react',
       target: '11.0.0',
       installed: [pkg('@sentry/react', '10.75.3'), pkg('@sentry/replay', '10.75.3')],
       manifests: of,
     });
-    expect(plan.companions).toEqual([
-      expect.objectContaining({ name: '@sentry/replay', from: '10.75.3', to: '11.0.0' }),
-    ]);
+    expect(plan.companions).toEqual([]);
   });
 
   it('a same-version package with no release at the target stays rather than failing the plan', async () => {
@@ -507,7 +506,7 @@ describe('a scope with packages released on their own', () => {
     });
     expect(plan.conflicts).toEqual([]);
     expect(plan.stays).toEqual([
-      '@sentry/types stays at 10.75.3 (no release agrees with @sentry/react 11.0.0)',
+      '@sentry/types stays at 10.75.3 (versioned on its own, apart from @sentry/react)',
     ]);
   });
 
@@ -520,7 +519,7 @@ describe('a scope with packages released on their own', () => {
       releaseGroup: ['@sentry/types'],
     });
     expect(plan.conflicts).toEqual([
-      '@sentry/types 10.75.3 has no release that agrees with @sentry/react 11.0.0',
+      '@sentry/types 10.75.3 has no release that agrees with @sentry/react 11.0.0 (declared release group requires @sentry/types 11.0.0); next: keep @sentry/react at 10.75.3 until a compatible @sentry/types release is available',
     ]);
   });
 });
@@ -545,5 +544,59 @@ it('names only packages of the lead’s own scope as staying', async () => {
   });
   expect(plan.stays).toEqual([
     '@sentry/cli stays at 2.58.5 (not in the release group of @sentry/react)',
+  ]);
+});
+
+// Modeled on enki: tokens and toggle share a publisher, not a dependency edge.
+it.each([false, true])(
+  'enki react 18 → 19 does not pull unrelated scope packages (reverse: %s)',
+  async (reverse) => {
+    const installed = enki.installed.map(({ name, version }) => ({
+      name,
+      version,
+      workspaces: ['.'],
+      manifest: (enki.registry as Record<string, Versions>)[name]?.[version] ?? {},
+    }));
+    const lookedUp: string[] = [];
+    const plan = await companionsOf({
+      name: 'react',
+      target: '19.0.0',
+      installed: reverse ? installed.reverse() : installed,
+      manifests: async (name) => {
+        lookedUp.push(name);
+        return (enki.registry as Record<string, Versions>)[name] ?? {};
+      },
+    });
+    expect(plan.conflicts).toEqual([]);
+    expect(plan.peerConflicts).toEqual([]);
+    expect(plan.blockers ?? []).toEqual([]);
+    expect(plan.companions.map((c) => c.name)).toEqual([
+      '@entur/react-component-toggle',
+      'react-dom',
+    ]);
+    expect(lookedUp).not.toContain('@entur/tokens');
+  },
+);
+
+it('names the target pin when an otherwise empty companion has no matching release', async () => {
+  const plan = await companionsOf({
+    name: '@example/lead',
+    target: '2.0.0',
+    installed: [
+      {
+        name: '@example/lead',
+        version: '1.0.0',
+        manifest: { dependencies: { '@example/helper': '1.0.0' } },
+        workspaces: ['.'],
+      },
+      { name: '@example/helper', version: '1.0.0', manifest: {}, workspaces: ['.'] },
+    ],
+    manifests: async (name): Promise<Versions> =>
+      name === '@example/lead'
+        ? { '2.0.0': { dependencies: { '@example/helper': '2.0.0' } } }
+        : { '1.0.0': {} },
+  });
+  expect(plan.conflicts).toEqual([
+    '@example/helper 1.0.0 has no release that agrees with @example/lead 2.0.0 (@example/lead 2.0.0 requires @example/helper 2.0.0); next: keep @example/lead at 1.0.0 until a compatible @example/helper release is available',
   ]);
 });

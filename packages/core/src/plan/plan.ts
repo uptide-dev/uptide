@@ -210,7 +210,7 @@ export function planUpgrades(report: CheckReport, peers: PeerLookup): UpgradePla
           on,
           range,
           effect: 'blocked',
-          reason: `${a.name} ${a.target} needs ${on} ${range}; ${on} is at ${installed}${b ? ` and its target ${b.target} is outside that range too` : ' and is not being upgraded'}`,
+          reason: `${a.name} ${a.target} needs ${on} ${range}; ${on} is at ${installed}${b ? ` and its target ${b.target} is outside that range too` : ' and is not being upgraded'}; next: select a version of ${on} satisfying ${range} and include it in the plan before upgrading ${a.name}`,
         });
     }
     // What the rest of the repository, as installed, asks of A.
@@ -241,7 +241,7 @@ export function planUpgrades(report: CheckReport, peers: PeerLookup): UpgradePla
           on: a.name,
           range,
           effect: 'blocked',
-          reason: `${x} ${version} needs ${a.name} ${range}, and ${a.name} ${a.target} is outside it${upgraded ? ` (so is what ${x} ${upgraded.target} accepts)` : `; ${x} has no upgrade in this plan`}`,
+          reason: `${x} ${version} needs ${a.name} ${range}, and ${a.name} ${a.target} is outside it${upgraded ? ` (so is what ${x} ${upgraded.target} accepts)` : `; ${x} has no upgrade in this plan`}; next: keep ${a.name} at ${a.installed} until ${x} supports ${a.name} ${a.target}`,
         });
     }
   }

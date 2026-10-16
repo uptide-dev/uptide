@@ -297,7 +297,14 @@ export async function companionsOf(input: CompanionInput): Promise<CompanionPlan
     companions: [...plan.companions, ...required.moves].sort((a, b) =>
       a.name.localeCompare(b.name),
     ),
-    ...(required.blockers.length ? { blockers: required.blockers } : {}),
+    ...(required.blockers.length
+      ? {
+          blockers: required.blockers.map(
+            (line) =>
+              `${line}; next: keep ${lead.name} at ${lead.version} and plan the required peer upgrade explicitly`,
+          ),
+        }
+      : {}),
   };
 }
 
@@ -307,35 +314,17 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
   if (!lead) return none;
   const targetManifest = (await input.manifests(input.name))[input.target];
   if (!targetManifest) return none;
-  // Plausible members: related to the lead, the rest of their families, and the types
-  // packages of any of those; then what relates to a member the same way, until nothing new.
+  // Only dependency edges, runtime types and declared release groups establish membership.
   const scope = scopeOf(lead.name);
   const members: InstalledDependency[] = [lead];
-  const families = new Set<string>();
-  if (scope) families.add(scope);
-  // A package of the same scope is a candidate; it moves only when something relates it to the
-  // group (a pin, a peer, a release at the lead's target), and stays otherwise: a scope also
-  // holds packages versioned on their own (`@sentry/vite-plugin` 5.x next to the 10.x SDK).
-  // A pack's declared release group says who is released with the lead, and replaces the scope.
-  const familyOnly = new Set<string>();
-  const sameScope = (d: InstalledDependency): boolean => {
-    const s = scopeOf(d.name);
-    return (
-      s !== undefined && families.has(s) && d.workspaces.some((w) => lead.workspaces.includes(w))
-    );
-  };
   const grow = async (): Promise<boolean> => {
     let grew = false;
     for (const d of input.installed) {
       if (members.includes(d) || d.name === lead.name) continue;
       const host = members.find((m) => related(m, d) || typesOf(d, m));
-      const scope = scopeOf(d.name);
       const declared = input.releaseGroup?.includes(d.name) && visibleFrom(d, lead);
-      const family = !host && !declared && input.releaseGroup === undefined && sameScope(d);
-      if (!host && !family && !declared) continue;
+      if (!host && !declared) continue;
       members.push(d);
-      if (family) familyOnly.add(d.name);
-      if (host && scope !== undefined) families.add(scope);
       grew = true;
     }
     return grew;
@@ -343,9 +332,6 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
   while (await grow()) {
     // until the closure is complete
   }
-  // A family member another member pins or peers on moves by that relation, not by its name.
-  const relatedToGroup = (c: InstalledDependency): boolean =>
-    members.some((m) => m !== c && related(m, c));
   const stays: string[] = input.installed
     .filter(
       (d) =>
@@ -353,7 +339,7 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
         !members.includes(d) &&
         scope !== undefined &&
         scopeOf(d.name) === scope &&
-        sameScope(d),
+        d.workspaces.some((w) => lead.workspaces.includes(w)),
     )
     .map(
       (d) =>
@@ -412,11 +398,6 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
             version,
             reason: `${c.name} ${version} moves with ${lead.name} ${input.target} (declared release group)`,
           };
-      } else if (familyOnly.has(c.name) && versions[input.target] && !relatedToGroup(c)) {
-        move = {
-          version: input.target,
-          reason: `${c.name} ${input.target} is released with ${lead.name} ${input.target} (same scope and version)`,
-        };
       } else if (typesHost) {
         move = typesMove(
           c,
@@ -555,16 +536,22 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
     const move = moves.get(member.name);
     // Left in place on purpose: reported as a peer conflict, not as an upgrade that cannot agree.
     if (!move && peerConflicts.has(member.name)) continue;
-    // A package that joined only by its scope and version never blocks the upgrade.
-    if (!move && familyOnly.has(member.name)) {
-      stays.push(
-        `${member.name} stays at ${member.version} (no release agrees with ${lead.name} ${input.target})`,
-      );
-      continue;
-    }
     if (!move) {
+      const ranges = Object.entries({
+        ...member.manifest.dependencies,
+        ...member.manifest.peerDependencies,
+      }).map(([name, range]) => `${name} ${range}`);
+      const requirements = [...decided].flatMap(([host, at]) => {
+        const range =
+          at.manifest.dependencies?.[member.name] ?? at.manifest.peerDependencies?.[member.name];
+        return range ? [`${host} ${at.version} requires ${member.name} ${range}`] : [];
+      });
+      if (ranges.length) requirements.push(`requires ${ranges.join(', ')}`);
+      const requirement =
+        requirements.join('; ') ||
+        `${input.releaseGroup?.includes(member.name) ? 'declared release group' : 'companion target'} requires ${member.name} ${input.target}`;
       conflicts.push(
-        `${member.name} ${member.version} has no release that agrees with ${lead.name} ${input.target}`,
+        `${member.name} ${member.version} has no release that agrees with ${lead.name} ${input.target} (${requirement}); next: keep ${lead.name} at ${lead.version} until a compatible ${member.name} release is available`,
       );
       continue;
     }

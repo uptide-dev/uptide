@@ -171,7 +171,7 @@ describe('the upgrade plan', () => {
       expect.objectContaining({
         effect: 'blocked',
         reason:
-          'old-plugin 1.0.0 needs eslint ^8.0.0, and eslint 9.12.0 is outside it; old-plugin has no upgrade in this plan',
+          'old-plugin 1.0.0 needs eslint ^8.0.0, and eslint 9.12.0 is outside it; old-plugin has no upgrade in this plan; next: keep eslint at 8.57.0 until old-plugin supports eslint 9.12.0',
       }),
     ]);
   });
@@ -211,4 +211,14 @@ describe('the upgrade plan', () => {
     ]);
     expect(names(plan)).toEqual([['@aws-sdk/client-s3', '@aws-sdk/lib-storage']]);
   });
+});
+
+it('gives an explicit next step when a target requires an unplanned peer', () => {
+  const plan = planUpgrades(report([pkg('plugin', '1.0.0', '2.0.0')]), {
+    ofTarget: () => ({ react: '^19' }),
+    installed: { react: { version: '18.3.1', peers: {} } },
+  });
+  expect(plan.steps[0]?.constraints[0]?.reason).toBe(
+    'plugin 2.0.0 needs react ^19; react is at 18.3.1 and is not being upgraded; next: select a version of react satisfying ^19 and include it in the plan before upgrading plugin',
+  );
 });
