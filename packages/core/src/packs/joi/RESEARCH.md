@@ -92,6 +92,62 @@ to 18; a project already on 17.7 or later never does.
   The 2026-10-14 OSS scan in UPT-57 found joi in 3 of 53 repositories, two already on 18; joi
   has no entry in `packs/queue.json` (generated 2026-10-07).
 
+### Second search (UPT-66, 2026-10-15): nothing new qualified
+
+Goal: more merged public 17.x → 18.x upgrades where a human changed code in the same commit
+or PR, preferably for 18-specific changes (generics on `array().items()`, `alternatives()`/
+`try()`, `when()`, the `cidr` assertion, `@hapi/*` moves), or a second < 17.7 → 18 upgrade that
+hits the `ValidationError` details typing. Read-only, through the GitHub API; no repository
+was cloned, installed or run, so no `packs:truth` draft was made and **the truth file is
+unchanged** (hash `1d66ba37…` before this PR's scoring is not touched).
+
+Queries (`gh search`, merged only; titles, then title and body):
+
+- PRs: `joi 18`, `joi v18`, `joi 18.0`, `joi to 18`, `joi 17 18 upgrade`, `upgrade joi`,
+  `bump joi`, `update joi`, `joi@18`, `joi ^18`, `"joi" "18.0.0"`, `joi major`, `migrate joi 18`,
+  `update dependency joi`, `Bump joi from`, `chore(deps): bump joi`, `fix(deps): bump joi`,
+  `bump joi from 17 to 18`, `update dependency joi to v18`, `upgrade joi 18`,
+  `joi 17 to 18 in:title`, `joi v18 migration`.
+- Body: `joi 18`, `joi 18.0.0`, `"joi" "^18"`, `joi "17.13" "18."`, `upgrade dependencies joi`,
+  `update dependencies joi major`, `joi breaking ValidationError 18`,
+  `joi array items typescript 18`, `dependencies upgrade joi 18 typescript fix`.
+- Commits: `upgrade joi to 18`, `joi 18`, `bump joi 17 to 18`, `joi v18`, `joi to v18`,
+  `update joi to 18`, `joi 18.0.0`, `migrate to joi 18`, `joi@18`.
+
+Funnel: 633 PR titles and 232 commit messages mentioned joi; 199 PRs moved joi to 18 (the rest
+were 17.x → 17.y or 18.x → 18.y); 393 body-search PRs were checked for a `package.json` diff from
+`^17` to `^18`. Of all of them, 14 changed any file besides the manifest, lockfile and CI config,
+and only the two below changed TypeScript or JavaScript in a joi-related way. About 150 PRs and
+commits are Renovate or Dependabot bumps whose diff is the manifest and lockfile (e.g.
+hmcts/civil-citizen-ui#8185, openedx/frontend-app-learning#2049, hmcts/sscs-cor-frontend#1355,
+fastify/fastify#6347, react-hook-form/resolvers#873, carbon-design-system/carbon#22838, the 1024pix
+repositories, form8ion/*, DEFRA/nrf-backend#8, Goodwiinz/NOUS-Research-Assistant#226,
+JettNguyen/Stackd#15, JalaU-Capstones/qatu-api#5): usable only as negative controls, which the
+pack already has.
+
+Rejected, with the reason:
+
+| Repository | Reason |
+| --- | --- |
+| [DEFRA/cdp-portal-frontend#974](https://github.com/DEFRA/cdp-portal-frontend/pull/974) (17.13.3 → 18.0.0) | JavaScript, no `tsconfig`/`jsconfig`, so no compiler diagnostics. The one source change inlines `joi-objectid` (a companion that does not peer 18), not a joi API site. |
+| [DEFRA/cdp-user-service-backend#196](https://github.com/DEFRA/cdp-user-service-backend/pull/196) (17.13.3 → 18.0.0) | JavaScript. The 29 source changes delete `hapi-swagger` tags and options (the commit says swagger "not playing nicely with Joi 18"); no joi call changes. |
+| [elastic/kibana#232118](https://github.com/elastic/kibana/pull/232118) (17.x → 18) | Two source changes: `String(symbol)` in a schema pretty-printer and a snapshot test. A runtime symbol-conversion fix inside Kibana's own `kbn-config-schema`, not a typing or API site; the monorepo needs Kibana's bootstrap and cannot be installed with scripts off and typechecked here. Backports #232782 and #291452 repeat the same change or a lockfile. |
+| [pelias/whosonfirst#565](https://github.com/pelias/whosonfirst/pull/565) | Already rejected above: `@hapi/joi` 16 → `joi` 18. |
+| [dderevjanik/battle-city-reforged@bb96359](https://github.com/dderevjanik/battle-city-reforged/commit/bb96359d35) | `@hapi/joi` 17.1 → `joi` 18: a package rename; the only source change is the import specifier. |
+| [zhehuang907/-app@7815603](https://github.com/zhehuang907/-app/commit/7815603a09) | A follow-up to a bump already landed (`import * as Joi` → default import under ESM); the bump commit itself is not a code change. |
+| [Lushangtu123/E-commerce-website#53](https://github.com/Lushangtu123/E-commerce-website/pull/53) | Already screened out above. |
+| Merges of Dependabot branches (73junito/car-diagnosis-simulator, Azure/ConfigForge, Budibase/budibase, jakekohl/nuzlocke-tracker, jordanaf808/jelpcamp, zsergan/success-budget-backend) | Their source changes come from merging `main` into the branch, not from the joi bump. |
+
+Still no public site for `array<T>`/`items<T>`, `alternatives`/`try`/`when` typing, `ip({ cidr })`
+or a `@hapi/*` move, and no second upgrade from below 17.7.0. The sentence in the UPT-57 scan
+stands: of 53 repositories, three use joi, two already on 18.
+
+**Status.** Scored once with the same truth (`pnpm uptide pack test joi --write`, isolated
+caches): 108 breaking sites, precision and recall 100%, which measures **verified** under
+today's gate, exactly as in the table below. Nothing changed in the evidence that made joi a
+candidate (one repository, one call shape, a change from 17.7.0 rather than 18), so
+`verification.json` stays **candidate** and the measurement is not recorded.
+
 ## Measured pack test
 
 `pnpm uptide pack test joi` (isolated `UPTIDE_GROUND_TRUTH_CACHE`), 2 public repositories:
