@@ -111,11 +111,14 @@ repository's own fix, and deprecations the code already had at the installed ver
   behavior notes (sites)             50%     50%     2    2    2
 ```
 
-Breaking misses, none of them a rule that did not match:
+Breaking misses, none of them a rule that did not match (the blog and FCM `cursor !== 0` ones are
+fixed since, see below):
 
-- blog (5 scan-cursor): `refresh-cache.ts` and `utils.ts` reach the client through a local module
-  and a local `RedisScanClient` type and never import `redis`; `check` reports no compile error
-  there, and runtime detection reads importing files only.
+- blog (5 scan-cursor): `refresh-cache.ts` takes `redisClient` from `~/utils/redis.server`, and
+  `check` does follow that import (`importersOf`), but the importer memory cap
+  (`IMPORTER_GROWTH`, 0.2) leaves it out of the program: the run reports it among "importing files
+  not analyzed (memory cap)". A growth of 0.5 would take it. `utils.ts` takes only a local
+  structural `RedisScanClient` and never names redis.
 - FCM and tacocat 5 → 6 (4 client-type): the repositories' own `tsc` reports TS2322 at these lines,
   `check` reports nothing there. Both lines already had a different TS2322 at the installed version
   (`ReturnType<typeof createClient>` against a configured client) and `check` subtracts errors it
@@ -126,6 +129,28 @@ Behavior: the two `client-defaults` false positives are clients whose repositori
 RESP3 default without pinning (mcp-coordinator, blog). The defaults did change for them; the ground
 truth rule (only what the repository changed) counts them against the note. FCM pins RESP2 in an
 options function the detector cannot read (it reads inline literals only).
+
+### Clients reached through a local module (UPT-66), 2026-10-15
+
+`scan-cursor` also reads files that never import redis but import a value from a repository module
+that depends on it (`getRedisClient` from `../config/redis`, `redisClient` from
+`~/utils/redis.server`), resolved the way the compiler resolves it, `export *` chains included:
+`packageImports` in `check/importers.ts`, the resolver the zod pack's `error-members` uses. Every
+tsconfig file is a candidate, so a file the importer cap left out is read too. Such a file needs a
+scan call; the other detectors still read importing files only (their sites are option names, not
+client calls). `scan(cursor)` after `let cursor = 0` counts as a numeric cursor (fixture
+`scan-cursor` line 9 is now marked). Re-scored once, ground truth unchanged:
+
+```
+  scan-cursor                       100%     70%     7    0    3
+  breaking (sites)                  100%     83%    15    0    3
+```
+
+Breaking recall 61% (11/18) → 83% (15/18), no new false positive. Found now: FCM
+`adminNukeController.ts:68`, `roleVerificationService.ts:72`; blog `refresh-cache.ts:322`, `:326`.
+Still missed: blog `refresh-cache.ts:204`, `:206` (TS2345 at `scanRedisKeys(redisClient, …)`, a
+compile error only; the cap keeps the file out of the program) and `utils.ts:106` (no redis
+import, no redis-dependent import).
 
 ### Per-rule evidence (for the UPT-48 gate)
 
@@ -147,4 +172,5 @@ has `client-type` in four repositories, two of them scored.
   gate in `transform` only refuses rewrites of a major the upgrade already passed.
 - A site reported but deliberately not rewritten (a scan loop with `break`) cannot be a fixture
   marker; it is a unit test.
-- Compile errors in files that use the client without importing the package are not reported (blog).
+- Compile errors in an importing file the importer memory cap leaves out are not reported (blog
+  `refresh-cache.ts:204`, `:206`); only the syntactic `scan-cursor` sites there are.

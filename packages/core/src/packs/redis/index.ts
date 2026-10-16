@@ -1,5 +1,8 @@
+import { join, resolve } from 'node:path';
+import { packageImports, projectFiles } from '../../check/importers.js';
+import type { Finding } from '../../domain/report.js';
 import { satisfies } from '../../fetch/range.js';
-import { definePack, type Pack, type PackRule, replaceAtSite } from '../contract.js';
+import { definePack, detected, type Pack, type PackRule, replaceAtSite } from '../contract.js';
 import type { TransformResult } from '../types.js';
 import { crosses, NOTE_MAJOR, redisBehavior } from './behavior.js';
 import {
@@ -7,6 +10,7 @@ import {
   graphSites,
   keepAliveSites,
   legacyModeSites,
+  mentionsRedis,
   rewriteKeepAlive,
   rewriteScanIterator,
   rewriteUnstableResp3,
@@ -270,6 +274,39 @@ const base = definePack({
     "Sources read 2026-10-14 at node-redis b64bacb; see RESEARCH.md. Migrate only the reported site. An upgrade from 4 crosses both majors: apply the 5 changes, then the 6 ones. Keep 5's client behavior unless the decision for that client says otherwise: where a client is reported under client-defaults, pin the 5 defaults on it (`RESP: 2`, `commandOptions: { timeout: undefined }`, `socket: { keepAliveInitialDelay: 5000 }`) rather than adapting callers to RESP3 replies. Never cast a client or a reply to any, never convert a SCAN cursor to a number, and never suppress a diagnostic to get a clean compile.",
 });
 
+const PACKAGES = new Set([
+  'redis',
+  '@redis/client',
+  '@redis/bloom',
+  '@redis/json',
+  '@redis/search',
+  '@redis/time-series',
+  '@redis/graph',
+]);
+const SCAN_CURSOR = V5.find((r) => r.id === 'scan-cursor') as PackRule;
+
+/**
+ * SCAN cursors in files that use the client through the repository's own module and never import
+ * redis (`getRedisClient` from `../config/redis`, `redisClient` from `~/utils/redis.server`):
+ * `detect` reads only files that import it, and the compile scope can leave such a file out (the
+ * importer cap). Every project file is a candidate; the text tests are the cheap part.
+ */
+function wrapperFindings(input: Parameters<NonNullable<Pack['runtimeFindings']>>[0]): Finding[] {
+  const dir = resolve(input.root, input.workspace);
+  const { files, options } = projectFiles(dir);
+  return [...new Set([...input.usages.map((u) => u.file), ...files])].sort().flatMap((file) => {
+    const text = input.read(join(input.workspace, file));
+    if (text === undefined || mentionsRedis(text) || !/\bcursor\b/i.test(text)) return [];
+    const clients = packageImports(join(dir, file), PACKAGES, options);
+    if (clients.size === 0) return [];
+    const rule = {
+      ...SCAN_CURSOR,
+      detect: (t: string, f: string) => scanCursorSites(t, f, clients),
+    };
+    return detected({ meta: base.meta, rules: [rule], behavior: [] }, { ...input, file, text });
+  });
+}
+
 /**
  * redis >=4 <6 → >=5 <7. One package, two majors: 4 → 5 and 5 → 6 are separate rule sets, and
  * an upgrade gets the sets of the majors it crosses (4 → 6 gets both). Pack lookup stays one pack
@@ -299,5 +336,7 @@ export const redisPack: Pack = {
     return base.transform(text, finding, context);
   },
   runtimeFindings: (input) =>
-    (base.runtimeFindings?.(input) ?? []).filter((f) => appliesTo(f.rule, input.from, input.to)),
+    [...(base.runtimeFindings?.(input) ?? []), ...wrapperFindings(input)].filter((f) =>
+      appliesTo(f.rule, input.from, input.to),
+    ),
 };

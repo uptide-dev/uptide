@@ -79,12 +79,25 @@ function bindings(source: SourceFile): Bindings {
   return { named, modules, uses };
 }
 
-function using(text: string, file: string): { source: SourceFile; b: Bindings } | undefined {
+const MENTIONS = /['"](?:redis|@redis\/[\w-]+)(?:\/[^'"]*)?['"]/;
+
+/** Whether a file names one of the packages at all: what `detect` reads. */
+export const mentionsRedis = (text: string): boolean => MENTIONS.test(text);
+
+/**
+ * A node-redis file, or, with `clients` (names it imports from a repository module that depends
+ * on redis: `getRedisClient` from `../config/redis`), a file that uses the client through it.
+ */
+function using(
+  text: string,
+  file: string,
+  clients?: ReadonlySet<string>,
+): { source: SourceFile; b: Bindings } | undefined {
   // Cheap gate before parsing: most files never mention the packages.
-  if (!/['"](?:redis|@redis\/[\w-]+)(?:\/[^'"]*)?['"]/.test(text)) return undefined;
+  if (!MENTIONS.test(text) && !clients?.size) return undefined;
   const source = parse(text, file);
   const b = bindings(source);
-  return b.uses ? { source, b } : undefined;
+  return b.uses || clients?.size ? { source, b } : undefined;
 }
 
 const lineOf = (source: SourceFile, node: Node) =>
@@ -267,12 +280,30 @@ const EQUALITY = new Set([
   SyntaxKind.ExclamationEqualsToken,
 ]);
 
+const SCANS = /\.(?:scan|hScan|sScan|zScan)\s*\(/;
+
+/** A numeric literal, or a variable declared with one (`let cursor = 0`). */
+function numeric(node: Node): boolean {
+  if (Node.isNumericLiteral(node)) return true;
+  if (!Node.isIdentifier(node)) return false;
+  return (node.getSymbol()?.getDeclarations() ?? []).some((d) => {
+    const value = Node.isVariableDeclaration(d) ? d.getInitializer() : undefined;
+    return value !== undefined && Node.isNumericLiteral(value);
+  });
+}
+
 /**
- * A numeric SCAN cursor: `scan(0)`, `hScan(key, 0)`, or a cursor compared with a number. 5 takes
- * and returns the cursor as a string, so `cursor !== 0` never ends the loop in JavaScript.
+ * A numeric SCAN cursor: `scan(0)`, `hScan(key, 0)`, `scan(cursor)` after `let cursor = 0`, or a
+ * cursor compared with a number. 5 takes and returns the cursor as a string, so `cursor !== 0`
+ * never ends the loop in JavaScript. With `clients`, a file that never imports redis is read too
+ * when it makes a scan call (see `using`).
  */
-export function scanCursorSites(text: string, file: string): SourceSite[] {
-  const found = using(text, file);
+export function scanCursorSites(
+  text: string,
+  file: string,
+  clients?: ReadonlySet<string>,
+): SourceSite[] {
+  const found = using(text, file, SCANS.test(text) ? clients : undefined);
   if (!found) return [];
   const { source } = found;
   const sites: SourceSite[] = [];
@@ -282,7 +313,7 @@ export function scanCursorSites(text: string, file: string): SourceSite[] {
     const name = callee.getName();
     const index = name === 'scan' ? 0 : /^(?:hScan|sScan|zScan)$/.test(name) ? 1 : -1;
     const cursor = index >= 0 ? call.getArguments()[index] : undefined;
-    if (cursor && Node.isNumericLiteral(cursor)) sites.push(site(source, call));
+    if (cursor && numeric(cursor)) sites.push(site(source, call));
   }
   for (const binary of source.getDescendantsOfKind(SyntaxKind.BinaryExpression)) {
     if (!EQUALITY.has(binary.getOperatorToken().getKind())) continue;
