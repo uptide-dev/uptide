@@ -109,8 +109,8 @@ for (const fixture of ['npm', 'npm-workspaces', 'pnpm', 'yarn', 'yarn-berry']) {
     status.out,
     /Run `uptide\S* list`, then `uptide\S* check <package>` for impact\./,
   );
-  // Suggestions use the installed CLI for releases and snapshots.
-  failures.push(...invocationFailures(`${manager} status`, status.out, version));
+  // Installed with `npm install --global`, so on PATH: suggestions say plain `uptide`.
+  failures.push(...invocationFailures(`${manager} status`, status.out, version, true));
 
   const inventory = uptide(repo, 'list', '--json');
   expect(`${manager} list exits 0`, inventory.code === 0, inventory.err);

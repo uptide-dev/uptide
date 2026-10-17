@@ -207,7 +207,7 @@ jobs:
           UPTIDE_PRIVATE_DENYLIST: ${{ secrets.UPTIDE_PRIVATE_DENYLIST }}
           TARBALL: ${{ steps.pack.outputs.tarball }}
         run: node scripts/check-pack.mjs "$TARBALL"
-      - name: The tarball's suggestions reach it (npx uptide@next from a snapshot)
+      - name: The tarball's suggestions reach it (npx uptide@next in a project, uptide on PATH)
         env:
           TARBALL: ${{ steps.pack.outputs.tarball }}
         run: node packages/cli/smoke/check-invocation.mjs "$TARBALL"
