@@ -19,5 +19,11 @@
   "class": "breaking",
   "breakingSites": 11,
   "behaviorSites": 0,
-  "unexercised": ["renamed-icons"]
+  "unexercised": ["renamed-icons"],
+  "mechanical": {
+    "renamed-icons": {
+      "truePositives": 0,
+      "falsePositives": 0
+    }
+  }
 }

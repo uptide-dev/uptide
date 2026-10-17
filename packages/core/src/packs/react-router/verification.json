@@ -19,5 +19,11 @@
   "class": "breaking",
   "breakingSites": 18,
   "behaviorSites": 0,
-  "unexercised": []
+  "unexercised": [],
+  "mechanical": {
+    "dom-imports": {
+      "truePositives": 29,
+      "falsePositives": 336
+    }
+  }
 }

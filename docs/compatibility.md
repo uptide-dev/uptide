@@ -15,6 +15,12 @@ by default. Precision and recall measure breaking findings on the recorded groun
 with `n/a` when nothing breaking was predicted or expected. These results describe that
 ground truth, not a guarantee that every breaking change in another repository is covered.
 
+The second table lists every rule with a rewrite, breaking or not. Its **precision** counts the
+rule's real true positives in public repositories against its false positives wherever
+`pack test` scored them. A rule below 80% (`RULE_PRECISION_WARNING`) is flagged. For now the
+flag is a warning only: it changes no pack's status and no rule's run mode. Unexercised rules
+already run as assisted ([verification gate](packs.md)).
+
 <!-- packs:start -->
 | Package | From → to | Rules | Precision | Recall | Breaking sites | Ground-truth repositories | Status |
 | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
@@ -35,6 +41,67 @@ ground truth, not a guarantee that every breaking change in another repository i
 | `typescript` | 5 → 6 | 12 | 100% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
 | `vitest` | 4 → 5 | 6 | 100% | 50% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
 | `zod` | 3 → 4 | 7 | 100% | 64% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
+
+| Package | Rewrite rule | Precision | Real true positives | False positives | Note |
+| --- | --- | ---: | ---: | ---: | --- |
+| `ai` | `full-stream` | 100% | 12 | 0 |  |
+| `ai` | `instructions` | 100% | 12 | 0 |  |
+| `ai` | `is-step-count` | 100% | 9 | 0 |  |
+| `ai` | `on-end` | 100% | 7 | 0 |  |
+| `ai` | `on-step-end` | 100% | 2 | 0 |  |
+| `ai` | `removed-experimental-option` | 100% | 1 | 0 |  |
+| `ai` | `telemetry` | 100% | 3 | 0 |  |
+| `ai` | `total-usage` | 100% | 2 | 0 |  |
+| `joi` | `validation-error-details` | 100% | 108 | 0 |  |
+| `lucide-react` | `renamed-icons` | n/a | 0 | 0 | unexercised: runs assisted |
+| `next` | `lint-removal` | 100% | 1 | 0 |  |
+| `next` | `middleware-proxy` | 50% | 1 | 1 | below 80% |
+| `next` | `stable-cache-exports` | 100% | 3 | 0 |  |
+| `openai` | `beta-chat` | n/a | 0 | 0 | unexercised: runs assisted |
+| `openai` | `core-paths` | n/a | 0 | 0 | unexercised: runs assisted |
+| `openai` | `delete-method` | n/a | 0 | 0 | unexercised: runs assisted |
+| `openai` | `named-path-params` | n/a | 0 | 0 | unexercised: runs assisted |
+| `openai` | `removed-modules` | n/a | 0 | 0 | unexercised: runs assisted |
+| `openai` | `request-options` | n/a | 0 | 0 | unexercised: runs assisted |
+| `openai` | `runner-renames` | n/a | 0 | 0 | unexercised: runs assisted |
+| `react` | `mutable-ref-object` | 100% | 2 | 0 |  |
+| `react` | `ref-callback-return` | 100% | 1 | 0 |  |
+| `react` | `use-ref-argument` | 100% | 5 | 0 |  |
+| `react-router` | `dom-imports` | 8% | 29 | 336 | below 80% |
+| `redis` | `keep-alive` | n/a | 0 | 0 | unexercised: runs assisted |
+| `redis` | `quit-disconnect` | n/a | 0 | 0 | unexercised: runs assisted |
+| `redis` | `renamed-exports` | 100% | 2 | 0 |  |
+| `redis` | `scan-iterators` | n/a | 0 | 0 | unexercised: runs assisted |
+| `redis` | `unstable-resp3` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/browser` | `enable-logs` | 100% | 1 | 0 |  |
+| `@sentry/browser` | `enable-metrics` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/browser` | `integration-names` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/browser` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/browser` | `streamed-span-wrapper` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/nextjs` | `build-options` | 100% | 1 | 0 |  |
+| `@sentry/nextjs` | `enable-logs` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/nextjs` | `enable-metrics` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/nextjs` | `http-integration-options` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/nextjs` | `integration-names` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/nextjs` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/nextjs` | `streamed-span-wrapper` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/nextjs` | `with-sentry-config-import` | 100% | 3 | 0 |  |
+| `@sentry/react` | `enable-logs` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/react` | `enable-metrics` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/react` | `integration-names` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/react` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/react` | `streamed-span-wrapper` | n/a | 0 | 0 | unexercised: runs assisted |
+| `stripe` | `api-version-unpinned` | 100% | 5 | 0 |  |
+| `stripe` | `fixture-cast` | n/a | 0 | 0 | unexercised: runs assisted |
+| `typescript` | `downlevel-iteration` | n/a | 0 | 0 | unexercised: runs assisted |
+| `typescript` | `import-assertions` | n/a | 0 | 0 | unexercised: runs assisted |
+| `typescript` | `module-keyword` | n/a | 0 | 0 | unexercised: runs assisted |
+| `vitest` | `removed-entrypoints` | n/a | 0 | 0 | unexercised: runs assisted |
+| `zod` | `error-issues` | 100% | 52 | 0 |  |
+| `zod` | `error-members` | n/a | 0 | 0 | unexercised: runs assisted |
+| `zod` | `error-params` | 100% | 15 | 0 |  |
+| `zod` | `record-key` | 100% | 2 | 0 |  |
+| `zod` | `string-format` | 100% | 19 | 0 |  |
 <!-- packs:end -->
 
 Dependencies without an active pack still receive [generic analysis](concepts.md).

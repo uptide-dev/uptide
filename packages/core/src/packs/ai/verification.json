@@ -19,5 +19,39 @@
   "class": "breaking",
   "breakingSites": 11,
   "behaviorSites": 0,
-  "unexercised": []
+  "unexercised": [],
+  "mechanical": {
+    "instructions": {
+      "truePositives": 12,
+      "falsePositives": 0
+    },
+    "on-end": {
+      "truePositives": 7,
+      "falsePositives": 0
+    },
+    "on-step-end": {
+      "truePositives": 2,
+      "falsePositives": 0
+    },
+    "telemetry": {
+      "truePositives": 3,
+      "falsePositives": 0
+    },
+    "is-step-count": {
+      "truePositives": 9,
+      "falsePositives": 0
+    },
+    "full-stream": {
+      "truePositives": 12,
+      "falsePositives": 0
+    },
+    "total-usage": {
+      "truePositives": 2,
+      "falsePositives": 0
+    },
+    "removed-experimental-option": {
+      "truePositives": 1,
+      "falsePositives": 0
+    }
+  }
 }

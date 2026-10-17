@@ -19,5 +19,19 @@
   "class": "breaking",
   "breakingSites": 1399,
   "behaviorSites": 4,
-  "unexercised": ["downlevel-iteration", "import-assertions", "module-keyword"]
+  "unexercised": ["downlevel-iteration", "import-assertions", "module-keyword"],
+  "mechanical": {
+    "downlevel-iteration": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "module-keyword": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "import-assertions": {
+      "truePositives": 0,
+      "falsePositives": 0
+    }
+  }
 }

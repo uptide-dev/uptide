@@ -15,5 +15,11 @@
     "falsePositives": 0,
     "truePositives": 0,
     "falseNegatives": 0
+  },
+  "mechanical": {
+    "validation-error-details": {
+      "truePositives": 108,
+      "falsePositives": 0
+    }
   }
 }

@@ -19,5 +19,27 @@
   "class": "breaking",
   "breakingSites": 219,
   "behaviorSites": 0,
-  "unexercised": ["error-members"]
+  "unexercised": ["error-members"],
+  "mechanical": {
+    "record-key": {
+      "truePositives": 2,
+      "falsePositives": 0
+    },
+    "error-params": {
+      "truePositives": 15,
+      "falsePositives": 0
+    },
+    "string-format": {
+      "truePositives": 19,
+      "falsePositives": 0
+    },
+    "error-members": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "error-issues": {
+      "truePositives": 52,
+      "falsePositives": 0
+    }
+  }
 }

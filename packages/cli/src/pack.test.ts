@@ -128,3 +128,46 @@ it('prints what check plans in each repository: companions, required moves, stay
   const repo = out.slice(out.indexOf('ground truth'), out.indexOf('\n\n'));
   expect(repo).toMatchSnapshot();
 });
+
+it('prints the precision of each rewrite and warns below the threshold without failing (UPT-65)', () => {
+  const entry = registeredPacks()[0];
+  if (!entry) throw new Error('no registered pack');
+  const base = unfinishedPack(entry, '');
+  const tally = { truePositives: 1, falsePositives: 0, falseNegatives: 0, precision: 1, recall: 1 };
+  const out = formatPackTest({
+    ...base,
+    problems: [],
+    status: 'verified',
+    recorded: 'verified',
+    passed: true,
+    repos: [
+      {
+        label: 'owner/name',
+        from: '6.0.0',
+        to: '7.0.0',
+        predicted: [],
+        expected: [],
+        falsePositives: [],
+        falseNegatives: [],
+        wrongRule: [],
+      },
+    ],
+    overall: tally,
+    breaking: tally,
+    behavior: tally,
+    gate: {
+      ...base.gate,
+      status: 'verified',
+      reasons: [],
+      lowPrecision: ['dom-imports'],
+      mechanical: {
+        'dom-imports': { truePositives: 29, falsePositives: 336 },
+        rename: { truePositives: 4, falsePositives: 0 },
+      },
+    },
+  });
+  expect(out).toMatch(/dom-imports\s+8%\s+29\s+336 {2}! below \d+%/);
+  expect(out).toMatch(/rename\s+100%\s+4\s+0\n/);
+  expect(out).toContain('warning only: dom-imports below');
+  expect(out).toContain(`PASS ${entry.pack.name}: verified`);
+});

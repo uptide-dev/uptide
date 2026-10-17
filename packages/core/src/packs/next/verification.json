@@ -19,5 +19,19 @@
   "class": "breaking",
   "breakingSites": 34,
   "behaviorSites": 0,
-  "unexercised": []
+  "unexercised": [],
+  "mechanical": {
+    "middleware-proxy": {
+      "truePositives": 1,
+      "falsePositives": 1
+    },
+    "lint-removal": {
+      "truePositives": 1,
+      "falsePositives": 0
+    },
+    "stable-cache-exports": {
+      "truePositives": 3,
+      "falsePositives": 0
+    }
+  }
 }

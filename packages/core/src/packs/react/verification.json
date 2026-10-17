@@ -19,5 +19,19 @@
   "class": "breaking",
   "breakingSites": 130,
   "behaviorSites": 0,
-  "unexercised": []
+  "unexercised": [],
+  "mechanical": {
+    "use-ref-argument": {
+      "truePositives": 5,
+      "falsePositives": 0
+    },
+    "ref-callback-return": {
+      "truePositives": 1,
+      "falsePositives": 0
+    },
+    "mutable-ref-object": {
+      "truePositives": 2,
+      "falsePositives": 0
+    }
+  }
 }

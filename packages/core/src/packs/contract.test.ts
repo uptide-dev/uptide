@@ -8,6 +8,7 @@ import {
   definePack,
   type GateEvidence,
   type GroundTruth,
+  RULE_PRECISION_WARNING,
   recordedStatus,
   replaceAtSite,
   truthDigest,
@@ -115,6 +116,7 @@ describe('the verified gate', () => {
       class: 'breaking',
       reasons: [],
       unexercised: [],
+      lowPrecision: [],
     });
   });
 
@@ -166,6 +168,22 @@ describe('the verified gate', () => {
     expect(gate.unexercised).toEqual(['defer', 'json']);
   });
 
+  it(`flags a mechanical rule below ${RULE_PRECISION_WARNING * 100}% precision, without demoting the pack`, () => {
+    const gate = verifiedGate(
+      evidence({
+        mechanical: {
+          rename: { truePositives: 3, falsePositives: 0 },
+          imports: { truePositives: 29, falsePositives: 336 },
+          quiet: { truePositives: 0, falsePositives: 0 },
+        },
+      }),
+    );
+    expect(gate.status).toBe('verified');
+    expect(gate.reasons).toEqual([]);
+    expect(gate.lowPrecision).toEqual(['imports']);
+    expect(gate.unexercised).toEqual(['quiet']);
+  });
+
   describe("a behavior-only upgrade (every expected site a note's)", () => {
     const behavior = (over: Partial<GateEvidence> = {}): GateEvidence =>
       evidence({
@@ -184,6 +202,7 @@ describe('the verified gate', () => {
         class: 'behavior',
         reasons: [],
         unexercised: [],
+        lowPrecision: [],
       });
     });
 

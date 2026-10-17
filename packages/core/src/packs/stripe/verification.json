@@ -19,5 +19,15 @@
   "class": "breaking",
   "breakingSites": 21,
   "behaviorSites": 0,
-  "unexercised": ["fixture-cast"]
+  "unexercised": ["fixture-cast"],
+  "mechanical": {
+    "api-version-unpinned": {
+      "truePositives": 5,
+      "falsePositives": 0
+    },
+    "fixture-cast": {
+      "truePositives": 0,
+      "falsePositives": 0
+    }
+  }
 }

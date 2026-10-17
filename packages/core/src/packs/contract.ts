@@ -180,6 +180,8 @@ export interface PackVerification {
   behaviorSites?: number;
   /** Mechanical rules no real site confirmed: `fix` runs their sites as assisted. */
   unexercised?: string[];
+  /** Each mechanical rule's real true positives and scored false positives (UPT-65). */
+  mechanical?: Record<string, { truePositives: number; falsePositives: number }>;
 }
 
 /**
@@ -232,6 +234,21 @@ export const VERIFIED_MIN_BREAKING_SITES = 5;
 export const VERIFIED_MIN_BEHAVIOR_SITES = 5;
 
 /**
+ * The precision a mechanical rule should reach, breaking or not (UPT-65): below it `pack test`
+ * flags the rule. A warning for now: it changes no status and no run mode.
+ */
+export const RULE_PRECISION_WARNING = 0.8;
+
+/** A mechanical rule's precision, or undefined when it reported nothing. */
+export function rulePrecision(r: {
+  truePositives: number;
+  falsePositives: number;
+}): number | undefined {
+  const n = r.truePositives + r.falsePositives;
+  return n === 0 ? undefined : r.truePositives / n;
+}
+
+/**
  * What the gate reads, all of it from public repositories but the false positives, which count
  * wherever `pack test` scored them. `mechanical` is every rule with a `rewrite`, with its real
  * true and false positives.
@@ -253,13 +270,15 @@ export interface GateEvidence {
  * The gate's verdict. `class` is `behavior` for an upgrade the compiler cannot see (every
  * expected site is a behavior note's, whatever its severity: ioredis 6), judged on its notes;
  * otherwise `breaking`. `reasons` say why a candidate is one. `unexercised` are mechanical rules
- * no real site ever confirmed: their sites run as assisted, whatever the status.
+ * no real site ever confirmed: their sites run as assisted, whatever the status. `lowPrecision`
+ * are mechanical rules below `RULE_PRECISION_WARNING`: a warning, not a reason.
  */
 export interface GateResult {
   status: PackStatus;
   class: 'breaking' | 'behavior';
   reasons: string[];
   unexercised: string[];
+  lowPrecision: string[];
 }
 
 const sites = (n: number, what: string): string => `${n} ${what} site${n === 1 ? '' : 's'}`;
@@ -301,7 +320,17 @@ export function verifiedGate(e: GateEvidence): GateResult {
     .filter(([, r]) => r.truePositives === 0)
     .map(([id]) => id)
     .sort();
-  return { status: reasons.length ? 'candidate' : 'verified', class: cls, reasons, unexercised };
+  const lowPrecision = Object.entries(e.mechanical)
+    .filter(([, r]) => (rulePrecision(r) ?? 1) < RULE_PRECISION_WARNING)
+    .map(([id]) => id)
+    .sort();
+  return {
+    status: reasons.length ? 'candidate' : 'verified',
+    class: cls,
+    reasons,
+    unexercised,
+    lowPrecision,
+  };
 }
 
 /** The digest a verification record is tied to: the ground-truth file as committed. */

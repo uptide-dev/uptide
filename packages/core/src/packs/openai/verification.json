@@ -27,5 +27,35 @@
     "removed-modules",
     "request-options",
     "runner-renames"
-  ]
+  ],
+  "mechanical": {
+    "named-path-params": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "delete-method": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "beta-chat": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "runner-renames": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "removed-modules": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "core-paths": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "request-options": {
+      "truePositives": 0,
+      "falsePositives": 0
+    }
+  }
 }

@@ -26,5 +26,39 @@
     "integration-names",
     "renamed-exports",
     "streamed-span-wrapper"
-  ]
+  ],
+  "mechanical": {
+    "with-sentry-config-import": {
+      "truePositives": 3,
+      "falsePositives": 0
+    },
+    "build-options": {
+      "truePositives": 1,
+      "falsePositives": 0
+    },
+    "enable-logs": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "enable-metrics": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "renamed-exports": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "integration-names": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "streamed-span-wrapper": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "http-integration-options": {
+      "truePositives": 0,
+      "falsePositives": 0
+    }
+  }
 }

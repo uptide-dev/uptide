@@ -1,6 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { type PackTestReport, type RegisteredPack, rateLabel, type Tally } from '@uptide/core';
+import {
+  type PackTestReport,
+  type RegisteredPack,
+  RULE_PRECISION_WARNING,
+  rateLabel,
+  rulePrecision,
+  type Tally,
+} from '@uptide/core';
 import pc from 'picocolors';
 import { CliError } from './errors.js';
 
@@ -173,6 +180,25 @@ export function formatPackTest(report: PackTestReport, color = false): string {
       out.push(
         `  ${c.yellow('·')} no real site exercises ${g.unexercised.join(', ')}: their rewrites run as assisted`,
       );
+    // Per-rule precision of every rewrite, breaking or not (UPT-65): a warning, not a gate yet.
+    const threshold = Math.round(RULE_PRECISION_WARNING * 100);
+    const mechanical = Object.entries(g.mechanical ?? {}).sort(([a], [b]) => a.localeCompare(b));
+    if (mechanical.length) {
+      out.push(
+        `rewrites      ${'precision'.padStart(9)} ${'tp'.padStart(5)} ${'fp'.padStart(4)}  (real true positives, scored false positives)`,
+      );
+      for (const [id, r] of mechanical) {
+        const p = rulePrecision(r);
+        const low = g.lowPrecision.includes(id) ? `  ${c.yellow('!')} below ${threshold}%` : '';
+        out.push(
+          `  ${id.padEnd(28)} ${(p === undefined ? 'n/a' : `${Math.round(p * 100)}%`).padStart(9)} ${String(r.truePositives).padStart(5)} ${String(r.falsePositives).padStart(4)}${low}`,
+        );
+      }
+      if (g.lowPrecision.length)
+        out.push(
+          `  ${c.yellow('!')} warning only: ${g.lowPrecision.join(', ')} below ${threshold}% precision would run as assisted if this became a gate`,
+        );
+    }
   }
   if (report.overclaimed)
     out.push(

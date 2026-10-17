@@ -171,6 +171,7 @@ export function scaffoldPack(options: ScaffoldOptions): ScaffoldResult {
     behaviorSites: 0,
     // No real site exercises the example rewrite yet.
     unexercised: [RULE],
+    mechanical: { [RULE]: { truePositives: 0, falsePositives: 0 } },
   };
   const verificationFile = join(home, 'verification.json');
   writeFileSync(verificationFile, `${formatRecord(verification)}\n`);
