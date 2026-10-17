@@ -58,6 +58,15 @@ async function run(root: string, pm: PackageManager, args: string[]): Promise<vo
     );
 }
 /**
+ * The manager's own reconcile of the final manifests. npm 11.6 drops optional platform packages
+ * (sharp's `@emnapi/*`) on a lock-only install and writes a lockfile its own `npm ci` rejects; a
+ * second pass writes one it accepts (UPT-29).
+ */
+async function reconcile(root: string, pm: PackageManager, workspaces: string[]): Promise<void> {
+  await run(root, pm, updateArgs(pm, root, workspaces));
+  if (pm.kind === 'npm') await run(root, pm, updateArgs(pm, root, workspaces));
+}
+/**
  * Resolve exact versions, then restore the manifests; the caller's install reconciles them.
  * npm and pnpm reuse the satisfying lock entry. A range alone resolves the newest release in
  * it: `^4.0.1` gives a second @ai-sdk/provider next to the 4.0.1 that ai pins. Yarn takes
@@ -157,7 +166,7 @@ async function parentLock(
       );
     }
     await installPinned(root, pm, workspaces, names, (file, name) => locked.get(file)?.get(name));
-    await run(root, pm, updateArgs(pm, root, workspaces));
+    await reconcile(root, pm, workspaces);
     return readFileSync(lockfile, 'utf8');
   } catch {
     return undefined;
@@ -214,7 +223,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       ]);
   }
   // Let the real manager reconcile the final manifest, including its original range operator.
-  await run(root, pm, updateArgs(pm, root, upgrade.workspaces));
+  await reconcile(root, pm, upgrade.workspaces);
   const written = readFileSync(lockfile, 'utf8');
   const afterText =
     pm.kind === 'npm' && Number(pm.actualVersion?.split('.')[0]) < 11
