@@ -46,6 +46,8 @@ export function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
     cwd,
     encoding: 'utf8',
+    // shortcut: buffers up to 256 MiB, stream if larger repository output is needed.
+    maxBuffer: 256 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout: GIT_TIMEOUT_MS,
     killSignal: 'SIGKILL',
