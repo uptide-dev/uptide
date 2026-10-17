@@ -102,6 +102,11 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
     for (const c of report.lockfile.outOfScope) lines.push(`  ${describeOutOfScope(c)}`);
     lines.push('');
   }
+  if (report.lockfile?.parentChurn?.length) {
+    lines.push(colors.bold('Lockfile churn the parent commit already has (not from the upgrade)'));
+    for (const c of report.lockfile.parentChurn) lines.push(`  ${describeOutOfScope(c)}`);
+    lines.push('');
+  }
   if (report.lockfile?.peerReresolved?.length) {
     lines.push(colors.bold('Re-resolved because a peer changed'));
     for (const p of report.lockfile.peerReresolved)

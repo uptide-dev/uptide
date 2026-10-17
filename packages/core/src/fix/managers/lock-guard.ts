@@ -117,6 +117,8 @@ export interface LockDiff {
   transitive?: MovedSubtree[];
   /** Agent-led runs only: resolutions outside the subtree, kept for review instead of refused. */
   outOfScope?: OutOfScopeChange[];
+  /** Resolutions the same install already changes at the parent commit: reported, never refused. */
+  parentChurn?: OutOfScopeChange[];
 }
 function closure(graph: LockGraph, roots: Iterable<string>): Set<string> {
   const queue = [...roots];
@@ -351,13 +353,17 @@ export function assertLockScope(
             ? `${key} (${a} → ${b})`
             : `${key} (same version, different resolution, dependencies or execution fields)`;
     });
-    if (acceptOutOfScope)
-      diff.outOfScope = [...unexpected].map((key) => {
+    if (acceptOutOfScope) {
+      // pnpm keeps a package and a snapshot record per version: list each change once.
+      const changes = new Map<string, OutOfScopeChange>();
+      for (const key of unexpected) {
         const name = (before.records.get(key) ?? after.records.get(key))?.name ?? key;
         const [from, to] = [versionOf(before, key), versionOf(after, key)];
-        return { name, ...(from ? { from } : {}), ...(to ? { to } : {}) };
-      });
-    else
+        const change = { name, ...(from ? { from } : {}), ...(to ? { to } : {}) };
+        changes.set(stable(change), change);
+      }
+      diff.outOfScope = [...changes.values()];
+    } else
       throw new UptideError(
         'LOCKFILE_OUT_OF_SCOPE',
         `Install changed resolutions outside ${names.join(', ')}'s dependency subtree: ${described.join('; ')}. No upgrade will be committed.`,

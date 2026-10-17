@@ -1,9 +1,9 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseNpm, parsePnpm, parseYarn } from '../../adapters/typescript/lockfile.js';
 import { UptideError } from '../../errors.js';
 import { satisfies } from '../../fetch/range.js';
-import { command } from '../process.js';
+import { command, git } from '../process.js';
 import { assertManagerAvailable } from './availability.js';
 import { assertLockScope, type LockDiff, type LockGraph, type Targets } from './lock-guard.js';
 import { type PackageManager, updateArgs } from './manager.js';
@@ -56,6 +56,46 @@ async function run(root: string, pm: PackageManager, args: string[]): Promise<vo
       'INSTALL_FAILED',
       `${pm.bin} ${args.join(' ')} failed${result.timeout ? ' (timeout)' : ''}: ${result.output}`,
     );
+}
+/**
+ * The lockfile the same install writes at the parent commit (HEAD of the isolated worktree):
+ * the plan's files at HEAD, the original lockfile, the same manager and flags. Undefined when
+ * it cannot be produced; everything is restored either way, and the caller's final install
+ * puts node_modules back.
+ */
+async function parentLock(
+  root: string,
+  pm: PackageManager,
+  { files, workspaces }: Upgrade,
+  lockfile: string,
+  beforeText: string,
+): Promise<string | undefined> {
+  const current = new Map(
+    files
+      .filter((f) => existsSync(join(root, f)))
+      .map((f) => [f, readFileSync(join(root, f), 'utf8')]),
+  );
+  const afterText = readFileSync(lockfile, 'utf8');
+  try {
+    for (const file of current.keys()) {
+      let text: string | undefined;
+      try {
+        text = git(root, 'show', `HEAD:${file}`);
+      } catch {
+        // Added by the plan: absent at the parent.
+      }
+      if (text === undefined) rmSync(join(root, file));
+      else writeFileSync(join(root, file), `${text}\n`);
+    }
+    writeFileSync(lockfile, beforeText);
+    await run(root, pm, updateArgs(pm, root, workspaces));
+    return readFileSync(lockfile, 'utf8');
+  } catch {
+    return undefined;
+  } finally {
+    for (const [file, text] of current) writeFileSync(join(root, file), text);
+    writeFileSync(lockfile, afterText);
+  }
 }
 /** Resolution changes are checked before they can become an upgrade commit. */
 export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<InstallReport> {
@@ -143,24 +183,49 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       : written;
   const scope = [...new Set([...names, ...(upgrade.allowedPeers ?? [])])];
   const after = lockGraph(pm, afterText, [...names, ...removed]);
-  const peerReresolved = pm.kind === 'npm' ? npmPeerReresolutions(before, after, names, scope) : [];
-  let diff: LockDiff;
-  try {
-    diff = assertLockScope(
-      before,
+  const guard = (from: LockGraph, accept?: boolean): LockDiff => {
+    const peers = pm.kind === 'npm' ? npmPeerReresolutions(from, after, names, scope) : [];
+    const diff = assertLockScope(
+      from,
       after,
       scope,
-      peerReresolved.flatMap((p) => p.records),
+      peers.flatMap((p) => p.records),
       removed,
-      upgrade.acceptOutOfScope,
+      accept,
     );
+    if (peers.length) diff.peerReresolved = peers;
+    return diff;
+  };
+  let diff: LockDiff;
+  try {
+    try {
+      diff = guard(before);
+    } catch (error) {
+      if (!(error instanceof UptideError && error.code === 'LOCKFILE_OUT_OF_SCOPE')) throw error;
+      // Attribute only what the upgrade adds over the same install at the parent commit.
+      const parentText = await parentLock(root, pm, upgrade, lockfile, beforeText);
+      if (parentText === undefined) {
+        if (!upgrade.acceptOutOfScope) throw error;
+        diff = guard(before, true);
+      } else {
+        const parent = lockGraph(
+          pm,
+          pm.kind === 'npm' && Number(pm.actualVersion?.split('.')[0]) < 11
+            ? preserveNpmLibc(beforeText, parentText)
+            : parentText,
+          [...names, ...removed],
+        );
+        diff = guard(parent, upgrade.acceptOutOfScope);
+        const churn = assertLockScope(before, parent, scope, [], removed, true).outOfScope;
+        if (churn?.length) diff.parentChurn = churn;
+      }
+    }
   } catch (error) {
     if (pm.kind === 'npm' && error instanceof UptideError && error.code === 'LOCKFILE_OUT_OF_SCOPE')
       error.message = `${pm.kind} ${pm.actualVersion ?? '(version unknown)'}: ${error.message}`;
     throw error;
   }
   if (afterText !== written) writeFileSync(lockfile, afterText);
-  if (peerReresolved.length) diff.peerReresolved = peerReresolved;
   // Every package that moved resolved the version asked for, in every workspace declaring it.
   for (const workspace of upgrade.workspaces) {
     const json = JSON.parse(readFileSync(join(root, workspace, 'package.json'), 'utf8'));
