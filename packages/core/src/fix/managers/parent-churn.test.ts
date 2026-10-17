@@ -6,9 +6,12 @@ import { afterEach, expect, it, vi } from 'vitest';
 import * as process from '../process.js';
 import { upgradeInstall } from './upgrade.js';
 
-// UPT-79: pnpm re-resolves `picomatch` (same version, new integrity) on any install of this
-// repository, upgrade or not. That churn is the parent commit's, so it never blocks the upgrade.
-const lock = (target: string, other: string, churn: string) => `lockfileVersion: '9.0'
+// UPT-79: whenever pnpm rewrites this lockfile, upgrade or not, it re-resolves `picomatch`
+// (same version, new integrity). It leaves an up-to-date lockfile alone, as pnpm does, so the
+// parent commit has to be rewritten too. That churn is the parent's and never blocks the upgrade.
+const lock = (spec: string, other: string, churn: string) => {
+  const target = spec.replace('^', '');
+  return `lockfileVersion: '9.0'
 importers:
   .:
     dependencies:
@@ -19,7 +22,7 @@ importers:
         specifier: ^4.0.0
         version: 4.0.2
       target:
-        specifier: ^${target}
+        specifier: ${spec}
         version: ${target}
 packages:
   other@${other}:
@@ -33,13 +36,14 @@ snapshots:
   picomatch@4.0.2: {}
   target@${target}: {}
 `;
+};
 let root = '';
 afterEach(() => {
   vi.restoreAllMocks();
   rmSync(root, { recursive: true, force: true });
 });
 
-/** A committed repo on target 1.0.0; every install churns picomatch, and moves `other` if asked. */
+/** A committed repo on target 1.0.0; every rewrite churns picomatch, and moves `other` if asked. */
 function repo(moves: boolean) {
   root = mkdtempSync(join(tmpdir(), 'uptide-parent-churn-'));
   const manifest = (target: string) =>
@@ -48,7 +52,7 @@ function repo(moves: boolean) {
       dependencies: { other: '^1.0.0', picomatch: '^4.0.0', target: `^${target}` },
     });
   writeFileSync(join(root, 'package.json'), manifest('1.0.0'));
-  writeFileSync(join(root, 'pnpm-lock.yaml'), lock('1.0.0', '1.0.0', 'old'));
+  writeFileSync(join(root, 'pnpm-lock.yaml'), lock('^1.0.0', '1.0.0', 'old'));
   for (const args of [
     ['init', '-q'],
     ['add', '.'],
@@ -64,10 +68,13 @@ function repo(moves: boolean) {
     if (args.includes('--no-frozen-lockfile')) {
       const spec = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies.target;
       const target = spec.replace('^', '');
-      installs.push(target);
       calls.push({ target, bin, args, env });
+      const locked = readFileSync(join(root, 'pnpm-lock.yaml'), 'utf8');
+      if (locked.includes(`target:\n        specifier: ${spec}\n`))
+        return { code: 0, output: '', timeout: false };
+      installs.push(target);
       const other = moves && target === '2.0.0' ? '1.1.0' : '1.0.0';
-      writeFileSync(join(root, 'pnpm-lock.yaml'), lock(target, other, 'new'));
+      writeFileSync(join(root, 'pnpm-lock.yaml'), lock(spec, other, 'new'));
     }
     return { code: 0, output: '', timeout: false };
   });
@@ -80,8 +87,8 @@ it('reports churn the parent commit already has instead of refusing', async () =
   const report = await upgradeInstall(root, upgrade);
   expect(report.parentChurn).toEqual([{ name: 'picomatch', from: '4.0.2', to: '4.0.2' }]);
   expect(report.outOfScope).toBeUndefined();
-  // Upgrade, reconcile, then the same install at the parent.
-  expect(installs).toEqual(['2.0.0', '2.0.0', '1.0.0']);
+  // Lockfile rewrites: upgrade pinned, reconciled, then the same two steps at the parent.
+  expect(installs).toEqual(['2.0.0', '2.0.0', '1.0.0', '1.0.0']);
   expect(readFileSync(join(root, 'pnpm-lock.yaml'), 'utf8')).toContain('target@2.0.0');
   expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies.target).toBe(
     '^2.0.0',
@@ -110,12 +117,13 @@ it('runs the parent install exactly as the upgrade install: same binary, flags a
   await upgradeInstall(root, upgrade);
   const parent = calls.filter((c) => c.target === '1.0.0');
   const upgraded = calls.filter((c) => c.target === '2.0.0');
-  expect(parent).toHaveLength(1);
-  for (const call of upgraded) {
-    expect(parent[0]?.bin).toBe(call.bin);
-    expect(parent[0]?.args).toEqual(call.args);
-    expect(parent[0]?.env).toEqual(call.env);
-  }
-  // Lifecycle scripts never run: the flag is on the parent install itself, not only the upgrade.
-  expect(parent[0]?.args).toContain('--ignore-scripts');
+  expect(parent).toHaveLength(2);
+  for (const step of parent)
+    for (const call of upgraded) {
+      expect(step.bin).toBe(call.bin);
+      expect(step.args).toEqual(call.args);
+      expect(step.env).toEqual(call.env);
+    }
+  // Lifecycle scripts never run: the flag is on the parent installs themselves, not only the upgrade.
+  for (const step of parent) expect(step.args).toContain('--ignore-scripts');
 });
