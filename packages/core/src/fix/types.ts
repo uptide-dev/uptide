@@ -229,7 +229,15 @@ export interface FixReport {
   releaseAge?: string;
   from?: string;
   /** What moved with it, at the versions that agree with the target, and why (`check/companions.ts`). */
-  companions?: { name: string; from: string; to: string; reason: string; required?: true }[];
+  companions?: {
+    name: string;
+    from: string;
+    to: string;
+    reason: string;
+    required?: true;
+    /** A peer blocker's major: `own` when no pack migrates it (check/companions.ts). */
+    migration?: 'pack' | 'own';
+  }[];
   /** Packages of the same scope left where they are, and why (`check/companions.ts`). */
   companionStays?: string[];
   /** Required moves only a new major makes, never made (`check/required.ts`). */

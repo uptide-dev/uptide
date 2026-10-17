@@ -244,3 +244,19 @@ it('diffs from the captured commit even when the starting branch moves', () => {
     `git diff ${report.baseHead}..${report.branch} --stat`,
   );
 });
+
+it('marks a companion major that needs its own migration (UPT-10)', () => {
+  const report = fixReport(true);
+  report.companions = [
+    {
+      name: 'plugin',
+      from: '1.0.0',
+      to: '2.0.0',
+      reason: 'explicit peer upgrade',
+      migration: 'own',
+    },
+  ];
+  expect(formatFixSummary(report, { color: false })).toContain(
+    'needs its own migration: plugin 1.0.0 → 2.0.0 (major, no pack)',
+  );
+});

@@ -286,5 +286,17 @@ export interface MigrationPack {
     usages: Usage[];
     files?: readonly string[];
     read: (file: string) => string | undefined;
+    /**
+     * The other packages `check` analyzed in this group, each at its own versions and with its
+     * own usages: a companion pack (`withCompanionPacks`) runs over its own package, not the lead's.
+     */
+    companions?: {
+      name: string;
+      from: string;
+      to: string;
+      installedDir: string;
+      targetDir: string;
+      usages: Usage[];
+    }[];
   }): Finding[];
 }

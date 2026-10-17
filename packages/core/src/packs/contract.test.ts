@@ -17,11 +17,12 @@ import {
   verifiedGate,
 } from './contract.js';
 import { withUnexercised } from './fixability.js';
-import { activePacks, registeredPacks } from './index.js';
+import { activePacks, registeredPacks, withCompanionPacks } from './index.js';
 import { runFixtures } from './tooling/fixtures.js';
 import { scoreSites } from './tooling/pack-test.js';
 import { parseRegistry, renderRegistry } from './tooling/registry-file.js';
 import { truthProblems } from './tooling/truth.js';
+import type { MigrationPack } from './types.js';
 
 const packsDir = fileURLToPath(new URL('.', import.meta.url));
 
@@ -438,4 +439,32 @@ describe('scoring', () => {
       { file: 'a.ts', line: 2, rule: 'y', severity: 'breaking', expected: 'x' },
     ]);
   });
+});
+
+it("routes a companion pack's sites to it, between its own versions (UPT-10)", () => {
+  const pack = (name: string): MigrationPack => ({
+    name,
+    defaultTarget: '',
+    rules: [],
+    supports: () => true,
+    transform: (text, _finding, context) => ({
+      text: `${name} ${context.from} → ${context.to}`,
+      applied: text !== '',
+      reason: name,
+    }),
+    guide: () => name,
+    reviewNotes: () => [],
+  });
+  const both = withCompanionPacks(pack('zod'), [pack('express')]);
+  const site = (name: string, from: string, to: string) =>
+    ({ change: { package: name, from, to } }) as Finding;
+  const context = { from: '3.25.0', to: '4.6.5', includeDeprecated: false };
+  expect(both.transform('x', site('zod', '3.25.0', '4.6.5'), context).text).toBe(
+    'zod 3.25.0 → 4.6.5',
+  );
+  expect(both.transform('x', site('express', '4.0.0', '5.0.0'), context).text).toBe(
+    'express 4.0.0 → 5.0.0',
+  );
+  expect(both.guide(site('express', '4.0.0', '5.0.0'))).toBe('express');
+  expect(withCompanionPacks(both, [])).toBe(both);
 });

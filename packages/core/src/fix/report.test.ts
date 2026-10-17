@@ -1070,3 +1070,22 @@ it('keeps root pin review first even when the PR body must be shortened', () => 
     if (budget !== undefined) expect(body.length).toBeLessThanOrEqual(budget);
   }
 });
+it('says a companion major without a pack needs its own migration, and marks the risk (UPT-10)', () => {
+  const report = ruleOnly();
+  report.companions = [
+    {
+      name: '@headlessui/react',
+      from: '1.7.19',
+      to: '2.2.0',
+      reason: 'explicit peer upgrade accepting react 19.3.0',
+      migration: 'own',
+    },
+  ];
+  expect(migrationRisk(report)).toMatchObject({ level: 'High' });
+  expect(migrationRisk(report).reason).toContain('a companion major needs its own migration');
+  expect(prBody(report)).toContain(
+    '### Needs its own migration\n\n- `@headlessui/react` 1.7.19 → 2.2.0 is a major upgrade with no migration pack',
+  );
+  report.companions = report.companions.map((c) => ({ ...c, migration: 'pack' as const }));
+  expect(prBody(report)).not.toContain('Needs its own migration');
+});
