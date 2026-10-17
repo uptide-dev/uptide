@@ -76,3 +76,102 @@ it('reports tsconfig option sites outside every tsconfig include, where the proj
   // The compile ran under the project scope (a tsconfig was found), not the no-tsconfig fallback.
   expect(result.packages[0]?.compile?.coverage?.noTsconfig).toBeUndefined();
 }, 60_000);
+
+// A yarn Berry repository whose package links itself (`"consumer": "link:."`, so
+// `node_modules/consumer -> ..`), uses typescript only through its tsconfig files, and resolves
+// it through Yarn's builtin `patch:` entry (UPT-84).
+function berrySelfLinked(): string {
+  const compiler = dirname(createRequire(import.meta.url).resolve('typescript/package.json'));
+  const cwd = mkdtempSync(join(tmpdir(), 'uptide-ts-berry-'));
+  const write = (file: string, text: string) => {
+    mkdirSync(dirname(join(cwd, file)), { recursive: true });
+    writeFileSync(join(cwd, file), text);
+  };
+  write(
+    'package.json',
+    JSON.stringify({
+      name: 'consumer',
+      packageManager: 'yarn@4.9.1',
+      devDependencies: { consumer: 'link:.', typescript: '^5.9.3' },
+    }),
+  );
+  write(
+    'yarn.lock',
+    [
+      '__metadata:\n  version: 8\n',
+      '"consumer@link:., consumer@workspace:.":\n  version: 0.0.0-use.local\n  resolution: "consumer@workspace:."\n  languageName: unknown\n  linkType: soft\n',
+      '"typescript@npm:^5.9.3":\n  version: 5.9.3\n  resolution: "typescript@npm:5.9.3"\n  languageName: node\n  linkType: hard\n',
+      '"typescript@patch:typescript@npm%3A^5.9.3#optional!builtin<compat/typescript>":\n  version: 5.9.3\n  resolution: "typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=5786d5"\n  languageName: node\n  linkType: hard\n',
+    ].join('\n'),
+  );
+  mkdirSync(join(cwd, 'node_modules'));
+  symlinkSync(compiler, join(cwd, 'node_modules', 'typescript'), 'dir');
+  symlinkSync('..', join(cwd, 'node_modules', 'consumer'), 'dir');
+  // No `include`: every file is in, and the ambient `shim.d.ts` sits at the root.
+  write('tsconfig.json', '{\n  "compilerOptions": {\n    "noEmit": true\n  }\n}\n');
+  write('shim.d.ts', 'declare module "untyped";\n');
+  write('src/index.ts', 'export const answer = 42;\n');
+  return cwd;
+}
+
+const sevenFetcher = (delayMs = 0): PackageFetcher => {
+  const compiler = dirname(createRequire(import.meta.url).resolve('typescript/package.json'));
+  return {
+    resolve: async () => {
+      await new Promise((r) => setTimeout(r, delayMs));
+      return '7.0.2';
+    },
+    fetch: async () => ({ name: 'typescript', version: '7.0.2', dir: compiler }),
+    versions: async () => ['5.9.3', '7.0.2'],
+    manifests: async () => ({ '5.9.3': {}, '7.0.2': {} }),
+  };
+};
+
+it('reports a tooling-only typescript on a self-linked yarn Berry repo, with the reason (UPT-84)', async () => {
+  const result = await check({
+    cwd: berrySelfLinked(),
+    only: ['typescript'],
+    packs: [typescriptPack],
+    adapter: createTypescriptAdapter(),
+    fetcher: sevenFetcher(),
+    runtime: false,
+  });
+  expect(result.packages.map((p) => [p.name, p.installed, p.target, p.status])).toEqual([
+    ['typescript', '5.9.3', '7.0.2', 'not-imported'],
+  ]);
+  expect(result.packages[0]?.notes).toContain(
+    "no usages found in code; 5.9.3 → 7.0.2 is outside the typescript pack's range, so the 1 file it reads was not analyzed",
+  );
+}, 60_000);
+
+// Guard: whatever stops the analysis, `check <pkg>` on an outdated installed package returns it.
+it.each([
+  [
+    'the workspace analysis throws',
+    {
+      adapter: {
+        ...createTypescriptAdapter(),
+        importedPackages: () => {
+          throw new Error('boom');
+        },
+      },
+    },
+  ],
+  ['the time budget ran out first', { maxTimeMs: 1 }],
+])(
+  'check typescript still returns typescript when %s',
+  async (_, extra) => {
+    const result = await check({
+      cwd: berrySelfLinked(),
+      only: ['typescript'],
+      packs: [typescriptPack],
+      adapter: createTypescriptAdapter(),
+      fetcher: sevenFetcher(5),
+      runtime: false,
+      ...extra,
+    });
+    expect(result.packages.map((p) => [p.name, p.status])).toEqual([['typescript', 'skipped']]);
+    expect(result.packages[0]?.notes.length).toBeGreaterThan(0);
+  },
+  60_000,
+);

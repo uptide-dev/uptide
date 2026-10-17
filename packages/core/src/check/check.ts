@@ -297,11 +297,15 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
     Object.values(installedByWorkspace)
       .map((deps) => deps[name])
       .find((version) => version !== undefined && !linked(version));
+  // A package asked for by name is ranked whether or not anything imports it (typescript is
+  // used through tsconfig files): what is behind is what a failed or late workspace reports.
   const rankable = candidates.filter(
     (name) =>
       !name.startsWith('@types/') &&
       versionOf(name) !== undefined &&
-      (opts.allDeps || Object.values(importedByWorkspace).some((names) => names.includes(name))),
+      (opts.allDeps ||
+        opts.only !== undefined ||
+        Object.values(importedByWorkspace).some((names) => names.includes(name))),
   );
   const sites = importFileCounts(opts.cwd, rankable);
   const ranked = rankCandidates(
@@ -941,17 +945,16 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
   const opts: CheckOptions = { ...ctx.opts, ...job.opts };
   const { workspace, workspaces, installedByWorkspace, importedByWorkspace } = job;
   const packages: PackageReport[] = [];
+  // A pack whose inventory matches (the typescript pack's tsconfig files) has sites without imports.
+  const hasInventory = (name: string): boolean =>
+    packInventory(opts.cwd, workspace, packsOf(opts).find((p) => p.name === name)?.inventory)
+      .length > 0;
   if (
     !opts.adapter &&
     opts.only &&
     !opts.allDeps &&
     (importedByWorkspace[workspace] ?? []).length === 0 &&
-    // A pack whose inventory matches (the typescript pack's tsconfig files) has sites without imports.
-    !opts.only.some(
-      (name) =>
-        packInventory(opts.cwd, workspace, packsOf(opts).find((p) => p.name === name)?.inventory)
-          .length > 0,
-    )
+    !opts.only.some(hasInventory)
   ) {
     return progress(opts.onProgress, { phase: 'resolve', workspace }, () =>
       Object.entries(installedByWorkspace[workspace] ?? {})
@@ -976,7 +979,7 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
       if (opts.only && !opts.only.includes(name)) continue;
       const version = declared[name];
       if (version !== undefined && /^(link|workspace|file):/.test(version)) continue;
-      if (version !== undefined && (opts.allDeps || imported.has(name)))
+      if (version !== undefined && (opts.allDeps || imported.has(name) || hasInventory(name)))
         packages.push(late(name, version, false));
       else if (version === undefined && imported.has(name))
         packages.push(late(name, 'unresolved', true));
@@ -1046,14 +1049,7 @@ async function checkWorkspace(ctx: Ctx, job: WorkspaceJob): Promise<PackageRepor
           a.localeCompare(b),
       )
       .filter(([name]) => !opts.only || opts.only.includes(name));
-    const inventoryNames = new Set(
-      entries
-        .filter(([name]) => {
-          const pack = packsOf(opts).find((p) => p.name === name);
-          return packInventory(opts.cwd, workspace, pack?.inventory).length > 0;
-        })
-        .map(([name]) => name),
-    );
+    const inventoryNames = new Set(entries.map(([name]) => name).filter(hasInventory));
     const behind = new Set(opts.behind ?? []);
     // Release groups: same scope, same major, depending on one another, upgraded together.
     const analyzable = entries.filter(
@@ -1733,7 +1729,17 @@ async function prepare(
       return report;
     }
     // Imported somewhere (or only by a nested workspace that answers for itself), never used here.
-    notes.push('no usages found');
+    // Or used only through files a pack reads, for a jump the pack does not cover: say which.
+    const outside = packInventory(
+      ctx.opts.cwd,
+      workspace,
+      packsOf(ctx.opts).find((p) => p.name === name)?.inventory,
+    ).length;
+    notes.push(
+      outside > 0
+        ? `no usages found in code; ${installedVersion} → ${target} is outside the ${name} pack's range, so the ${outside} file${outside === 1 ? '' : 's'} it reads ${outside === 1 ? 'was' : 'were'} not analyzed`
+        : 'no usages found',
+    );
     const report = base('not-imported', target, latest);
     report.unanalyzed = scan.unanalyzed;
     return report;
