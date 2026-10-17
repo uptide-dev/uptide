@@ -7,6 +7,7 @@ import { decidedRules, packDecisions } from '../packs/decisions.js';
 import { activePack } from '../packs/index.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { uptideVersionInfo } from '../version.js';
+import { testsOrBuildVouch } from './baseline.js';
 import { buildWorkspaces, configuredBuildScript } from './build.js';
 import { git } from './process.js';
 import { prBody } from './report.js';
@@ -194,6 +195,7 @@ export async function reverify(
         left.length === 0 &&
         (!buildRequired || (!!build?.length && build.every((b) => b.status === 'passed'))) &&
         tests.every((t) => t.status === 'passed' || t.status === 'missing') &&
+        testsOrBuildVouch(report.typeCoverage, tests, build) &&
         lint.every((l) => l.status !== 'failed'),
     },
     ...(decisions.length ? { decisions } : {}),

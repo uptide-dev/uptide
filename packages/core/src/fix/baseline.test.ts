@@ -2,8 +2,14 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { baselineHeadline, baselineHealth, baselineHealthOf, fixVerdict } from './baseline.js';
-import { renderMigration, summaryCells } from './report.js';
+import {
+  baselineHeadline,
+  baselineHealth,
+  baselineHealthOf,
+  fixVerdict,
+  testsOrBuildVouch,
+} from './baseline.js';
+import { renderMigration, summaryCells, verifiedBy } from './report.js';
 import type { FixDiagnostic, FixReport, TestResult } from './types.js';
 import { diagnostics } from './verify.js';
 
@@ -161,5 +167,42 @@ describe('missing-module baseline', () => {
     expect(baselineHeadline(baselineHealth(baseline, []))).toBe(
       'this repository does not type-check before the upgrade (5 errors, 5 from missing modules: 3 under @/ee/, 1 under @/lib/, …); verification can only compare, not prove',
     );
+  });
+});
+
+describe('low type coverage (UPT-12)', () => {
+  const low = { checked: 3, affected: 10 };
+  const missing: TestResult = { workspace: '.', status: 'missing', output: '' };
+
+  it('needs a test run or a build that passed when the types cover too little', () => {
+    expect(testsOrBuildVouch(low, [missing], undefined)).toBe(false);
+    expect(testsOrBuildVouch(low, [passing], undefined)).toBe(true);
+    expect(
+      testsOrBuildVouch(low, [missing], [{ workspace: '.', status: 'passed', output: '' }]),
+    ).toBe(true);
+    // Enough coverage, or none measured: the compiler's word holds as before.
+    expect(testsOrBuildVouch({ checked: 8, affected: 10 }, [missing], undefined)).toBe(true);
+    expect(testsOrBuildVouch(undefined, [missing], undefined)).toBe(true);
+  });
+
+  it('never shows zero errors as proof, and says the verdict rests on tests and build', () => {
+    const passed = { ...run([], [passing], [], true), typeCoverage: low };
+    expect(fixVerdict(passed).text).toBe(
+      'verification passed on tests and build (types cover 3 of 10 affected files)',
+    );
+    expect(summaryCells(passed).types).toBe(
+      '⚠️ types cover 3 of 10 affected files, not proof · the upgrade broke 0 · Uptide left 0',
+    );
+    expect(verifiedBy(passed)).toContain(
+      '⚠️ type-check is not proof: types cover 3 of 10 affected files',
+    );
+    expect(verifiedBy(passed)).toMatch(/the verdict rests on tests and build$/);
+    expect(verifiedBy(passed)).not.toContain('✅ type-check');
+
+    const unvouched = { ...run([], [missing], [], false), typeCoverage: low };
+    expect(fixVerdict(unvouched)).toEqual({
+      text: 'verification failed: types cover 3 of 10 affected files and no test or build passed',
+      tone: 'failed',
+    });
   });
 });

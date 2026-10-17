@@ -35,7 +35,7 @@ import { resetSharedState } from '../shared-state.js';
 import { prepareWorkspace } from '../verify/prepare-workspace.js';
 import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
 import { assist } from './assisted.js';
-import { baselineHealth } from './baseline.js';
+import { baselineHealth, testsOrBuildVouch } from './baseline.js';
 import { behaviorCheck } from './behavior.js';
 import { buildWorkspaces, configuredBuildScript } from './build.js';
 import {
@@ -1061,6 +1061,13 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
   const newErrors = newDiagnostics(baseline, after, gitLineMoves(root, baseHead));
   const behavior = pack.name === 'zod' ? behaviorCheck(root, originals, sites) : undefined;
+  const typed = packages.filter((p) => p.typeCoverage);
+  const typeCoverage = typed.length
+    ? {
+        checked: typed.reduce((n, p) => n + (p.typeCoverage?.checked ?? 0), 0),
+        affected: typed.reduce((n, p) => n + (p.typeCoverage?.affected ?? 0), 0),
+      }
+    : undefined;
   const result: FixReport = {
     ...(pins.length ? { rootPins: pins } : {}),
     ...(fallback.length ? { agentFallback: fallback } : {}),
@@ -1083,6 +1090,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ...(report.importersNotAnalyzed?.length
       ? { importersNotAnalyzed: report.importersNotAnalyzed }
       : {}),
+    ...(typeCoverage ? { typeCoverage } : {}),
     ...tool,
     verifiedAt: new Date().toISOString(),
     head: git(root, 'rev-parse', 'HEAD'),
@@ -1116,6 +1124,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
         (!pack.requiresBuild || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
         build.every((b) => b.status === 'passed' || b.status === 'missing') &&
+        testsOrBuildVouch(typeCoverage, tests, build) &&
         lint.every((l) => l.status !== 'failed'),
     },
     llm: sdkMissing ? { ...llm, sdkMissing: true } : llm,

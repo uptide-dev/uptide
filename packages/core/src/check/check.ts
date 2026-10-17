@@ -50,7 +50,7 @@ import { requireFindUsages } from './capabilities.js';
 import { type CompanionPlan, companionsOf, type InstalledDependency } from './companions.js';
 import { arbitrateUnchecked } from './file-kind.js';
 import { groupName, releaseGroups } from './groups.js';
-import { importedByText, importFileCounts } from './importers.js';
+import { filesImporting, importedByText, importFileCounts } from './importers.js';
 import { match } from './match.js';
 import { estimateScopedHeapMb, freeMemoryBytes, memoryPolicy, scopedImporters } from './memory.js';
 import { mergeSignals } from './merge.js';
@@ -824,6 +824,12 @@ export function mergeAcrossWorkspaces(
       };
       if (combined.compile.skipped === undefined) delete combined.compile.skipped;
     }
+    const typeCoverages = list.map((p) => p.typeCoverage).filter((c) => c !== undefined);
+    if (typeCoverages.length > 0)
+      combined.typeCoverage = {
+        checked: typeCoverages.reduce((n, c) => n + c.checked, 0),
+        affected: typeCoverages.reduce((n, c) => n + c.affected, 0),
+      };
     // One verdict for the merged entry: its findings and compile summary are the union.
     if (list.some((p) => p.verdict))
       combined.verdict = verdictOf(
@@ -2434,6 +2440,25 @@ async function checkGroup(
     report.findings = findings;
     report.callSitesChecked = usages.length;
     if (compile) report.compile = compile;
+    // How much of the code that uses the package the repository's own compiler judges: a clean
+    // compile over 69 TypeScript files says little about 2,700 JavaScript ones (UPT-12).
+    // ponytail: the tsconfig's include/exclude is not consulted; a TypeScript file it leaves out still counts as checked.
+    const affected = filesImporting(
+      repo.dir,
+      prepared.map((p) => p.name),
+      repo.exclude,
+    );
+    if (affected.length > 0) {
+      const includesJs = prepared.some((p) => p.scan.includesJs);
+      report.typeCoverage = {
+        checked: affected.filter(
+          (file) =>
+            (includesJs || !/\.[cm]?jsx?$/.test(file)) &&
+            repoTypeChecks(file, headOf(file), checksJs),
+        ).length,
+        affected: affected.length,
+      };
+    }
     // Analyzed packages only: a skipped or untyped one says why in its status.
     if (['breaking', 'deprecated', 'safe', 'partial', 'unknown'].includes(report.status))
       report.verdict = verdictOf(

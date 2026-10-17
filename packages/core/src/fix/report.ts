@@ -1,4 +1,5 @@
 import { basename } from 'node:path';
+import { lowTypeCoverage } from '../check/verdict.js';
 import type { Finding } from '../domain/report.js';
 import { BY } from '../domain/wording.js';
 import { costStopMessage } from '../llm/fixer.js';
@@ -543,11 +544,14 @@ export function verifiedBy(report: FixReport): string {
       : report.tier === 'verified'
         ? [`✅ the ${report.package} migration pack`]
         : [`⚠️ no migration pack: nothing analyzed what ${report.package} ${report.target} changes`];
+  const low = lowTypeCoverage(report.typeCoverage);
   const types = v.typesUnverified
     ? '⚠️ type-check not verified (type resolution failed)'
     : v.newErrors.length
       ? '❌ type-check'
-      : '✅ type-check';
+      : low
+        ? `⚠️ type-check is not proof: ${low}`
+        : '✅ type-check';
   const failing = (s: string) => s === 'failed' || s === 'timeout';
   // Name the result of each verification step, including pack-required builds.
   const build = !v.build
@@ -569,7 +573,13 @@ export function verifiedBy(report: FixReport): string {
       : ran.some((t) => t.preexisting)
         ? '⚠️ tests already failing before the change'
         : `✅ tests (${count(ran.length, 'run')})`;
-  return [...pack, types, build, tests].join(' · ');
+  return [
+    ...pack,
+    types,
+    build,
+    tests,
+    ...(low ? ['the verdict rests on tests and build'] : []),
+  ].join(' · ');
 }
 /** The facts of a run, in the words the PR table uses: risk, changes, types, behavior, tests, and what verified it. */
 export function summaryCells(report: FixReport): {
@@ -623,12 +633,15 @@ export function summaryCells(report: FixReport): {
  */
 function typesCell(report: FixReport): string {
   const v = report.verification;
-  const mark = v.newErrors.length ? '❌' : '✅';
+  // Too few affected files type-checked: zero errors is not a pass, and the cell leads with why.
+  const low = lowTypeCoverage(report.typeCoverage);
+  const mark = v.newErrors.length ? '❌' : low ? '⚠️' : '✅';
   const pre = v.baseline.length ? ` (${v.baseline.length} pre-existing, not counted)` : '';
+  const scope = low ? `${low}, not proof · ` : '';
   if (report.mode === 'pin')
-    return `${mark} ${count(v.target.length, 'error')} before → ${v.after.length}${pre}`;
+    return `${mark} ${scope}${count(v.target.length, 'error')} before → ${v.after.length}${pre}`;
   const broke = newDiagnostics(v.baseline, v.target).length;
-  return `${mark} the upgrade broke ${broke} · Uptide left ${v.newErrors.length}${pre}`;
+  return `${mark} ${scope}the upgrade broke ${broke} · Uptide left ${v.newErrors.length}${pre}`;
 }
 function summaryRows(report: FixReport): string[] {
   const c = summaryCells(report);
