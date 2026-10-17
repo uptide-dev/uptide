@@ -168,6 +168,17 @@ describe('the Release workflow', () => {
     }
   });
 
+  it('runs the tarball invocation check on every PR too, after the smoke build', () => {
+    const smoke = (parse(read('.github/workflows/ci.yml')) as Workflow).jobs.smoke as Job;
+    const built = at(smoke, (s) => s.run?.startsWith('pnpm smoke'));
+    const checked = at(smoke, (s) =>
+      s.run?.includes('node packages/cli/smoke/check-invocation.mjs'),
+    );
+    expect(built).toBeGreaterThanOrEqual(0);
+    expect(checked).toBeGreaterThan(built);
+    expect(smoke.steps[checked]?.run).toContain('pnpm --filter uptide pack');
+  });
+
   it('publishes next from a throwaway snapshot: never committed, pushed, tagged or latest', () => {
     const publish = job('publish');
     const snapshot = publish.steps[runs(publish, 'pnpm changeset version --snapshot next')];

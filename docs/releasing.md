@@ -58,8 +58,9 @@ failure:
    refuses a mismatch), the version is the one being released, and no file in it holds a
    private identifier;
 8. the tarball, installed, suggests commands that reach it
-   (`packages/cli/smoke/check-invocation.mjs`): `npx uptide@next` from a snapshot, `npx uptide`
-   from a release, and its `--version` is the package's.
+   (`packages/cli/smoke/check-invocation.mjs`): installed in a project, `npx uptide@next` from
+   a snapshot and `npx uptide` from a release; installed globally on PATH, `uptide`; and its
+   `--version` is the package's. `pnpm smoke` runs the same check on every PR.
 
 That same tarball is what is published, with `npm publish --provenance`. Only the
 `github-release` job can write to the repository, and only after a real `latest` publish.

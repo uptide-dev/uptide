@@ -136,15 +136,25 @@ it.each(['npm', 'npm-workspaces', 'pnpm', 'yarn', 'yarn-berry'])(
   },
 );
 
-it('expects installed CLI hints from releases and snapshots', async () => {
+it('expects plain uptide on PATH and the portable form otherwise', async () => {
   const { expectedInvocation, invocationFailures } = await import(
     new URL('../smoke/check-output.mjs', import.meta.url).href
   );
-  for (const version of ['0.5.0', '0.5.0-next.1']) {
-    expect(expectedInvocation(version)).toBe('uptide');
-    expect(invocationFailures('fix', 'Next: uptide check zod --details\n', version)).toEqual([]);
-    expect(invocationFailures('fix', 'Next: npx uptide check zod\n', version)).toHaveLength(1);
-    expect(invocationFailures('fix', 'Next: npx uptide@next check zod\n', version)).toHaveLength(1);
-    expect(invocationFailures('fix', 'error: nothing to suggest\n', version)).toHaveLength(1);
+  for (const [version, portable] of [
+    ['0.5.0', 'npx uptide'],
+    ['0.5.0-next.1', 'npx uptide@next'],
+  ]) {
+    expect(expectedInvocation(version, true)).toBe('uptide');
+    expect(expectedInvocation(version, false)).toBe(portable);
+    for (const onPath of [true, false]) {
+      const expected = expectedInvocation(version, onPath);
+      for (const hint of ['uptide', 'npx uptide', 'npx uptide@next'])
+        expect(
+          invocationFailures('fix', `Next: ${hint} check zod --details\n`, version, onPath),
+        ).toHaveLength(hint === expected ? 0 : 1);
+      expect(
+        invocationFailures('fix', 'error: nothing to suggest\n', version, onPath),
+      ).toHaveLength(1);
+    }
   }
 });

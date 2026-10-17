@@ -76,6 +76,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm smoke ${{ matrix.node }}
+      # The check release runs before publishing, on a tarball packed from the tree `pnpm smoke`
+      # built: a PR that changes the hints cannot leave it expecting others. An absolute path:
+      # npm reads a relative `dir/file.tgz` as a GitHub `owner/repo`.
+      - name: The tarball's suggestions reach it (npx uptide in a project, uptide on PATH)
+        run: |
+          mkdir -p "$RUNNER_TEMP/pack"
+          pnpm --filter uptide pack --pack-destination "$RUNNER_TEMP/pack"
+          node packages/cli/smoke/check-invocation.mjs "$(ls "$RUNNER_TEMP"/pack/uptide-*.tgz)"
 
   onboarding:
     # `uptide/onboarding` and `uptide/report` as a consumer installs them, from the packed

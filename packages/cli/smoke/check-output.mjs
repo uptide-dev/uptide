@@ -28,14 +28,20 @@ export function listReportFailures(listed, manager) {
   return failures;
 }
 
-// Suggestions use the installed CLI for stable and prerelease builds alike.
-export function expectedInvocation(_version) {
-  return 'uptide';
+// The command a build prints in its suggestions (packages/core/src/version.ts,
+// uptideInvocation): `uptide` when the running binary is the one on the user's PATH (a global
+// install), otherwise the portable form, `npx uptide@next` from a snapshot and `npx uptide`
+// from a release. A project's node_modules/.bin is not the user's PATH, even when a package
+// manager put it there for the run.
+export function expectedInvocation(version, onPath) {
+  if (onPath) return 'uptide';
+  const tag = /^\d+\.\d+\.\d+-([a-z]+)/.exec(version)?.[1];
+  return tag ? `npx uptide@${tag}` : 'npx uptide';
 }
 
 // Every suggested command reaches the build that printed it, and there is at least one.
-export function invocationFailures(name, output, version) {
-  const expected = expectedInvocation(version);
+export function invocationFailures(name, output, version, onPath) {
+  const expected = expectedInvocation(version, onPath);
   const found = output.match(/(?:npx )?uptide(?:@[\w.-]+)?(?= [a-z<-])/g) ?? [];
   if (found.length === 0) return [`${name}: expected a suggestion with "${expected}"\n${output}`];
   const wrong = [...new Set(found.filter((f) => f !== expected))];
