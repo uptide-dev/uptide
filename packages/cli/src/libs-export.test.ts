@@ -57,7 +57,7 @@ const LIBRARIES: Record<
   },
   report: {
     packages: [],
-    own: /^(run-report\/(index|schema|safe|summary)\.ts|credentials\.ts|onboarding\/validate\.ts)$/,
+    own: /^(run-report\/(index|schema|safe|summary)\.ts|credentials\.ts|errors\.ts|onboarding\/validate\.ts)$/,
     // Pure: no file, network or process access at all.
     external: { index: [] },
     // The declarations carry the schema as a literal type: each field costs its JSON twice.

@@ -2,6 +2,7 @@ import { isAbsolute, relative } from 'node:path';
 import {
   baselineHeadline,
   baselineHealthOf,
+  describeOutOfScope,
   describeTransitive,
   type FixReport,
   fixVerdict,
@@ -93,6 +94,11 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
       lines.push(
         `  ${peer.name} ${peer.version}: ${peer.peers.map((p) => `${p.peer} ${p.range} rejects ${p.target}`).join('; ')}${peer.allowed ? ' · explicitly allowed in package.json' : ''}`,
       );
+    lines.push('');
+  }
+  if (report.lockfile?.outOfScope?.length) {
+    lines.push(colors.bold('Lockfile changes outside the upgrade: review'));
+    for (const c of report.lockfile.outOfScope) lines.push(`  ${describeOutOfScope(c)}`);
     lines.push('');
   }
   if (report.lockfile?.peerReresolved?.length) {

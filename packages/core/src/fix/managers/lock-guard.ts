@@ -98,6 +98,14 @@ export interface MovedSubtree {
   to: string[];
   changes: TransitiveChange[];
 }
+/** A lockfile entry outside the upgrade's subtree; no version on a side: absent there. */
+export interface OutOfScopeChange {
+  name: string;
+  from?: string;
+  to?: string;
+}
+export const describeOutOfScope = (c: OutOfScopeChange): string =>
+  `${c.name} ${c.from ?? 'none'} → ${c.to ?? 'none'}${c.from && c.from === c.to ? ' (same version, different resolution)' : ''}`;
 export interface LockDiff {
   added: string[];
   removed: string[];
@@ -108,7 +116,7 @@ export interface LockDiff {
   /** Per moved package, the transitive changes its own subtree accounts for. */
   transitive?: MovedSubtree[];
   /** Agent-led runs only: resolutions outside the subtree, kept for review instead of refused. */
-  outOfScope?: string[];
+  outOfScope?: OutOfScopeChange[];
 }
 function closure(graph: LockGraph, roots: Iterable<string>): Set<string> {
   const queue = [...roots];
@@ -343,7 +351,12 @@ export function assertLockScope(
             ? `${key} (${a} → ${b})`
             : `${key} (same version, different resolution, dependencies or execution fields)`;
     });
-    if (acceptOutOfScope) diff.outOfScope = described;
+    if (acceptOutOfScope)
+      diff.outOfScope = [...unexpected].map((key) => {
+        const name = (before.records.get(key) ?? after.records.get(key))?.name ?? key;
+        const [from, to] = [versionOf(before, key), versionOf(after, key)];
+        return { name, ...(from ? { from } : {}), ...(to ? { to } : {}) };
+      });
     else
       throw new UptideError(
         'LOCKFILE_OUT_OF_SCOPE',

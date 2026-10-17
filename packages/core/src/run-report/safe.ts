@@ -1,4 +1,5 @@
 import { CREDENTIAL } from '../credentials.js';
+import { SafetyRefusal } from '../errors.js';
 import { type Schema, validate } from '../onboarding/validate.js';
 import { RUN_REPORT_SCHEMA, type RunReport } from './schema.js';
 
@@ -33,5 +34,8 @@ export function reportProblems(report: unknown): string[] {
 export function assertSafeReport(report: unknown): asserts report is RunReport {
   const problems = reportProblems(report);
   if (problems.length)
-    throw new Error(`the run report is not safe to send:\n  ${problems.join('\n  ')}`);
+    throw new SafetyRefusal(
+      'UNSAFE_DATA',
+      `the run report is not safe to send:\n  ${problems.join('\n  ')}`,
+    );
 }

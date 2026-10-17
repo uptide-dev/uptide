@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { SafetyRefusal } from '../errors.js';
 import { DEFAULT_MODELS } from './pricing.js';
 import { keyLike, PROVIDERS, type Provider } from './types.js';
 
@@ -55,7 +56,8 @@ function readConfig(cwd: string): UptideConfig {
         );
       }
       if (keyFound)
-        throw new Error(
+        throw new SafetyRefusal(
+          'UNSAFE_DATA',
           'uptide.config.json contains a key-like setting. Remove credentials from the file; use environment variables only.',
         );
       if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -64,7 +66,8 @@ function readConfig(cwd: string): UptideConfig {
         );
       for (const [name, setting] of Object.entries(value)) {
         if (keyLike(name) || (typeof setting === 'string' && keyLike(setting)))
-          throw new Error(
+          throw new SafetyRefusal(
+            'UNSAFE_DATA',
             'uptide.config.json contains a key-like setting. Remove credentials from the file; use environment variables only.',
           );
         const allowed =
@@ -108,7 +111,8 @@ export function openaiBaseUrl(value: string): string {
     url.search ||
     url.hash
   )
-    throw new Error(
+    throw new SafetyRefusal(
+      'UNSAFE_DATA',
       'OPENAI_BASE_URL must use HTTPS without credentials, query or fragment (HTTP is allowed only on localhost).',
     );
   return url.href.replace(/\/+$/, '');

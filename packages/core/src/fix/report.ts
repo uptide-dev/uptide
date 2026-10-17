@@ -6,7 +6,7 @@ import { UPTIDE_COMMAND } from '../version.js';
 import { baselineHeadline, baselineHealthOf } from './baseline.js';
 import type { BehaviorResult } from './behavior.js';
 import { fitPieces, must, type Piece } from './budget.js';
-import { describeTransitive } from './managers/lock-guard.js';
+import { describeOutOfScope, describeTransitive } from './managers/lock-guard.js';
 import { noPackBlockers } from './no-pack.js';
 import { uniqueSites } from './paired.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
@@ -700,6 +700,17 @@ export function renderMigration(
   if (report.agentFallback?.length)
     lines.push(
       `> ⚠️ **Agent-led draft.** The mechanical path stopped: ${report.agentFallback.join('; ')}`,
+      '',
+    );
+  if (report.lockfile?.outOfScope?.length)
+    lines.push(
+      must(
+        [
+          '### Lockfile changes outside the upgrade: review',
+          '',
+          ...report.lockfile.outOfScope.map((c) => `- ${describeOutOfScope(c)}`),
+        ].join('\n'),
+      ),
       '',
     );
   if (report.rootPins?.length)

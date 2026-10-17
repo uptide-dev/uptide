@@ -24,7 +24,7 @@ import { assistedPeerPreflight, pinConsentFallback } from './feedback.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
 import { PeerPreflightError } from './peer-preflight.js';
 import { git, projectRoot } from './process.js';
-import { rangePreflight } from './range-preflight.js';
+import { noPackPreflight, rangePreflight } from './range-preflight.js';
 import { prBody } from './report.js';
 import { type ReverifyOptions, type ReverifyServices, reverify } from './reverify.js';
 import { planRootPins } from './root-pins.js';
@@ -595,6 +595,7 @@ export async function isolatedFix(
       if (error instanceof PeerPreflightError) throw error;
       leadOnly(error);
     }
+  if (options.target) noPackPreflight(options, options.target, assist, committed);
   if (!options.pinCurrentApi && options.target)
     try {
       planRootPins(

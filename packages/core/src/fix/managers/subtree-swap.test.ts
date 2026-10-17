@@ -59,7 +59,7 @@ describe.each(managers)(
 
     it('reports that change instead of refusing when an agent leads (UPT-78)', () => {
       const diff = assertLockScope(read('before'), read('control'), 'ui', [], [], true);
-      expect(diff.outOfScope?.join('; ')).toMatch(/shared/);
+      expect(diff.outOfScope?.map((c) => c.name)).toContain('shared');
     });
   },
 );

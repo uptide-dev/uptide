@@ -14,7 +14,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { SafetyRefusal, UptideError } from '../errors.js';
+import { selectLlm } from '../llm/config.js';
 import { genericPack } from '../packs/generic.js';
+import { assertSafeReport } from '../run-report/safe.js';
 import { version } from '../version.js';
 import {
   changedSince,
@@ -1085,7 +1087,10 @@ describe('preflight refusals become agent-led drafts with an agent (UPT-78)', ()
         allowed: [],
         manager: 'pnpm',
         file: 'pnpm-lock.yaml',
-        outOfScope: ['picomatch@4.0.2 (same version, different resolution)'],
+        outOfScope: [
+          { name: 'picomatch', from: '4.0.2', to: '4.0.2' },
+          { name: '@img/sharp-libvips-linux-x64', from: '1.2.0' },
+        ],
       };
     };
     await expect(
@@ -1094,8 +1099,72 @@ describe('preflight refusals become agent-led drafts with an agent (UPT-78)', ()
     const agentRunner = runner();
     const result = await isolatedFix({ cwd: root, ...agent }, { ...services, agentRunner });
     expect(agentRunner).toHaveBeenCalled();
-    expect(result.agentFallback?.join(';')).toContain('Install check: resolutions changed');
-    expect(result.agentFallback?.join(';')).toContain('picomatch@4.0.2');
+    expect(result.agentFallback?.join(';')).toContain('Install check: 2 lockfile resolutions');
+    const body = prBody(result);
+    const section = body.indexOf('### Lockfile changes outside the upgrade: review');
+    expect(section).toBeGreaterThan(body.indexOf('**Agent-led draft.**'));
+    expect(body.slice(section)).toContain(
+      '- picomatch 4.0.2 → 4.0.2 (same version, different resolution)\n- @img/sharp-libvips-linux-x64 1.2.0 → none',
+    );
+  });
+
+  it('no-pack stop: before any clone, install or check (UPT-77 saw it after install)', async () => {
+    const { root, services } = zodFixture(scratch);
+    const origin = join(mkdtempSync(join(scratch, 'origin-')), 'origin.git');
+    git(root, 'init', '--bare', origin);
+    git(root, 'remote', 'add', 'origin', origin);
+    git(root, 'push', '--quiet', '-u', 'origin', 'HEAD');
+    git(root, 'remote', 'set-head', 'origin', '--auto');
+    const check = vi.fn(services.check),
+      install = vi.fn(services.install);
+    const runs = join(scratch, 'runs-no-pack');
+    vi.stubEnv('UPTIDE_RUNS_DIR', runs);
+    try {
+      // 3.25.76 → 5.0.0 is outside the zod pack (3 → 4).
+      await expect(
+        isolatedFix(
+          { cwd: root, only: 'zod', target: '5.0.0', fixer: null, tool: TOOL },
+          { ...services, check, install },
+        ),
+      ).rejects.toMatchObject({
+        code: 'NO_FIXER',
+        message: expect.stringContaining(
+          "zod 3.25.76 → 5.0.0 is outside the zod pack's range, so every fix would come from the agent, and assisted fixes are off (--no-llm)",
+        ),
+      });
+      await expect(
+        isolatedFix(
+          { cwd: root, ...agent, target: '5.0.0', pr: true, yes: true },
+          { ...services, check, install, agentRunner: runner() },
+        ),
+      ).rejects.toMatchObject({
+        code: 'PUBLICATION_REFUSED',
+        message: expect.stringContaining('no pack yet: zod 3.25.76 → 5.0.0 is a major upgrade'),
+      });
+      expect(check).not.toHaveBeenCalled();
+      expect(install).not.toHaveBeenCalled();
+      expect(existsSync(runs) ? readdirSync(runs) : []).toEqual([]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('an empty check names its cause instead of "has no upgrade"', async () => {
+    const { root, services } = zodFixture(scratch);
+    const empty = async () => ({ ...(await services.check({ cwd: root })), packages: [] });
+    await expect(
+      isolatedFix(
+        { cwd: root, only: 'zod', fixer: null, tool: TOOL },
+        { ...services, check: empty },
+      ),
+    ).rejects.toThrow(
+      'the check returned nothing to analyze for zod 3.25.76 → 4.6.5 (no import or pack site found). Nothing was changed.',
+    );
+    const result = await isolatedFix(
+      { cwd: root, ...agent },
+      { ...services, check: empty, agentRunner: runner() },
+    );
+    expect(result.agentFallback?.join(';')).toContain('the check returned nothing to analyze');
   });
 
   it('never falls back on a safety refusal', async () => {
@@ -1114,5 +1183,15 @@ describe('preflight refusals become agent-led drafts with an agent (UPT-78)', ()
     } finally {
       planner.mockRestore();
     }
+  });
+
+  it('safety guards refuse by type, wherever they throw', () => {
+    const dir = mkdtempSync(join(scratch, 'unsafe-config-'));
+    writeFileSync(
+      join(dir, 'uptide.config.json'),
+      JSON.stringify({ model: 'sk-PRIVATE_CREDENTIAL' }),
+    );
+    expect(() => selectLlm(dir)).toThrow(SafetyRefusal);
+    expect(() => assertSafeReport({ diff: '+ code' })).toThrow(SafetyRefusal);
   });
 });
