@@ -216,7 +216,23 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
     ).fileNames;
     for (const f of files) fileNames.add(f);
   }
-  const rootNames = [...fileNames];
+  // A file another tsconfig owns gets its diagnostics from that workspace's own check (below),
+  // so it is not a root here: a root tsconfig that includes `packages/**` would otherwise build
+  // the whole repository into one program (UPT-82). Imports still pull such files in for types;
+  // declaration files stay roots for the globals they declare.
+  const ownerOf = (file: string): string => {
+    let owner = dirname(file);
+    while (owner !== root && owner !== dir && !existsSync(join(owner, 'tsconfig.json')))
+      owner = dirname(owner);
+    return owner;
+  };
+  const rootNames: string[] = [];
+  const discovered = new Set<string>();
+  for (const file of fileNames) {
+    const owner = file.endsWith('.d.ts') ? dir : ownerOf(file);
+    if (owner === dir || owner === root || !file.startsWith(`${root}/`)) rootNames.push(file);
+    else discovered.add(relative(root, owner));
+  }
   if (
     state.result &&
     rootNames.length === state.rootNames.length &&
@@ -257,7 +273,6 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
     ...builder.getOptionsDiagnostics(),
     ...builder.getGlobalDiagnostics(),
   ];
-  const discovered: string[] = [];
   const seen = new Map<string, string>();
   for (const file of program.getSourceFiles()) {
     if (
@@ -269,10 +284,9 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
     seen.set(file.fileName, file.text);
     // Source dependencies provide types to this program, but their implementation
     // diagnostics belong to their own tsconfig (module resolution may differ).
-    let owner = dirname(file.fileName);
-    while (owner !== root && !existsSync(join(owner, 'tsconfig.json'))) owner = dirname(owner);
+    const owner = ownerOf(file.fileName);
     if (owner !== dir && owner !== root) {
-      discovered.push(relative(root, owner));
+      discovered.add(relative(root, owner));
       continue;
     }
     errors.push(...builder.getSyntacticDiagnostics(file), ...builder.getSemanticDiagnostics(file));
@@ -301,8 +315,13 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
       ...(relatedLocations.length ? { relatedLocations } : {}),
     });
   }
-  Object.assign(state, { builder, rootNames, seen, result: { diagnostics: found, discovered } });
-  return { diagnostics: found, discovered };
+  Object.assign(state, {
+    builder,
+    rootNames,
+    seen,
+    result: { diagnostics: found, discovered: [...discovered] },
+  });
+  return { diagnostics: found, discovered: [...discovered] };
 }
 
 /**
@@ -313,6 +332,7 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
 export function typeChecker(
   root: string,
   workspaces: string[],
+  { retain = true }: { retain?: boolean } = {},
 ): { check(): FixDiagnostic[]; clear(): void } {
   const states = new Map<string, CheckedWorkspace>();
   return {
@@ -332,6 +352,8 @@ export function typeChecker(
         }
         const { diagnostics: found, discovered } = checkWorkspace(root, workspace, state);
         for (const other of discovered) if (!visited.has(other)) queue.push(other);
+        // A one-shot check holds one workspace's program at a time, not all of them (UPT-82).
+        if (!retain) states.delete(workspace);
         for (const value of found)
           all.set(
             `${value.file}:${value.line}:${value.column}:${value.code}:${value.message}`,
@@ -346,7 +368,7 @@ export function typeChecker(
 }
 
 export function diagnostics(root: string, workspaces: string[]): FixDiagnostic[] {
-  return typeChecker(root, workspaces).check();
+  return typeChecker(root, workspaces, { retain: false }).check();
 }
 /** "Cannot find type definition file / module / name": the codes a missing package produces. */
 const RESOLUTION_CODES = new Set([2307, 2580, 2581, 2582, 2591, 2592, 2593, 2688, 2792]);

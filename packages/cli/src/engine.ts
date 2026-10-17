@@ -20,6 +20,7 @@ import {
   type PublishTarget,
   publishTarget,
   removeOnInterrupt,
+  removeRun,
   typescriptAdapter,
   UptideError,
   updatePrBody,
@@ -77,63 +78,93 @@ export interface Engine {
 async function offThread<T>(job: Job, onProgress?: ProgressListener): Promise<T> {
   const here = import.meta.url;
   if (here.endsWith('.ts')) return (await runJob(job, onProgress)) as T;
-  const { Worker } = await import('node:worker_threads');
-  return new Promise<T>((resolvePromise, reject) => {
-    const worker = new Worker(new URL('./engine-worker.js', here), {
-      workerData: job,
-      // The job thread holds the programs of a single-package repository itself.
-      resourceLimits: { maxOldGenerationSizeMb: workerHeapMb(1) },
-    });
-    let settled = false;
-    // The clones the job is working in: an interrupt removes them (`removeOnInterrupt`).
-    const clones = new Set<string>();
-    let release: (() => void) | undefined;
-    const done = () => {
-      release?.();
-      release = undefined;
-    };
-    worker.once('exit', done);
-    worker.on(
-      'message',
-      (
-        reply:
-          | { type: 'progress'; event: ProgressEvent }
-          | { type: 'clone'; clone: string; interruptible: boolean }
-          | { ok: true; value: T }
-          | {
-              ok: false;
-              message: string;
-              code: ErrorCode;
-              peerConflicts?: PeerBlockerGroup[];
-              next?: string;
-            },
-      ) => {
-        if ('type' in reply) {
-          if (reply.type === 'progress') onProgress?.(reply.event);
-          else {
-            if (reply.interruptible) clones.add(reply.clone);
-            else clones.delete(reply.clone);
-            if (clones.size) release ??= removeOnInterrupt(() => clones);
-            else done();
-          }
-          return;
-        }
-        settled = true;
-        done();
-        if (reply.ok) resolvePromise(reply.value);
-        else
+  // The job thread holds the programs of a single-package repository itself.
+  return inWorker<T>(new URL('./engine-worker.js', here), job, onProgress, workerHeapMb(1));
+}
+
+/**
+ * Runs `url` as the job thread. However it ends (a reply, a crash, out of memory, an interrupt
+ * of this process) the clones it reported as in use are removed: a thread that dies cannot
+ * clean up after itself (UPT-82).
+ */
+export function inWorker<T>(
+  url: URL,
+  workerData: unknown,
+  onProgress: ProgressListener | undefined,
+  heapMb: number,
+): Promise<T> {
+  return import('node:worker_threads').then(
+    ({ Worker }) =>
+      new Promise<T>((resolvePromise, reject) => {
+        const worker = new Worker(url, {
+          workerData,
+          resourceLimits: { maxOldGenerationSizeMb: heapMb },
+        });
+        let settled = false;
+        let failure: unknown;
+        // The clones the job is working in: an interrupt removes them (`removeOnInterrupt`).
+        const clones = new Set<string>();
+        let release: (() => void) | undefined;
+        const done = () => {
+          release?.();
+          release = undefined;
+        };
+        worker.on(
+          'message',
+          (
+            reply:
+              | { type: 'progress'; event: ProgressEvent }
+              | { type: 'clone'; clone: string; interruptible: boolean }
+              | { ok: true; value: T }
+              | {
+                  ok: false;
+                  message: string;
+                  code: ErrorCode;
+                  peerConflicts?: PeerBlockerGroup[];
+                  next?: string;
+                },
+          ) => {
+            if ('type' in reply) {
+              if (reply.type === 'progress') onProgress?.(reply.event);
+              else {
+                if (reply.interruptible) clones.add(reply.clone);
+                else clones.delete(reply.clone);
+                if (clones.size) release ??= removeOnInterrupt(() => clones);
+                else done();
+              }
+              return;
+            }
+            settled = true;
+            done();
+            if (reply.ok) resolvePromise(reply.value);
+            else
+              reject(
+                reply.peerConflicts && reply.next
+                  ? new PeerPreflightError(reply.peerConflicts, reply.next, reply.message)
+                  : new UptideError(reply.code, reply.message),
+              );
+          },
+        );
+        worker.once('error', (err) => {
+          failure = err;
+        });
+        worker.once('exit', (code) => {
+          done();
+          if (settled) return;
+          for (const clone of clones) removeRun(clone);
+          const oom =
+            (failure as { code?: string } | undefined)?.code === 'ERR_WORKER_OUT_OF_MEMORY';
           reject(
-            reply.peerConflicts && reply.next
-              ? new PeerPreflightError(reply.peerConflicts, reply.next, reply.message)
-              : new UptideError(reply.code, reply.message),
+            oom
+              ? new UptideError(
+                  'ERR_WORKER_OUT_OF_MEMORY',
+                  `Repository too large for analysis: the analysis ran out of its ${heapMb} MB of memory. Your checkout was not changed and the temporary clone was removed. Close other applications and retry.`,
+                )
+              : (failure ?? new Error(`analysis stopped unexpectedly (worker exit code ${code})`)),
           );
-      },
-    );
-    worker.once('error', reject);
-    worker.once('exit', (code) => {
-      if (!settled) reject(new Error(`analysis stopped unexpectedly (worker exit code ${code})`));
-    });
-  });
+        });
+      }),
+  );
 }
 
 export function defaultEngine(): Engine {
