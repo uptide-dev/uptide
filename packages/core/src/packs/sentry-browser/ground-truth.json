@@ -1,5 +1,5 @@
 {
-  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. Pure insertions (dataCollection blocks, beforeSendLog) are the decisions each repository made, not sites; comment lines that changed with an option are part of that option's site. See ../sentry/RESEARCH.md.",
+  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. Pure insertions (dataCollection blocks, beforeSendLog) are the decisions each repository made, not sites; comment lines that changed with an option are part of that option's site. See ../sentry/RESEARCH.md. Entries from Pokedex on were drafted and reviewed the same way on 2026-10-16 (UPT-64), before the pack was scored with them.",
   "package": "@sentry/browser",
   "repos": [
     {
@@ -37,6 +37,156 @@
           "line": 22,
           "rule": "send-default-pii",
           "note": "sendDefaultPii: true replaced by dataCollection: { userInfo: true }."
+        }
+      ]
+    },
+    {
+      "repo": "MihaelaAghirculesei/Pokedex",
+      "commit": "9b48984a5c81c1bce8d0045ca545fdc1a8d6a039",
+      "migration": "https://github.com/MihaelaAghirculesei/Pokedex/pull/99",
+      "from": "10.74.0",
+      "to": "11.1.0",
+      "why": "Static site; sendDefaultPii: false replaced by dataCollection, attachStacktrace: false added in the same init (part of that change). Upgrade 3919a76399085c6c393b00d3a5413cf395ad1e55; the test asserting the init options follows the source change.",
+      "findings": [
+        {
+          "file": "src/monitoring.ts",
+          "line": 19,
+          "rule": "send-default-pii",
+          "note": "TS2353."
+        }
+      ]
+    },
+    {
+      "repo": "Simple-With-Us/ContactLogo",
+      "commit": "e3ad95203065568aa148611d016353238f26eb4c",
+      "migration": "https://github.com/Simple-With-Us/ContactLogo/pull/161",
+      "directory": "web",
+      "from": "10.76.0",
+      "to": "11.4.0",
+      "why": "Web client; sendDefaultPii replaced by dataCollection and enableLogs: true removed from the same init. TS2353 reports only the first excess property, so enableLogs has no diagnostic. TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3. Upgrade 4df8d7d64c764bb76b4c17cc7a1a7814bb1c5315.",
+      "findings": [
+        {
+          "file": "src/observability/sentry.ts",
+          "line": 61,
+          "rule": "send-default-pii",
+          "note": "TS2353."
+        },
+        {
+          "file": "src/observability/sentry.ts",
+          "line": 65,
+          "rule": "enable-logs",
+          "note": "enableLogs: true; no diagnostic."
+        }
+      ]
+    },
+    {
+      "repo": "getsentry/sentry-godot",
+      "commit": "be1c5daf6050a1305fb40db6a10dfbfe60e46611",
+      "migration": "https://github.com/getsentry/sentry-godot/pull/991",
+      "directory": "src/sentry/javascript/bridge",
+      "from": "10.75.2",
+      "to": "11.5.0",
+      "with": {
+        "@sentry/core": "11.5.0",
+        "@sentry/wasm": "11.5.0"
+      },
+      "why": "The Godot SDK's web bridge on @sentry/browser, @sentry/core and @sentry/wasm, moved together by upgrade 1b67a2377c64643025889fb1dd0dc744035ea907. sendDefaultPii is passed through an any-typed options object (no diagnostic); breadcrumbsIntegration({ console }) is TS2353; beforeSendTransaction moves under traceLifecycle static; Scope.clear() is gone (TS2339). test.js (plain JS, outside the program) renames spanToStreamedSpanJSON to spanToJSON and reads the span through getActiveSpan, since ScopeData has no span in @sentry/core 11. Retyping options from any to BrowserOptions (and the orgId, beforeSend annotations it needed) compiles under v10 as well: the repository's cleanup, not sites; the import edits feed getMainCarrier and DataCollection.",
+      "findings": [
+        {
+          "file": "src/sentry-bridge.ts",
+          "line": 207,
+          "rule": "send-default-pii",
+          "note": "options typed any: no diagnostic."
+        },
+        {
+          "file": "src/sentry-bridge.ts",
+          "line": 229,
+          "rule": "breadcrumbs-console",
+          "note": "TS2353 console: false; the Console integration is excluded by name instead."
+        },
+        {
+          "file": "src/sentry-bridge.ts",
+          "line": 261,
+          "rule": "before-send-transaction",
+          "note": "Lines 261-277: kept only under traceLifecycle static."
+        },
+        {
+          "file": "src/sentry-bridge.ts",
+          "line": 312,
+          "rule": "removed-exports",
+          "note": "TS2339 Scope.clear(); comment lines 307-311 above changed with it."
+        },
+        {
+          "file": "src/sentry-bridge.ts",
+          "line": 313,
+          "rule": "removed-exports",
+          "note": "TS2339 Scope.clear()."
+        },
+        {
+          "file": "src/sentry-bridge.ts",
+          "line": 314,
+          "rule": "removed-exports",
+          "note": "TS2339 Scope.clear()."
+        },
+        {
+          "file": "test.js",
+          "line": 39,
+          "rule": "renamed-exports",
+          "note": "require of spanToStreamedSpanJSON from @sentry/core."
+        },
+        {
+          "file": "test.js",
+          "line": 418,
+          "rule": "renamed-exports",
+          "note": "spanToStreamedSpanJSON call."
+        },
+        {
+          "file": "test.js",
+          "line": 423,
+          "rule": "renamed-exports",
+          "note": "spanToStreamedSpanJSON call."
+        },
+        {
+          "file": "test.js",
+          "line": 432,
+          "rule": "renamed-exports",
+          "note": "spanToStreamedSpanJSON call."
+        },
+        {
+          "file": "test.js",
+          "line": 434,
+          "rule": "renamed-exports",
+          "note": "spanToStreamedSpanJSON call."
+        },
+        {
+          "file": "test.js",
+          "line": 436,
+          "rule": "renamed-exports",
+          "note": "spanToStreamedSpanJSON call."
+        },
+        {
+          "file": "test.js",
+          "line": 445,
+          "rule": "renamed-exports",
+          "note": "spanToStreamedSpanJSON call."
+        },
+        {
+          "file": "test.js",
+          "line": 447,
+          "rule": "renamed-exports",
+          "note": "spanToStreamedSpanJSON call."
+        },
+        {
+          "file": "test.js",
+          "line": 468,
+          "rule": "generic",
+          "note": "Lines 468-470: getScopeData().span, which @sentry/core 11 ScopeData no longer has."
+        },
+        {
+          "file": "test.js",
+          "line": 473,
+          "rule": "generic",
+          "note": "getScopeData().span."
         }
       ]
     }

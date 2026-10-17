@@ -1,5 +1,5 @@
 {
-  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. The truth helper links @sentry/react outside the consumer, so React's types do not resolve from it and Sentry.ErrorBoundary reports TS2607/TS2786 in both repositories; a real scripts-off install of the target (youth-activity-scheduler, recorded in ../sentry/RESEARCH.md) leaves only the two sendDefaultPii errors, and neither upgrade touched ErrorBoundary. Those diagnostics are helper artifacts, not expectations.",
+  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. The truth helper links @sentry/react outside the consumer, so React's types do not resolve from it and Sentry.ErrorBoundary reports TS2607/TS2786 in both repositories; a real scripts-off install of the target (youth-activity-scheduler, recorded in ../sentry/RESEARCH.md) leaves only the two sendDefaultPii errors, and neither upgrade touched ErrorBoundary. Those diagnostics are helper artifacts, not expectations. Entries from flimm on were drafted and reviewed the same way on 2026-10-16 (UPT-64), before the pack was scored with them; the same ErrorBoundary artifacts appear there and are left out the same way.",
   "package": "@sentry/react",
   "repos": [
     {
@@ -33,6 +33,296 @@
       "to": "11.0.0",
       "why": "Next.js Pages app that declares @sentry/react directly (ErrorBoundary, init in _app). Upgrade b21e87edaa1aca1323b20e516cca384429718a8d changes only package.json and the lockfile: nothing to migrate, every reported site would be a false positive. TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3.",
       "findings": []
+    },
+    {
+      "repo": "Seklfreak/flimm",
+      "commit": "e9fb0517b68b954da4328f23d88040c1f1bc59a3",
+      "migration": "https://github.com/Seklfreak/flimm/pull/28",
+      "directory": "frontend",
+      "from": "10.75.3",
+      "to": "11.0.0",
+      "why": "Vite/React frontend; Sentry.init in main.tsx passes sendDefaultPii: false (TS2353), removed by upgrade 15e1e2cdb1637969ab632fc010796eacf775ae6c.",
+      "findings": [
+        {
+          "file": "src/main.tsx",
+          "line": 16,
+          "rule": "send-default-pii",
+          "note": "TS2353."
+        }
+      ]
+    },
+    {
+      "repo": "daler91/Hyrox-Companion",
+      "commit": "77e68b5e1176297c5db8cf53b1da882a9b1b16f2",
+      "migration": "https://github.com/daler91/Hyrox-Companion/pull/2102",
+      "from": "10.75.2",
+      "to": "11.1.0",
+      "why": "React client; sendDefaultPii: false replaced by a restrictive dataCollection. Merge febc857a574e9d3fc24ce42e89b3a26393edf849; its ClerkProvider edit is @clerk/react, and @sentry/node stayed at 10.75.2.",
+      "findings": [
+        {
+          "file": "client/src/lib/errorReporting.ts",
+          "line": 34,
+          "rule": "send-default-pii",
+          "note": "TS2353; the comment below it changed with it."
+        }
+      ]
+    },
+    {
+      "repo": "jey3dayo/ultra-rss-reader",
+      "commit": "9b2075e57bf1c97d11baa692ccd2f87b79e9bdd1",
+      "migration": "https://github.com/jey3dayo/ultra-rss-reader/pull/346",
+      "from": "10.75.0",
+      "to": "11.0.0",
+      "why": "Tauri/React app; sendDefaultPii: false replaced by a dataCollection constant. TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3. Upgrade 5881f2176be0600c99d4934c41509f4c6a107b2f; the test asserting the init options (objectContaining, no diagnostic) follows the source change.",
+      "findings": [
+        {
+          "file": "src/lib/runtime/monitoring.ts",
+          "line": 93,
+          "rule": "send-default-pii",
+          "note": "TS2353."
+        }
+      ]
+    },
+    {
+      "repo": "jirikrucek/ricochet-app",
+      "commit": "f9313aca70777358bf90015d007daae379157350",
+      "migration": "https://github.com/jirikrucek/ricochet-app/pull/33",
+      "from": "10.70.0",
+      "to": "11.1.0",
+      "why": "React SPA; enableLogs: true removed (TS2353). Merge 394f65deec05080f569500dbba2104dd888b92ca; its vite.config onwarn insertion is for @base-ui directives, not Sentry.",
+      "findings": [
+        {
+          "file": "src/app/observability/sentry.ts",
+          "line": 19,
+          "rule": "enable-logs",
+          "note": "TS2353, enableLogs: true."
+        }
+      ]
+    },
+    {
+      "repo": "louisclarencepeter/destinationparadise",
+      "commit": "04894de5d06336a4e919ac298a59486c69ed1203",
+      "migration": "https://github.com/louisclarencepeter/destinationparadise/pull/162",
+      "from": "10.75.0",
+      "to": "11.7.0",
+      "with": {
+        "@sentry/node": "11.7.0"
+      },
+      "why": "React site plus a Netlify function on @sentry/node, both moved by merge db318cbc4986be27d6486b5e63779f09256af571 (Expo bumps in it are not Sentry's). sendDefaultPii: false replaced by dataCollection in both; the function file is outside the compiled program. mobile/tsconfig.json extends an Expo base that is not installed and is not compiled.",
+      "findings": [
+        {
+          "file": "src/utils/sentry.js",
+          "line": 99,
+          "rule": "send-default-pii",
+          "note": "TS2353 (checkJs)."
+        },
+        {
+          "file": "netlify/functions/_sentry.mjs",
+          "line": 23,
+          "rule": "send-default-pii",
+          "note": "@sentry/node init, outside the program."
+        }
+      ]
+    },
+    {
+      "repo": "poporonnet/kaniwriter",
+      "commit": "340019428754df9ebba740a064203d58caa311fe",
+      "migration": "https://github.com/poporonnet/kaniwriter/pull/1430",
+      "from": "10.76.0",
+      "to": "11.5.0",
+      "why": "React app; sendDefaultPii: true removed with nothing in its place. TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3. Upgrade 8282be757a82fb0ec49eda445e88f97cf19385d5.",
+      "findings": [
+        {
+          "file": "src/utils/sentryInitialize.ts",
+          "line": 7,
+          "rule": "send-default-pii",
+          "note": "TS2353."
+        }
+      ]
+    },
+    {
+      "repo": "preijm/milk-me-not",
+      "commit": "471ec20450c8af776bee5b2c2429dd40045312cf",
+      "migration": "https://github.com/preijm/milk-me-not/pull/293",
+      "from": "10.76.2",
+      "to": "11.4.0",
+      "why": "React app; sendDefaultPii: false replaced by dataCollection. The repository has both package-lock.json and bun.lock (the upgrade fbc7d5f14bde85058d93b417f8c7bbf57020b39e updated bun.lock); it installs with npm from package-lock.json, hence from.",
+      "findings": [
+        {
+          "file": "src/lib/errorReporting.ts",
+          "line": 57,
+          "rule": "send-default-pii",
+          "note": "TS2353."
+        }
+      ]
+    },
+    {
+      "repo": "CandeeGenerations/central-flock",
+      "commit": "8d2155e0f98589fe41bc0e7586027ac4cac812c9",
+      "migration": "https://github.com/CandeeGenerations/central-flock/pull/30",
+      "from": "10.75.3",
+      "to": "11.2.0",
+      "with": {
+        "@sentry/node": "11.2.0"
+      },
+      "why": "React client and Express server, @sentry/react and @sentry/node moved together by upgrade 8e221842b393e901e9a16d03b140dcbb32d55553: sendDefaultPii replaced by dataCollection and beforeSendTransaction by beforeSendSpan on both sides; setupExpressErrorHandler is deprecated at the target (TS6387) and was left. TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3. The RSVP regex refactors in both scrubbers are the repository's own scrubbing, not Sentry API.",
+      "findings": [
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 38,
+          "rule": "send-default-pii",
+          "note": "TS2353."
+        },
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 43,
+          "rule": "before-send-transaction",
+          "note": "Replaced by beforeSendSpan."
+        },
+        {
+          "file": "server/lib/sentry.ts",
+          "line": 42,
+          "rule": "send-default-pii",
+          "note": "TS2353."
+        },
+        {
+          "file": "server/lib/sentry.ts",
+          "line": 44,
+          "rule": "before-send-transaction",
+          "note": "Replaced by beforeSendSpan."
+        },
+        {
+          "file": "server/index.ts",
+          "line": 120,
+          "rule": "error-handlers",
+          "note": "TS6387 setupExpressErrorHandler; the upgrade left it."
+        }
+      ]
+    },
+    {
+      "repo": "DougZeThug/717rec",
+      "commit": "b4b9baa8728dde2b8ccdc109d56829a17d5dc014",
+      "migration": "https://github.com/DougZeThug/717rec/pull/1594",
+      "from": "10.75.2",
+      "to": "11.0.0",
+      "why": "React app; sendDefaultPii: false replaced by a dataCollection copying v10's key list. TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3. Merge d70039fd83258ca7d7c085d16d30c06226531a5b; the supabase function edits are @lovable.dev/mcp-js and supabase-js bumps, and the test asserting the init options (no diagnostic) follows the source change.",
+      "findings": [
+        {
+          "file": "src/utils/sentry.ts",
+          "line": 117,
+          "rule": "send-default-pii",
+          "note": "TS2353; the comment line 116 above it changed with it."
+        }
+      ]
+    },
+    {
+      "repo": "CandeeGenerations/attendance-public",
+      "commit": "661c08b633a2ee77b841cd159ec90df0d9636d88",
+      "migration": "https://github.com/CandeeGenerations/attendance-public/pull/3",
+      "from": "10.75.3",
+      "to": "11.2.0",
+      "why": "React app; sendDefaultPii replaced by dataCollection, beforeSendTransaction by beforeSendSpan. TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3. Merge 14350d8a017b669ba10213780fa74dc289507e02.",
+      "findings": [
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 39,
+          "rule": "send-default-pii",
+          "note": "TS2353."
+        },
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 42,
+          "rule": "before-send-transaction",
+          "note": "Replaced by beforeSendSpan."
+        }
+      ]
+    },
+    {
+      "repo": "cucumber/cucumber-reports",
+      "commit": "a2b50ccbb67ccbbd7b00bbb89b3c45358593fe43",
+      "migration": "https://github.com/cucumber/cucumber-reports/pull/314",
+      "from": "10.75.3",
+      "to": "11.2.0",
+      "why": "React app; enableLogs: true removed (TS2353). TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3. Upgrade ec06fa57027ce3e9e0db4f9a68ce91c6ee3169ad.",
+      "findings": [
+        {
+          "file": "src/main.tsx",
+          "line": 17,
+          "rule": "enable-logs",
+          "note": "TS2353, enableLogs: true."
+        }
+      ]
+    },
+    {
+      "repo": "Simple-With-Us/BotFleet",
+      "commit": "8ddc42a46f27e31b51226156d3ccd96dd34cdca1",
+      "migration": "https://github.com/Simple-With-Us/BotFleet/pull/940",
+      "from": "10.76.1",
+      "to": "11.6.0",
+      "with": {
+        "@sentry/node": "11.6.0"
+      },
+      "why": "React client and Node server, moved together by upgrade d1270b68071d2c04bea027ff104bcf417026ff0d. Client: enableLogs and sendDefaultPii removed, dataCollection queryParams renamed urlQueryParams (TS2561). Server: httpIntegration maxIncomingRequestBodySize renamed (TS2561), enableLogs (TS2353), sendDefaultPii and streamGenAiSpans removed; a real-SDK test drops enableLogs, renames queryParams and wraps a span in startNewTrace because v11 parents it to the ignored HTTP span. Tests asserting the init options or matching the source text follow the source change. The repository stores binaries in Git LFS.",
+      "findings": [
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 101,
+          "rule": "enable-logs",
+          "note": "enableLogs: true; no diagnostic (TS2561 at :107 is the first excess key)."
+        },
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 102,
+          "rule": "send-default-pii"
+        },
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 107,
+          "rule": "generic",
+          "note": "TS2561 dataCollection queryParams renamed urlQueryParams."
+        },
+        {
+          "file": "server/sentry.ts",
+          "line": 497,
+          "rule": "http-integration-options",
+          "note": "TS2561 maxIncomingRequestBodySize renamed maxRequestBodySize."
+        },
+        {
+          "file": "server/sentry.ts",
+          "line": 547,
+          "rule": "enable-logs",
+          "note": "TS2353, enableLogs: true."
+        },
+        {
+          "file": "server/sentry.ts",
+          "line": 558,
+          "rule": "send-default-pii"
+        },
+        {
+          "file": "server/sentry.ts",
+          "line": 561,
+          "rule": "generic",
+          "note": "streamGenAiSpans removed; lines 559-560 are its comment."
+        },
+        {
+          "file": "server/sentry-scrub-real-sdk.test.ts",
+          "line": 20,
+          "rule": "enable-logs",
+          "note": "A real Sentry.init in the test."
+        },
+        {
+          "file": "server/sentry-scrub-real-sdk.test.ts",
+          "line": 32,
+          "rule": "generic",
+          "note": "dataCollection queryParams renamed urlQueryParams."
+        },
+        {
+          "file": "server/sentry-scrub-real-sdk.test.ts",
+          "line": 97,
+          "rule": "generic",
+          "note": "Span wrapped in startNewTrace: v11 parents it to the ignored HTTP span (runtime only)."
+        }
+      ]
     }
   ]
 }
