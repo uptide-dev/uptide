@@ -1,4 +1,21 @@
-import type { FixDiagnostic, FixReport, TestResult } from './types.js';
+import { lowTypeCoverage } from '../check/verdict.js';
+import type { TypeCoverage } from '../domain/report.js';
+import type { BuildResult, FixDiagnostic, FixReport, TestResult } from './types.js';
+
+/**
+ * Where the repository type-checks too few of the affected files (UPT-12), no new type errors
+ * proves nothing: the verdict needs a test run or a build that passed. Elsewhere, true.
+ */
+export function testsOrBuildVouch(
+  coverage: TypeCoverage | undefined,
+  tests: TestResult[],
+  build: BuildResult[] | undefined,
+): boolean {
+  if (!lowTypeCoverage(coverage)) return true;
+  return (
+    tests.some((t) => t.status === 'passed') || (build ?? []).some((b) => b.status === 'passed')
+  );
+}
 
 /**
  * The repository before the upgrade: does it type-check, do its tests pass. When it does
@@ -87,10 +104,16 @@ export function fixVerdict(report: FixReport): {
 } {
   const v = report.verification;
   const health = baselineHealthOf(report);
+  const low = lowTypeCoverage(report.typeCoverage);
   if (v.passed)
     return health.healthy
-      ? { text: 'verification passed', tone: 'passed' }
+      ? {
+          text: low ? `verification passed on tests and build (${low})` : 'verification passed',
+          tone: 'passed',
+        }
       : { text: 'no new errors', tone: 'compared' };
+  if (low && !v.typesUnverified && !v.newErrors.length)
+    return { text: `verification failed: ${low} and no test or build passed`, tone: 'failed' };
   if (v.typesUnverified || !v.newErrors.length)
     return { text: 'verification failed', tone: 'failed' };
   return {

@@ -1,5 +1,6 @@
 import { readFileSync, realpathSync } from 'node:fs';
 import { join, posix, relative, resolve, sep } from 'node:path';
+import { ts } from 'ts-morph';
 import { typescriptAdapter } from '../adapters/typescript/index.js';
 import { createFsSurfaceCache } from '../cache/fs-surface-cache.js';
 import { diffDirs } from '../diff-package.js';
@@ -32,6 +33,7 @@ import { maxSatisfying } from '../fetch/range.js';
 import { heldBackText } from '../fetch/release-age.js';
 import type { buildWorkspaces } from '../fix/build.js';
 import { FIXABILITY, planPackage, siteOutcome } from '../fix/plan.js';
+import { workspaceProjects } from '../fix/verify.js';
 import { scanImports } from '../list/scan.js';
 import { activePacks, CANDIDATE_WARNING, candidatePack } from '../packs/index.js';
 import { packInventory } from '../packs/inventory.js';
@@ -50,7 +52,7 @@ import { requireFindUsages } from './capabilities.js';
 import { type CompanionPlan, companionsOf, type InstalledDependency } from './companions.js';
 import { arbitrateUnchecked } from './file-kind.js';
 import { groupName, releaseGroups } from './groups.js';
-import { importedByText, importFileCounts } from './importers.js';
+import { filesImporting, importedByText, importFileCounts } from './importers.js';
 import { match } from './match.js';
 import { estimateScopedHeapMb, freeMemoryBytes, memoryPolicy, scopedImporters } from './memory.js';
 import { mergeSignals } from './merge.js';
@@ -824,6 +826,12 @@ export function mergeAcrossWorkspaces(
       };
       if (combined.compile.skipped === undefined) delete combined.compile.skipped;
     }
+    const typeCoverages = list.map((p) => p.typeCoverage).filter((c) => c !== undefined);
+    if (typeCoverages.length > 0)
+      combined.typeCoverage = {
+        checked: typeCoverages.reduce((n, c) => n + c.checked, 0),
+        affected: typeCoverages.reduce((n, c) => n + c.affected, 0),
+      };
     // One verdict for the merged entry: its findings and compile summary are the union.
     if (list.some((p) => p.verdict))
       combined.verdict = verdictOf(
@@ -2443,6 +2451,30 @@ async function checkGroup(
     report.findings = findings;
     report.callSitesChecked = usages.length;
     if (compile) report.compile = compile;
+    // How much of the code that uses the package the repository's own compiler judges: a clean
+    // compile over 69 TypeScript files says little about 2,700 JavaScript ones (UPT-12).
+    const affected = filesImporting(
+      repo.dir,
+      prepared.map((p) => p.name),
+      repo.exclude,
+    );
+    if (affected.length > 0) {
+      // Checked: compiled by the workspace's own tsconfig (or a project it references), as
+      // fix's verification reads it, and not left unchecked there (plain JavaScript, @ts-nocheck).
+      const projects = workspaceProjects(ts, repo.dir).projects.map((p) => ({
+        files: new Set(p.fileNames.map((f) => resolve(f))),
+        checkJs: p.options.checkJs === true,
+      }));
+      report.typeCoverage = {
+        checked: affected.filter((file) =>
+          projects.some(
+            (p) =>
+              p.files.has(resolve(repo.dir, file)) && repoTypeChecks(file, headOf(file), p.checkJs),
+          ),
+        ).length,
+        affected: affected.length,
+      };
+    }
     // Analyzed packages only: a skipped or untyped one says why in its status.
     if (['breaking', 'deprecated', 'safe', 'partial', 'unknown'].includes(report.status))
       report.verdict = verdictOf(

@@ -1,4 +1,4 @@
-import type { Finding, ImportersNotAnalyzed, Tier } from '../domain/report.js';
+import type { Finding, ImportersNotAnalyzed, Tier, TypeCoverage } from '../domain/report.js';
 import type { CostEstimate } from '../llm/fixer.js';
 import type { Provider } from '../llm/types.js';
 import type { ApiChangeFacts, Headline, PackContext } from '../packs/types.js';
@@ -217,6 +217,8 @@ export interface FixReport {
   peerConflicts?: PeerBlockerGroup[];
   /** From the check `fix` ran: importing files the memory cap left out, per workspace. */
   importersNotAnalyzed?: ImportersNotAnalyzed[];
+  /** From the check `fix` ran: how many files that use the package the repository type-checks. Low, tests and build decide. */
+  typeCoverage?: TypeCoverage;
   /** `generic`: no pack covers the upgrade; every edit is the agent's, verified by the compiler. */
   tier?: Tier;
   lockfile?: InstallReport;

@@ -1,4 +1,4 @@
-import type { PackageReport } from '../domain/report.js';
+import type { PackageReport, TypeCoverage } from '../domain/report.js';
 import { NO_PACK, noPackVerdict } from './tier.js';
 
 /** The verdict of one analyzed package, and what verified it. */
@@ -13,6 +13,8 @@ export interface Verdict {
   notVerified?: string;
   /** Set when some, not all, of the files were compiled: the coverage line. */
   partlyVerified?: string;
+  /** Set when too few of the affected files are type-checked for the compile to prove anything: `types cover 3 of 12 affected files`. */
+  lowTypeCoverage?: string;
   /**
    * `0 breaking · compiled against 4.6.5: 0 new type errors`, as terminal and HTML print it.
    * Without a pack and nothing confirmed breaking, `not analyzed: no pack yet` instead of `0 breaking`.
@@ -33,6 +35,19 @@ export function coverageLine(c: NonNullable<PackageReport['compile']>['coverage'
   const compilers = compilersPhrase(c.compilers ?? []);
   const notCompiled = (c.notCompiled ?? []).map((n) => `; not compiled: ${n.path} (${n.reason})`);
   return `compiled ${c.compiled} of ${count(c.total, 'file')} in ${count(c.workspaces, 'workspace')}${compilers ? ` with ${compilers}` : ''}${skipped ? `; skipped: ${skipped}` : ''}${notCompiled.join('')}${c.noTsconfig ? '; no tsconfig found, using importer-based compile scope' : ''}`;
+}
+
+/**
+ * Below this share of the affected files type-checked by the repository, a clean compile says
+ * almost nothing (2,700 JavaScript files beside 69 TypeScript ones): the summaries say how much
+ * the types cover, and tests and build decide (UPT-12).
+ */
+export const LOW_TYPE_COVERAGE = 0.5;
+
+/** The coverage line, when it is low enough to say: `types cover 3 of 12 affected files`. */
+export function lowTypeCoverage(c: TypeCoverage | undefined): string | undefined {
+  if (!c || c.affected === 0 || c.checked / c.affected >= LOW_TYPE_COVERAGE) return undefined;
+  return `types cover ${c.checked} of ${count(c.affected, 'affected file')}`;
 }
 
 /**
@@ -61,6 +76,16 @@ export function verdictOf(p: PackageReport, notCompiled?: string): Verdict {
   if (p.compile !== undefined && p.compile.skipped === undefined) {
     // Reports stored before the count was kept say what was compiled, without a number.
     const newErrors = p.compile.newErrors;
+    const low = lowTypeCoverage(p.typeCoverage);
+    if (low) {
+      return {
+        breaking,
+        compiledAgainst: p.target,
+        ...(newErrors !== undefined ? { newErrors } : {}),
+        lowTypeCoverage: low,
+        summary: `${head} · ${low}: the compile result is not proof, tests and build decide`,
+      };
+    }
     // Some of the files that use the package were not compiled: the verdict says so, instead
     // of a clean result that only covers part of the code.
     if (coverage && coverage.compiled < coverage.total) {

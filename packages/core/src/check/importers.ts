@@ -5,6 +5,56 @@ import { ts } from 'ts-morph';
 const SOURCE = /\.(?:[cm]?[jt]sx?)$/;
 const SKIPPED = new Set(['node_modules', 'dist', 'build', 'coverage', '.git', '.next', '.turbo']);
 
+/** `from 'pkg'`, `require('pkg')`, `import('pkg')`, with or without a subpath; group 1 is the name. */
+function importPattern(names: readonly string[]): RegExp {
+  const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  return new RegExp(
+    `(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*|\\brequire\\s*\\(\\s*|\\bimport\\s+)["'](${escaped})(?:\\/[^"']*)?["']`,
+    'g',
+  );
+}
+
+/** Every source file under `dir` (not declarations, not build output or `exclude`d directories), until `visit` returns true. */
+function eachSource(
+  dir: string,
+  exclude: ReadonlySet<string>,
+  visit: (path: string, text: string) => boolean | undefined,
+): void {
+  const walk = (at: string): boolean => {
+    let entries: string[];
+    try {
+      entries = readdirSync(at);
+    } catch {
+      return false;
+    }
+    for (const name of entries) {
+      if (SKIPPED.has(name)) continue;
+      const path = join(at, name);
+      if (exclude.has(path)) continue;
+      let directory = false;
+      try {
+        directory = statSync(path).isDirectory();
+      } catch {
+        continue;
+      }
+      if (directory) {
+        if (walk(path)) return true;
+        continue;
+      }
+      if (!SOURCE.test(name) || /\.d\.[cm]?ts$/.test(name)) continue;
+      let text: string;
+      try {
+        text = readFileSync(path, 'utf8');
+      } catch {
+        continue;
+      }
+      if (visit(path, text)) return true;
+    }
+    return false;
+  };
+  walk(dir);
+}
+
 /**
  * Which of `names` a workspace's own sources import, by reading the files: `from 'pkg'`,
  * `require('pkg')`, `import('pkg')`, with or without a subpath. Only the workspace's own
@@ -26,46 +76,34 @@ export function importedByText(
       .map((w) => resolve(root, w))
       .filter((other) => other.startsWith(`${dir}/`)),
   );
-  const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  const pattern = new RegExp(
-    `(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*|\\brequire\\s*\\(\\s*|\\bimport\\s+)["'](${escaped})(?:\\/[^"']*)?["']`,
-    'g',
-  );
+  const pattern = importPattern(names);
   const found = new Set<string>();
-  const walk = (at: string): void => {
-    let entries: string[];
-    try {
-      entries = readdirSync(at);
-    } catch {
-      return;
-    }
-    for (const name of entries) {
-      if (SKIPPED.has(name)) continue;
-      const path = join(at, name);
-      if (exclude.has(path)) continue;
-      let directory = false;
-      try {
-        directory = statSync(path).isDirectory();
-      } catch {
-        continue;
-      }
-      if (directory) {
-        walk(path);
-        continue;
-      }
-      if (!SOURCE.test(name) || /\.d\.[cm]?ts$/.test(name)) continue;
-      let text: string;
-      try {
-        text = readFileSync(path, 'utf8');
-      } catch {
-        continue;
-      }
-      for (const match of text.matchAll(pattern)) if (match[1]) found.add(match[1]);
-      if (found.size === names.length) return;
-    }
-  };
-  walk(dir);
+  eachSource(dir, exclude, (_, text) => {
+    for (const match of text.matchAll(pattern)) if (match[1]) found.add(match[1]);
+    return found.size === names.length;
+  });
   return [...found].sort();
+}
+
+/**
+ * The files under `dir` that import one of `names`, relative to it, read as text: the
+ * JavaScript a tsconfig without `allowJs` leaves out of the program counts too. The
+ * denominator of type coverage (`check/verdict.ts`).
+ */
+export function filesImporting(
+  dir: string,
+  names: readonly string[],
+  exclude: readonly string[] = [],
+): string[] {
+  if (names.length === 0) return [];
+  const pattern = importPattern(names);
+  const files: string[] = [];
+  eachSource(dir, new Set(exclude), (path, text) => {
+    pattern.lastIndex = 0;
+    if (pattern.test(text)) files.push(relative(dir, path));
+    return undefined;
+  });
+  return files.sort();
 }
 
 /**
@@ -75,44 +113,13 @@ export function importedByText(
 export function importFileCounts(root: string, names: readonly string[]): Map<string, number> {
   const counts = new Map<string, number>(names.map((n) => [n, 0]));
   if (names.length === 0) return counts;
-  const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  const pattern = new RegExp(
-    `(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*|\\brequire\\s*\\(\\s*|\\bimport\\s+)["'](${escaped})(?:\\/[^"']*)?["']`,
-    'g',
-  );
-  const walk = (at: string): void => {
-    let entries: string[];
-    try {
-      entries = readdirSync(at);
-    } catch {
-      return;
-    }
-    for (const name of entries) {
-      if (SKIPPED.has(name)) continue;
-      const path = join(at, name);
-      let directory = false;
-      try {
-        directory = statSync(path).isDirectory();
-      } catch {
-        continue;
-      }
-      if (directory) {
-        walk(path);
-        continue;
-      }
-      if (!SOURCE.test(name) || /\.d\.[cm]?ts$/.test(name)) continue;
-      let text: string;
-      try {
-        text = readFileSync(path, 'utf8');
-      } catch {
-        continue;
-      }
-      const inFile = new Set<string>();
-      for (const match of text.matchAll(pattern)) if (match[1]) inFile.add(match[1]);
-      for (const name of inFile) counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
-  };
-  walk(resolve(root));
+  const pattern = importPattern(names);
+  eachSource(resolve(root), new Set(), (_, text) => {
+    const inFile = new Set<string>();
+    for (const match of text.matchAll(pattern)) if (match[1]) inFile.add(match[1]);
+    for (const name of inFile) counts.set(name, (counts.get(name) ?? 0) + 1);
+    return undefined;
+  });
   return counts;
 }
 

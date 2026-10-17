@@ -116,6 +116,12 @@ export interface PlanGroup {
   note?: string;
 }
 
+/** How many of the files that use a package the repository type-checks. */
+export interface TypeCoverage {
+  checked: number;
+  affected: number;
+}
+
 export interface PackageReport {
   /** A local candidate smoke run; never eligible for publication. */
   packWarning?: 'candidate pack, not verified';
@@ -224,6 +230,13 @@ export interface PackageReport {
     coverage?: CompileCoverage & { workspaces: number };
   };
   /**
+   * The files that import the package (`affected`, read as text, JavaScript outside the program
+   * included) and how many of them the repository's own compiler type-checks: TypeScript, and
+   * JavaScript under `checkJs` or `// @ts-check`. Below `LOW_TYPE_COVERAGE` a clean compile is
+   * not evidence (`check/verdict.ts`).
+   */
+  typeCoverage?: TypeCoverage;
+  /**
    * The breaking count and what verified it, for every analyzed package, zero included:
    * `0 breaking · compiled against 4.6.5: 0 new type errors`, or `types not verified: <why>`.
    */
@@ -234,6 +247,8 @@ export interface PackageReport {
     notVerified?: string;
     /** Set when some, not all, of the files were compiled: `compiled 12 of 40 files in 2 workspaces; skipped: ...`. */
     partlyVerified?: string;
+    /** Set when too few affected files are type-checked for the compile to prove anything: `types cover 3 of 12 affected files`. */
+    lowTypeCoverage?: string;
     summary: string;
   };
   /** Signal C: what loading installed and target in a child Node showed, one entry per member. */

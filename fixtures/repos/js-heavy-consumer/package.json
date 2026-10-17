@@ -1,0 +1,10 @@
+{
+  "name": "js-heavy-consumer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A mostly-JavaScript consumer of fixtures/synthetic: allowJs without checkJs, seven plain .js files, one under // @ts-check, two .ts, and one generated .ts the tsconfig excludes. The compiler type-checks 3 of the 11 files that import the package (UPT-12). Not runnable.",
+  "dependencies": {
+    "synthetic": "1.0.0"
+  },
+  "license": "MIT"
+}
