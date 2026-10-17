@@ -1,4 +1,4 @@
-import { realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { consumerCompilerDir, unresolvedConfig } from '@uptide/core';
@@ -30,11 +30,18 @@ export function compilerDiagnostics(
   // links the target compiler in place of the installed one between two calls.
   const found = consumerCompilerDir(configs[0] ? join(project, dirname(configs[0])) : project);
   const dir = found && realpathSync(found);
-  let ts = (
-    dir
+  let ts: typeof import('typescript');
+  try {
+    ts = dir
       ? createRequire(join(dir, 'package.json'))(dir)
-      : require(require.resolve('typescript', { paths: [project] }))
-  ) as typeof import('typescript');
+      : require(require.resolve('typescript', { paths: [project] }));
+  } catch {
+    // TypeScript 7.0.2 has no `main` (exports only), so it does not even load: no API either.
+    const pkg = dir ? join(dir, 'package.json') : require.resolve('typescript/package.json');
+    ts = {
+      version: (JSON.parse(readFileSync(pkg, 'utf8')) as { version: string }).version,
+    } as never;
+  }
   let compiler = `typescript ${ts.version}, the repository's`;
   // TypeScript 7 has no JavaScript API: the one this checkout builds with stands in, said so.
   if (typeof ts.getParsedCommandLineOfConfigFile !== 'function') {
