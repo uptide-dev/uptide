@@ -1,13 +1,18 @@
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { describe, expect, it, vi } from 'vitest';
 import { IntegrityError, PackageNotFoundError, VersionNotFoundError } from '../errors.js';
 import { writeTgz } from '../test-utils/tar-writer.js';
 import { createNpmFetcher, removePackageDir, tarballCachePath } from './npm-fetcher.js';
 import type { RegistryConfig } from './npmrc.js';
 import { withRetry } from './registry.js';
+
+vi.mock('node:fs/promises', { spy: true });
 
 const config: RegistryConfig = {
   registry: 'https://reg.test',
@@ -403,3 +408,86 @@ it.each<RegistryConfig & { publicRegistry: boolean }>([
     expect(JSON.stringify(cached)).not.toContain('secret');
   },
 );
+
+it('shares complete cache entries across processes and simultaneous requests', async () => {
+  const { cacheDir, extractRoot, tgz } = setup();
+  const script = `
+    import assert from 'node:assert/strict';
+    import { readFileSync } from 'node:fs';
+    import { join } from 'node:path';
+    import { createNpmFetcher } from ${JSON.stringify(new URL('./npm-fetcher.ts', import.meta.url).href)};
+    const tgz = Buffer.from(${JSON.stringify(tgz.toString('base64'))}, 'base64');
+    let ready;
+    const barrier = new Promise(resolve => { ready = resolve; });
+    let requests = 0;
+    const fetcher = createNpmFetcher({
+      cacheDir: ${JSON.stringify(cacheDir)}, extractRoot: ${JSON.stringify(extractRoot)},
+      config: ${JSON.stringify(config)},
+      fetch: async url => {
+        if (String(url).endsWith('.tgz')) return new Response(tgz);
+        if (++requests === 8) ready();
+        await barrier;
+        return new Response(JSON.stringify({ version: '1.0.0', dist: { tarball: 'https://reg.test/demo.tgz' } }));
+      },
+      metadataTtlMs: 0,
+    });
+    const packages = await Promise.all(Array.from({ length: 8 }, () => fetcher.fetch('demo', 'latest')));
+    for (const pkg of packages) {
+      assert.equal(readFileSync(join(pkg.dir, 'index.d.ts'), 'utf8'), 'export declare const a: 1;');
+      assert.equal(readFileSync(join(pkg.dir, '.uptide-complete'), 'utf8'), '');
+    }
+  `;
+  try {
+    const results = await Promise.allSettled(
+      Array.from({ length: 4 }, () =>
+        promisify(execFile)(process.execPath, [
+          '--import',
+          'tsx',
+          '--input-type=module',
+          '-e',
+          script,
+        ]),
+      ),
+    );
+    for (const result of results) expect(result.status, JSON.stringify(result)).toBe('fulfilled');
+    expect(
+      JSON.parse(readFileSync(join(cacheDir, 'registry/demo/resolve-latest.json'), 'utf8')).value
+        .version,
+    ).toBe('1.0.0');
+    expect(readFileSync(tarballCachePath(cacheDir, 'demo', '1.0.0'))).toEqual(tgz);
+    expect(
+      [
+        ...readdirSync(cacheDir, { recursive: true }),
+        ...readdirSync(extractRoot, { recursive: true }),
+      ].some((path) => String(path).endsWith('.tmp')),
+    ).toBe(false);
+  } finally {
+    rmSync(cacheDir, { recursive: true, force: true });
+    rmSync(extractRoot, { recursive: true, force: true });
+  }
+});
+
+it.each(['EEXIST', 'ENOTEMPTY', 'EACCES'])('handles cache rename failure %s', async (code) => {
+  const { fetcher, cacheDir } = setup();
+  await fetcher.resolve('demo', 'latest');
+  const rename = vi
+    .spyOn(fs, 'rename')
+    .mockRejectedValue(Object.assign(new Error('race'), { code }));
+  try {
+    const contender = createNpmFetcher({
+      cacheDir,
+      config,
+      metadataTtlMs: 0,
+      fetch: async () =>
+        new Response(
+          JSON.stringify({ version: '2.0.0', dist: { tarball: 'https://reg.test/demo.tgz' } }),
+        ),
+    });
+    if (code === 'EACCES')
+      await expect(contender.resolve('demo', 'latest')).rejects.toMatchObject({ code });
+    else expect(await contender.resolve('demo', 'latest')).toBe('1.0.0');
+    expect(readdirSync(join(cacheDir, 'registry/demo'))).toEqual(['resolve-latest.json']);
+  } finally {
+    rename.mockRestore();
+  }
+});

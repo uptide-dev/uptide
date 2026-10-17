@@ -694,7 +694,18 @@ ${EXIT_CODES(
             // failed to analyze means the question was not fully answered: the report above
             // lists the others and says which failed, and the code says "incomplete".
             if (report.summary.breaking > 0) return EXIT.breaking;
-            return report.packages.some((p) => isFailure(p)) ? EXIT.error : EXIT.ok;
+            const failed = report.packages.filter(isFailure);
+            if (failed.length > 0) {
+              for (const p of failed)
+                io.err(
+                  renderError(
+                    new CliError(`${p.name}: ${p.notes[0] || 'analysis failed'}`),
+                    ui.color,
+                  ),
+                );
+              return EXIT.error;
+            }
+            return EXIT.ok;
           },
           { quiet: !flags.verbose },
         ),

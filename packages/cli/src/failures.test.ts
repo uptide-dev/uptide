@@ -224,7 +224,7 @@ describe('friendly failures: each says what to run next', () => {
       '✗ stripe 14.25.0: could not resolve latest: https://registry.npmjs.org/stripe/latest: HTTP 429, rate limited; the registry asks to wait 145s',
     );
     expect(stdout).not.toMatch(/^stripe +14/m);
-    expect(stderr).not.toContain('error:');
+    expect(stderr).toContain('error: stripe: could not resolve latest:');
   });
 
   it('breaking found and a dependency failed: breaking is the answer (exit 1)', async () => {
@@ -336,3 +336,36 @@ describe('friendly failures: each says what to run next', () => {
     expect(dirty.engine.calls).toEqual([]);
   });
 });
+
+it.each([{ flags: [] }, { flags: ['--json'] }, { flags: ['--details'] }])(
+  'reports cache failures on stderr with %j',
+  async ({ flags }) => {
+    const message = 'ENOENT: rename registry/demo/resolve-latest.json.tmp';
+    const report = checkResult({ failed: 1 });
+    report.packages = [
+      {
+        workspace: '.',
+        name: 'zod',
+        installed: '3.23.8',
+        latest: '4.6.5',
+        target: '4.6.5',
+        majorsBehind: 1,
+        findings: [],
+        callSitesChecked: 0,
+        unanalyzed: [],
+        status: 'skipped',
+        skipReason: 'ANALYSIS_FAILED',
+        notes: [message],
+        timing: { fetchMs: 0, diffMs: 0, usagesMs: 0, compileMs: 0 },
+      },
+    ];
+    const { code, stderr, stdout } = await fail(
+      ['check', 'zod', ...flags],
+      npmRepo(),
+      fakeEngine({ check: async () => report }),
+    );
+    expect(code).toBe(2);
+    expect(stderr).toContain(`error: zod: ${message}`);
+    if (flags.includes('--json')) expect(JSON.parse(stdout).packages[0].notes).toEqual([message]);
+  },
+);
