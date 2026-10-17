@@ -135,4 +135,6 @@ it.skipIf(!existsSync(bin))(
       rmSync(root, { recursive: true, force: true });
     }
   },
+  // Copying the bundle and starting two real CLI processes exceeds 5 s under suite load.
+  10_000,
 );

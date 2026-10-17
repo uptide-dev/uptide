@@ -63,7 +63,7 @@ function fixture() {
   const verify = (): FixDiagnostic[] => {
     const project = new Project({ useInMemoryFileSystem: true, compilerOptions: { strict: true } });
     const file = project.createSourceFile('a.ts', readFileSync(join(root, 'src/a.ts'), 'utf8'));
-    return project
+    return file
       .getPreEmitDiagnostics()
       .filter((d) => d.getSourceFile() === file)
       .map((d) => ({
@@ -526,7 +526,7 @@ it('accepts an edit that adds an import above a pre-existing error it leaves alo
     const project = new Project({ useInMemoryFileSystem: true, compilerOptions: { strict: true } });
     project.createSourceFile('value.ts', readFileSync(join(f.root, 'src/value.ts'), 'utf8'));
     const file = project.createSourceFile('a.ts', readFileSync(join(f.root, 'src/a.ts'), 'utf8'));
-    return project
+    return file
       .getPreEmitDiagnostics()
       .filter((d) => d.getSourceFile() === file)
       .map((d) => ({
@@ -583,7 +583,7 @@ it('sends sites of the same change in one file as one task, and accepts them tog
   const verify = (): FixDiagnostic[] => {
     const project = new Project({ useInMemoryFileSystem: true, compilerOptions: { strict: true } });
     const file = project.createSourceFile('a.ts', readFileSync(join(f.root, 'src/a.ts'), 'utf8'));
-    return project
+    return file
       .getPreEmitDiagnostics()
       .filter((d) => d.getSourceFile() === file)
       .map((d) => ({
