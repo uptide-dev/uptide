@@ -219,6 +219,7 @@ export {
   cachedRepoDir,
   ensureRepo,
   type PinnedRepo,
+  pinnedRepo,
   truthCacheDir,
 } from './packs/tooling/truth.js';
 export {

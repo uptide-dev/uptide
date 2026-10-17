@@ -53,6 +53,17 @@ export function truthProblems(truth: GroundTruth, packageName: string): string[]
   return problems;
 }
 
+/** The repository an entry pins, `directory` included: dependencies install there, not at the root. */
+export function pinnedRepo(
+  entry: Pick<GroundTruthRepo, 'repo' | 'commit' | 'directory'>,
+): PinnedRepo {
+  return {
+    repo: entry.repo as string,
+    commit: entry.commit as string,
+    ...(entry.directory ? { directory: entry.directory } : {}),
+  };
+}
+
 export function cachedRepoDir(entry: PinnedRepo, cacheDir = truthCacheDir()): string {
   return join(cacheDir, `${entry.repo.replace('/', '__')}@${entry.commit}`);
 }
