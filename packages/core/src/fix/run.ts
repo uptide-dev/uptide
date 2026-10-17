@@ -10,7 +10,14 @@ import { SafetyRefusal, UptideError } from '../errors.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
-import { costEstimate, DEFAULT_MAX_COST_USD, describeLimit, providerFixer } from '../llm/fixer.js';
+import {
+  type CostSetting,
+  costEstimate,
+  DEFAULT_MAX_COST_USD,
+  describeEstimate,
+  overEstimateMessage,
+  providerFixer,
+} from '../llm/fixer.js';
 import { nanos } from '../llm/pricing.js';
 import { decidedRules, decisionInventory, packDecisions } from '../packs/decisions.js';
 import { genericPack } from '../packs/generic.js';
@@ -132,9 +139,12 @@ export interface FixOptions {
   pinCurrentApi?: boolean;
   /**
    * Assisted-fix budget: SDK tasks may overshoot by one turn; patch calls reserve their
-   * worst-case cost. Unfinished sites stay manual. Default: 1 USD for every package.
+   * worst-case cost. Unfinished sites stay manual. Default: 1 USD for every package. A
+   * preflight estimate above it stops the run before any agent call.
    */
   maxCostUsd?: number;
+  /** `maxCost`: the limit comes from uptide.yml (Action, App), so messages name that setting. */
+  costSetting?: CostSetting;
   /** The package.json script a required build runs (`verify.build`); default: the clone's uptide.yml, else build:ci, build-ci, build. */
   buildScript?: string;
   /**
@@ -790,19 +800,22 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     }
   }
   lap('rules');
-  // Before any agent call: what the sites left to the agent should cost, and the limit that sets.
+  // Before any agent call: what the sites left to the agent should cost, against the limit.
+  // An estimate above it stops here, with nothing spent; the limit is never raised for it.
+  const maxCostUsd = options.maxCostUsd ?? DEFAULT_MAX_COST_USD;
   const agentSites = sites.filter((s) => s.outcome === 'manual').length;
   const estimate = canAssist
-    ? costEstimate(selection.provider, selection.model, agentSites, options.maxCostUsd)
+    ? costEstimate(selection.provider, selection.model, agentSites, maxCostUsd, options.costSetting)
     : undefined;
-  const maxCostUsd = estimate?.limitUsd ?? options.maxCostUsd ?? DEFAULT_MAX_COST_USD;
+  if (estimate && nanos(estimate.usd) > nanos(estimate.limitUsd))
+    throw new UptideError('COST_ESTIMATE', overEstimateMessage(estimate));
   if (estimate && agentSites)
     options.onProgress?.({
       phase: 'assist',
       package: pack.name,
       state: 'done',
       warning: true,
-      detail: `Agent cost limit $${maxCostUsd.toFixed(2)} (${describeLimit(estimate)})`,
+      detail: `Agent ${describeEstimate(estimate)} (${estimate.setting === 'maxCost' ? 'maxCost in uptide.yml' : '--max-cost'})`,
     });
   const llm = await progress(options.onProgress, { phase: 'assist', package: pack.name }, () =>
     sdkAgent

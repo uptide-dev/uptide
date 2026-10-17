@@ -377,6 +377,7 @@ export async function runAction(
       '--llm',
       '--max-cost',
       budget.toFixed(2),
+      '--max-cost-from-config',
       ...(config.executor === 'patch' ? [] : ['--agent', 'sdk']),
     ];
     services.log(`::group::uptide fix ${dep.name}`);

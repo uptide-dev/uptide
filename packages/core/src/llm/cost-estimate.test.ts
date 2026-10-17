@@ -1,41 +1,49 @@
 import { expect, it } from 'vitest';
-import { costEstimate, costStopMessage, describeLimit, MAX_DEFAULT_COST_USD } from './fixer.js';
+import {
+  costEstimate,
+  costStopMessage,
+  overEstimateMessage,
+  SITE_INPUT_TOKENS,
+  SITE_OUTPUT_TOKENS,
+} from './fixer.js';
+import { DEFAULT_MODELS, PRICES } from './pricing.js';
 
-// claude-sonnet-5-5 at $2/$10 per million: 20k in + 2k out is $0.06 a site.
-const sonnet = (sites: number, maxCostUsd?: number) =>
-  costEstimate('anthropic', 'claude-sonnet-5-5', sites, maxCostUsd);
+const sonnet = (sites: number, limitUsd = 1, setting?: '--max-cost' | 'maxCost') =>
+  costEstimate('anthropic', 'claude-sonnet-5-5', sites, limitUsd, setting);
 
-it('estimates from the sites the agent will handle, priced for the model', () => {
-  expect(sonnet(0).usd).toBe(0);
-  expect(sonnet(10).usd).toBe(0.6);
-  expect(costEstimate('anthropic', 'claude-opus-5-5', 10).usd).toBe(1.2);
+it('prices a site with the pricing table entry for the default model', () => {
+  const model = DEFAULT_MODELS.anthropic;
+  const price = PRICES.anthropic[model];
+  expect(model).toBe('claude-sonnet-5-5');
+  expect(price).toMatchObject({ input: 2, output: 10 });
+  // 20k input at $2/M and 2k output at $10/M: $0.06 a site.
+  const site =
+    (SITE_INPUT_TOKENS * (price?.input ?? 0) + SITE_OUTPUT_TOKENS * (price?.output ?? 0)) / 1e6;
+  expect(site).toBe(0.06);
+  expect(costEstimate('anthropic', model, 10, 1).usd).toBe(0.6);
+  expect(costEstimate('anthropic', 'claude-opus-5-5', 10, 1).usd).toBe(1.2);
 });
 
-it('scales the default limit to twice the estimate, from $1 up to the cap', () => {
-  expect(sonnet(3)).toEqual({ sites: 3, usd: 0.18, limitUsd: 1, scaled: true });
-  expect(sonnet(25).limitUsd).toBe(3);
-  expect(sonnet(500).limitUsd).toBe(MAX_DEFAULT_COST_USD);
-  // An explicit --max-cost is kept as given, above or below the estimate.
-  expect(sonnet(500, 2)).toEqual({ sites: 500, usd: 30, limitUsd: 2, scaled: false });
+it('keeps the limit as given, whatever the estimate', () => {
+  expect(sonnet(0)).toEqual({ sites: 0, usd: 0, limitUsd: 1, setting: '--max-cost' });
+  expect(sonnet(50)).toEqual({ sites: 50, usd: 3, limitUsd: 1, setting: '--max-cost' });
+  expect(sonnet(50, 4, 'maxCost').limitUsd).toBe(4);
 });
 
-it('says where the limit came from', () => {
-  expect(describeLimit(sonnet(3))).toBe(
-    'default: the $1 minimum; the $0.18 estimate for 3 agent sites',
+it('stops before spending with the estimate and the flag, or the uptide.yml setting', () => {
+  expect(overEstimateMessage(sonnet(50))).toBe(
+    'estimated $3.00 for 50 sites; limit $1.00. Run again with --max-cost 3.00.',
   );
-  expect(describeLimit(sonnet(25))).toBe('default: 2× the $1.50 estimate for 25 agent sites');
-  expect(describeLimit(sonnet(500))).toBe(
-    'default: 2× the $30.00 estimate for 500 agent sites, capped at $10',
+  expect(overEstimateMessage(sonnet(50, 1, 'maxCost'))).toBe(
+    'estimated $3.00 for 50 sites; limit $1.00. Raise maxCost in uptide.yml to 3.00.',
   );
-  expect(describeLimit(sonnet(1, 4))).toBe('--max-cost; the $0.06 estimate for 1 agent site');
 });
 
-it('names the estimate in the stop message and a limit that continues', () => {
-  const capped = sonnet(500);
-  expect(costStopMessage({ limitUsd: capped.limitUsd, notAttempted: 312 }, capped)).toBe(
-    'stopped at the $10.00 cost limit (default: 2× the $30.00 estimate for 500 agent sites, capped at $10): 312 sites not completed. Run again with --max-cost 60 to continue.',
+it('names the estimate in the stop at the limit and a limit that continues', () => {
+  expect(costStopMessage({ limitUsd: 1, notAttempted: 3 }, sonnet(10))).toBe(
+    'stopped at the $1.00 cost limit (estimated $0.60 for 10 sites; limit $1.00): 3 sites not completed. Run again with --max-cost 2.00 to continue.',
   );
-  expect(costStopMessage({ limitUsd: 1, notAttempted: 1 })).toBe(
-    'stopped at the $1.00 cost limit (--max-cost): 1 site not completed. Run again with --max-cost 2 to continue.',
+  expect(costStopMessage({ limitUsd: 1, notAttempted: 1 }, sonnet(10, 1, 'maxCost'))).toBe(
+    'stopped at the $1.00 cost limit (estimated $0.60 for 10 sites; limit $1.00): 1 site not completed. Raise maxCost in uptide.yml to 2.00 to continue.',
   );
 });

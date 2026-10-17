@@ -80,18 +80,26 @@ reservation fits the budget.
 
 ## `--max-cost`
 
-Before the first agent call, `fix` estimates what the sites left to the agent will cost:
-20k input and 2k output tokens per site, at the selected model's rates (about $0.06 a site
-on `claude-sonnet-5-5`). These are assumptions, not yet calibrated against stored runs;
-`report.json` keeps the estimate (`llm.estimate`) next to the actual spend (`llm.costUsd`)
-to compare them.
+`--max-cost` defaults to **$1 per package**, including zod and stripe. The default is never
+raised for a large repository: spend goes up only when you raise the limit.
 
-Without `--max-cost` (or `maxCost` in `uptide.yml`) the limit is **twice that estimate,
-at least $1 and at most $10** per package, including zod and stripe. The run prints the limit
-and where it came from before the first call. When the agent stops at the limit, the summary
-and the pull request name the estimate and the `--max-cost` that continues. The SDK executor
-gives the package's session this budget and enforces it after each turn, so it can overshoot
-by one turn.
+Before the first agent call, `fix` estimates what the sites left to the agent will cost:
+20k input and 2k output tokens per site at the selected model's listed rates, which is $0.06
+a site on the default `claude-sonnet-5-5` ($2/$10 per million). These are assumptions, not
+yet calibrated against stored runs. `report.json` keeps the estimate (`llm.estimate`) next to
+the actual spend (`llm.costUsd`) so the two can be compared. The run prints the estimate and
+the limit. When the estimate is above the limit, `fix` stops before any agent call and exits
+2, the same as other preflight stops:
+
+```text
+estimated $3.00 for 50 sites; limit $1.00. Run again with --max-cost 3.00.
+```
+
+In Action and App runs the limit is `maxCost` in `uptide.yml`, so this message, and the stop
+at the limit, say `Raise maxCost in uptide.yml to 3.00` instead. When the agent stops at
+the limit mid-run, the summary and the pull request name the estimate and the limit that
+continues. The SDK executor gives the package's session the limit and enforces it after each
+turn, so it can overshoot by one turn.
 
 The summary's `Phases` row and the PR's run details give wall time per phase (analyze,
 baseline, install, rules, agent, verify, feedback) and the agent's spend in each.

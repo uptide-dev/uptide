@@ -876,8 +876,10 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
       .option('--no-llm', 'rule-based fixes only: never send code to the LLM provider')
       .option(
         '--max-cost <usd>',
-        'assisted-fix budget in USD (SDK may overshoot by one turn; default: maxCost in uptide.yml, else 2× the estimate for the agent sites, $1 to $10)',
+        'assisted-fix budget in USD (SDK may overshoot by one turn; default: maxCost in uptide.yml, else 1); an estimate above it stops before any agent call',
       )
+      // The Action passes what is left of maxCost: its messages name uptide.yml, not the flag.
+      .addOption(new Option('--max-cost-from-config').hideHelp())
       .option('--config <path>', 'settings file (default: the nearest uptide.yml)')
       .option(
         '--with-services',
@@ -938,7 +940,7 @@ Tiers:
   A generic package has no rules: every fix comes from the agent, under the same checks (an
   edit is kept only if the site's compiler error disappears and no new one appears) and the
   same publish gate. It needs ANTHROPIC_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY; --max-cost
-  defaults to twice the estimate for the sites left to the agent, from $1 up to $10.
+  defaults to $1, and an estimate above it stops the run before any agent call.
 
 Examples:
   $ ${INVOCATION} fix zod
@@ -963,6 +965,7 @@ ${runnable(PRIVACY)}`,
           pinCurrentApi?: boolean;
           llm?: boolean;
           maxCost?: string;
+          maxCostFromConfig?: boolean;
           agent?: 'patch' | 'sdk';
           provider?: string;
           model?: string;
@@ -1011,9 +1014,13 @@ ${runnable(PRIVACY)}`,
                     `${only}@`,
                   );
             // Flags first, then uptide.yml, then the defaults.
-            // Neither: the limit scales with the sites the agent gets (`costEstimate`).
             const maxCost =
-              flags.maxCost !== undefined ? Number(flags.maxCost) : loaded?.given.maxCost;
+              flags.maxCost !== undefined ? Number(flags.maxCost) : (loaded?.config.maxCost ?? 1);
+            const costSetting =
+              flags.maxCostFromConfig ||
+              (flags.maxCost === undefined && loaded?.given.maxCost !== undefined)
+                ? 'maxCost'
+                : '--max-cost';
             const llmOn = flags.llm ?? loaded?.config.llm.enabled ?? true;
             const executor = loaded?.config.executor;
             const agent = flags.agent ?? (executor && executor !== 'auto' ? executor : undefined);
@@ -1096,7 +1103,7 @@ ${runnable(PRIVACY)}`,
               );
             else if (selection.available) {
               io.err(
-                `LLM: ${selection.provider}${selection.provider === 'gemini' ? ' (experimental)' : ''} / ${selection.model} · budget ${maxCost === undefined ? 'scales with the agent sites (estimate shown before the first call)' : `$${maxCost.toFixed(2)}`}\n`,
+                `LLM: ${selection.provider}${selection.provider === 'gemini' ? ' (experimental)' : ''} / ${selection.model} · budget $${maxCost.toFixed(2)}\n`,
               );
               io.err(
                 assistedNote(
@@ -1116,7 +1123,7 @@ ${runnable(PRIVACY)}`,
             } else io.err(noApiKeyNote(only, suggest));
             if (!hasPack)
               io.err(
-                `${only} has no migration pack (generic tier): every fix comes from the agent${maxCost === undefined ? '' : `, up to $${maxCost.toFixed(2)} (--max-cost)`}\n`,
+                `${only} has no migration pack (generic tier): every fix comes from the agent, up to $${maxCost.toFixed(2)} (${costSetting === 'maxCost' ? 'maxCost in uptide.yml' : '--max-cost'})\n`,
               );
             const report = await progress.phase(
               flags.pinCurrentApi
@@ -1141,7 +1148,8 @@ ${runnable(PRIVACY)}`,
                     llm,
                     provider: selection.provider,
                     model: selection.model,
-                    ...(maxCost !== undefined ? { maxCostUsd: maxCost } : {}),
+                    maxCostUsd: maxCost,
+                    ...(costSetting === 'maxCost' ? { costSetting } : {}),
                     ...(loaded?.config.verify?.build
                       ? { buildScript: loaded.config.verify.build }
                       : {}),

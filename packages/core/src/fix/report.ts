@@ -1089,7 +1089,7 @@ export function renderMigration(
     );
   if (report.llm.costLimit)
     review.push(
-      `- The agent ${costStopMessage(report.llm.costLimit, report.llm.estimate).replace(/--max-cost \d+/, '`$&`')}`,
+      `- The agent ${costStopMessage(report.llm.costLimit, report.llm.estimate).replace(/--max-cost [\d.]+|maxCost(?= in)/, '`$&`')}`,
     );
   for (const s of report.sites.filter((s) => s.outcome === 'manual'))
     review.push(

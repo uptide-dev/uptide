@@ -36,6 +36,8 @@ export interface FixRequest {
   updatePins?: boolean;
   /** `--max-cost`: where the agent stops, in USD. */
   maxCostUsd?: number;
+  /** `maxCost`: the limit comes from uptide.yml, so the stop messages name that setting. */
+  costSetting?: '--max-cost' | 'maxCost';
   /** Executor override; authenticated Anthropic runs default to the SDK. */
   agent?: 'patch' | 'sdk';
   target?: string;

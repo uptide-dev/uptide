@@ -304,7 +304,16 @@ describe('the Uptide Action run', () => {
     expect(reportProblems(report)).toEqual([]);
     const fix = calls.find((c) => c.args[0] === 'fix');
     expect(fix?.args).toEqual(
-      expect.arrayContaining(['zod', '--llm', '--agent', 'sdk', '--max-cost', '2.00', '--json']),
+      expect.arrayContaining([
+        'zod',
+        '--llm',
+        '--agent',
+        'sdk',
+        '--max-cost',
+        '2.00',
+        '--max-cost-from-config',
+        '--json',
+      ]),
     );
     expect(fix?.apiKey).toBe('test-key');
     expect(published).toEqual([{ branch: storefrontFix().branch, token: 'installation-token' }]);

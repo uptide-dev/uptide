@@ -12,24 +12,24 @@ export const DEFAULT_MAX_COST_USD = 1;
 // against `llm.costUsd` once runs with many agent sites exist.
 export const SITE_INPUT_TOKENS = 20_000;
 export const SITE_OUTPUT_TOKENS = 2_000;
-/** The scaled default never goes above this without an explicit `--max-cost`. */
-export const MAX_DEFAULT_COST_USD = 10;
+/** Where the run's limit is set, so every message names what to change. */
+export type CostSetting = '--max-cost' | 'maxCost';
 export interface CostEstimate {
   sites: number;
   usd: number;
-  /** The limit the run had: `--max-cost`, or the scaled default. */
   limitUsd: number;
-  /** No `--max-cost`: the limit is twice the estimate, between $1 and the cap. */
-  scaled: boolean;
+  /** `maxCost`: the limit comes from uptide.yml (Action and App runs, or a local file). */
+  setting: CostSetting;
 }
 // Up to the next cent, without float noise turning $0.18 into $0.19.
 const cents = (usd: number) => Math.ceil(Number((usd * 100).toFixed(6))) / 100;
-/** The preflight estimate for the sites the agent will handle, and the limit the run will have. */
+/** The preflight estimate for the sites the agent will handle, at the model's listed rates. */
 export function costEstimate(
   provider: Provider,
   model: string,
   sites: number,
-  maxCostUsd?: number,
+  limitUsd: number,
+  setting: CostSetting = '--max-cost',
 ): CostEstimate {
   const site = usageCost(provider, model, {
     inputTokens: SITE_INPUT_TOKENS,
@@ -38,29 +38,29 @@ export function costEstimate(
     cacheWriteTokens: 0,
     cacheWriteHourTokens: 0,
   });
-  const usd = cents(sites * site);
-  // Twice the estimate leaves room for the verification feedback rounds.
-  const scaled = Math.min(MAX_DEFAULT_COST_USD, Math.max(DEFAULT_MAX_COST_USD, cents(2 * usd)));
-  return { sites, usd, limitUsd: maxCostUsd ?? scaled, scaled: maxCostUsd === undefined };
+  return { sites, usd: cents(sites * site), limitUsd, setting };
 }
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-/** Where the limit came from, with the estimate: `default: 2× the $0.70 estimate for 12 agent sites`. */
-export function describeLimit(e: CostEstimate): string {
-  const basis = `the $${e.usd.toFixed(2)} estimate for ${plural(e.sites, 'agent site')}`;
-  if (!e.scaled) return `--max-cost; ${basis}`;
-  if (2 * e.usd > MAX_DEFAULT_COST_USD)
-    return `default: 2× ${basis}, capped at $${MAX_DEFAULT_COST_USD}`;
-  if (2 * e.usd < DEFAULT_MAX_COST_USD)
-    return `default: the $${DEFAULT_MAX_COST_USD} minimum; ${basis}`;
-  return `default: 2× ${basis}`;
+const usd = (n: number) => `$${n.toFixed(2)}`;
+/** `Run again with --max-cost 3.00`, or the uptide.yml setting when the limit comes from there. */
+export function raiseLimit(setting: CostSetting, to: number): string {
+  return setting === 'maxCost'
+    ? `Raise maxCost in uptide.yml to ${to.toFixed(2)}`
+    : `Run again with --max-cost ${to.toFixed(2)}`;
 }
-/** The stop message: the limit, where it came from, what was left, and the flag that continues. */
+/** `estimated $0.18 for 3 sites; limit $1.00`. */
+export const describeEstimate = (e: CostEstimate): string =>
+  `estimated ${usd(e.usd)} for ${plural(e.sites, 'site')}; limit ${usd(e.limitUsd)}`;
+/** The preflight stop: the estimate does not fit the limit, so nothing is spent. */
+export const overEstimateMessage = (e: CostEstimate): string =>
+  `${describeEstimate(e)}. ${raiseLimit(e.setting, e.usd)}.`;
+/** The stop at the limit: the estimate, what was left, and the limit that continues. */
 export function costStopMessage(
   limit: { limitUsd: number; notAttempted: number },
   e?: CostEstimate,
 ): string {
-  const raise = Math.ceil(Math.max(2 * limit.limitUsd, e ? 2 * e.usd : 0));
-  return `stopped at the $${limit.limitUsd.toFixed(2)} cost limit (${e ? describeLimit(e) : '--max-cost'}): ${plural(limit.notAttempted, 'site')} not completed. Run again with --max-cost ${raise} to continue.`;
+  const to = Math.max(2 * limit.limitUsd, e?.usd ?? 0);
+  return `stopped at the ${usd(limit.limitUsd)} cost limit${e ? ` (${describeEstimate(e)})` : ''}: ${plural(limit.notAttempted, 'site')} not completed. ${raiseLimit(e?.setting ?? '--max-cost', to)} to continue.`;
 }
 // One token per UTF-8 byte, including JSON, schema, system prompt and retry feedback,
 // plus 8192 tokens for provider framing/tool overhead. Deliberately NOT chars / 4.
