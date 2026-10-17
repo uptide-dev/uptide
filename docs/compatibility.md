@@ -61,7 +61,7 @@ already run as assisted ([verification gate](packs.md)).
 | `joi` | `validation-error-details` | 100% | 108 | 0 |  |
 | `lucide-react` | `renamed-icons` | n/a | 0 | 0 | unexercised: runs assisted |
 | `next` | `lint-removal` | 100% | 1 | 0 |  |
-| `next` | `middleware-proxy` | 50% | 1 | 1 | below 80% |
+| `next` | `middleware-proxy` | 50% | 1 | 1 | below 80% on 2 sites, too few to judge: runs mechanical |
 | `next` | `stable-cache-exports` | 100% | 3 | 0 |  |
 | `openai` | `beta-chat` | n/a | 0 | 0 | unexercised: runs assisted |
 | `openai` | `core-paths` | n/a | 0 | 0 | unexercised: runs assisted |
@@ -73,7 +73,7 @@ already run as assisted ([verification gate](packs.md)).
 | `react` | `mutable-ref-object` | 100% | 2 | 0 |  |
 | `react` | `ref-callback-return` | 100% | 1 | 0 |  |
 | `react` | `use-ref-argument` | 100% | 5 | 0 |  |
-| `react-router` | `dom-imports` | 8% | 29 | 336 | below 80% |
+| `react-router` | `dom-imports` | 8% | 29 | 336 | below 80%: runs assisted |
 | `redis` | `keep-alive` | n/a | 0 | 0 | unexercised: runs assisted |
 | `redis` | `quit-disconnect` | n/a | 0 | 0 | unexercised: runs assisted |
 | `redis` | `renamed-exports` | 100% | 2 | 0 |  |

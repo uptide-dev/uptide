@@ -166,9 +166,11 @@ it('prints the precision of each rewrite and warns below the threshold without f
       },
     },
   });
-  expect(out).toMatch(/dom-imports\s+8%\s+29\s+336 {2}! below \d+%/);
+  expect(out).toMatch(/dom-imports\s+8%\s+29\s+336 {2}! below \d+%: assisted/);
   expect(out).toMatch(/rename\s+100%\s+4\s+0\n/);
-  expect(out).toContain('warning only: dom-imports below');
+  expect(out).toContain(
+    'dom-imports below 80% precision over 5+ sites: their rewrites run as assisted',
+  );
   expect(out).toContain(`PASS ${entry.pack.name}: verified`);
 });
 

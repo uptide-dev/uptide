@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  lowPrecisionRules,
   type PackVerification,
   RULE_PRECISION_WARNING,
   rateLabel,
@@ -75,7 +76,7 @@ export function packsTable(verifiedOnly = false): string {
 
 /**
  * Every rewrite rule's precision as `pack test --write` recorded it: real true positives against
- * every scored false positive (UPT-65). Below `RULE_PRECISION_WARNING` is a warning, not a gate.
+ * every scored false positive (UPT-65). Below `RULE_PRECISION_WARNING` over `RULE_PRECISION_MIN_SITES` sites, a rule runs as assisted.
  */
 export function rewritesTable(): string {
   const threshold = Math.round(RULE_PRECISION_WARNING * 100);
@@ -86,9 +87,11 @@ export function rewritesTable(): string {
         const p = rulePrecision(r);
         const note = verification.unexercised?.includes(id)
           ? 'unexercised: runs assisted'
-          : p !== undefined && p < RULE_PRECISION_WARNING
-            ? `below ${threshold}%`
-            : '';
+          : lowPrecisionRules(verification.mechanical).includes(id)
+            ? `below ${threshold}%: runs assisted`
+            : p !== undefined && p < RULE_PRECISION_WARNING
+              ? `below ${threshold}% on ${r.truePositives + r.falsePositives} sites, too few to judge: runs mechanical`
+              : '';
         return `| \`${pack.meta.package}\` | \`${id}\` | ${p === undefined ? 'n/a' : `${Math.round(p * 100)}%`} | ${r.truePositives} | ${r.falsePositives} | ${note} |`;
       }),
   );
