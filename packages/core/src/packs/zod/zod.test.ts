@@ -82,7 +82,7 @@ describe('zod mechanical pack', () => {
       const text = `import { z as schema } from 'zod';\nconst s = schema.string().${method}({ message: 'bad' }).optional(); // stay`;
       const result = run(text, method, true);
       expect(result.text).toContain(
-        `schema.${method === 'datetime' ? 'iso.datetime' : method}({ error: 'bad' }).optional(); // stay`,
+        `schema.${{ datetime: 'iso.datetime', uuid: 'guid' }[method] ?? method}({ error: 'bad' }).optional(); // stay`,
       );
     },
   );

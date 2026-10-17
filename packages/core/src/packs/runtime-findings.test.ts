@@ -8,8 +8,8 @@ import { REGISTRY } from './registry.js';
 import { fixtureCases, fixtureVersions } from './tooling/fixtures.js';
 
 // A pack that overrides `runtimeFindings` without running the base hook silently drops every
-// rule that fires through `detect` (UPT-89). zod is the known case; UPT-86 fixes it.
-const OVERRIDES_WITHOUT_BASE = new Set(['zod']);
+// rule that fires through `detect` (UPT-89). No pack is known to do so now.
+const OVERRIDES_WITHOUT_BASE = new Set<string>();
 // redis gates rules by the majors an upgrade crosses; the fixtures cover both.
 const VERSIONS: Record<string, { from: string; to: string }> = {
   redis: { from: '4.0.0', to: '6.0.0' },

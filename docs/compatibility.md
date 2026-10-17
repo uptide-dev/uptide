@@ -40,7 +40,7 @@ already run as assisted ([verification gate](packs.md)).
 | `stripe` | 14+ → latest, API version pinning | 5 | 100% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
 | `typescript` | 5 → 6 | 12 | 100% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
 | `vitest` | 4 → 5 | 6 | 100% | 97% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
-| `zod` | 3 → 4 | 7 | 100% | 64% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
+| `zod` | 3 → 4 | 8 | 100% | 65% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
 
 | Package | Rewrite rule | Precision | Real true positives | False positives | Note |
 | --- | --- | ---: | ---: | ---: | --- |
