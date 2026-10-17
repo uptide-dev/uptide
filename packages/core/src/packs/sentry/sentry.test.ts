@@ -147,6 +147,20 @@ describe('compiler-blind detection', () => {
     ]);
   });
 
+  it("keeps beforeSendTransaction and ignoreTransactions where traceLifecycle: 'static' is set", () => {
+    const init = (extra: string) =>
+      [
+        "import * as Sentry from '@sentry/browser';",
+        `Sentry.init({ ${extra}beforeSendTransaction: (e) => e, ignoreTransactions: ['x'] });`,
+        '',
+      ].join('\n');
+    expect(sites(sentryBrowserPack, 'sentry.ts', init(''))).toEqual([
+      'ignore-transactions:2',
+      'before-send-transaction:2',
+    ]);
+    expect(sites(sentryBrowserPack, 'sentry.ts', init("traceLifecycle: 'static', "))).toEqual([]);
+  });
+
   it('ignores the same reads on objects that are not Sentry spans', () => {
     const text = [
       "import * as Sentry from '@sentry/browser';",
