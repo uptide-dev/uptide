@@ -237,7 +237,7 @@ function deliver(
   const result: FixReport & { delivered: boolean } = {
     ...report,
     source,
-    ...(before.branch ? { base: before.branch } : {}),
+    ...(fresh ? { base: before.branch || before.head } : {}),
     delivered: false,
   };
   const notes = [...report.notes];
@@ -615,7 +615,6 @@ export async function isolatedFix(
   if (agentLed.length)
     options = { ...options, agentLed: [...(options.agentLed ?? []), ...agentLed] };
   const before = snapshot(source);
-  const base = options.base ?? remoteDefaultBranch(source)?.name;
   const clone = isolate(source, undefined, project);
   const { keep, base: _base, allowDirty: _allowDirty, preflightShown, ...rest } = options;
   const report = await keeping(clone, keep === true, async () => {
@@ -631,7 +630,6 @@ export async function isolatedFix(
     return result;
   });
   const delivered = deliver(source, clone, report, before, true);
-  if (base) delivered.base = base;
   if (options.base) delivered.prBase = options.base;
   const landed = delivered.delivered;
   // The branch ref and the stored run are in the repository before anything is published.

@@ -13,3 +13,12 @@ This page moved. The reference is now one page per command:
 - [`uptide pack`](packs.md#the-uptide-pack-command) (contributors)
 
 The words on every row, the coverage line and the exit codes: [concepts](concepts.md).
+
+Hints default to `npx uptide` (`npx uptide@next` for next builds), including npx, pnpm dlx,
+yarn dlx and bunx. They use `uptide` only when the command found on PATH resolves to the running
+binary; a project-local install outside PATH still gets the npx form. Detection is lazy and
+does not spawn a package manager. They repeat explicit flags accepted by the next
+command, while keeping its suggested packages and corrected options. Generated workflow and
+config comments and PR bodies use `npx uptide` for readers who may have nothing installed.
+Migration reports retain the starting branch (or detached commit) and starting commit. Diff hints
+compare against that commit even if the branch moves; `--base` still controls the PR target.

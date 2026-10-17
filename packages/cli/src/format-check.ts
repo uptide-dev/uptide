@@ -15,6 +15,7 @@ import {
 import pc from 'picocolors';
 import { formatCheckDetails, planBlock } from './format-check-details.js';
 import { importerNotes } from './importers.js';
+import { quote } from './invocation.js';
 import { alignedRows, terminalHeader } from './terminal.js';
 
 /** What the first line says about the run: `uptide check · shop (pnpm, 6 packages) · 25s`. */
@@ -34,8 +35,9 @@ export interface FormatCheckOptions {
   /** With `details`: findings under 50% confidence too. */
   all?: boolean;
   header?: CheckHeader;
-  /** How this build is invoked from a shell: `npx uptide@next`. */
+  /** How this build is invoked from a shell: `uptide`. */
   invocation?: string;
+  suggest?: (command: string) => string;
   /** Flags to repeat in the suggested commands so they act on the same repository and scope. */
   repeat?: { cwd?: string; only?: string; targets?: Record<string, string> };
   /**
@@ -340,7 +342,8 @@ function sectionLines(row: Row, colors: Colors): string[] {
  * did not reach, and dependencies whose analysis failed, each with its reason.
  */
 function notAnalyzed(report: CheckReport, opts: FormatCheckOptions, colors: Colors): string[] {
-  const uptide = opts.invocation ?? 'npx uptide';
+  const uptide = opts.invocation ?? 'uptide';
+  const suggest = (command: string) => opts.suggest?.(command) ?? command;
   const late = report.packages.filter((p) => p.skipReason === 'TIME_BUDGET');
   const failed = report.packages.filter((p) => isFailure(p));
   if (late.length === 0 && failed.length === 0) return [];
@@ -353,26 +356,30 @@ function notAnalyzed(report: CheckReport, opts: FormatCheckOptions, colors: Colo
         .map((p) => p.name)
         .join(', ')}${late.length > 6 ? `, and ${late.length - 6} more` : ''}`,
       colors.dim(
-        `    ${uptide} check ${late
-          .slice(0, 3)
-          .map((p) => p.name)
-          .join(' ')}    by name, no time limit`,
+        `    ${suggest(
+          `${uptide} check ${late
+            .slice(0, 3)
+            .map((p) => p.name)
+            .join(' ')}`,
+        )}    by name`,
       ),
-      colors.dim(`    ${uptide} list    discover upgrades, then check named packages`),
+      colors.dim(
+        `    ${suggest(`${uptide} list`)}    discover upgrades, then check named packages`,
+      ),
     );
   }
   // One line per cause: twenty dependencies lost to the same failure are one fact.
   const reasonOf = (p: PackageReport): string =>
     (p.notes[0] ?? 'analysis failed')
       .split('\n')[0]
-      ?.replace(/ \(check it alone with --only \S+,/, ' (check one alone with --only,') ?? '';
+      ?.replace(/ \(check it alone with --only \S+,/, ' (check one alone by name,') ?? '';
   const byReason = new Map<string, PackageReport[]>();
   for (const p of failed) byReason.set(reasonOf(p), [...(byReason.get(reasonOf(p)) ?? []), p]);
   for (const [reason, group] of byReason) {
     const only = group[0] as PackageReport;
     lines.push(
       group.length === 1
-        ? `  ${colors.red('✗')} ${only.name} ${only.installed}: ${(only.notes[0] ?? 'analysis failed').split('\n')[0]}`
+        ? `  ${colors.red('✗')} ${only.name} ${only.installed}: ${reasonOf(only)}`
         : `  ${colors.red('✗')} ${group.length} failed: ${reason}: ${group
             .slice(0, 6)
             .map((p) => p.name)
@@ -384,8 +391,7 @@ function notAnalyzed(report: CheckReport, opts: FormatCheckOptions, colors: Colo
 
 /** The exact commands to run next in this repository, with what each one does. */
 export function nextCommands(rows: Row[], opts: FormatCheckOptions): [string, string][] {
-  const uptide = opts.invocation ?? 'npx uptide';
-  const quote = (s: string) => (/^[\w./@:=+-]+$/.test(s) ? s : `'${s.replaceAll("'", "'\"'\"'")}'`);
+  const uptide = opts.invocation ?? 'uptide';
   const cwd = opts.repeat?.cwd ? ` --cwd ${quote(opts.repeat.cwd)}` : '';
   const commands: [string, string][] = [];
   const fixable = (name: string): boolean =>
@@ -429,7 +435,7 @@ export function nextCommands(rows: Row[], opts: FormatCheckOptions): [string, st
       ? [`${uptide} check${only}${targets}${cwd}`, 'the summary, one line per change']
       : [`${uptide} check${only}${targets} --details${cwd}`, 'every site and reason'],
   );
-  return commands;
+  return commands.map(([command, why]) => [opts.suggest?.(command) ?? command, why]);
 }
 
 function nextLines(rows: Row[], opts: FormatCheckOptions, colors: Colors): string[] {

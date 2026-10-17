@@ -23,6 +23,7 @@ import {
   UPTIDE_ACTION,
   UptideError,
   unfinishedPack,
+  uptideCommand,
   WORKFLOW_PATH,
 } from '@uptide/core';
 import { Command, CommanderError, Option } from 'commander';
@@ -51,7 +52,7 @@ import { writeMigrationHtml } from './html/migration.js';
 import { writePlanHtml } from './html/plan.js';
 import { openHtml, writeHtml } from './html/write.js';
 import { INIT_NEXT, type InitFile, planInit, writeInit } from './init.js';
-import { INVOCATION } from './invocation.js';
+import { invocation, repeatFlags, runnable } from './invocation.js';
 import { type Io, type Ui, type UiFlags, uiOf } from './io.js';
 import { formatPackTest, packRoot, packsToTest } from './pack.js';
 import { IN_PROCESS_ENV, PACK_TIMEOUT_MS, runIsolated, unfinishedReason } from './pack-isolate.js';
@@ -120,7 +121,7 @@ export function parseTargets(
 
 /** A prerelease build tells people to run the prerelease: `latest` may not have this command yet. */
 // npm latest is a placeholder until the stable CLI launch.
-const HTML_INVOCATION = INVOCATION;
+const HTML_INVOCATION = uptideCommand(VERSION);
 /** Package managers `fix` can upgrade and verify with. */
 const FIX_MANAGERS: readonly string[] = ['pnpm', 'npm', 'yarn'];
 
@@ -140,7 +141,7 @@ function whereItRan(report: FixReport): string {
     ? `Warning: your checkout changed during the run: ${report.sourceChanged.join('; ')}.`
     : 'Your checkout was not touched: same branch, files, hooks and git config.';
   const clone = report.clone?.kept
-    ? `Temporary clone kept: ${report.clone.path}\n  ${report.clone.reason}; \`${INVOCATION} clean\` removes kept clones older than 7 days.`
+    ? `Temporary clone kept: ${report.clone.path}\n  ${report.clone.reason}; \`${invocation()} clean\` removes kept clones older than 7 days.`
     : 'Ran in a temporary clone, removed now that the run is over.';
   return `${clone}\n${untouched}\n`;
 }
@@ -174,6 +175,10 @@ export async function run(
   engine: Engine = defaultEngine(),
   telemetry?: Telemetry,
 ): Promise<number> {
+  const INVOCATION = invocation();
+  let activeCommand: Command;
+  const repeat = (text: string): string => repeatFlags(text, activeCommand);
+  const suggest = (text: string): string => repeat(runnable(text));
   let code: number = EXIT.ok;
   let fixLlmAttempted = false;
   let fixSpend: FixReport['llm'] | undefined;
@@ -197,14 +202,20 @@ export async function run(
       });
     } catch (err) {
       if (err instanceof PeerPreflightError) {
+        const next = suggest(err.next);
+        const message = err.message.replace(err.next, next);
         if (flags.json)
           emit({
-            error: { code: err.code, message: err.message },
+            error: { code: err.code, message },
             peerConflicts: err.peerConflicts,
-            next: err.next,
+            next,
           });
-        else io.err(`${err.message}\n`);
-      } else io.err(renderError(err, ui.color));
+        else io.err(`${message}\n`);
+      } else {
+        if (err instanceof CliError && err.options.next)
+          err.options.next = suggest(err.options.next);
+        io.err(renderError(err, ui.color));
+      }
       code =
         err instanceof UptideError && err.code === 'VERIFIED_TREE_MISMATCH'
           ? EXIT.breaking
@@ -296,6 +307,7 @@ export async function run(
     .allowExcessArguments(true);
 
   program.hook('preAction', async (_parent, command) => {
+    activeCommand = command;
     await telemetry?.begin(command.name(), command.optsWithGlobals()).catch(() => {});
   });
   shared(
@@ -322,12 +334,12 @@ export async function run(
       'after',
       `
 Examples:
-  $ npx uptide                     where zod and stripe stand in this repository
-  $ npx uptide list                discover outdated dependencies quickly
-  $ npx uptide check zod           which of your call sites the upgrade breaks
-  $ npx uptide fix zod      migrate on a new branch, verified by your compiler and tests
+  $ ${INVOCATION}                     where zod and stripe stand in this repository
+  $ ${INVOCATION} list                discover outdated dependencies quickly
+  $ ${INVOCATION} check zod           which of your call sites the upgrade breaks
+  $ ${INVOCATION} fix zod      migrate on a new branch, verified by your compiler and tests
 ${EXIT_CODES('nothing breaking', 'breaking changes found, or a migration that did not verify')}
-${PRIVACY}`,
+${runnable(PRIVACY)}`,
     )
     .action((flags: Shared) =>
       act(flags, async ({ ui, progress, cwd }) => {
@@ -352,7 +364,7 @@ ${PRIVACY}`,
           counts: { packages: status.dependencies.length, workspaces: status.workspaces.length },
         }));
         if (flags.json) emit(status);
-        else io.out(`\n${formatStatus(status, { color: ui.color })}`);
+        else io.out(`\n${formatStatus(status, { color: ui.color, suggest })}`);
         return EXIT.ok;
       }),
     );
@@ -374,7 +386,7 @@ ${PRIVACY}`,
   )
     .addHelpText(
       'after',
-      `\nExamples:\n  $ uptide list\n  $ uptide list --all --json\n\nNo compilation, install or tarball downloads: registry metadata, and one request to npm's\nadvisory endpoint with public packages' names and installed versions (--no-advisories).\nUsage counts calls/new/JSX and references through imported bindings. Tooling and\npossibly unused packages are collapsed; use --all to expand. Majors first, then importing files and call sites.\n${EXIT_CODES('discovery complete', 'not used', '; incomplete discovery retains successful rows')}`,
+      `\nExamples:\n  $ ${INVOCATION} list\n  $ ${INVOCATION} list --all --json\n\nNo compilation, install or tarball downloads: registry metadata, and one request to npm's\nadvisory endpoint with public packages' names and installed versions (--no-advisories).\nUsage counts calls/new/JSX and references through imported bindings. Tooling and\npossibly unused packages are collapsed; use --all to expand. Majors first, then importing files and call sites.\n${EXIT_CODES('discovery complete', 'not used', '; incomplete discovery retains successful rows')}`,
     )
     .action(
       (
@@ -418,6 +430,7 @@ ${PRIVACY}`,
                 details: flags.details,
                 header: headerOf(repo, io.now() - started),
                 invocation: INVOCATION,
+                suggest,
                 cwd: flags.cwd,
               }),
             );
@@ -428,7 +441,8 @@ ${PRIVACY}`,
                 version: VERSION,
                 date: new Date().toISOString(),
                 header: headerOf(repo, io.now() - started),
-                invocation: INVOCATION,
+                invocation: HTML_INVOCATION,
+                suggest: repeat,
                 details: flags.details,
                 cwd: resolve(io.cwd) === resolve(repo.root) ? undefined : repo.root,
               },
@@ -458,7 +472,7 @@ ${PRIVACY}`,
       .option('--allow-candidate', 'use registered candidate packs for local smoke tests only')
       .description('Which of your call sites an upgrade breaks, and what fixing them costs')
       .option('--only <packages>', 'deprecated alias for positional package names')
-      .option('--group <name>', 'check every member of a group shown by uptide list')
+      .option('--group <name>', `check every member of a group shown by ${INVOCATION} list`)
       .option(
         '--target <spec...>',
         '`<package>@<version>`, repeatable; a bare version with one named package (default: latest)',
@@ -482,19 +496,19 @@ ${PRIVACY}`,
       'after',
       `
 What it checks:
-  Only the named dependencies. Run uptide list first for fast discovery.
+  Only the named dependencies. Run ${INVOCATION} list first for fast discovery.
   No names: exits 2 without analysis. Failures are reported per package/workspace.
 
 Tiers:
   ${TIER_LEGEND}
 
 Examples:
-  $ uptide list                           discover upgrades without compiling
-  $ uptide check zod stripe               analyze the named packages
-  $ uptide check --group nestjs           analyze every group member
-  $ uptide check zod --target 4.6.5
-  $ uptide check zod --details                every site and reason
-  $ uptide check zod --json --ci > uptide.json
+  $ ${INVOCATION} list                           discover upgrades without compiling
+  $ ${INVOCATION} check zod stripe               analyze the named packages
+  $ ${INVOCATION} check --group nestjs           analyze every group member
+  $ ${INVOCATION} check zod --target 4.6.5
+  $ ${INVOCATION} check zod --details                every site and reason
+  $ ${INVOCATION} check zod --json --ci > uptide.json
 ${EXIT_CODES(
   'no breaking change reaches your code, in everything that was analyzed',
   'breaking changes found at your call sites',
@@ -536,7 +550,7 @@ ${EXIT_CODES(
               : leadNames(requested, activePacks(flags.allowCandidate));
             if ((!flags.group && only.length === 0) || only.includes('all'))
               throw new CliError(
-                'check requires one or more package names. Start with uptide list.',
+                `check requires one or more package names. Start with ${INVOCATION} list.`,
                 { next: 'uptide list' },
               );
             if (
@@ -567,7 +581,7 @@ ${EXIT_CODES(
                 );
               if (discovery.failures.length)
                 throw new CliError(
-                  'group discovery is incomplete; run uptide list to resolve its failures before checking a group',
+                  `group discovery is incomplete; run ${INVOCATION} list to resolve its failures before checking a group`,
                 );
               // A group is not a name: its members outside uptide.yml stay out.
               const members = group.members.map((p) => p.name);
@@ -602,6 +616,7 @@ ${EXIT_CODES(
                     date: new Date().toISOString(),
                     header: headerOf(repo, io.now() - started),
                     invocation: HTML_INVOCATION,
+                    suggest: repeat,
                     repeat: {
                       cwd: resolve(io.cwd) === resolve(repo.root) ? undefined : repo.root,
                       only: only.join(','),
@@ -681,6 +696,7 @@ ${EXIT_CODES(
                   all: flags.all,
                   header: headerOf(repo, ms),
                   invocation: INVOCATION,
+                  suggest,
                   repeat: {
                     ...(flags.cwd ? { cwd: flags.cwd } : {}),
                     only: only.join(','),
@@ -734,9 +750,9 @@ What it does:
   blocked. Effort is an estimate from the findings, not a promise.
 
 Examples:
-  $ uptide plan
-  $ uptide plan --only react,react-dom,next
-  $ uptide plan --json --ci > plan.json
+  $ ${INVOCATION} plan
+  $ ${INVOCATION} plan --only react,react-dom,next
+  $ ${INVOCATION} plan --json --ci > plan.json
 ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to analyze (the plan still orders the others)')}`,
     )
     .action(
@@ -798,6 +814,7 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
             const planOptions = {
               header: headerOf(repo, ms),
               invocation: INVOCATION,
+              suggest,
               fixable,
               ...(flags.cwd ? { cwd: flags.cwd } : {}),
             };
@@ -806,7 +823,13 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
             if (flags.html) {
               const path = writePlanHtml(
                 result.plan,
-                { ...planOptions, version: VERSION, date: new Date(io.now()).toISOString() },
+                {
+                  ...planOptions,
+                  invocation: HTML_INVOCATION,
+                  suggest: repeat,
+                  version: VERSION,
+                  date: new Date(io.now()).toISOString(),
+                },
                 flags.html,
                 io.cwd,
               );
@@ -917,13 +940,13 @@ Tiers:
   same publish gate. It needs ANTHROPIC_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY; --max-cost defaults to $1.
 
 Examples:
-  $ uptide fix zod
-  $ uptide fix express --max-cost 2    a generic package, with a budget for the agent
-  $ uptide fix stripe --target 22.6.2
-  $ uptide fix stripe --pin-current-api   the small PR: same SDK, apiVersion made explicit
-  $ uptide fix zod --no-llm        no code leaves this machine
+  $ ${INVOCATION} fix zod
+  $ ${INVOCATION} fix express --max-cost 2    a generic package, with a budget for the agent
+  $ ${INVOCATION} fix stripe --target 22.6.2
+  $ ${INVOCATION} fix stripe --pin-current-api   the small PR: same SDK, apiVersion made explicit
+  $ ${INVOCATION} fix zod --no-llm        no code leaves this machine
 ${EXIT_CODES('migration verified: no new type errors, tests pass', 'verification failed or sites remain for manual work')}
-${PRIVACY}`,
+${runnable(PRIVACY)}`,
     )
     .action(
       (
@@ -968,7 +991,7 @@ ${PRIVACY}`,
               throw new CliError('choose one package for fix');
             const requested = packageName ?? flags.only;
             if (!requested)
-              throw new CliError('fix requires a package name. Start with uptide list.', {
+              throw new CliError(`fix requires a package name. Start with ${INVOCATION} list.`, {
                 next: 'uptide list',
               });
             if (requested.includes(','))
@@ -1056,7 +1079,7 @@ ${PRIVACY}`,
             if (flags.pr && engine.publishTarget) {
               const target = await engine.publishTarget(repo.root);
               io.err(
-                `PR will be opened on ${target.nameWithOwner} (base ${flags.base ?? target.base})${target.parent ? `, a fork of ${target.parent}; use \`uptide pr --repo ${target.parent}\` afterwards to open it there` : ''}\n`,
+                `PR will be opened on ${target.nameWithOwner} (base ${flags.base ?? target.base})${target.parent ? `, a fork of ${target.parent}; use \`${INVOCATION} pr --repo ${target.parent}\` afterwards to open it there` : ''}\n`,
               );
             }
             // A pin run edits by rule alone: no assistant, so nothing to say about one.
@@ -1088,7 +1111,7 @@ ${PRIVACY}`,
                 io.err(
                   'OPENAI_BASE_URL override: compatible, not verified; endpoint pricing may differ.\n',
                 );
-            } else io.err(noApiKeyNote(only));
+            } else io.err(noApiKeyNote(only, suggest));
             if (!hasPack)
               io.err(
                 `${only} has no migration pack (generic tier): every fix comes from the agent, up to $${(maxCost ?? 1).toFixed(2)} (--max-cost)\n`,
@@ -1154,7 +1177,7 @@ ${PRIVACY}`,
             if (flags.json) emit(report);
             else
               io.out(
-                `\n${formatFixSummary(report, { color: ui.color, invocation: INVOCATION, cwd, ms: io.now() - started })}`,
+                `\n${formatFixSummary(report, { color: ui.color, invocation: INVOCATION, suggest, cwd, ms: io.now() - started })}`,
               );
             io.err(whereItRan(report));
             // The plan and its warnings, now that no spinner is drawing.
@@ -1166,7 +1189,7 @@ ${PRIVACY}`,
             if (report.publication?.failed) {
               // The run is verified and in the repository; only the publish step is left.
               io.err(
-                `PR not opened: ${report.publication.failed}\nThe verified run is in your repository. Retry the publish step alone:\n  ${INVOCATION} pr --branch ${report.branch} --yes\n`,
+                `PR not opened: ${report.publication.failed}\nThe verified run is in your repository. Retry the publish step alone:\n  ${suggest(`${INVOCATION} pr --branch ${report.branch} --yes`)}\n`,
               );
               return EXIT.error;
             }
@@ -1206,10 +1229,10 @@ What it does:
   fails for a known behaviour change), type-checks and lints, all as new commits on top.
   It works in a temporary clone, never in your checkout. History is never rewritten;
   \`--push --yes\` pushes the new commits from the clone, fast-forward only. The stored run
-  then records the new HEAD, so \`uptide pr-body\` can update the description.
+  then records the new HEAD, so \`${INVOCATION} pr-body\` can update the description.
 
 Examples:
-  $ git switch uptide/zod-4.6.5 && uptide verify
+  $ git switch uptide/zod-4.6.5 && ${INVOCATION} verify
 ${EXIT_CODES('the branch verifies: no new type errors, tests and lint pass', 'verification failed')}`,
     )
     .action(
@@ -1315,8 +1338,8 @@ What it does:
   On a fork the PR goes to the fork itself unless --repo names the parent.
 
 Examples:
-  $ uptide pr --branch uptide/stripe-23.0.0          the plan, nothing pushed
-  $ uptide pr --branch uptide/stripe-23.0.0 --yes    push and open a draft PR
+  $ ${INVOCATION} pr --branch uptide/stripe-23.0.0          the plan, nothing pushed
+  $ ${INVOCATION} pr --branch uptide/stripe-23.0.0 --yes    push and open a draft PR
 ${EXIT_CODES('PR opened (or plan printed without --yes)', 'branch tree does not match the verified run')}`,
     )
     .action((flags: Shared & { branch?: string; repo?: string; draft?: boolean; yes?: boolean }) =>
@@ -1362,8 +1385,8 @@ ${EXIT_CODES('PR opened (or plan printed without --yes)', 'branch tree does not 
       'after',
       `
 Examples:
-  $ uptide pr-body --pr 82 --preview     review the proposal first
-  $ uptide pr-body --pr 82               update only the description
+  $ ${INVOCATION} pr-body --pr 82 --preview     review the proposal first
+  $ ${INVOCATION} pr-body --pr 82               update only the description
 ${EXIT_CODES('description rendered (and updated unless --preview)', 'not used')}`,
     )
     .action((flags: Shared & { pr: string; run?: string; preview?: boolean }) =>
@@ -1408,8 +1431,8 @@ What it does:
   or a lockfile that disagrees with packageManager.
 
 Examples:
-  $ uptide init --dry-run      print the files and the pull request text
-  $ uptide init                write them, then review and commit
+  $ ${INVOCATION} init --dry-run      print the files and the pull request text
+  $ ${INVOCATION} init                write them, then review and commit
 ${EXIT_CODES('files written (or printed with --dry-run)', 'not used', ';\n     or nothing was generated for this repository (the reason is printed)')}`,
     )
     .action((flags: Shared & { dryRun?: boolean; force?: boolean }) =>
@@ -1435,7 +1458,7 @@ ${EXIT_CODES('files written (or printed with --dry-run)', 'not used', ';\n     o
         }
         if (!UPTIDE_ACTION.released)
           io.err(
-            `\nNote: the Uptide Action this workflow runs is not released yet, so the workflow cannot run until a later uptide updates it (\`${INVOCATION} init --force\`).\n`,
+            `\nNote: the Uptide Action this workflow runs is not released yet, so the workflow cannot run until a later uptide updates it (\`${suggest(`${INVOCATION} init --force`)}\`).\n`,
           );
         return EXIT.ok;
       }),
@@ -1460,7 +1483,7 @@ ${EXIT_CODES('files written (or printed with --dry-run)', 'not used', ';\n     o
       'after',
       `
 Example:
-  $ uptide pack new ai --from ">=6 <7" --to ">=7 <8" --maintainer @octocat
+  $ ${INVOCATION} pack new ai --from ">=6 <7" --to ">=7 <8" --maintainer @octocat
 ${EXIT_CODES('scaffolded', 'not used')}`,
     )
     .action((name: string, flags: Shared & { from: string; to: string; maintainer?: string }) =>
@@ -1514,10 +1537,10 @@ Ground-truth repositories are fetched once (shallow, the pinned commit only) and
 lifecycle scripts off into ~/.cache/uptide/ground-truth (UPTIDE_GROUND_TRUTH_CACHE overrides it).
 
 Examples:
-  $ uptide pack test zod
-  $ uptide pack test zod ai
-  $ uptide pack test --json > pack-test.json
-  $ uptide pack test ai --write          record the status verification.json claims
+  $ ${INVOCATION} pack test zod
+  $ ${INVOCATION} pack test zod ai
+  $ ${INVOCATION} pack test --json > pack-test.json
+  $ ${INVOCATION} pack test ai --write          record the status verification.json claims
 ${EXIT_CODES('every pack passed', 'a false positive among breaking findings, a failing fixture, or a stale verification.json')}`,
     )
     .action(

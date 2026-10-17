@@ -21,7 +21,7 @@ const smoke = JSON.parse(
   readFileSync(join(import.meta.dirname, '__fixtures__/smoke-pnpm-check.json'), 'utf8'),
 ) as CheckReport;
 const header = { repo: 'storefront', manager: 'pnpm', packages: 2, ms: 25_000 };
-const shown = { color: false, header, invocation: 'npx uptide@next', fixable: ['zod', 'stripe'] };
+const shown = { color: false, header, invocation: 'uptide', fixable: ['zod', 'stripe'] };
 
 const pkg = (over: Partial<PackageReport>): PackageReport => ({
   workspace: '.',
@@ -94,7 +94,7 @@ describe('formatCheck, the first screen', () => {
     const options = {
       color: false,
       header: { repo: 'smoke-pnpm', manager: 'pnpm', packages: 2, ms: 3100 },
-      invocation: 'npx uptide@next',
+      invocation: 'uptide',
       fixable: ['zod', 'stripe'],
       repeat: { only: 'zod', targets: {} },
     };
@@ -141,7 +141,7 @@ describe('formatCheck, the first screen', () => {
     expect(out).toContain('Summary: 2 packages need attention · 32 breaking · 15 deprecated');
     // The way back to the short view replaces the pointer to --details.
     expect(out.trimEnd().split('\n').at(-1)).toMatch(
-      /^ {2}npx uptide@next check zod stripe vitest +the summary, one line per change$/,
+      /^ {2}uptide check zod stripe vitest +the summary, one line per change$/,
     );
   });
 
@@ -265,7 +265,7 @@ describe('formatCheck, the first screen', () => {
     expect(out).toContain(
       '↑ upgrades with @ai-sdk/react 3.0.118 → 4.0.10   @ai-sdk/react 4.0.10 pins ai 7.0.9',
     );
-    expect(out).toContain('npx uptide@next fix ai');
+    expect(out).toContain('uptide fix ai');
   });
 
   it('names a move the target requires, and a blocker it will not move across a major', () => {
@@ -449,7 +449,7 @@ describe('formatCheck, the first screen', () => {
   it('says so when there is nothing to upgrade', () => {
     const out = formatCheck(report([pkg({ notes: ['up to date'] })]), { color: false });
     expect(out).toContain('Nothing to upgrade: every checked dependency is up to date.');
-    expect(out).toContain('  npx uptide check <package> --details    every site and reason');
+    expect(out).toContain('  uptide check <package> --details    every site and reason');
   });
 
   it('colors a terminal and stays plain otherwise', () => {
@@ -466,10 +466,10 @@ describe('the Next block', () => {
 
   it('ends with the exact commands for this repository', () => {
     expect(next(formatCheck(storefront, shown))).toEqual([
-      'npx uptide@next fix zod | migrate on a new branch, verify, no push',
-      'npx uptide@next fix stripe | migrate on a new branch, verify, no push',
-      'npx uptide@next plan | the order to upgrade in, with the effort',
-      'npx uptide@next check zod stripe vitest --details | every site and reason',
+      'uptide fix zod | migrate on a new branch, verify, no push',
+      'uptide fix stripe | migrate on a new branch, verify, no push',
+      'uptide plan | the order to upgrade in, with the effort',
+      'uptide check zod stripe vitest --details | every site and reason',
     ]);
   });
 
@@ -479,10 +479,10 @@ describe('the Next block', () => {
       repeat: { cwd: '../storefront', only: 'zod', targets: { zod: '4.6.5' } },
     });
     expect(next(out)).toEqual([
-      'npx uptide@next fix zod --target 4.6.5 --cwd ../storefront | migrate on a new branch, verify, no push',
-      'npx uptide@next fix stripe --cwd ../storefront | migrate on a new branch, verify, no push',
-      'npx uptide@next plan --only zod --cwd ../storefront | the order to upgrade in, with the effort',
-      'npx uptide@next check zod --target 4.6.5 --details --cwd ../storefront | every site and reason',
+      'uptide fix zod --target 4.6.5 --cwd ../storefront | migrate on a new branch, verify, no push',
+      'uptide fix stripe --cwd ../storefront | migrate on a new branch, verify, no push',
+      'uptide plan --only zod --cwd ../storefront | the order to upgrade in, with the effort',
+      'uptide check zod --target 4.6.5 --details --cwd ../storefront | every site and reason',
     ]);
   });
 
@@ -492,15 +492,15 @@ describe('the Next block', () => {
       repeat: { only: 'zod,stripe', targets: { zod: '4.6.5', stripe: '18.0.0' } },
     });
     expect(next(out).at(-1)).toBe(
-      'npx uptide@next check zod stripe --target zod@4.6.5 --target stripe@18.0.0 --details | every site and reason',
+      'uptide check zod stripe --target zod@4.6.5 --target stripe@18.0.0 --details | every site and reason',
     );
   });
 
   it('offers fix only where fix can run, and --include-deprecated when that is all there is', () => {
     // A bun repository: check works, fix does not.
     expect(next(formatCheck(storefront, { ...shown, fixable: [] }))).toEqual([
-      'npx uptide@next plan | the order to upgrade in, with the effort',
-      'npx uptide@next check zod stripe vitest --details | every site and reason',
+      'uptide plan | the order to upgrade in, with the effort',
+      'uptide check zod stripe vitest --details | every site and reason',
     ]);
     const named = (name: string): PackageReport =>
       storefront.packages.find((p) => p.name === name) as PackageReport;
@@ -513,10 +513,10 @@ describe('the Next block', () => {
       ],
     };
     expect(next(formatCheck(deprecatedOnly, shown))).toEqual([
-      'npx uptide@next fix stripe | migrate on a new branch, verify, no push',
-      'npx uptide@next fix zod --include-deprecated | migrate the deprecated calls on a new branch, no push',
-      'npx uptide@next plan | the order to upgrade in, with the effort',
-      'npx uptide@next check stripe zod --details | every site and reason',
+      'uptide fix stripe | migrate on a new branch, verify, no push',
+      'uptide fix zod --include-deprecated | migrate the deprecated calls on a new branch, no push',
+      'uptide plan | the order to upgrade in, with the effort',
+      'uptide check stripe zod --details | every site and reason',
     ]);
   });
 });
@@ -657,15 +657,15 @@ describe('tiers, the time budget and failures on the first screen', () => {
     });
     const out = formatCheck(report([generic, late('react'), late('next'), failed]), {
       color: false,
-      invocation: 'npx uptide',
+      invocation: 'uptide',
       maxTime: 60,
     });
     expect(out).toContain(
       [
         'Not analyzed',
         '  ⚠ 2 behind, out of time (--max-time 60): react, next',
-        '    npx uptide check react next    by name, no time limit',
-        '    npx uptide list    discover upgrades, then check named packages',
+        '    uptide check react next    by name',
+        '    uptide list    discover upgrades, then check named packages',
         '  ✗ pg 8.11.0: could not fetch pg@9.0.0: HTTP 503',
       ].join('\n'),
     );
@@ -681,7 +681,7 @@ describe('tiers, the time budget and failures on the first screen', () => {
     expect(
       formatCheck(report([generic, oom('react'), oom('next'), oom('vite')]), { color: false }),
     ).toContain(
-      '  ✗ 3 failed: analysis failed: out of memory in apps/web (check one alone with --only, or raise UPTIDE_WORKER_HEAP_MB): react, next, vite',
+      '  ✗ 3 failed: analysis failed: out of memory in apps/web (check one alone by name, or raise UPTIDE_WORKER_HEAP_MB): react, next, vite',
     );
     // Analyzed in one workspace, not in another that imports it: never "no impact".
     const partly = pkg({

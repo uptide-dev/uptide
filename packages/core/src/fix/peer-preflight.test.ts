@@ -423,8 +423,8 @@ it.each(
     }
     const next = message.split('\nNext: ')[1];
     expect(next).toBeDefined();
-    const args = (next ?? '').split(' ');
-    const also = args.slice(4, args.indexOf('--target'));
+    const args = (next ?? '').replace(/^npx /, '').split(' ');
+    const also = args.slice(3, args.indexOf('--target'));
     for (const match of message.matchAll(/add (\S+) to the command/g))
       expect(also).toContain(match[1]);
     const allowPeer = args.flatMap((arg, i) =>
@@ -433,7 +433,7 @@ it.each(
     const plan = await peerPreflight(
       {
         cwd: root,
-        only: args[3] as string,
+        only: args[2] as string,
         target: args[args.indexOf('--target') + 1],
         also,
         allowPeer,

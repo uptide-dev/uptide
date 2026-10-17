@@ -14,6 +14,10 @@ async function fail(
 ): Promise<{ code: number; stderr: string; stdout: string; engine: typeof engine }> {
   const io = memoryIo({ cwd, env });
   const code = await run(argv, io, engine);
+  const hints = (io.stderr() + io.stdout()).split('\n').filter((line) => line.includes('Next:'));
+  expect(
+    hints.map((line) => line.replace(/\/[^\s]*uptide-cli-[^/\s]+/g, '<repo>')),
+  ).toMatchSnapshot();
   return { code, stderr: io.stderr(), stdout: io.stdout(), engine };
 }
 
@@ -323,10 +327,15 @@ describe('friendly failures: each says what to run next', () => {
     expect(outside.stderr).toContain('Next: git init && git add -A && git commit -m "baseline"');
 
     const root = pnpmGitRepo({ 'packages/api/package.json': manifest });
-    const below = await fail(['fix', 'zod', '--target', '4.6.5'], join(root, 'packages/api'));
+    const below = await fail(
+      ['fix', 'zod', '--target', '4.6.5', '--max-cost', '3', '--no-llm'],
+      join(root, 'packages/api'),
+    );
     expect(below.code).toBe(2);
     expect(below.stderr).toContain('error: fix has to run at the project root');
-    expect(below.stderr).toContain(`Next: uptide fix zod --target 4.6.5 --cwd ${root}`);
+    expect(below.stderr).toContain(
+      `Next: npx uptide fix zod --target 4.6.5 --cwd ${root} --no-llm --max-cost 3`,
+    );
 
     writeFileSync(join(root, 'scratch.ts'), '');
     const dirty = await fail(['fix', '--only', 'zod'], root);

@@ -81,29 +81,10 @@ describe('formatFixSummary', () => {
     };
     const out = formatFixSummary(report, {
       color: false,
-      invocation: 'npx uptide@next',
+      invocation: 'uptide',
       cwd: '/home/me/acme-app',
     });
-    expect(out).toBe(
-      [
-        'uptide fix · stripe 14.25.0 → 23.0.0 (latest on npm) · verification passed · 8m 37s',
-        '',
-        '  Risk      Medium: no tests',
-        '  Changes   none: versions and lockfile only',
-        '  Types     ✅ the upgrade broke 0 · Uptide left 0',
-        '  Behavior  ⚠️ not checked',
-        '  Tests     ⚠️ no tests ran',
-        '',
-        'Branch uptide/stripe-23.0.0 (in your repository, not checked out)',
-        '  git diff main..uptide/stripe-23.0.0 --stat',
-        '',
-        'Next',
-        '  npx uptide@next pr --branch uptide/stripe-23.0.0      push the branch and open a draft PR on me/acme-app',
-        '  open .git/uptide/uptide__stripe-23.0.0/report.html    the migration report',
-        '  .git/uptide/uptide__stripe-23.0.0/pr-body.md          the PR description',
-        '',
-      ].join('\n'),
-    );
+    expect(out).toMatchSnapshot();
   });
 
   it('points a failed run at verify, and a published one at its PR', () => {
@@ -112,7 +93,7 @@ describe('formatFixSummary', () => {
       { color: false },
     );
     expect(failed).toContain('verification failed');
-    expect(failed).toContain('npx uptide verify --branch uptide/zod-4.6.5');
+    expect(failed).toContain('uptide verify --branch uptide/zod-4.6.5');
     expect(failed).not.toContain(' pr --branch');
     const published = formatFixSummary(
       { ...fixReport(true), prUrl: 'https://github.com/o/r/pull/9' },
@@ -221,7 +202,7 @@ it('explains the numbered export and points pr at the new branch', () => {
   expect(text).toContain(
     'uptide/zod-4.6.5 already exists with different content; created uptide/zod-4.6.5-2.',
   );
-  expect(text).toContain('npx uptide pr --branch uptide/zod-4.6.5-2');
+  expect(text).toContain('uptide pr --branch uptide/zod-4.6.5-2');
 });
 
 it('names the coverage the check behind the run gave up to the memory cap', () => {
@@ -255,4 +236,11 @@ it('says an unhealthy baseline first, and "no new errors" instead of passed', ()
   const healthy = formatFixSummary(fixReport(true), { color: false });
   expect(healthy).toContain('· verification passed ·');
   expect(healthy).not.toContain('does not type-check');
+});
+
+it('diffs from the captured commit even when the starting branch moves', () => {
+  const report = { ...fixReport(true), base: 'demo-base', baseHead: 'a'.repeat(40) };
+  expect(formatFixSummary(report, { color: false })).toContain(
+    `git diff ${report.baseHead}..${report.branch} --stat`,
+  );
 });

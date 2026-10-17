@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { ACCEPTED_KEYS, type CheckResult, errorCode } from '@uptide/core';
 import type { PackageManager, Repo } from './detect.js';
 import { CliError } from './errors.js';
-import { INVOCATION } from './invocation.js';
+import { invocation } from './invocation.js';
 import type { DependencyStatus } from './status.js';
 
 /**
@@ -25,7 +25,7 @@ const names = (list: readonly string[]): string =>
 export function noProject(cwd: string): CliError {
   return new CliError(`no package.json in ${resolve(cwd)} or any parent directory`, {
     why: 'uptide analyzes a TypeScript or JavaScript project; this directory is not one.',
-    next: 'cd path/to/your/project && npx uptide',
+    next: `cd path/to/your/project && ${invocation()}`,
   });
 }
 
@@ -81,7 +81,7 @@ export function notADependency(repo: Repo, missing: readonly string[]): CliError
         workspaceCount(repo) > 0
           ? `Looked in the root and ${workspaceCount(repo)} workspace packages.`
           : undefined,
-      next: INVOCATION,
+      next: invocation(),
     },
   );
 }
@@ -230,11 +230,12 @@ export function noAgentForGeneric(only: string, disabled: boolean): CliError {
   );
 }
 
-export function noApiKeyNote(only: string): string {
+export function noApiKeyNote(only: string, suggest?: (command: string) => string): string {
+  const next = `${invocation()} fix ${only}`;
   return [
     `note: no selected-provider API key is set (${ACCEPTED_KEYS}); assisted fixes are off.`,
     '  Rule-based fixes still run; sites they cannot migrate are listed for manual work.',
-    `  Next: ${INVOCATION} fix ${only}   (set ANTHROPIC_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY in your environment first)`,
+    `  Next: ${suggest?.(next) ?? next}   (set ANTHROPIC_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY in your environment first)`,
     '  (or pass --no-llm to keep it that way without this note)',
     '',
   ].join('\n');

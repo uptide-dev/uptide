@@ -7,6 +7,7 @@ import {
   noPackVerdict,
   type PackageReport,
   type PlanGroup,
+  uptideCommand,
 } from '@uptide/core';
 import { byLine, checkRows, type FormatCheckOptions, nextCommands } from '../format-check.js';
 import { groupReason, groupsForHtml, notesOf, stripeNote, verdict } from './content.js';
@@ -153,7 +154,7 @@ export function renderHtml(report: CheckReport, opts: HtmlOptions): string {
       const rest = g.locations.length - Math.min(siteLimit, g.locations.length);
       if (rest > 0)
         body += compact
-          ? `<p class="more">and ${rest} more sites — use uptide check &lt;package&gt; --details for every location.</p>`
+          ? `<p class="more">and ${rest} more sites — use ${escapeHtml(opts.invocation ?? uptideCommand(opts.version))} check &lt;package&gt; --details for every location.</p>`
           : `<details><summary>and ${rest} more sites (excerpts omitted)</summary>${overflow}</details>`;
       if (!g.locations.length)
         body += '<p class="more">No site locations supplied by the engine.</p>';
@@ -174,7 +175,7 @@ export function renderHtml(report: CheckReport, opts: HtmlOptions): string {
       .join('');
     const commands = nextCommands(rows, {
       ...opts,
-      invocation: opts.invocation ?? 'npx uptide',
+      invocation: opts.invocation ?? uptideCommand(opts.version),
       details: false,
       repeat: { ...opts.repeat, cwd: opts.details ? opts.repeat?.cwd : undefined },
     });
@@ -221,7 +222,7 @@ export function renderHtml(report: CheckReport, opts: HtmlOptions): string {
       )}<p class="more">${e(verdict(rows))}</p>${sectionLabel('01', 'Packages', 'Upgrade impact')}
 <div class="filters" hidden role="search" aria-label="Filter findings">${['All', 'Breaking', 'Deprecated', 'Unverified'].map((s) => `<button type="button" data-filter="${s.toLowerCase()}" aria-pressed="${s === 'All'}">${s}</button>`).join('')}<input id="search" type="search" aria-label="Search packages and change rules" placeholder="Search packages or rules…"></div>
 <section aria-label="Dependency summary" class="summary">${summary || '<p class="more safe">✓ Nothing to upgrade. No findings in the analyzed scope.</p>'}</section><p id="empty-filter" class="notice" hidden>No findings match these filters.</p>
-${compact ? '<p class="notice">Compact report: excerpts and additional sites omitted to stay under 300 KB. Use uptide check &lt;package&gt; --details for the full report.</p>' : ''}${sectionLabel('02', 'Findings', 'What reaches your code')}${dependencies}${missing}
+${compact ? `<p class="notice">Compact report: excerpts and additional sites omitted to stay under 300 KB. Use ${escapeHtml(opts.invocation ?? uptideCommand(opts.version))} check &lt;package&gt; --details for the full report.</p>` : ''}${sectionLabel('02', 'Findings', 'What reaches your code')}${dependencies}${missing}
 <details class="notes"><summary>Analysis notes · ${notes.length} notes</summary><ul>${
         notes
           .slice(0, compact ? 30 : 300)

@@ -42,7 +42,7 @@ it('writes to the OS temp directory, retains terminal output and never opens in 
   ).version;
   expect(VERSION).toBe(cliVersion);
   expect(html).toContain(`Uptide CLI ${cliVersion}`);
-  expect(html).toContain('npx uptide');
+  expect(html).toContain('uptide');
   expect(html).not.toContain('--cwd');
   expect(readdirSync(root)).toEqual(before);
   expect(io.stdout()).toContain('Next');

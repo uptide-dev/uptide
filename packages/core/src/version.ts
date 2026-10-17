@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { readFileSync, realpathSync } from 'node:fs';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 declare const __UPTIDE_BUILD_VERSION__: string;
@@ -89,19 +89,31 @@ export function uptideVersionInfo(env: NodeJS.ProcessEnv = process.env): {
   }
 }
 
-/**
- * How a reader runs the build that is talking to them: `npx uptide` when it is a stable
- * version (what the `latest` dist-tag serves), `npx uptide@next` when it is a prerelease
- * such as `0.3.0-next.20261003`, named after its own dist-tag. A command printed by a
- * `next` build must not send the reader to another build.
- */
+/** Portable commands retain the release channel of the running CLI. */
 export function uptideCommand(cliVersion: string): string {
   const tag = /^\d+\.\d+\.\d+-([a-z]+)/.exec(cliVersion)?.[1];
   return tag ? `npx uptide@${tag}` : 'npx uptide';
 }
 
-/**
- * The command for anything written for a reader (PR descriptions, reports). The CLI bundle
- * defines its own published version; the engine's version never carries a dist-tag.
- */
+export function uptideInvocation(cliVersion: string): string {
+  const portable = uptideCommand(cliVersion);
+  if (!process.argv[1] || process.env.npm_command === 'exec') return portable;
+  try {
+    const binary = realpathSync(process.argv[1]);
+    const names = process.platform === 'win32' ? ['uptide', 'uptide.cmd'] : ['uptide'];
+    for (const dir of process.env.PATH?.split(delimiter) ?? []) {
+      for (const name of names) {
+        try {
+          return realpathSync(join(dir, name)) === binary ? 'uptide' : portable;
+        } catch {
+          // This PATH entry has no matching launcher.
+        }
+      }
+    }
+  } catch {
+    // An unknown running binary needs a portable command.
+  }
+  return portable;
+}
+
 export const UPTIDE_COMMAND = uptideCommand(published);

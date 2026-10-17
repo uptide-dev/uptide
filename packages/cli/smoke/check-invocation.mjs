@@ -1,5 +1,4 @@
-// The tarball about to be published suggests commands that reach it: `npx uptide@next` from
-// a `next` snapshot, `npx uptide` from a `latest` release. Release runs this on the packed
+// The tarball about to be published suggests the installed `uptide` command. Release runs this on the packed
 // CLI after the version to publish is applied (.github/workflows/release.yml), so it proves
 // the artifact, not the tree the tests ran on. It needs Node, npm and git; the run itself is
 // offline (`fix` in a bun repository stops before any network).
@@ -7,7 +6,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { delimiter, join, resolve } from 'node:path';
 import { expectedInvocation, invocationFailures } from './check-output.mjs';
 
 const tarball = process.argv[2];
@@ -33,7 +32,12 @@ try {
     { stdio: 'inherit' },
   );
   const bin = join(prefix, 'node_modules/.bin/uptide');
-  const env = { ...process.env, UPTIDE_TELEMETRY: '0', CI: '' };
+  const env = {
+    ...process.env,
+    PATH: `${join(prefix, 'node_modules/.bin')}${delimiter}${process.env.PATH ?? ''}`,
+    UPTIDE_TELEMETRY: '0',
+    CI: '',
+  };
   // The version npm will publish it under, and the one the build says it is: a tarball
   // packed without rebuilding after the snapshot version would disagree.
   const version = JSON.parse(
@@ -42,7 +46,7 @@ try {
   const built = execFileSync(bin, ['--version'], { encoding: 'utf8', env }).trim();
   const expected = expectedInvocation(version);
 
-  const repo = join(scratch, 'repo');
+  const repo = join(prefix, 'repo');
   execFileSync('git', ['init', '--quiet', repo]);
   writeFileSync(
     join(repo, 'package.json'),

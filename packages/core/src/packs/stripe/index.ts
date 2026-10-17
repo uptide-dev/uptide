@@ -507,7 +507,7 @@ export const stripePack: Pack = {
     if (rules.includes('api-version-unpinned') && context.apiVersions) {
       const { from, to } = context.apiVersions;
       choices.push(
-        `- A client was created without \`apiVersion\`, so it spoke \`${from}\`, the SDK default. Two PRs are possible: (a) the small one, stay on stripe ${context.from} and write \`apiVersion: '${from}'\` on the client, zero behaviour change: \`${UPTIDE_COMMAND} fix --only stripe --pin-current-api\`; (b) the full one, this PR: stripe ${context.to}, \`apiVersion: '${to}'\`, and the code migrated to it. Not offered: stripe ${context.to} pinned to \`${from}\`, because the new SDK's types describe \`${to}\` and the code would compile against shapes the server no longer sends.`,
+        `- A client was created without \`apiVersion\`, so it spoke \`${from}\`, the SDK default. Two PRs are possible: (a) the small one, stay on stripe ${context.from} and write \`apiVersion: '${from}'\` on the client, zero behaviour change: \`${UPTIDE_COMMAND} fix stripe --pin-current-api\`; (b) the full one, this PR: stripe ${context.to}, \`apiVersion: '${to}'\`, and the code migrated to it. Not offered: stripe ${context.to} pinned to \`${from}\`, because the new SDK's types describe \`${to}\` and the code would compile against shapes the server no longer sends.`,
       );
     }
     if (rules.includes('subscription-period'))

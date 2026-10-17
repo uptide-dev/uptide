@@ -12,6 +12,7 @@ import {
   WORKFLOW_PATH,
 } from '@uptide/core';
 import { CliError, EXIT } from './errors.js';
+import { invocation } from './invocation.js';
 
 /** What `init` does with one generated file. */
 export interface InitFile {
@@ -103,7 +104,7 @@ export function writeInit(result: InitResult, force: boolean): void {
   if (changed && !force)
     throw new CliError(`${changed.path} exists and differs from what uptide init generates`, {
       why: 'It may hold your own changes. Nothing was written.',
-      next: 'uptide init --dry-run   (compare), then: uptide init --force',
+      next: `${invocation()} init --dry-run   (compare), then: ${invocation()} init --force`,
       exitCode: EXIT.error,
     });
   for (const file of result.files) {

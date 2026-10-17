@@ -1,0 +1,141 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`friendly failures: each says what to run next > a dependency asked for by name that is not there: exit 2 1`] = `
+[
+  "  Next: npx uptide",
+]
+`;
+
+exports[`friendly failures: each says what to run next > a registry error thrown by the engine is the same failure 1`] = `
+[
+  "  Next: run the same command again in a minute",
+]
+`;
+
+exports[`friendly failures: each says what to run next > a repository without zod or stripe is checked like any other 1`] = `[]`;
+
+exports[`friendly failures: each says what to run next > breaking found and a dependency failed: breaking is the answer (exit 1) 1`] = `[]`;
+
+exports[`friendly failures: each says what to run next > declared but missing from the lockfile 1`] = `
+[
+  "  Next: npm install",
+]
+`;
+
+exports[`friendly failures: each says what to run next > finds a hoisted install from a workspace package 1`] = `[]`;
+
+exports[`friendly failures: each says what to run next > fix outside git, below the root, or on a dirty tree 1`] = `
+[
+  "  Next: git init && git add -A && git commit -m "baseline"",
+]
+`;
+
+exports[`friendly failures: each says what to run next > fix outside git, below the root, or on a dirty tree 2`] = `
+[
+  "  Next: npx uptide fix zod --target 4.6.5 --cwd <repo> --no-llm --max-cost 3",
+]
+`;
+
+exports[`friendly failures: each says what to run next > fix outside git, below the root, or on a dirty tree 3`] = `
+[
+  "  Next: git stash --include-untracked",
+]
+`;
+
+exports[`friendly failures: each says what to run next > missing ANTHROPIC_API_KEY: fix still runs with the rules 1`] = `
+[
+  "  Next: npx uptide fix zod   (set ANTHROPIC_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY in your environment first)",
+]
+`;
+
+exports[`friendly failures: each says what to run next > missing Berry installation names the immutable install command 1`] = `
+[
+  "  Next: yarn install --immutable",
+]
+`;
+
+exports[`friendly failures: each says what to run next > missing node_modules with package-lock.json: npm ci 1`] = `
+[
+  "  Next: npm ci",
+]
+`;
+
+exports[`friendly failures: each says what to run next > missing node_modules with pnpm-lock.yaml: pnpm install --frozen-lockfile 1`] = `
+[
+  "  Next: pnpm install --frozen-lockfile",
+]
+`;
+
+exports[`friendly failures: each says what to run next > missing node_modules with yarn.lock: yarn install --frozen-lockfile 1`] = `
+[
+  "  Next: yarn install --frozen-lockfile",
+]
+`;
+
+exports[`friendly failures: each says what to run next > no TypeScript/JS project 1`] = `
+[
+  "  Next: cd path/to/your/project && npx uptide",
+]
+`;
+
+exports[`friendly failures: each says what to run next > no TypeScript/JS project 2`] = `
+[
+  "  Next: cd path/to/your/project && npx uptide",
+]
+`;
+
+exports[`friendly failures: each says what to run next > no TypeScript/JS project 3`] = `
+[
+  "  Next: cd path/to/your/project && npx uptide",
+]
+`;
+
+exports[`friendly failures: each says what to run next > no lockfile: install with the declared package manager, npm otherwise 1`] = `
+[
+  "  Next: npm install",
+]
+`;
+
+exports[`friendly failures: each says what to run next > no lockfile: install with the declared package manager, npm otherwise 2`] = `
+[
+  "  Next: pnpm install",
+]
+`;
+
+exports[`friendly failures: each says what to run next > no network on the status page: the lockfile half is still shown 1`] = `
+[
+  "  Next: npm ping",
+]
+`;
+
+exports[`friendly failures: each says what to run next > no network: the engine skipped everything because the registry is unreachable 1`] = `
+[
+  "  Next: npm ping",
+]
+`;
+
+exports[`friendly failures: each says what to run next > no network: the engine throws a connection error 1`] = `
+[
+  "  Next: npm ping",
+]
+`;
+
+exports[`friendly failures: each says what to run next > one dependency fails: the others are reported, the failed one is named, and the exit code says incomplete 1`] = `[]`;
+
+exports[`friendly failures: each says what to run next > unsupported package manager for fix: points at check, which works 1`] = `
+[
+  "  Next: npx uptide check zod --details",
+]
+`;
+
+exports[`friendly failures: each says what to run next > unsupported package manager: Yarn Plug'n'Play 1`] = `
+[
+  "  Next: yarn config set nodeLinker node-modules && yarn install",
+]
+`;
+
+exports[`friendly failures: each says what to run next > unsupported package manager: binary bun lockfile 1`] = `
+[
+  "  Next: bun install --save-text-lockfile",
+]
+`;

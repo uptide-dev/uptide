@@ -214,6 +214,7 @@ Uptide 0.11.2 · claude-sonnet-5-5 · 64.3k/2.3k tokens · $0.06 · 2 min
 
 Uptide commit: \`a2a0a4c045ab2e3326e346fd04487ea76591dafb\` (working-tree changes)
 Branch: \`uptide/next-16.0.1\`
+Starting commit: \`3f1a36354d203e5a28f7c2cd55eceda95a13e3bd\`
 Tier: verified (a migration pack covers this upgrade)
 Verified at: 2026-10-14T03:24:45.141Z
 Verified commit: \`4e79f9f870ceae8c52d2eebaff31b1c03e8dc438\`
@@ -337,6 +338,7 @@ Uptide 0.11.2 · claude-sonnet-5-5 · 0.0k/0.0k tokens · $0.00 · 1 min
 
 Uptide commit: \`a2a0a4c045ab2e3326e346fd04487ea76591dafb\` (working-tree changes)
 Branch: \`uptide/next-16.3.8\`
+Starting commit: \`e3bd3679ae6ea60ce2a78aefebec0caa48c4febd\`
 Tier: verified (a migration pack covers this upgrade)
 Verified at: 2026-10-14T03:22:58.365Z
 Verified commit: \`d05802b0710383ed850b249292c2c8f9deaa5b08\`

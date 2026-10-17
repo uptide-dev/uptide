@@ -3,7 +3,6 @@ import { compareVersions, majorsBehind } from '@uptide/core';
 import pc from 'picocolors';
 import type { Repo } from './detect.js';
 import type { Engine } from './engine.js';
-import { runnable } from './invocation.js';
 
 /** The dependencies uptide migrates today. */
 export const SUPPORTED = ['zod', 'stripe'] as const;
@@ -111,8 +110,12 @@ function verdict(dep: DependencyStatus): string {
   return `${dep.installed} installed, latest ${dep.latest}, ${behind}`;
 }
 
-export function formatStatus(report: StatusReport, opts: { color?: boolean } = {}): string {
+export function formatStatus(
+  report: StatusReport,
+  opts: { color?: boolean; suggest?: (command: string) => string } = {},
+): string {
   const colors = pc.createColors(opts.color ?? true);
+  const suggest = (command: string) => opts.suggest?.(command) ?? command;
   const packages = report.workspaces.filter((w) => w !== '.').length;
   const lines = [
     `${colors.dim('Repository')}  ${report.name ? `${report.name}  ${colors.dim(report.repo)}` : report.repo}`,
@@ -146,7 +149,7 @@ export function formatStatus(report: StatusReport, opts: { color?: boolean } = {
     used.some((d) => !d.latest || !d.installed || compareVersions(d.installed, d.latest) < 0)
   )
     lines.push(
-      `Run ${colors.bold(runnable('`uptide list`, then `uptide check <package>`'))} for impact.`,
+      `Run ${colors.bold(`\`${suggest('uptide list')}\`, then \`${suggest('uptide check <package>')}\``)} for impact.`,
     );
   else lines.push('Nothing to upgrade.');
   return `${lines.join('\n')}\n`;

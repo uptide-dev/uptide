@@ -1,0 +1,14 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`snapshots retry flags, overrides, quoting, and compatible next commands 1`] = `
+[
+  "uptide fix zod plugin --target 4.6.6 --max-cost 3 --model 'model'"'"'s name' --no-llm --cwd '../my project' --allow-peer one --allow-peer two --verbose",
+  "uptide fix zod --cwd /project/root --max-cost 2 --allow-peer replacement --target 4.6.5 --model 'model'"'"'s name' --no-llm --verbose",
+  "uptide fix stripe --pin-current-api --max-cost 3 --model 'model'"'"'s name' --no-llm --cwd '../my project' --allow-peer one --allow-peer two --verbose",
+  "uptide fix zod --target 4.6.5 --max-cost 3 --model 'model'"'"'s name' --no-llm --cwd '../my project' --allow-peer one --allow-peer two --verbose   (set a provider key first)",
+  "uptide fix zod --cwd '/project --max-cost 8' --target 4.6.5 --max-cost 3 --model 'model'"'"'s name' --no-llm --allow-peer one --allow-peer two --verbose",
+  "uptide check zod --details --cwd '../my project' --verbose",
+  "uptide pr --branch uptide/zod-4.6.5 --cwd '../my project'",
+  "npm install",
+]
+`;

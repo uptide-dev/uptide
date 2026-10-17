@@ -303,7 +303,7 @@ export interface FixReport {
   prBody: string;
   /** The migration report as a page, written by the CLI next to the stored run. */
   html?: string;
-  /** The branch the user's checkout was on when the run started: what the migration branch is against. */
+  /** The starting branch, or commit when detached; independent of the PR's target branch. */
   base?: string;
   /** `--base`: the branch the PR is opened against, when not the target repository's default. */
   prBase?: string;

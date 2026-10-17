@@ -1,17 +1,23 @@
 import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { uptideCommand } from '@uptide/core';
 import { expect, it } from 'vitest';
+import { VERSION } from './version.js';
 
 const bin = fileURLToPath(new URL('../dist/index.js', import.meta.url));
-it.skipIf(!existsSync(bin))(
-  'preserves grouped peer errors across the packaged worker boundary',
-  async () => {
+it.skipIf(!existsSync(bin)).each([
+  ['on PATH', '', true, 'uptide'],
+  ['local only', '', false, uptideCommand(VERSION)],
+  ['npx', 'exec', true, uptideCommand(VERSION)],
+])(
+  'preserves grouped peer errors and retry flags (%s)',
+  async (_mode, npmCommand, onPath, invocation) => {
     const cwd = mkdtempSync(join(tmpdir(), 'uptide-peer-worker-'));
     const peers = { react: '^18', 'react-dom': '^18' };
     const server = createServer((req, res) => {
@@ -34,6 +40,8 @@ it.skipIf(!existsSync(bin))(
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     try {
+      mkdirSync(join(cwd, 'node_modules/.bin'), { recursive: true });
+      symlinkSync(bin, join(cwd, 'node_modules/.bin/uptide'));
       const dependencies = { react: '18.2.0', 'react-dom': '18.2.0', plugin: '1.0.0' };
       writeFileSync(join(cwd, 'package.json'), JSON.stringify({ dependencies }));
       const packages: Record<string, object> = { '': { dependencies } };
@@ -83,6 +91,10 @@ it.skipIf(!existsSync(bin))(
                 Object.entries(process.env).filter(([key]) => !/^npm_config_/i.test(key)),
               ),
               NPM_CONFIG_USERCONFIG: '/nonexistent',
+              npm_command: npmCommand,
+              PATH: onPath
+                ? `${join(cwd, 'node_modules/.bin')}${delimiter}${process.env.PATH ?? ''}`
+                : process.env.PATH,
               UPTIDE_TELEMETRY: '0',
               UPTIDE_CACHE_DIR: join(cwd, 'cache'),
             },
@@ -108,7 +120,7 @@ it.skipIf(!existsSync(bin))(
           })),
         },
       ]);
-      expect(report.next).toBe('npx uptide fix react plugin --target 19.3.0 --no-llm');
+      expect(report.next).toBe(`${invocation} fix react plugin --target 19.3.0 --no-llm --json`);
       expect(report.error.code).toBe('INCONSISTENT_UPGRADE');
       expect(result.stderr).not.toMatch(/✖|error:|LLM spend:/);
       const plain = await invoke(false);
@@ -116,13 +128,15 @@ it.skipIf(!existsSync(bin))(
       expect(plain.stdout).toBe('');
       expect(plain.stderr).not.toMatch(/✖|error:|LLM spend:/);
       expect(plain.stderr.slice(plain.stderr.indexOf('uptide fix · react 18.2.0'))).toBe(
-        `${report.error.message}\n`,
+        `${report.error.message.replace(' --json', '')}\n`,
       );
-      expect(report.error.message).toMatchInlineSnapshot(`
+      expect(
+        report.error.message.replace(`Next: ${invocation}`, 'Next: uptide'),
+      ).toMatchInlineSnapshot(`
         "uptide fix · react 18.2.0 → 19.3.0 · 1 peer blocker to resolve first
         plugin 1.0.0  peers react, react-dom ^18  →  upgrade to 1.1.0 (accepts react 19, react-dom 19): add plugin to the command
 
-        Next: npx uptide fix react plugin --target 19.3.0 --no-llm"
+        Next: uptide fix react plugin --target 19.3.0 --no-llm --json"
       `);
     } finally {
       server.closeAllConnections();

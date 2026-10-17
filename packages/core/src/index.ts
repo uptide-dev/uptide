@@ -246,4 +246,10 @@ export {
   type UpgradeStep,
 } from './plan/plan.js';
 export { diffRuntime, probeRuntime } from './runtime/runtime.js';
-export { UPTIDE_COMMAND, uptideCommand, uptideVersionInfo, version } from './version.js';
+export {
+  UPTIDE_COMMAND,
+  uptideCommand,
+  uptideInvocation,
+  uptideVersionInfo,
+  version,
+} from './version.js';

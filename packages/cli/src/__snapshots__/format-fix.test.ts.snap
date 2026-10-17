@@ -1,0 +1,20 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatFixSummary > says the five facts, where the branch is, and the exact next commands 1`] = `
+"uptide fix · stripe 14.25.0 → 23.0.0 (latest on npm) · verification passed · 8m 37s
+
+  Risk      Medium: no tests
+  Changes   none: versions and lockfile only
+  Types     ✅ the upgrade broke 0 · Uptide left 0
+  Behavior  ⚠️ not checked
+  Tests     ⚠️ no tests ran
+
+Branch uptide/stripe-23.0.0 (in your repository, not checked out)
+  git diff main..uptide/stripe-23.0.0 --stat
+
+Next
+  uptide pr --branch uptide/stripe-23.0.0               push the branch and open a draft PR on me/acme-app
+  open .git/uptide/uptide__stripe-23.0.0/report.html    the migration report
+  .git/uptide/uptide__stripe-23.0.0/pr-body.md          the PR description
+"
+`;

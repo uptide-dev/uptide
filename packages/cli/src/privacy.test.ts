@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { run } from './cli.js';
+import { runnable } from './invocation.js';
 import { PRIVACY } from './privacy.js';
 import { fakeEngine, memoryIo, pnpmGitRepo } from './test-utils.js';
 
@@ -30,7 +31,7 @@ describe('privacy statement', () => {
   it.each([[[]], [['fix']]])('is part of `uptide %s --help`', async (command) => {
     const io = memoryIo();
     expect(await run([...command, '--help'], io, fakeEngine())).toBe(0);
-    expect(io.stdout()).toContain(PRIVACY);
+    expect(io.stdout()).toContain(runnable(PRIVACY));
   });
 
   it('is in docs/privacy.md, word for word', () => {

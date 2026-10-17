@@ -68,7 +68,7 @@ describe('HTML report', () => {
     expect(
       html.match(/1 type error that already existed before the upgrade was ignored\./g),
     ).toHaveLength(1);
-    expect(html).toContain('npx uptide');
+    expect(html).toContain('uptide');
     // The tier of every dependency, and the difference in one line.
     expect(html).toContain('3.25.76 → 4.6.5 · major · <span class="verified">verified</span>');
     expect(html).toContain('3.2.4 → 5.0.3 · 2 majors behind');

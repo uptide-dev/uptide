@@ -49,7 +49,7 @@ Draft PR runs update conflicting root Yarn resolutions and npm/pnpm overrides an
 
 A pack is everything Uptide knows about one upgrade: rules, a guide for the agent, behavior
 checks, and ground truth from public repositories it is scored against. Precision and recall
-are for breaking findings on that ground truth, as recorded by `uptide pack test`; a pack is
+are for breaking findings on that ground truth, as recorded by `npx uptide pack test`; a pack is
 verified with two or more public repositories, five real breaking sites, and no false positive.
 See the [pack compatibility matrix](docs/compatibility.md) and the [migration pack contract](docs/packs.md).
 
@@ -124,12 +124,12 @@ pull request, so you can check that nothing else reads that text:
 ```
 
 The stripe run from the same fixture, and what each step of `fix` does, are in
-[`uptide fix`](docs/commands/fix.md).
+[`npx uptide fix`](docs/commands/fix.md).
 
 ## Privacy
 
 Analysis runs locally, with no account and no Uptide server. Code leaves your machine only
-for assisted fixes in `uptide fix`, with your own API key; `--no-llm`
+for assisted fixes in `npx uptide fix`, with your own API key; `--no-llm`
 turns that off. `check` loads your installed `typescript` to compile with and runs none of
 your scripts. Anonymous telemetry is off by default and collects no IP, code, paths or repo names.
 

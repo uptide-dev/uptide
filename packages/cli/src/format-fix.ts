@@ -14,8 +14,9 @@ import { elapsed } from './progress.js';
 
 export interface FormatFixOptions {
   color?: boolean;
-  /** How the user invokes uptide (`npx uptide@next`), for the commands printed. */
+  /** How the user invokes uptide (`uptide`), for the commands printed. */
   invocation?: string;
+  suggest?: (command: string) => string;
   /** Where the user runs commands from: paths are printed relative to it, so they work as typed. */
   cwd?: string;
   /** The whole run as the user saw it, clone included; the report's own timing is the work. */
@@ -28,7 +29,7 @@ export interface FormatFixOptions {
  */
 export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {}): string {
   const colors = pc.createColors(opts.color ?? true);
-  const uptide = opts.invocation ?? 'npx uptide';
+  const uptide = opts.invocation ?? 'uptide';
   const cells = summaryCells(report);
   const dot = colors.dim('·');
   const title =
@@ -140,8 +141,8 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
         `  ${report.branchRenamedFrom} already exists with different content; created ${report.branch}.`,
       ),
     );
-  const base = report.base ?? 'main';
-  if (!report.exportError) lines.push(`  git diff ${base}..${report.branch} --stat`);
+  const base = report.baseHead ?? report.base;
+  if (!report.exportError && base) lines.push(`  git diff ${base}..${report.branch} --stat`);
   if (report.clone?.kept)
     lines.push(
       colors.dim(`  temporary clone kept at ${report.clone.path}: ${report.clone.reason}`),
@@ -165,6 +166,7 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
   };
   if (report.html) next.push([`open ${local(report.html)}`, 'the migration report']);
   next.push([local(report.prBody), 'the PR description']);
+  for (const entry of next) entry[0] = opts.suggest?.(entry[0]) ?? entry[0];
   const width = Math.max(...next.map(([c]) => c.length));
   for (const [cmd, what] of next) lines.push(`  ${pad(cmd, width)}    ${colors.dim(what)}`);
   return `${lines.join('\n')}\n`;
