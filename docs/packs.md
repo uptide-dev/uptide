@@ -329,9 +329,9 @@ unaffected, and so is the pack's status. A pack whose `transform` edits for a ru
 
 Each mechanical rule, breaking or not, also has a precision: its real true positives against
 its false positives wherever `pack test` scored them. Below `RULE_PRECISION_WARNING` (80%),
-`pack test` flags the rule (UPT-65). For now that is a warning only: no pack's status and no
-rule's run mode changes. If it becomes a gate, a flagged rule will run as assisted, the same
-way as an unexercised one. [The compatibility matrix](compatibility.md) lists every rewrite's
+`pack test` flags the rule (UPT-65), and when it scored at least `RULE_PRECISION_MIN_SITES` (5)
+sites `fix` runs it as assisted, the same way as an unexercised one (UPT-96). The pack's status
+does not change. A smaller sample stays mechanical and is flagged. [The compatibility matrix](compatibility.md) lists every rewrite's
 precision.
 
 A pack may ask for fewer real breaking sites with `meta.minBreakingSites`, only for a major whose

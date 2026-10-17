@@ -246,10 +246,13 @@ export const VERIFIED_MIN_BREAKING_SITES = 5;
 export const VERIFIED_MIN_BEHAVIOR_SITES = 5;
 
 /**
- * The precision a mechanical rule should reach, breaking or not (UPT-65): below it `pack test`
- * flags the rule. A warning for now: it changes no status and no run mode.
+ * The precision a mechanical rule must reach, breaking or not (UPT-65, UPT-96): below it `pack
+ * test` flags the rule and `fix` runs its sites as assisted. A pack's status does not change.
  */
 export const RULE_PRECISION_WARNING = 0.8;
+
+/** Scored sites a rule needs before its precision gates how it runs: fewer is too small a sample. */
+export const RULE_PRECISION_MIN_SITES = 5;
 
 /** A mechanical rule's precision, or undefined when it reported nothing. */
 export function rulePrecision(r: {
@@ -258,6 +261,20 @@ export function rulePrecision(r: {
 }): number | undefined {
   const n = r.truePositives + r.falsePositives;
   return n === 0 ? undefined : r.truePositives / n;
+}
+
+/** The mechanical rules a record shows to be wrong too often to rewrite unsupervised. */
+export function lowPrecisionRules(
+  mechanical: Record<string, { truePositives: number; falsePositives: number }> | undefined,
+): string[] {
+  return Object.entries(mechanical ?? {})
+    .filter(
+      ([, r]) =>
+        r.truePositives + r.falsePositives >= RULE_PRECISION_MIN_SITES &&
+        (rulePrecision(r) ?? 1) < RULE_PRECISION_WARNING,
+    )
+    .map(([id]) => id)
+    .sort();
 }
 
 /**
@@ -283,7 +300,8 @@ export interface GateEvidence {
  * expected site is a behavior note's, whatever its severity: ioredis 6), judged on its notes;
  * otherwise `breaking`. `reasons` say why a candidate is one. `unexercised` are mechanical rules
  * no real site ever confirmed: their sites run as assisted, whatever the status. `lowPrecision`
- * are mechanical rules below `RULE_PRECISION_WARNING`: a warning, not a reason.
+ * are mechanical rules below `RULE_PRECISION_WARNING` over at least `RULE_PRECISION_MIN_SITES` scored
+ * sites: they run as assisted, but the status is untouched.
  */
 export interface GateResult {
   status: PackStatus;
@@ -332,10 +350,7 @@ export function verifiedGate(e: GateEvidence): GateResult {
     .filter(([, r]) => r.truePositives === 0)
     .map(([id]) => id)
     .sort();
-  const lowPrecision = Object.entries(e.mechanical)
-    .filter(([, r]) => (rulePrecision(r) ?? 1) < RULE_PRECISION_WARNING)
-    .map(([id]) => id)
-    .sort();
+  const lowPrecision = lowPrecisionRules(e.mechanical);
   return {
     status: reasons.length ? 'candidate' : 'verified',
     class: cls,

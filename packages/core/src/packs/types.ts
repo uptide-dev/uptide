@@ -134,6 +134,11 @@ export interface MigrationPack {
    */
   readonly unexercised?: readonly string[];
   /**
+   * Rules whose rewrite was wrong too often on ground truth (`lowPrecisionRules`): their sites are
+   * assisted too. Set by the registry from the record.
+   */
+  readonly lowPrecision?: readonly string[];
+  /**
    * Packages that always move with this one, even when the installed version of each already
    * accepts the target. Each carries the `source` that says so: the URL of an official
    * migration guide or changelog (the package's own, when the leader's does not name it).

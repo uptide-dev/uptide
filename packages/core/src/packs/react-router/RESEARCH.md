@@ -100,6 +100,10 @@ both, and no rule edits route definitions.
   `react-router`. It is `deprecated` (v7 still works with `react-router-dom`), so `fix` applies it
   with `--include-deprecated`. The release group keeps both packages at the same exact version,
   so a file that still imports `react-router-dom` shares the router context with one that moved.
+- `dom-imports` runs as assisted (UPT-96, 8% precision over 365 sites). No narrower match keeps
+  the 29 true positives and drops the noise: Phoenix moved its imports and Lago kept all 335 of
+  its, and the two look alike in the source (same specifier, same names, all in `react-router`).
+  The only difference is a decision about the dependency, which a file does not show.
 - Rewrites ready but not wired until ground truth exercises them: `future-prop` (removes only
   v6 flag literals, which v7 ignores whatever their value, the behavior they stood for being in
   the flag notes; a leading comment on the property declines it). The two inline-literal

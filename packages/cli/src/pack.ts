@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import {
   type PackTestReport,
   type RegisteredPack,
+  RULE_PRECISION_MIN_SITES,
   RULE_PRECISION_WARNING,
   rateLabel,
   rulePrecision,
@@ -185,7 +186,8 @@ export function formatPackTest(report: PackTestReport, color = false, limit = In
       out.push(
         `  ${c.yellow('·')} no real site exercises ${g.unexercised.join(', ')}: their rewrites run as assisted`,
       );
-    // Per-rule precision of every rewrite, breaking or not (UPT-65): a warning, not a gate yet.
+    // Per-rule precision of every rewrite, breaking or not (UPT-65). Below the threshold a rule
+    // runs as assisted (UPT-96); the pack's status is untouched.
     const threshold = Math.round(RULE_PRECISION_WARNING * 100);
     const mechanical = Object.entries(g.mechanical ?? {}).sort(([a], [b]) => a.localeCompare(b));
     if (mechanical.length) {
@@ -194,14 +196,18 @@ export function formatPackTest(report: PackTestReport, color = false, limit = In
       );
       for (const [id, r] of mechanical) {
         const p = rulePrecision(r);
-        const low = g.lowPrecision.includes(id) ? `  ${c.yellow('!')} below ${threshold}%` : '';
+        const low = g.lowPrecision.includes(id)
+          ? `  ${c.yellow('!')} below ${threshold}%: assisted`
+          : (p ?? 1) < RULE_PRECISION_WARNING
+            ? `  ${c.yellow('!')} below ${threshold}%, under ${RULE_PRECISION_MIN_SITES} sites: too few to judge`
+            : '';
         out.push(
           `  ${id.padEnd(28)} ${(p === undefined ? 'n/a' : `${Math.round(p * 100)}%`).padStart(9)} ${String(r.truePositives).padStart(5)} ${String(r.falsePositives).padStart(4)}${low}`,
         );
       }
       if (g.lowPrecision.length)
         out.push(
-          `  ${c.yellow('!')} warning only: ${g.lowPrecision.join(', ')} below ${threshold}% precision would run as assisted if this became a gate`,
+          `  ${c.yellow('!')} ${g.lowPrecision.join(', ')} below ${threshold}% precision over ${RULE_PRECISION_MIN_SITES}+ sites: their rewrites run as assisted`,
         );
     }
   }

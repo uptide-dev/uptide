@@ -1,6 +1,11 @@
 import type { Finding } from '../domain/report.js';
 import { UptideError } from '../errors.js';
-import { type PackStatus, type RegisteredPack, recordedStatus } from './contract.js';
+import {
+  lowPrecisionRules,
+  type PackStatus,
+  type RegisteredPack,
+  recordedStatus,
+} from './contract.js';
 import { withUnexercised } from './fixability.js';
 import { packInventory } from './inventory.js';
 import { REGISTRY } from './registry.js';
@@ -24,7 +29,13 @@ export function activePacks(allowCandidate = false): readonly MigrationPack[] {
   return REGISTRY.filter(
     (e) =>
       packStatus(e) === 'verified' || (allowCandidate && e.verification?.status === 'candidate'),
-  ).map((e) => withUnexercised(e.pack, e.verification?.unexercised));
+  ).map((e) =>
+    withUnexercised(
+      e.pack,
+      e.verification?.unexercised,
+      lowPrecisionRules(e.verification?.mechanical),
+    ),
+  );
 }
 
 export function activePack(name: string, allowCandidate = false): MigrationPack | undefined {
@@ -105,6 +116,7 @@ export function withCompanionPacks(
     ],
     rules: [...lead.rules, ...companions.flatMap((p) => p.rules)],
     unexercised: [lead, ...companions].flatMap((p) => p.unexercised ?? []),
+    lowPrecision: [lead, ...companions].flatMap((p) => p.lowPrecision ?? []),
     transform: (text, finding, context) =>
       of(finding).transform(text, finding, own(finding, context)),
     guide: (finding, context) => of(finding).guide(finding, context && own(finding, context)),

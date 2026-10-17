@@ -8,6 +8,7 @@ import {
   definePack,
   type GateEvidence,
   type GroundTruth,
+  lowPrecisionRules,
   RULE_PRECISION_WARNING,
   recordedStatus,
   replaceAtSite,
@@ -89,6 +90,15 @@ describe('every registered pack meets the contract', () => {
       .filter((e) => recordedStatus(e.verification) === 'verified')
       .map((e) => e.pack.name);
     expect(activePacks().map((p) => p.name)).toEqual(verified);
+  });
+
+  it('runs each active pack with the low-precision rules its record shows', () => {
+    for (const pack of activePacks()) {
+      const entry = registeredPacks().find((e) => e.pack.name === pack.name);
+      expect(pack.lowPrecision ?? [], pack.name).toEqual(
+        lowPrecisionRules(entry?.verification.mechanical),
+      );
+    }
   });
 
   it('runs each active pack with the unexercised rules its record lists', () => {
@@ -176,6 +186,7 @@ describe('the verified gate', () => {
           rename: { truePositives: 3, falsePositives: 0 },
           imports: { truePositives: 29, falsePositives: 336 },
           quiet: { truePositives: 0, falsePositives: 0 },
+          tiny: { truePositives: 1, falsePositives: 1 },
         },
       }),
     );
@@ -371,6 +382,11 @@ describe('definePack', () => {
       reason: expect.stringContaining('rename rewrite'),
     });
     expect(pack.transform(text, finding(1, 1), context).applied).toBe(true);
+    const lowPrecision = withUnexercised(pack, [], ['rename']);
+    expect(lowPrecision.transform(text, finding(1, 1), context)).toMatchObject({
+      applied: false,
+      reason: expect.stringContaining('wrong too often'),
+    });
     // Another rule's edits are untouched.
     expect(withUnexercised(pack, ['other']).transform(text, finding(1, 1), context).applied).toBe(
       true,
