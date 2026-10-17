@@ -95,6 +95,11 @@ already bring it along as a companion. Each package has one row listing all reje
 With `--json`, both a blocked preflight and the completed fix report expose `peerConflicts`
 with one entry per package and a `peers` array retaining every range, target and inspected
 version; a blocked preflight also includes `next` and exits 2.
+On npm, which refuses an install on any peer conflict, it also checks the other direction:
+the peers of each package that moves, and of the peers npm installs for them, against what
+stays installed. Optional peers count only when installed. Such a row names the path
+(`vite 8.3.4 (peer of vitest 5.0.5)  peer esbuild ^0.27.0 || ^0.28.0  →  rejects installed
+esbuild 0.25.11`), and its `peerConflicts` entry carries that path in `via`.
 It never adds an unrequested peer upgrade silently:
 
 ```sh

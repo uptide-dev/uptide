@@ -255,7 +255,8 @@ export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
       return allowed(name, await allVersions(name));
     },
     async manifests(name) {
-      const all = await remembered([...packagePathSegments(name), 'manifests'], false, () =>
+      // `manifests-2`: entries cached before `peerDependenciesMeta` was kept would hide it.
+      const all = await remembered([...packagePathSegments(name), 'manifests-2'], false, () =>
         listManifests(name, config, fetchFn),
       );
       const keep = new Set(await allowed(name, Object.keys(all)));

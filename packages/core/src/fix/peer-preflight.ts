@@ -7,11 +7,12 @@ import {
   peerConflictOf,
 } from '../check/companions.js';
 import { ownTypesFrom } from '../check/removed.js';
-import { parseVersion } from '../check/version.js';
+import { compareVersions, parseVersion } from '../check/version.js';
 import type { PackageFetcher } from '../domain/io.js';
 import { UptideError } from '../errors.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
+import { satisfies } from '../fetch/range.js';
 import type { Manifest } from '../list/evidence.js';
 import { activePack } from '../packs/index.js';
 import { UPTIDE_COMMAND } from '../version.js';
@@ -30,6 +31,11 @@ export interface PeerBlocker {
   target: string;
   newer?: string;
   allowed: boolean;
+  /**
+   * Set when the blocker is a package npm installs that rejects a peer which stays: `target` is
+   * then the installed version. The path npm takes to it: `['vitest 5.0.5']` for vite 8.3.4.
+   */
+  via?: string[];
 }
 export interface PeerBlockerGroup {
   name: string;
@@ -37,6 +43,7 @@ export interface PeerBlockerGroup {
   peers: Pick<PeerBlocker, 'peer' | 'range' | 'target' | 'version'>[];
   newer?: string;
   allowed: boolean;
+  via?: string[];
 }
 
 /** One row per package, retaining every rejected peer (including look-ahead versions). */
@@ -47,7 +54,13 @@ export function groupPeerBlockers(
   for (const p of peers) {
     let group = groups.get(p.name);
     if (!group) {
-      group = { name: p.name, version: p.version, peers: [], allowed: p.allowed };
+      group = {
+        name: p.name,
+        version: p.version,
+        peers: [],
+        allowed: p.allowed,
+        ...(p.via ? { via: p.via } : {}),
+      };
       groups.set(p.name, group);
     }
     if (p.newer) group.newer = p.newer;
@@ -94,7 +107,7 @@ export interface PeerPlan {
 type Manifests = NonNullable<PackageFetcher['manifests']>;
 
 export const peerDescription = (p: PeerBlocker | PeerBlockerGroup): string =>
-  `${p.name} ${p.version} declares ${('peers' in p ? p.peers : [p]).map((r) => `${r.peer} ${r.range}, which rejects ${r.target}`).join('; ')}`;
+  `${p.name} ${p.version}${p.via?.length ? ` (peer of ${p.via.join(' → ')})` : ''} declares ${('peers' in p ? p.peers : [p]).map((r) => `${r.peer} ${r.range}, which rejects ${p.via ? 'installed ' : ''}${r.target}`).join('; ')}`;
 
 function describe(p: PeerBlockerGroup): string {
   const ranges = new Map<string, string[]>();
@@ -106,8 +119,18 @@ function describe(p: PeerBlockerGroup): string {
   const accepts = p.peers
     .map((r) => `${r.peer} ${parseVersion(r.target)?.major ?? r.target}`)
     .join(', ');
-  return `${p.name} ${p.version}  ${p.peers.length === 1 ? 'peer' : 'peers'} ${peers}  →  ${p.allowed ? 'Explicitly allowed; a manifest override will be written.' : p.newer ? `upgrade to ${p.newer} (accepts ${accepts}): add ${p.name} to the command` : `no release accepts ${accepts}: use --allow-peer ${p.name}`}`;
+  const installed = p.peers.map((r) => `${r.peer} ${r.target}`).join(', ');
+  return `${p.name} ${p.version}${p.via?.length ? ` (peer of ${p.via.join(' → ')})` : ''}  ${p.peers.length === 1 ? 'peer' : 'peers'} ${peers}  →  ${p.allowed ? 'Explicitly allowed; a manifest override will be written.' : p.via ? `rejects installed ${installed}: upgrade ${p.peers.map((r) => r.peer).join(', ')} into range first, or use --allow-peer ${p.name}` : p.newer ? `upgrade to ${p.newer} (accepts ${accepts}): add ${p.name} to the command` : `no release accepts ${accepts}: use --allow-peer ${p.name}`}`;
 }
+
+/** An unparsable range rejects nothing this preflight could name. */
+const acceptsRange = (range: string, version: string): boolean => {
+  try {
+    return satisfies(version, range);
+  } catch {
+    return true;
+  }
+};
 
 /** Read-only planning, shared by direct callers and the CLI before its private clone. */
 export async function peerPreflight(
@@ -183,6 +206,55 @@ export async function peerPreflight(
   const requested = new Set(options.also ?? []);
   const allowed = new Set(options.allowPeer ?? []);
   const history = new Map<string, PeerBlocker>();
+  const npm = packageManager(options.cwd).kind === 'npm';
+
+  // npm also checks the peers of what moves, and of the peers it installs for them, against what
+  // stays: vitest 5 peers on vite, and vite 8 peers (optionally) on the repository's esbuild.
+  const stayingPeerConflicts = async (moves: Map<string, Companion>): Promise<PeerBlocker[]> => {
+    const found: PeerBlocker[] = [];
+    const seen = new Set<string>();
+    const walk = async (name: string, version: string, via: string[], workspaces: string[]) => {
+      if (seen.has(`${name}@${version}`)) return;
+      seen.add(`${name}@${version}`);
+      const manifest = (await manifests(name))[version];
+      for (const [peer, range] of Object.entries(manifest?.peerDependencies ?? {})) {
+        // A moving peer is checked against its target by `conflictsOf`.
+        if (moves.has(peer)) continue;
+        const stays = deps.find(
+          (d) => d.name === peer && d.workspaces.some((w) => workspaces.includes(w)),
+        );
+        if (stays) {
+          if (!acceptsRange(range, stays.version))
+            found.push({
+              name,
+              version,
+              peer,
+              range,
+              target: stays.version,
+              allowed: allowed.has(name),
+              via,
+            });
+          continue;
+        }
+        if (manifest?.peerDependenciesMeta?.[peer]?.optional) continue;
+        // ponytail: npm installs the newest release in range; a copy the lockfile already holds
+        // transitively may be kept instead. Read the lockfile if that misses a conflict.
+        const pick = Object.keys(await manifests(peer))
+          .filter((v) => parseVersion(v)?.pre === undefined && acceptsRange(range, v))
+          .sort(compareVersions)
+          .at(-1);
+        if (pick) await walk(peer, pick, [...via, `${name} ${version}`], workspaces);
+      }
+    };
+    for (const move of moves.values())
+      await walk(
+        move.name,
+        move.to,
+        [],
+        deps.find((d) => d.name === move.name)?.workspaces ?? ['.'],
+      );
+    return found;
+  };
 
   // Inspect the target manifest of a moving member too: its new peers may block another move.
   const conflictsOf = async (moves: Map<string, Companion>): Promise<PeerBlocker[]> => {
@@ -218,9 +290,12 @@ export async function peerPreflight(
         found.set(`${dep.name}@${version}>${host.name}@${host.to}`, peer);
       }
     }
+    if (npm)
+      for (const peer of await stayingPeerConflicts(moves))
+        found.set(`${peer.name}@${peer.version}>${peer.peer}@${peer.target}`, peer);
     // One release must accept every target peer, not a different release per rejected range.
     for (const peer of found.values()) {
-      if (base.has(peer.name)) continue;
+      if (base.has(peer.name) || peer.via) continue;
       const versions = await manifests(peer.name);
       const rejected = [...found.values()].filter((p) => p.name === peer.name);
       peer.newer = compatiblePeerVersion(
@@ -284,7 +359,7 @@ export async function peerPreflight(
       );
   const companions = [...actual.moves.values()].filter((c) => c.name !== options.only);
   validateVersionRanges(options.cwd, [...actual.moves.values()], read);
-  if (packageManager(options.cwd).kind === 'npm' && actual.peers.some((p) => !p.allowed)) {
+  if (npm && actual.peers.some((p) => !p.allowed)) {
     // Look ahead through suggested upgrades so the one command includes their blockers as well.
     const extras = new Set(requested);
     const allowances = new Set(allowed);

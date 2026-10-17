@@ -29,6 +29,7 @@ export interface PackageFetcher {
       {
         dependencies?: Record<string, string>;
         peerDependencies?: Record<string, string>;
+        peerDependenciesMeta?: Record<string, { optional?: boolean }>;
         /** npm's deprecation message, when the version has one. */
         deprecated?: string;
       }
