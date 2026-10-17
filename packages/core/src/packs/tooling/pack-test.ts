@@ -535,6 +535,7 @@ export async function testPack(
     behavior: verificationTally(behavior),
     class: gate.class,
     breakingSites: gate.breakingSites,
+    breakingFound: breakingFound(pack, repos),
     behaviorSites: gate.behaviorSites,
     unexercised: gate.unexercised,
     ...(Object.keys(gate.mechanical).length ? { mechanical: gate.mechanical } : {}),
@@ -618,6 +619,20 @@ export function gateOf(
     mechanical,
   });
   return { ...gate, breakingSites, behaviorSites, mechanical };
+}
+
+/** Breaking sites of the public repositories that a finding reported as breaking landed on. */
+function breakingFound(pack: Pick<Pack, 'rules' | 'behavior'>, repos: RepoScore[]): number {
+  return repos
+    .filter((r) => !r.error && !r.fixture)
+    .reduce((n, r) => {
+      const hit = new Set(r.predicted.filter((p) => p.severity === 'breaking').map(key));
+      return (
+        n +
+        r.expected.filter((e) => siteSeverity(pack, e.rule) === 'breaking' && hit.has(key(e)))
+          .length
+      );
+    }, 0);
 }
 
 /**

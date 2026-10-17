@@ -18,6 +18,7 @@
   },
   "class": "behavior",
   "breakingSites": 2,
+  "breakingFound": 0,
   "behaviorSites": 13,
   "unexercised": []
 }

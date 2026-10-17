@@ -18,6 +18,7 @@
   },
   "class": "breaking",
   "breakingSites": 21,
+  "breakingFound": 19,
   "behaviorSites": 0,
   "unexercised": ["fixture-cast"],
   "mechanical": {

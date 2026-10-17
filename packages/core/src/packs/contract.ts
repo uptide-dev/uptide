@@ -177,6 +177,11 @@ export interface PackVerification {
   class?: 'breaking' | 'behavior';
   /** Expected breaking and behavior-note sites across public repositories. */
   breakingSites?: number;
+  /**
+   * Of `breakingSites`, those a finding reported as breaking landed on (a site found only as a
+   * deprecation is not counted). Absent from records written before it.
+   */
+  breakingFound?: number;
   behaviorSites?: number;
   /** Mechanical rules no real site confirmed: `fix` runs their sites as assisted. */
   unexercised?: string[];

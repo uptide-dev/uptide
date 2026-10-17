@@ -39,6 +39,12 @@ function rangeLabel(range: string): string {
   return range;
 }
 
+/** Breaking sites a breaking-severity finding landed on, over all of them; `—` before it was recorded. */
+function foundLabel(v: { breakingFound?: number; breakingSites?: number }): string {
+  if (v.breakingFound === undefined || !v.breakingSites) return '—';
+  return `${Math.round((v.breakingFound / v.breakingSites) * 100)}%`;
+}
+
 export function packsTable(verifiedOnly = false): string {
   const registered = registeredPacks();
   const packs = registered.filter(
@@ -50,11 +56,11 @@ export function packsTable(verifiedOnly = false): string {
     ) as GroundTruth;
     const repos = [...new Set(truth.repos.filter((r) => r.repo).map((r) => r.repo as string))];
     const range = `${rangeLabel(pack.meta.from)} → ${pack.meta.targetDescription ?? rangeLabel(pack.meta.to)}`;
-    return `| \`${pack.meta.package}\` | ${range} | ${pack.rules.length} | ${rateLabel(verification.breaking, 'precision')} | ${rateLabel(verification.breaking, 'recall')} | ${verification.breakingSites ?? '—'} | ${repos.join(', ') || '—'} | ${verification.status} |`;
+    return `| \`${pack.meta.package}\` | ${range} | ${pack.rules.length} | ${rateLabel(verification.breaking, 'precision')} | ${rateLabel(verification.breaking, 'recall')} | ${foundLabel(verification)} | ${verification.breakingSites ?? '—'} | ${repos.join(', ') || '—'} | ${verification.status} |`;
   });
   return [
-    '| Package | From → to | Rules | Precision | Recall | Breaking sites | Ground-truth repositories | Status |',
-    '| --- | --- | ---: | ---: | ---: | ---: | --- | --- |',
+    '| Package | From → to | Rules | Precision | Recall | Breaking found as breaking | Breaking sites | Ground-truth repositories | Status |',
+    '| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |',
     ...rows,
     ...(verifiedOnly
       ? [

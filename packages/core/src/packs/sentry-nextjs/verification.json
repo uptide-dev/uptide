@@ -18,6 +18,7 @@
   },
   "class": "breaking",
   "breakingSites": 8,
+  "breakingFound": 8,
   "behaviorSites": 0,
   "unexercised": [
     "enable-logs",

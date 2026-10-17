@@ -18,6 +18,7 @@
   },
   "class": "breaking",
   "breakingSites": 22,
+  "breakingFound": 18,
   "behaviorSites": 0,
   "unexercised": ["enable-metrics", "integration-names", "streamed-span-wrapper"],
   "mechanical": {

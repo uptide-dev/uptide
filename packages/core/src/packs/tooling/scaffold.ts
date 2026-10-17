@@ -168,6 +168,7 @@ export function scaffoldPack(options: ScaffoldOptions): ScaffoldResult {
     behavior: verificationTally(nothing),
     class: 'breaking',
     breakingSites: 0,
+    breakingFound: 0,
     behaviorSites: 0,
     // No real site exercises the example rewrite yet.
     unexercised: [RULE],
