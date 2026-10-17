@@ -1,5 +1,31 @@
 # uptide
 
+## 0.15.0
+
+### Minor Changes
+
+- [#203](https://github.com/uptide-dev/uptide/pull/203) [`19dd649`](https://github.com/uptide-dev/uptide/commit/19dd649aa3f9cd6e2da5005e978c0e836494724a) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `fix` estimates what the agent's sites will cost and prints the estimate before its first call. When the estimate is above the limit (`--max-cost`, default $1), it stops before spending anything and exits 2: `estimated $3.00 for 50 sites; limit $1.00. Run again with --max-cost 3.00`. Action and App runs never stop on the estimate: they work within `maxCost`, and the summary and the pull request name the sites left and the `maxCost` in `uptide.yml` that finishes them. When the agent stops at the limit, the summary and the pull request name the estimate and the limit that continues. The summary (`Phases`), the pull request's run details and `report.json` (`phases`) give wall time and agent spend per phase.
+
+- [#207](https://github.com/uptide-dev/uptide/pull/207) [`4a90e9f`](https://github.com/uptide-dev/uptide/commit/4a90e9f95170669dd96d6ec4e5db376ad76ebefd) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `fix` names the first major of a peer blocker that accepts the target (`no 1.x accepts react 19; 2.2.0 does`) and suggests adding it to the command instead of `--allow-peer`. When a verified pack covers that major, the blocker moves as a companion and its pack runs in the same fix: its rules, its detect-based findings and its inventory, each at the companion's own versions. When no pack covers it, the PR says the major needs its own migration and the risk is High. `--allow-peer` stays the suggestion only when no release accepts the target. A group member that the target's own range already accepts (`@casl/ability` under `@casl/react` 5) is no longer reported as a conflict.
+
+### Patch Changes
+
+- [#208](https://github.com/uptide-dev/uptide/pull/208) [`5fdb60e`](https://github.com/uptide-dev/uptide/commit/5fdb60e7679948f53d8faeef8f59536aa59f7f02) Thanks [@lucasbraum](https://github.com/lucasbraum)! - The express pack reports the `const { id } = req.params` line as a site when the compiler reports a `string | string[]` error on one of its names, because that line is where the guide types the values once.
+
+- [#211](https://github.com/uptide-dev/uptide/pull/211) [`213e1a5`](https://github.com/uptide-dev/uptide/commit/213e1a57a23915d336c463066ffaec8a12bf79b9) Thanks [@lucasbraum](https://github.com/lucasbraum)! - fix runs prisma generate / graphql-codegen in its verification clone before the baseline and after the upgrade; check names the missing generator step
+
+- [#204](https://github.com/uptide-dev/uptide/pull/204) [`65b7edb`](https://github.com/uptide-dev/uptide/commit/65b7edbd43cb3d1f36c688216f466ff346e0065f) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `check` and `fix` now measure how many of the files that use the upgraded package the repository actually type-checks (TypeScript, plus JavaScript under `checkJs` or `// @ts-check`). When that is under half, the summaries say `types cover N of M affected files` and no longer present a clean compile as proof: `fix` passes only when a test run or a build passed, and says the verdict rests on them.
+
+- [#205](https://github.com/uptide-dev/uptide/pull/205) [`c0332eb`](https://github.com/uptide-dev/uptide/commit/c0332eb3400ee957178f76e7d2c1dce4f3e4487c) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `fix` no longer fails on npm repositories whose lockfile carries optional platform packages such as sharp's `@emnapi/*`. npm 11.6 drops them on the first lock-only install and writes a lockfile its own `npm ci` rejects; `fix` now runs the lock-only install twice, at the upgrade and at the parent commit alike, so the lockfile it validates is one `npm ci` accepts.
+
+- [#201](https://github.com/uptide-dev/uptide/pull/201) [`4550da5`](https://github.com/uptide-dev/uptide/commit/4550da527a6bf24e751f2d5ee92c99ff57343cb7) Thanks [@lucasbraum](https://github.com/lucasbraum)! - The react pack now reports `RefObject<HTMLElement>` annotations that need `| null` at the declaration, including in files that type a prop with the global `React.RefObject` and never import react. The compiler reports these where a ref is passed in, so the declaration to edit was missed.
+
+- [#216](https://github.com/uptide-dev/uptide/pull/216) [`95a3bf5`](https://github.com/uptide-dev/uptide/commit/95a3bf5d6b5767e41d5f2dbc2b3cc9cb78b7a5fd) Thanks [@lucasbraum](https://github.com/lucasbraum)! - setup PRs pin Action v0.14.3
+
+- [#209](https://github.com/uptide-dev/uptide/pull/209) [`48df030`](https://github.com/uptide-dev/uptide/commit/48df030be0957e0865b60ad2b6cc8a39fd09c9ec) Thanks [@lucasbraum](https://github.com/lucasbraum)! - The zod pack reports `.refine(check, { message })`, the type names zod 4 marks deprecated (`ZodTypeAny`, `ZodIssue`, `ZodSchema`, `ZodErrorMap` and the others, including `import('zod').ZodTypeAny`) and `errorMap` options with `ctx.defaultError`, as deprecated findings.
+
+- [#200](https://github.com/uptide-dev/uptide/pull/200) [`4e4cc3e`](https://github.com/uptide-dev/uptide/commit/4e4cc3eb34aa61e45631e534593a36ad18898145) Thanks [@lucasbraum](https://github.com/lucasbraum)! - The zod pack reports names zod 3 exported from its root and zod 4 exports only from `zod/v3` (`SafeParseReturnType`, `ZodTypeDef`, `ZodEffects`, the `Zod*Def` interfaces), which the surface diff counted as unchanged, and `fix` now rewrites `z.string().uuid()` to `z.guid()` instead of `z.uuid()`, so ids that zod 3 accepted still validate.
+
 ## 0.14.3
 
 ### Patch Changes
