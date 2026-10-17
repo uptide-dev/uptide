@@ -317,6 +317,27 @@ describe('uptide fix', () => {
     expect(engine.calls.at(-1)).toMatchObject({ pr: true, base: 'release', allowDirty: true });
   });
 
+  it.each([
+    [false, ['--pr', '--yes'], false],
+    [true, ['--pr', '--yes'], true],
+    [true, [], false],
+    [false, ['--pr', '--yes', '--update-pins'], true],
+  ] as const)(
+    'resolves config updatePins %s with flags %j to %s',
+    async (configured, flags, expected) => {
+      const cwd = pnpmGitRepo({ 'custom.yml': `version: 1\nupdatePins: ${configured}\n` });
+      const engine = fakeEngine();
+      const io = memoryIo({ cwd });
+      const code = await run(
+        ['fix', 'zod', '--no-llm', '--config', 'custom.yml', ...flags],
+        io,
+        engine,
+      );
+      expect(code, io.stderr()).toBe(0);
+      expect(engine.calls.at(-1)).toMatchObject({ updatePins: expected });
+    },
+  );
+
   it('forwards explicit peer upgrades and repeatable peer allowances to planning', async () => {
     const engine = fakeEngine();
     await run(

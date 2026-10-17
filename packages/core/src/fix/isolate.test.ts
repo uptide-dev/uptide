@@ -269,6 +269,42 @@ describe('fix migrates the commit that is checked out, cloned from the local rep
   };
   const BRANCH = 'uptide/zod-4.6.5';
 
+  it.each([undefined, false])(
+    'uses committed PR pin consent with updatePins: %s',
+    async (updatePins) => {
+      const { root, services } = zodFixture(scratch);
+      const file = join(root, 'package.json');
+      const manifest = JSON.parse(readFileSync(file, 'utf8'));
+      manifest.resolutions = { zod: '3.25.76', other: '3.25.76' };
+      writeFileSync(file, JSON.stringify(manifest));
+      if (updatePins === false)
+        writeFileSync(join(root, 'uptide.yml'), 'version: 1\nupdatePins: false\n');
+      git(root, 'add', '.');
+      git(root, 'commit', '-m', 'root pin policy');
+      withOrigin(root);
+      const seen = counted(services);
+      const before = snapshot(root);
+      const run = isolatedFix(
+        { cwd: root, only: 'zod', pr: true, yes: true, fixer: null, tool: TOOL },
+        services,
+      );
+      if (updatePins === false) {
+        await expect(run).rejects.toThrow('--update-pins');
+        expect(seen).toEqual({ checks: 0, published: 0 });
+      } else {
+        const result = await run;
+        expect(seen.published).toBe(1);
+        expect(result.rootPins).toMatchObject([{ name: 'zod', before: '3.25.76', after: '4.6.5' }]);
+        expect(JSON.parse(git(root, 'show', `${result.branch}:package.json`)).resolutions).toEqual({
+          zod: '4.6.5',
+          other: '3.25.76',
+        });
+      }
+      expect(changedSince(root, before)).toEqual([]);
+    },
+    30000,
+  );
+
   it('ahead of the upstream: migrates the local commits and says so', async () => {
     const { root, services } = zodFixture(scratch);
     withOrigin(root);

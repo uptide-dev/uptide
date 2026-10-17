@@ -590,7 +590,7 @@ export async function isolatedFix(
     planRootPins(
       options.cwd,
       [{ name: options.only, to: options.target }, ...(options.peerPlan?.companions ?? [])],
-      options.updatePins,
+      options,
       (file) => {
         const path = join(project, file);
         if (!git(source, 'ls-tree', '--name-only', preflight.head, '--', path)) return undefined;

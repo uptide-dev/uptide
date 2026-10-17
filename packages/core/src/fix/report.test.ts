@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { GENERIC_NOTE } from '../packs/generic.js';
 import { stripePack } from '../packs/stripe/index.js';
+import { largeStripeReport } from './__fixtures__/large-reports.js';
 import {
   apiChangeSummary,
   errorSummary,
@@ -10,6 +11,7 @@ import {
   migrationRisk,
   PR_BODY_BUDGET,
   prBody,
+  renderMigration,
 } from './report.js';
 import type { FixReport } from './types.js';
 
@@ -1046,4 +1048,25 @@ it('names the packages of the scope that stay where they are', () => {
   );
   delete report.companionStays;
   expect(prBody(report)).not.toContain('Left where they are');
+});
+
+it('keeps root pin review first even when the PR body must be shortened', () => {
+  const report = largeStripeReport();
+  report.rootPins = [
+    {
+      file: 'package.json',
+      path: ['resolutions', 'stripe'],
+      name: 'stripe',
+      before: '14.25.0',
+      after: '22.6.2',
+      to: '22.6.2',
+    },
+  ];
+  for (const budget of [undefined, 16_000]) {
+    const body = renderMigration(report, 'full', budget);
+    expect(body).toMatch(/^## Upgrade[^\n]+\n\n### Root pins changed: review\n/);
+    expect(body).toContain('package.json "resolutions" > "stripe": 14.25.0 → 22.6.2');
+    expect(body).not.toContain('explicit `--update-pins` consent');
+    if (budget !== undefined) expect(body.length).toBeLessThanOrEqual(budget);
+  }
 });

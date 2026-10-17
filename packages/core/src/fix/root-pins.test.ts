@@ -25,7 +25,7 @@ it('requires consent, then changes only target and companion pins alongside decl
   const original = read('package.json');
   expect(() => planRootPins(root, moves)).toThrow('--update-pins');
   expect(read('package.json')).toBe(original);
-  const pins = planRootPins(root, moves, true);
+  const pins = planRootPins(root, moves, { updatePins: true });
   expect(pins).toHaveLength(6);
   for (const move of moves) bumpVersions(root, move.name, move.to);
   expect(writeRootPins(root, pins)).toEqual([
@@ -49,7 +49,7 @@ it('requires consent, then changes only target and companion pins alongside decl
     '@types/react-dom': 'catalog:types',
     other: '1.0.0',
   });
-  expect(planRootPins(root, moves, true)).toEqual([]);
+  expect(planRootPins(root, moves, { updatePins: true })).toEqual([]);
 });
 
 it.each([
@@ -65,7 +65,9 @@ it.each([
 ])('refuses ambiguous selectors or non-version values even with consent: %j', (extra) => {
   const root = fixture();
   const read = (file: string) => (file === 'package.json' ? JSON.stringify(extra) : undefined);
-  expect(() => planRootPins(root, moves, true, read)).toThrow('cannot be updated safely');
+  expect(() => planRootPins(root, moves, { updatePins: true }, read)).toThrow(
+    'cannot be updated safely',
+  );
 });
 
 it('does not confuse unscoped packages with scoped packages, prefixes or parent selectors', () => {
@@ -74,7 +76,7 @@ it('does not confuse unscoped packages with scoped packages, prefixes or parent 
     overrides: { react: { other: '18.0.26' }, '@types/react': '18.0.26' },
   };
   expect(
-    planRootPins(fixture(), [{ name: 'react', to: '19.3.0' }], true, (file) =>
+    planRootPins(fixture(), [{ name: 'react', to: '19.3.0' }], { updatePins: true }, (file) =>
       file === 'package.json' ? JSON.stringify(manifest) : undefined,
     ),
   ).toEqual([]);
@@ -86,14 +88,16 @@ it.each([
   "pins: &pins\n  '@types/react': 18.0.26\noverrides: *pins\n",
 ])('refuses YAML aliases and anchors that could affect unrelated entries', (yaml) => {
   expect(() =>
-    planRootPins(fixture(), moves, true, (file) => (file === 'package.json' ? '{}' : yaml)),
+    planRootPins(fixture(), moves, { updatePins: true }, (file) =>
+      file === 'package.json' ? '{}' : file === 'pnpm-workspace.yaml' ? yaml : undefined,
+    ),
   ).toThrow('YAML anchor or alias');
 });
 
 it('leaves companion pins and catalogs alone unless that package is actually moving', () => {
   const root = fixture();
   const before = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  const pins = planRootPins(root, moves.slice(0, 1), true);
+  const pins = planRootPins(root, moves.slice(0, 1), { updatePins: true });
   bumpVersions(root, '@types/react', '19.3.0');
   writeRootPins(root, pins);
   const after = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -110,3 +114,28 @@ it.each([
 ])('rejects catalog edits that could change another package through a YAML anchor', (yaml) => {
   expect(() => bumpCatalog(yaml, 'react', '19.3.0', '')).toThrow('YAML anchor or alias');
 });
+
+it.each([
+  [{ pr: true }, undefined, true],
+  [{ forPublication: true }, undefined, true],
+  [{ pr: true }, false, false],
+  [{ forPublication: true }, false, false],
+  [{ pr: true, updatePins: false }, undefined, false],
+  [{}, undefined, false],
+  [{}, true, false],
+  [{ updatePins: true }, false, true],
+] as const)(
+  'pin consent %j with repo updatePins %s allows changes: %s',
+  (options, configured, allowed) => {
+    const root = fixture();
+    const read = (file: string) =>
+      file === 'uptide.yml'
+        ? configured === undefined
+          ? undefined
+          : `version: 1\nupdatePins: ${configured}\n`
+        : readFileSync(join(root, file), 'utf8');
+    const plan = () => planRootPins(root, moves, options, read);
+    if (allowed) expect(plan()).toHaveLength(6);
+    else expect(plan).toThrow('--update-pins');
+  },
+);

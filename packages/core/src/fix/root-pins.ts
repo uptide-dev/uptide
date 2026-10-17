@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { type Document, isAlias, parseDocument } from 'yaml';
 import { UptideError } from '../errors.js';
 import { satisfies, validRange } from '../fetch/range.js';
+import { parseUptideConfig } from '../onboarding/config.js';
+import { UPTIDE_CONFIG_FILE } from '../onboarding/schema.js';
 import { globRegExp } from '../workspaces.js';
 
 export interface RootPin {
@@ -21,7 +23,7 @@ export const describeRootPin = (pin: RootPin): string =>
 export function planRootPins(
   root: string,
   moves: readonly { name: string; to: string }[],
-  updatePins = false,
+  options: { updatePins?: boolean; pr?: boolean; forPublication?: boolean } = {},
   read = (file: string): string | undefined =>
     existsSync(join(root, file)) ? readFileSync(join(root, file), 'utf8') : undefined,
 ): RootPin[] {
@@ -90,6 +92,11 @@ export function planRootPins(
     visit('pnpm-workspace.yaml', ['overrides'], doc.toJS()?.overrides);
     for (const pin of pins.filter((pin) => pin.file === 'pnpm-workspace.yaml'))
       assertIndependentYamlPin(doc, pin.path);
+  }
+  let updatePins = options.updatePins;
+  if (pins.length && updatePins === undefined && (options.pr || options.forPublication)) {
+    const config = read(UPTIDE_CONFIG_FILE);
+    updatePins = config === undefined || parseUptideConfig(config).config.updatePins !== false;
   }
   if (pins.length && !updatePins)
     throw new UptideError(

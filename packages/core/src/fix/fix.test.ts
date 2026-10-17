@@ -1511,49 +1511,57 @@ it('reports a workspace build that fails instead of throwing', async () => {
   );
 });
 
-it('updates approved root pins in the bump commit and records them in preflight and the PR', async () => {
-  const { root, services } = fixture();
-  const file = join(root, 'package.json');
-  const manifest = JSON.parse(readFileSync(file, 'utf8'));
-  manifest.pnpm = { overrides: { zod: '3.25.76', other: '3.25.76' } };
-  writeFileSync(file, JSON.stringify(manifest));
-  git(root, 'add', 'package.json');
-  git(root, 'commit', '-m', 'root pins');
-  const events: ProgressEvent[] = [];
-  const install = services.install;
-  services.install = async (dir, upgrade) => {
-    if (upgrade)
-      expect(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).pnpm.overrides).toEqual({
-        zod: '4.6.5',
-        other: '3.25.76',
-      });
-    return install(dir, upgrade);
-  };
-  await expect(fix({ cwd: root, only: 'zod', fixer: null }, services)).rejects.toThrow(
-    '--update-pins',
-  );
-  const report = await fix(
-    {
-      cwd: root,
-      only: 'zod',
-      fixer: null,
-      updatePins: true,
-      onProgress: (event) => events.push(event),
-    },
-    services,
-  );
-  expect(report.rootPins).toMatchObject([{ name: 'zod', before: '3.25.76', after: '4.6.5' }]);
-  expect(report.notes.join('\n')).toContain('updated to 4.6.5');
-  expect(prBody(report)).toContain('3.25.76 → 4.6.5');
-  expect(
-    events.some((event) => event.warning && event.detail?.includes('it will be updated to 4.6.5')),
-  ).toBe(true);
-  const bump = git(root, 'log', '--format=%H', '--grep=chore: upgrade zod').split('\n')[0];
-  expect(JSON.parse(git(root, 'show', `${bump}:package.json`)).pnpm.overrides).toEqual({
-    zod: '4.6.5',
-    other: '3.25.76',
-  });
-});
+it.each([{ updatePins: true }, { pr: true }, { forPublication: true }])(
+  'updates approved root pins in the bump commit and PR: %j',
+  async (consent) => {
+    const { root, services } = fixture();
+    const file = join(root, 'package.json');
+    const manifest = JSON.parse(readFileSync(file, 'utf8'));
+    manifest.pnpm = { overrides: { zod: '3.25.76', other: '3.25.76' } };
+    writeFileSync(file, JSON.stringify(manifest));
+    git(root, 'add', 'package.json');
+    git(root, 'commit', '-m', 'root pins');
+    const events: ProgressEvent[] = [];
+    services.publish = async () => {};
+    const install = services.install;
+    services.install = async (dir, upgrade) => {
+      if (upgrade)
+        expect(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).pnpm.overrides).toEqual({
+          zod: '4.6.5',
+          other: '3.25.76',
+        });
+      return install(dir, upgrade);
+    };
+    await expect(fix({ cwd: root, only: 'zod', fixer: null }, services)).rejects.toThrow(
+      '--update-pins',
+    );
+    const report = await fix(
+      {
+        cwd: root,
+        only: 'zod',
+        fixer: null,
+        ...consent,
+        tool: CLEAN_TOOL,
+        onProgress: (event) => events.push(event),
+      },
+      services,
+    );
+    expect(report.rootPins).toMatchObject([{ name: 'zod', before: '3.25.76', after: '4.6.5' }]);
+    expect(report.notes.join('\n')).toContain('updated to 4.6.5');
+    expect(prBody(report)).toMatch(/^## Upgrade[^\n]+\n\n### Root pins changed: review\n/);
+    expect(prBody(report)).toContain('3.25.76 → 4.6.5');
+    expect(
+      events.some(
+        (event) => event.warning && event.detail?.includes('it will be updated to 4.6.5'),
+      ),
+    ).toBe(true);
+    const bump = git(root, 'log', '--format=%H', '--grep=chore: upgrade zod').split('\n')[0];
+    expect(JSON.parse(git(root, 'show', `${bump}:package.json`)).pnpm.overrides).toEqual({
+      zod: '4.6.5',
+      other: '3.25.76',
+    });
+  },
+);
 
 it('refuses verification if an approved pin update still installs the old package', async () => {
   const { root, services } = fixture();
