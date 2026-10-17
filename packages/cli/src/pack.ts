@@ -61,8 +61,11 @@ function row(name: string, t: Tally): string {
   return `  ${name.padEnd(28)} ${rateLabel(t, 'precision').padStart(9)} ${rateLabel(t, 'recall').padStart(7)} ${String(t.truePositives).padStart(5)} ${String(t.falsePositives).padStart(4)} ${String(t.falseNegatives).padStart(4)}`;
 }
 
-/** What `uptide pack test` prints for one pack. */
-export function formatPackTest(report: PackTestReport, color = false): string {
+/**
+ * What `uptide pack test` prints for one pack. `limit` keeps the first sites of each
+ * false-positive, false-negative and wrong-rule list (the job summary's version).
+ */
+export function formatPackTest(report: PackTestReport, color = false, limit = Infinity): string {
   const c = pc.createColors(color);
   const out: string[] = [];
   const recorded = report.recorded === report.status ? '' : `, recorded ${report.recorded}`;
@@ -133,7 +136,9 @@ export function formatPackTest(report: PackTestReport, color = false): string {
       if (sites.length === 0) return;
       out.push('');
       out.push(`${title} (${sites.length})`);
-      for (const s of sites) out.push(`  ${s.label}  ${s.file}:${s.line}  ${s.text}`);
+      for (const s of sites.slice(0, limit))
+        out.push(`  ${s.label}  ${s.file}:${s.line}  ${s.text}`);
+      if (sites.length > limit) out.push(`  … and ${sites.length - limit} more, see the job log`);
     };
     listed(
       'false positives',
@@ -219,4 +224,24 @@ export function formatPackTest(report: PackTestReport, color = false): string {
         ),
   );
   return `${out.join('\n')}\n`;
+}
+
+/** Sites each list keeps in the job summary; the job log has them all. */
+export const SUMMARY_LIST_LIMIT = 20;
+/** GitHub rejects a step summary over 1 MiB; this leaves room for the lines around the reports. */
+export const SUMMARY_MAX_BYTES = 1024 * 1024 - 64 * 1024;
+
+/**
+ * The reports for `$GITHUB_STEP_SUMMARY`, in a code block followed by `tail`: every score table,
+ * each site list cut to its first `SUMMARY_LIST_LIMIT`, and the whole cut at a line under
+ * `SUMMARY_MAX_BYTES` when even that is too long.
+ */
+export function packTestSummary(reports: PackTestReport[], tail = ''): string {
+  const block = (body: string) => `\`\`\`\n${body}\n\`\`\`\n${tail}`;
+  const body = reports.map((r) => formatPackTest(r, false, SUMMARY_LIST_LIMIT)).join('\n');
+  if (Buffer.byteLength(block(body)) <= SUMMARY_MAX_BYTES) return block(body);
+  const note = '… cut here to fit the job summary, see the job log';
+  const room = SUMMARY_MAX_BYTES - Buffer.byteLength(block(note));
+  const head = Buffer.from(body).subarray(0, Math.max(0, room)).toString('utf8');
+  return block(`${head.slice(0, head.lastIndexOf('\n') + 1)}${note}`);
 }
