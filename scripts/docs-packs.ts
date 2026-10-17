@@ -9,7 +9,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { rateLabel } from '../packages/core/src/packs/contract.ts';
+import {
+  RULE_PRECISION_WARNING,
+  rateLabel,
+  rulePrecision,
+} from '../packages/core/src/packs/contract.ts';
 import { registeredPacks } from '../packages/core/src/packs/index.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -61,10 +65,37 @@ export function packsTable(verifiedOnly = false): string {
   ].join('\n');
 }
 
+/**
+ * Every rewrite rule's precision as `pack test --write` recorded it: real true positives against
+ * every scored false positive (UPT-65). Below `RULE_PRECISION_WARNING` is a warning, not a gate.
+ */
+export function rewritesTable(): string {
+  const threshold = Math.round(RULE_PRECISION_WARNING * 100);
+  const rows = registeredPacks().flatMap(({ pack, verification }) =>
+    Object.entries(verification.mechanical ?? {})
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([id, r]) => {
+        const p = rulePrecision(r);
+        const note = verification.unexercised?.includes(id)
+          ? 'unexercised: runs assisted'
+          : p !== undefined && p < RULE_PRECISION_WARNING
+            ? `below ${threshold}%`
+            : '';
+        return `| \`${pack.meta.package}\` | \`${id}\` | ${p === undefined ? 'n/a' : `${Math.round(p * 100)}%`} | ${r.truePositives} | ${r.falsePositives} | ${note} |`;
+      }),
+  );
+  return [
+    '| Package | Rewrite rule | Precision | Real true positives | False positives | Note |',
+    '| --- | --- | ---: | ---: | ---: | --- |',
+    ...rows,
+  ].join('\n');
+}
+
 function main(): void {
   const check = process.argv.includes('--check');
   for (const document of documents) {
-    const table = packsTable(document === 'README.md');
+    const table =
+      document === 'README.md' ? packsTable(true) : `${packsTable()}\n\n${rewritesTable()}`;
     const path = join(root, document);
     const text = readFileSync(path, 'utf8');
     const start = text.indexOf(START);

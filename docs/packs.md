@@ -327,6 +327,13 @@ its sites are assisted (the agent, with the rule's guide), never rewritten. Dete
 unaffected, and so is the pack's status. A pack whose `transform` edits for a rule that has no
 `rewrite` of its own (Stripe's pin) lists that rule in `mechanical`, so the gate counts it too.
 
+Each mechanical rule, breaking or not, also has a precision: its real true positives against
+its false positives wherever `pack test` scored them. Below `RULE_PRECISION_WARNING` (80%),
+`pack test` flags the rule (UPT-65). For now that is a warning only: no pack's status and no
+rule's run mode changes. If it becomes a gate, a flagged rule will run as assisted, the same
+way as an unexercised one. [The compatibility matrix](compatibility.md) lists every rewrite's
+precision.
+
 A pack may ask for fewer real breaking sites with `meta.minBreakingSites`, only for a major whose
 guide lists fewer breaking changes, and only with the reason written under
 `## Breaking-site minimum` in its RESEARCH.md; `pack test` fails a pack that sets it without one.
@@ -345,7 +352,8 @@ The CLI reads the status from `verification.json`, which `pack test --write` wri
 which records the digest of the ground-truth file it was measured against, with precision,
 recall and the counts behind them for breaking findings and for behavior-note sites
 (`behavior`, absent from records written before it), the gate's class, the real breaking and
-behavior-note site counts, and the unexercised rules. CI runs
+behavior-note site counts, the unexercised rules, and each mechanical rule's real true and
+false positives (`mechanical`). CI runs
 `pack test` for every pack on every pull request that touches packs and fails when the
 record claims verified where the evidence measures candidate, so the label cannot outlive
 what supports it.

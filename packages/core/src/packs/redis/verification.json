@@ -19,5 +19,27 @@
   "class": "breaking",
   "breakingSites": 20,
   "behaviorSites": 2,
-  "unexercised": ["keep-alive", "quit-disconnect", "scan-iterators", "unstable-resp3"]
+  "unexercised": ["keep-alive", "quit-disconnect", "scan-iterators", "unstable-resp3"],
+  "mechanical": {
+    "scan-iterators": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "keep-alive": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "renamed-exports": {
+      "truePositives": 2,
+      "falsePositives": 0
+    },
+    "quit-disconnect": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "unstable-resp3": {
+      "truePositives": 0,
+      "falsePositives": 0
+    }
+  }
 }

@@ -25,5 +25,27 @@
     "integration-names",
     "renamed-exports",
     "streamed-span-wrapper"
-  ]
+  ],
+  "mechanical": {
+    "enable-logs": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "enable-metrics": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "renamed-exports": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "integration-names": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "streamed-span-wrapper": {
+      "truePositives": 0,
+      "falsePositives": 0
+    }
+  }
 }

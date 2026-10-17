@@ -123,8 +123,12 @@ export interface PackTestReport {
   breaking: Tally;
   /** Ground truth, at the line level, the sites of behavior notes, whatever their severity. */
   behavior: Tally;
-  /** The verified gate's verdict, and the real-site counts it read. */
-  gate: GateResult & { breakingSites: number; behaviorSites: number };
+  /** The verified gate's verdict, and the real-site counts and mechanical rules it read. */
+  gate: GateResult & {
+    breakingSites: number;
+    behaviorSites: number;
+    mechanical: NonNullable<PackVerification['mechanical']>;
+  };
   passed: boolean;
 }
 
@@ -533,6 +537,7 @@ export async function testPack(
     breakingSites: gate.breakingSites,
     behaviorSites: gate.behaviorSites,
     unexercised: gate.unexercised,
+    ...(Object.keys(gate.mechanical).length ? { mechanical: gate.mechanical } : {}),
   };
   const recorded = recordedStatus(entry.verification);
   // Fixtures alone say nothing about ground truth: only a full run can find the record stale.
@@ -612,7 +617,7 @@ export function gateOf(
     behavior: all.behavior,
     mechanical,
   });
-  return { ...gate, breakingSites, behaviorSites };
+  return { ...gate, breakingSites, behaviorSites, mechanical };
 }
 
 /**
@@ -653,13 +658,15 @@ export function writeVerification(root: string, dir: string, record: PackVerific
 export function formatRecord(record: PackVerification): string {
   return JSON.stringify(record, null, 2).replace(
     /^( *"[^"\n]+": )\[\n((?: *"[^"\n]*",?\n)+) *\]/gm,
-    (whole, head: string, items: string) => {
+    (whole, head: string, items: string, at: number, text: string) => {
       const line = `${head}[${items
         .trim()
         .split('\n')
         .map((item) => item.trim().replace(/,$/, ''))
         .join(', ')}]`;
-      return line.length <= 100 ? line : whole;
+      // The formatter counts the comma after the list when another key follows.
+      const comma = text[at + whole.length] === ',' ? 1 : 0;
+      return line.length + comma <= 100 ? line : whole;
     },
   );
 }
@@ -698,8 +705,10 @@ export function unfinishedPack(entry: RegisteredPack, reason: string): PackTestR
       class: 'breaking',
       reasons: [reason],
       unexercised: [],
+      lowPrecision: [],
       breakingSites: 0,
       behaviorSites: 0,
+      mechanical: {},
     },
     passed: false,
   };

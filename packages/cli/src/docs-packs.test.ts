@@ -56,6 +56,8 @@ it('generates both pack tables and rejects stale or missing tables without writi
     expect(matrix).toContain('| `ioredis` | 5 → 6 |');
     expect(matrix).toContain('| `stripe` | 14+ → latest, API version pinning |');
     expect(matrix).not.toContain('more in validation');
+    expect(matrix).toContain('| Package | Rewrite rule | Precision |');
+    expect(current).not.toContain('| Rewrite rule |');
     const candidates = matrix.split('\n').filter((line) => line.endsWith('| candidate |')).length;
     expect(current).toContain(
       `${candidates} more in validation: see the [compatibility matrix](docs/compatibility.md).`,
