@@ -714,3 +714,95 @@ it('pnpm keeps reporting staying peers as before: npm alone refuses on them', as
   const plan = await peerPreflight({ cwd: root, only: 'zod', target: '4.6.5' }, services);
   expect(plan?.conflicts).toEqual([]);
 });
+
+/** zod 3 → 4 with `name` installed at `version`, peering on zod, and its releases (UPT-10). */
+function majorBlocker(
+  name: string,
+  version: string,
+  releases: Record<string, { peerDependencies: Record<string, string> }>,
+) {
+  const f = stayingPeerFixture({ [name]: version }, { zod: { '4.6.5': {} }, [name]: releases });
+  writeFileSync(
+    join(f.root, 'node_modules', name, 'package.json'),
+    JSON.stringify({ name, version, ...releases[version] }),
+  );
+  git(f.root, 'add', '-A');
+  git(f.root, 'commit', '--allow-empty', '-m', 'major blocker');
+  return f;
+}
+
+it.each([
+  {
+    covered: 'a pack covers the major',
+    name: 'express',
+    from: '4.0.0',
+    to: '5.0.0',
+    advice:
+      'no 4.x accepts zod 4; 5.0.0 does (major, the express pack runs in the same fix): add express to the command',
+    migration: 'pack',
+  },
+  {
+    covered: 'no pack covers the major',
+    name: 'plugin',
+    from: '1.0.0',
+    to: '2.0.0',
+    advice:
+      'no 1.x accepts zod 4; 2.0.0 does (major, no migration pack: it needs its own migration): add plugin to the command, or keep 1.x with --allow-peer plugin',
+    migration: 'own',
+  },
+])(
+  'names the first major that accepts the target when $covered',
+  async ({ name, from, to, advice, migration }) => {
+    const { root, services } = majorBlocker(name, from, {
+      [from]: { peerDependencies: { zod: '^3' } },
+      [to]: { peerDependencies: { zod: '^3 || ^4' } },
+    });
+    const error = await peerPreflight(
+      { cwd: root, only: 'zod', target: '4.6.5', fixer: null },
+      services,
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PeerPreflightError);
+    const { message, next, plan } = error as PeerPreflightError;
+    expect(message).toContain(`${name} ${from}  peer zod ^3  →  ${advice}`);
+    expect(next).toContain(`fix zod ${name} --target 4.6.5 --no-llm`);
+    expect(next).not.toContain('--allow-peer');
+    // The agent-led continuation (UPT-78) takes the same plan: the major moves as a companion.
+    expect(plan).toEqual({ also: [name], allowPeer: [] });
+    const planned = await peerPreflight(
+      { cwd: root, only: 'zod', target: '4.6.5', ...plan },
+      services,
+    );
+    expect(planned?.companions).toMatchObject([{ name, from, to, migration }]);
+  },
+);
+
+it('keeps --allow-peer when no major accepts the target', async () => {
+  const { root, services } = majorBlocker('plugin', '1.0.0', {
+    '1.0.0': { peerDependencies: { zod: '^3' } },
+    '2.0.0': { peerDependencies: { zod: '^3' } },
+  });
+  const error = await peerPreflight(
+    { cwd: root, only: 'zod', target: '4.6.5', fixer: null },
+    services,
+  ).catch((e: unknown) => e);
+  expect((error as PeerPreflightError).message).toContain(
+    'plugin 1.0.0  peer zod ^3  →  no release accepts zod 4: use --allow-peer plugin',
+  );
+  expect((error as PeerPreflightError).plan).toEqual({ also: [], allowPeer: ['plugin'] });
+});
+
+it('--no-llm still stops before the clone, with the major as the next command', async () => {
+  const { root, services } = majorBlocker('plugin', '1.0.0', {
+    '1.0.0': { peerDependencies: { zod: '^3' } },
+    '2.0.0': { peerDependencies: { zod: '^3 || ^4' } },
+  });
+  const install = vi.fn(services.install);
+  const error = await isolatedFix(
+    { cwd: root, only: 'zod', target: '4.6.5', fixer: null },
+    { ...services, install },
+  ).catch((e: unknown) => e);
+  // The CLI exits 2 on a PeerPreflightError (cli.test.ts).
+  expect(error).toBeInstanceOf(PeerPreflightError);
+  expect((error as PeerPreflightError).next).toMatch(/fix zod plugin --target 4\.6\.5 --no-llm$/);
+  expect(install).not.toHaveBeenCalled();
+});

@@ -63,6 +63,14 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
           `  ${pad('With', 9)} ${report.companions.map((c) => `${c.name} ${c.from} → ${c.to}`).join(', ')}`,
         ]
       : []),
+    ...(report.companions?.some((c) => c.migration === 'own')
+      ? [
+          `  ${pad('Risk', 9)} needs its own migration: ${report.companions
+            .filter((c) => c.migration === 'own')
+            .map((c) => `${c.name} ${c.from} → ${c.to} (major, no pack)`)
+            .join(', ')}`,
+        ]
+      : []),
     // Without a pack the reader is told once, here, what stands behind the edits.
     ...(report.tier === 'generic' && report.sites.some((s) => s.outcome === 'agent')
       ? [

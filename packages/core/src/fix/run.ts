@@ -20,6 +20,7 @@ import {
   assertCandidateLocal,
   CANDIDATE_WARNING,
   candidatePack,
+  withCompanionPacks,
 } from '../packs/index.js';
 import { leadName } from '../packs/leads.js';
 import { payloadApiVersions, stripeUsageContext } from '../packs/stripe/relevance.js';
@@ -330,6 +331,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     agentLed.push(pinConsentFallback(error, canAssist));
     options = { ...options, updatePins: true };
   }
+  // A peer blocker moved across a major its pack covers: that pack's rules run here too.
+  const companionPacks = (peerPlan?.companions ?? []).flatMap((c) => {
+    const companion =
+      c.migration === 'pack' ? activePack(c.name, options.allowCandidate) : undefined;
+    return companion ? [{ pack: companion, to: c.to }] : [];
+  });
   const branch = `uptide/${pack.name}-${target}`;
   packageManager(root);
   if (services.install === install) await assertManagerAvailable(root);
@@ -350,8 +357,11 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       },
       ...(options.onProgress ? { onProgress: options.onProgress } : {}),
       cwd: root,
-      only: [pack.name],
-      targets: { [pack.name]: target },
+      only: [pack.name, ...companionPacks.map((c) => c.pack.name)],
+      targets: {
+        [pack.name]: target,
+        ...Object.fromEntries(companionPacks.map((c) => [c.pack.name, c.to])),
+      },
       runtime: false,
       plan: false,
       ...(options.allowCandidate ? { allowCandidate: true } : {}),
@@ -445,6 +455,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           ]),
         ).values(),
       ].sort((a, b) => a.name.localeCompare(b.name));
+  const sitePack = withCompanionPacks(
+    pack,
+    companionPacks.filter((c) => companions.some((m) => m.name === c.pack.name)).map((c) => c.pack),
+  );
   // Refused before the clone, continued by the agent: the pack and the plan still apply.
   fallback.push(...agentLed);
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...companions]);
@@ -533,9 +547,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   );
   // The same scope before and after: the files with reported sites decide which tests relate.
   // Without a pack only what has evidence is migrated: an unconfirmed site is not the agent's.
-  const selected = selectedFindings(report, pack.name, options.includeDeprecated ?? false).filter(
-    (f) => !generic || f.severity === 'breaking',
-  );
+  const selected = [pack.name, ...(sitePack === pack ? [] : companionPacks.map((c) => c.pack.name))]
+    .flatMap((name) => selectedFindings(report, name, options.includeDeprecated ?? false))
+    .filter((f) => !generic || f.severity === 'breaking');
   const affected = [...new Set(selected.map((f) => f.usage.file))];
   // Evidence at a site the compiler rejected is confirmed evidence: the change is real there.
   if (packContext.evidence)
@@ -646,7 +660,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     const file = safeFile(root, finding.usage.file);
     const original = readFileSync(file, 'utf8');
     if (!originals.has(finding.usage.file)) originals.set(finding.usage.file, original);
-    let result = pack.transform(original, finding, {
+    let result = sitePack.transform(original, finding, {
       ...packContext,
       from: finding.change.from,
       to: target,
@@ -699,7 +713,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     site.rule =
       finding.rule ??
       result.rule ??
-      pack.ruleOf?.(finding) ??
+      sitePack.ruleOf?.(finding) ??
       changeRule({ package: pack.name }, site);
     sites.push(site);
   }
@@ -783,7 +797,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           root,
           workspaces,
           sites,
-          pack,
+          pack: sitePack,
           context: packContext,
           model: selection.model,
           maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD,
@@ -812,7 +826,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       : assist(
           root,
           sites,
-          pack,
+          sitePack,
           fixer,
           () => services.diagnostics(root, workspaces),
           packContext,
@@ -1013,7 +1027,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     repo: root,
     package: pack.name,
     tier: generic ? 'generic' : 'verified',
-    ...(candidatePack(pack) ? { packWarning: CANDIDATE_WARNING } : {}),
+    ...(candidatePack(pack) || companionPacks.some((c) => candidatePack(c.pack))
+      ? { packWarning: CANDIDATE_WARNING }
+      : {}),
     from: initialContext.from,
     target,
     targetSource: resolved.source,

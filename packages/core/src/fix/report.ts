@@ -324,6 +324,9 @@ export function migrationRisk(report: FixReport): {
     ...(report.packWarning ? [report.packWarning] : []),
     ...(report.peerConflicts?.length ? ['peer compatibility is not verified'] : []),
     ...(report.companionBlockers?.length ? ['a required move is blocked'] : []),
+    ...(report.companions?.some((c) => c.migration === 'own')
+      ? ['a companion major needs its own migration']
+      : []),
     ...(report.sites.some((s) => s.outcome === 'manual') ? ['manual sites left'] : []),
     ...(!report.verification.passed ||
     report.verification.newErrors.length ||
@@ -799,6 +802,21 @@ export function renderMigration(
       `Upgraded with ${report.package}, so the install stays consistent:`,
       '',
       ...released.map((c) => `- \`${c.name}\` ${c.from} → ${c.to} (${c.reason})`),
+      '',
+    );
+  const own = report.companions?.filter((c) => c.migration === 'own') ?? [];
+  if (own.length)
+    lines.push(
+      must(
+        [
+          '### Needs its own migration',
+          '',
+          ...own.map(
+            (c) =>
+              `- \`${c.name}\` ${c.from} → ${c.to} is a major upgrade with no migration pack: only its version moved here. Its own breaking changes were not migrated; review them before merging.`,
+          ),
+        ].join('\n'),
+      ),
       '',
     );
   if (required.length)

@@ -19,6 +19,11 @@ export interface Companion {
    * `openai 7.4.0 requires zod ^3.25 || ^4.0` (`required.ts`). Always within its major.
    */
   required?: true;
+  /**
+   * A peer blocker moved across a major (`@headlessui/react` 1 → 2): `pack` when a pack covers
+   * that major and its rules run in the same fix; `own` when none does and it needs its own migration.
+   */
+  migration?: 'pack' | 'own';
 }
 
 export interface InstalledDependency {
@@ -146,7 +151,7 @@ function agreeing(
   installed: InstalledDependency,
   lead: string,
   target: string,
-  targetManifest: Pick<Manifest, 'dependencies'>,
+  targetManifest: Pick<Manifest, 'dependencies' | 'peerDependencies'>,
   versions: Manifests,
 ): { version: string; reason: string } | undefined {
   const name = installed.name;
@@ -174,6 +179,14 @@ function agreeing(
     return {
       version: target,
       reason: `${name} ${target} is released with ${lead} ${target} (${EXACT.test(sameRange) ? 'pins' : 'peer'} ${sameRange})`,
+    };
+  // The member says nothing about the lead, and the lead's target accepts it where it is:
+  // `@casl/react 5.0.0` peers on `@casl/ability ^6.0.0`, so `@casl/ability 6.8.0` stays.
+  const wanted = targetManifest.dependencies?.[name] ?? targetManifest.peerDependencies?.[name];
+  if (range === undefined && wanted !== undefined && accepts(wanted, installed.version))
+    return {
+      version: installed.version,
+      reason: `${lead} ${target} accepts ${name} ${installed.version}`,
     };
   if (
     current.peerDependencies?.[lead] !== undefined &&

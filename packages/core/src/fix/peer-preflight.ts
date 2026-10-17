@@ -109,7 +109,20 @@ type Manifests = NonNullable<PackageFetcher['manifests']>;
 export const peerDescription = (p: PeerBlocker | PeerBlockerGroup): string =>
   `${p.name} ${p.version}${p.via?.length ? ` (peer of ${p.via.join(' → ')})` : ''} declares ${('peers' in p ? p.peers : [p]).map((r) => `${r.peer} ${r.range}, which rejects ${p.via ? 'installed ' : ''}${r.target}`).join('; ')}`;
 
-function describe(p: PeerBlockerGroup): string {
+/** A blocker's upgrade across a major: the installed major, and whether a pack migrates it. */
+function majorMove(
+  name: string,
+  from: string,
+  to: string | undefined,
+  allowCandidate?: boolean,
+): { major: number; pack: boolean } | undefined {
+  const major = parseVersion(from)?.major;
+  const next = to === undefined ? undefined : parseVersion(to)?.major;
+  if (major === undefined || next === undefined || next <= major) return;
+  return { major, pack: activePack(name, allowCandidate)?.supports(from, to as string) === true };
+}
+
+function describe(p: PeerBlockerGroup, allowCandidate?: boolean): string {
   const ranges = new Map<string, string[]>();
   for (const peer of p.peers) {
     const range = `${peer.range}${peer.version !== p.version ? ` (at ${peer.version})` : ''}`;
@@ -120,7 +133,18 @@ function describe(p: PeerBlockerGroup): string {
     .map((r) => `${r.peer} ${parseVersion(r.target)?.major ?? r.target}`)
     .join(', ');
   const installed = p.peers.map((r) => `${r.peer} ${r.target}`).join(', ');
-  return `${p.name} ${p.version}${p.via?.length ? ` (peer of ${p.via.join(' → ')})` : ''}  ${p.peers.length === 1 ? 'peer' : 'peers'} ${peers}  →  ${p.allowed ? 'Explicitly allowed; a manifest override will be written.' : p.via ? `rejects installed ${installed}: upgrade ${p.peers.map((r) => r.peer).join(', ')} into range first, or use --allow-peer ${p.name}` : p.newer ? `upgrade to ${p.newer} (accepts ${accepts}): add ${p.name} to the command` : `no release accepts ${accepts}: use --allow-peer ${p.name}`}`;
+  const major = majorMove(p.name, p.version, p.newer, allowCandidate);
+  // --allow-peer is the fallback, never the first suggestion, when a release accepts the target.
+  const advice = p.allowed
+    ? 'Explicitly allowed; a manifest override will be written.'
+    : p.via
+      ? `rejects installed ${installed}: upgrade ${p.peers.map((r) => r.peer).join(', ')} into range first, or use --allow-peer ${p.name}`
+      : major
+        ? `no ${major.major}.x accepts ${accepts}; ${p.newer} does (major, ${major.pack ? `the ${p.name} pack runs in the same fix` : 'no migration pack: it needs its own migration'}): add ${p.name} to the command${major.pack ? '' : `, or keep ${major.major}.x with --allow-peer ${p.name}`}`
+        : p.newer
+          ? `upgrade to ${p.newer} (accepts ${accepts}): add ${p.name} to the command`
+          : `no release accepts ${accepts}: use --allow-peer ${p.name}`;
+  return `${p.name} ${p.version}${p.via?.length ? ` (peer of ${p.via.join(' → ')})` : ''}  ${p.peers.length === 1 ? 'peer' : 'peers'} ${peers}  →  ${advice}`;
 }
 
 /** An unparsable range rejects nothing this preflight could name. */
@@ -312,11 +336,14 @@ export async function peerPreflight(
   };
   const add = async (moves: Map<string, Companion>, peer: PeerBlocker) => {
     const to = peer.newer as string;
+    const from = deps.find((d) => d.name === peer.name)?.version ?? peer.version;
+    const major = majorMove(peer.name, from, to, options.allowCandidate);
     moves.set(peer.name, {
       name: peer.name,
-      from: deps.find((d) => d.name === peer.name)?.version ?? peer.version,
+      from,
       to,
-      reason: `explicit peer upgrade accepting ${peer.peer} ${peer.target}`,
+      reason: `explicit peer upgrade accepting ${peer.peer} ${peer.target}${major ? `; major, ${major.pack ? 'migrated by its pack in this fix' : 'no migration pack: it needs its own migration'}` : ''}`,
+      ...(major ? { migration: major.pack ? 'pack' : 'own' } : {}),
     });
     const linked = await companionsOf({
       name: peer.name,
@@ -396,7 +423,7 @@ export async function peerPreflight(
     throw new PeerPreflightError(
       blockers,
       command,
-      `uptide fix · ${options.only} ${deps.find((d) => d.name === options.only)?.version ?? '?'} → ${target} · ${blockers.length} peer blocker${blockers.length === 1 ? '' : 's'} to resolve first\n${blockers.map(describe).join('\n')}\n\nNext: ${command}`,
+      `uptide fix · ${options.only} ${deps.find((d) => d.name === options.only)?.version ?? '?'} → ${target} · ${blockers.length} peer blocker${blockers.length === 1 ? '' : 's'} to resolve first\n${blockers.map((b) => describe(b, options.allowCandidate)).join('\n')}\n\nNext: ${command}`,
       { also: [...extras], allowPeer: [...allowances] },
     );
   }
@@ -406,7 +433,7 @@ export async function peerPreflight(
       state: 'done',
       warning: true,
       package: peer.name,
-      detail: describe(peer),
+      detail: describe(peer, options.allowCandidate),
     });
   return {
     target,

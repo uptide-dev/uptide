@@ -600,3 +600,27 @@ it('names the target pin when an otherwise empty companion has no matching relea
     '@example/helper 1.0.0 has no release that agrees with @example/lead 2.0.0 (@example/lead 2.0.0 requires @example/helper 2.0.0); next: keep @example/lead at 1.0.0 until a compatible @example/helper release is available',
   ]);
 });
+
+it('leaves a member where it is when the target accepts it, though the member says nothing about the lead (UPT-10)', async () => {
+  const casl: Record<string, Versions> = {
+    '@casl/react': {
+      '4.0.0': { peerDependencies: { '@casl/ability': '^3.0.0 || ^4.0.0 || ^5.1.0 || ^6.0.0' } },
+      '5.0.0': { peerDependencies: { '@casl/ability': '^4.0.0 || ^5.1.0 || ^6.0.0' } },
+    },
+    '@casl/ability': { '6.8.0': { dependencies: { '@ucast/mongo2js': '^1.3.0' } } },
+  };
+  const installed = (name: string, version: string): InstalledDependency => ({
+    name,
+    version,
+    manifest: { name, version, ...casl[name]?.[version] },
+    workspaces: ['.'],
+  });
+  const plan = await companionsOf({
+    name: '@casl/react',
+    target: '5.0.0',
+    installed: [installed('@casl/react', '4.0.0'), installed('@casl/ability', '6.8.0')],
+    manifests: async (name) => casl[name] ?? {},
+  });
+  expect(plan.conflicts).toEqual([]);
+  expect(plan.companions).toEqual([]);
+});
