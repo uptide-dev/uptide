@@ -2,15 +2,18 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { join } from 'node:path';
 import { defaultCacheDir } from '../../cache/paths.js';
 import { UptideError } from '../../errors.js';
+import { type Generated, generateClients } from '../../fix/generate.js';
 import { packageManager } from '../../fix/managers/manager.js';
 import { command, git } from '../../fix/process.js';
+import { workspacePackagesOrRoot } from '../../workspaces.js';
 import type { GroundTruth, GroundTruthRepo } from '../contract.js';
 
 /**
  * Ground-truth repositories are fetched once and kept: a shallow fetch of the one pinned
- * commit, dependencies installed with lifecycle scripts off, nothing from the repository ever
- * executed (no hook, no script; the same environment `fix` installs with). After the first
- * run `uptide pack test` needs no network but the registry tarballs `check` caches itself.
+ * commit, dependencies installed with lifecycle scripts off (no hook, no script; the same
+ * environment `fix` installs with), then the repository's known code generators, as `fix`
+ * runs them (a Prisma client: a user's checkout has it). After the first run `uptide pack
+ * test` needs no network but the registry tarballs `check` caches itself.
  */
 export function truthCacheDir(env: NodeJS.ProcessEnv = process.env): string {
   return env.UPTIDE_GROUND_TRUTH_CACHE || join(defaultCacheDir(env), 'ground-truth');
@@ -137,6 +140,8 @@ interface Marker {
   commit: string;
   /** The directories installed so far (`.` for the root). */
   installed: string[];
+  /** What the code generators did after each directory's install (UPT-95). */
+  generated?: Record<string, Generated[]>;
 }
 
 const MARKER = '.uptide-ground-truth.json';
@@ -174,9 +179,11 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
   const cacheDir = options.cacheDir ?? truthCacheDir();
   const dir = cachedRepoDir(entry, cacheDir);
   const install = options.install ?? true;
+  const at = entry.directory ?? '.';
   const marker = readMarker(dir);
-  if (marker && (!install || marker.installed.includes(entry.directory ?? '.'))) return dir;
-  if (options.offline)
+  // A cache from before UPT-95 is installed but not generated: generating needs no fetch.
+  if (marker && (!install || (marker.installed.includes(at) && marker.generated?.[at]))) return dir;
+  if (options.offline && !marker?.installed.includes(at))
     throw new UptideError(
       'GROUND_TRUTH_NOT_CACHED',
       `${entry.repo}@${entry.commit.slice(0, 12)} is not in the ground-truth cache (${cacheDir}); run without --offline once, or pnpm packs:fetch`,
@@ -229,6 +236,7 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
     }
   }
   const installed = [...(marker?.installed ?? [])];
+  const generated = { ...marker?.generated };
   if (install) {
     const project = entry.directory ? join(dir, entry.directory) : dir;
     if (entry.directory && (/(^|\/)\.\.(\/|$)/.test(entry.directory) || !existsSync(project)))
@@ -236,17 +244,35 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
         'INVALID_GROUND_TRUTH',
         `no directory ${entry.directory} in ${entry.repo}`,
       );
-    const result = await installDependencies(project, entry.repo, options);
-    installed.push(entry.directory ?? '.');
-    options.log?.(
-      `installed with ${result.manager}${result.frozen ? '' : ', lockfile not frozen'}`,
-    );
+    if (!installed.includes(at)) {
+      const result = await installDependencies(project, entry.repo, options);
+      installed.push(at);
+      options.log?.(
+        `installed with ${result.manager}${result.frozen ? '' : ', lockfile not frozen'}`,
+      );
+    }
+    generated[at] = await generateClients(project, workspacePackagesOrRoot(project));
+    for (const g of generated[at])
+      options.log?.(`${g.status}: ${g.command}${g.workspace === '.' ? '' : ` in ${g.workspace}`}`);
   }
-  writeFileSync(
-    join(dir, MARKER),
-    `${JSON.stringify({ repo: entry.repo, commit: entry.commit, installed })}\n`,
-  );
+  const record: Marker = { repo: entry.repo, commit: entry.commit, installed, generated };
+  writeFileSync(join(dir, MARKER), `${JSON.stringify(record)}\n`);
   return dir;
+}
+
+/**
+ * The generators that did not produce their code in a cached repository (failed, timed out,
+ * refused), as `pack test` reports them: that repository is scored without the code.
+ */
+export function generatorFailures(entry: PinnedRepo, cacheDir = truthCacheDir()): string[] {
+  const done = readMarker(cachedRepoDir(entry, cacheDir))?.generated?.[entry.directory ?? '.'];
+  return (done ?? [])
+    .filter((g) => g.status !== 'generated')
+    .map((g) => {
+      const why = g.output?.trim().split('\n').at(-1);
+      const where = g.workspace === '.' ? '' : ` in ${g.workspace}`;
+      return `generator ${g.status === 'timeout' ? 'timed out' : 'failed'}: ${g.command}${where}${why ? ` (${why})` : ''}`;
+    });
 }
 
 /**
