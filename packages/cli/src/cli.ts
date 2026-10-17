@@ -1096,7 +1096,11 @@ ${PRIVACY}`,
                     ...(flags.allowCandidate ? { allowCandidate: true } : {}),
                     ...(peers.length ? { also: peers } : {}),
                     ...(flags.allowPeer?.length ? { allowPeer: flags.allowPeer } : {}),
-                    ...(flags.updatePins ? { updatePins: true } : {}),
+                    ...(flags.updatePins
+                      ? { updatePins: true }
+                      : loaded
+                        ? { updatePins: flags.pr === true && loaded.config.updatePins !== false }
+                        : {}),
                     ...(flags.pinCurrentApi ? { pinCurrentApi: true } : {}),
                     llm,
                     provider: selection.provider,

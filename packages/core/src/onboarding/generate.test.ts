@@ -220,6 +220,13 @@ describe('the workflow', () => {
 });
 
 describe('uptide.yml as generated', () => {
+  it.each([true, false])('preserves updatePins: %s through regeneration', (updatePins) => {
+    const output = generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
+      config: { version: 1, updatePins },
+    });
+    expect(parseUptideConfig(file(output, 'uptide.yml')).config.updatePins).toBe(updatePins);
+  });
+
   it('loads back to the settings it was written from, with a comment above every setting', () => {
     for (const snapshot of Object.values(CASES)) {
       const o = generate(snapshot);

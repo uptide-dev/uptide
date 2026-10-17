@@ -372,6 +372,8 @@ export async function runAction(
       dep.name,
       ...common,
       ...configArgs,
+      // Publication is separate so the installation token never reaches the fix process.
+      ...(config.updatePins === false ? [] : ['--update-pins']),
       '--llm',
       '--max-cost',
       budget.toFixed(2),

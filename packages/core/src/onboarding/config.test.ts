@@ -77,7 +77,7 @@ maxCost: 0
 
   it('rejects unknown settings, saying which exist', () => {
     expect(problems('version: 1\nschedul: "1 2 * * 1"\n')).toContain(
-      'line 2: schedul is not a setting here (known: version, packages, schedule, maxOpenPrs, llm, maxCost, executor, minReleaseAgeDays, verify)',
+      'line 2: schedul is not a setting here (known: version, packages, schedule, maxOpenPrs, llm, maxCost, executor, minReleaseAgeDays, updatePins, verify)',
     );
     expect(problems('version: 1\npackages:\n  only: [zod]\n')).toContain(
       'packages.only is not a setting',
@@ -221,4 +221,12 @@ describe('the JSON Schema', () => {
     expect(p.llm.properties.enabled.default).toBe(DEFAULT_CONFIG.llm.enabled);
     expect(p.llm.properties.provider.default).toBe(DEFAULT_CONFIG.llm.provider);
   });
+});
+
+it('accepts the root-pin opt-out and rejects non-boolean values', () => {
+  expect(parse('version: 1\nupdatePins: false\n').updatePins).toBe(false);
+  expect(parse('version: 1\nupdatePins: true\n').updatePins).toBe(true);
+  expect(problems('version: 1\nupdatePins: "false"\n')).toContain(
+    'updatePins must be true or false',
+  );
 });

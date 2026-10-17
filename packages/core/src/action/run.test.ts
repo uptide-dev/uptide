@@ -121,6 +121,27 @@ const fixRun = (report: FixReport, code = 0): EngineRun => ({
 });
 
 describe('the Uptide Action run', () => {
+  it.each([undefined, true, false])(
+    'forwards draft PR pin consent with configured updatePins: %s',
+    async (updatePins) => {
+      const { s, calls, published } = services({
+        list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+        fix: () => fixRun(storefrontFix()),
+      });
+      const config = `version: 1\n${updatePins === undefined ? '' : `updatePins: ${updatePins}\n`}`;
+      await runAction(
+        inputs(workspace('version: 1\n', { 'custom.yml': config }), { config: 'custom.yml' }),
+        s,
+      );
+      const args = calls.find((call) => call.args[0] === 'fix')?.args;
+      expect(args).toBeDefined();
+      expect(args?.includes('--update-pins')).toBe(updatePins !== false);
+      expect(args).toContain('custom.yml');
+      expect(args).not.toContain('--pr');
+      expect(published).toHaveLength(1);
+    },
+  );
+
   it('list: what is behind, nothing else run', async () => {
     const { s, calls } = services({
       list: listReport([

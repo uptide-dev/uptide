@@ -83,6 +83,10 @@
       "minimum": 0,
       "maximum": 365
     },
+    "updatePins": {
+      "description": "Allow root version pin updates in draft PRs. Set false to require --update-pins even for PR runs. Local runs always require --update-pins.",
+      "type": "boolean"
+    },
     "verify": {
       "description": "How Uptide verifies a migration with the repository’s own scripts.",
       "type": "object",

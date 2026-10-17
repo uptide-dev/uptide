@@ -23,6 +23,7 @@ export type UptideConfigInput = {
   maxCost?: number;
   executor?: UptideConfig['executor'];
   minReleaseAgeDays?: number;
+  updatePins?: boolean;
   verify?: { build?: string };
 };
 
@@ -64,6 +65,7 @@ export function withDefaults(given: UptideConfigInput): UptideConfig {
     ...(given.minReleaseAgeDays !== undefined
       ? { minReleaseAgeDays: given.minReleaseAgeDays }
       : {}),
+    ...(given.updatePins !== undefined ? { updatePins: given.updatePins } : {}),
     ...(given.verify?.build !== undefined ? { verify: { build: given.verify.build } } : {}),
   };
 }

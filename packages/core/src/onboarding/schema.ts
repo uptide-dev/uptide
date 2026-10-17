@@ -22,6 +22,8 @@ export interface UptideConfig {
   executor: Executor;
   /** Days; only when the repository sets no release-age policy. Unset: no minimum. */
   minReleaseAgeDays?: number;
+  /** False disables automatic root pin updates in draft PRs. Local runs still require consent. */
+  updatePins?: boolean;
   /** How a migration is verified. */
   verify?: { build?: string };
 }
@@ -131,6 +133,11 @@ export const UPTIDE_CONFIG_SCHEMA = {
       type: 'number',
       minimum: 0,
       maximum: 365,
+    },
+    updatePins: {
+      description:
+        'Allow root version pin updates in draft PRs. Set false to require --update-pins even for PR runs. Local runs always require --update-pins.',
+      type: 'boolean',
     },
     verify: {
       description: 'How Uptide verifies a migration with the repository’s own scripts.',

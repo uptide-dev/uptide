@@ -102,7 +102,7 @@ export interface FixOptions {
   only: string;
   also?: string[];
   allowPeer?: string[];
-  /** Explicit consent to update conflicting, unconditional root pins. */
+  /** Explicit pin consent; otherwise PR runs may update pins unless uptide.yml opts out. */
   updatePins?: boolean;
   /** Frozen read-only plan made before the CLI clone. */
   peerPlan?: PeerPlan;
@@ -321,11 +321,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(target))
     throw new Error('target must be an exact version');
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])]);
-  planRootPins(
-    root,
-    [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])],
-    options.updatePins,
-  );
+  planRootPins(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])], options);
   const branch = `uptide/${pack.name}-${target}`;
   packageManager(root);
   if (services.install === install) await assertManagerAvailable(root);
@@ -430,11 +426,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         ).values(),
       ].sort((a, b) => a.name.localeCompare(b.name));
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...companions]);
-  const pins = planRootPins(
-    root,
-    [{ name: pack.name, to: target }, ...companions],
-    options.updatePins,
-  );
+  const pins = planRootPins(root, [{ name: pack.name, to: target }, ...companions], options);
   for (const pin of pins)
     options.onProgress?.({
       phase: 'resolve',
