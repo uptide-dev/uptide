@@ -55,6 +55,98 @@ const RESULT_METHODS = new Set([
  */
 const AGENT_METHODS = new Set(['stream', 'generate']);
 
+/** `{ ... } as Options`, `{ ... } satisfies Options`, `({ ... })`: the expression inside. */
+function unwrap(node: Node | undefined): Node | undefined {
+  while (
+    node &&
+    (Node.isAsExpression(node) ||
+      Node.isSatisfiesExpression(node) ||
+      Node.isParenthesizedExpression(node))
+  )
+    node = node.getExpression();
+  return node;
+}
+
+/**
+ * `vi.mock('ai', ...)` or `jest.mock('ai')` (or `doMock`): a test that stands in for the package
+ * never imports it, yet its fakes break when the code under test moves to the new names (UPT-33).
+ */
+const MOCK = /^(?:vi|jest)\.(?:mock|doMock)$/;
+export function mocksAi(text: string): boolean {
+  return /\b(?:vi|jest)\.(?:mock|doMock)\(\s*['"]ai['"]/.test(text);
+}
+
+/** Keys of the object a `vi.mock('ai', () => ({ ... }))` factory returns: the exports it fakes. */
+function mockKeys(source: SourceFile): Node[] {
+  const keys: Node[] = [];
+  for (const call of source.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const [specifier, factory] = call.getArguments();
+    if (
+      !MOCK.test(call.getExpression().getText()) ||
+      !specifier ||
+      !Node.isStringLiteral(specifier) ||
+      specifier.getLiteralValue() !== 'ai' ||
+      !(Node.isArrowFunction(factory) || Node.isFunctionExpression(factory))
+    )
+      continue;
+    const body = factory.getBody();
+    const returned = Node.isBlock(body)
+      ? body.getStatements().map((s) => (Node.isReturnStatement(s) ? s.getExpression() : undefined))
+      : [body];
+    for (const value of returned.map(unwrap))
+      if (value && Node.isObjectLiteralExpression(value))
+        for (const property of spreadOut(value.getProperties()))
+          if (!Node.isShorthandPropertyAssignment(property)) {
+            const key = keyOf(property);
+            if (key) keys.push(key);
+          }
+  }
+  return keys;
+}
+
+/**
+ * In a file that mocks `ai`, a fake of one of `callees` reads the options it is passed by name
+ * (`toUIMessageStreamResponse: vi.fn((options: Options) => options.onFinish(...))`): each
+ * `options.key` in its body and the `key` member of its parameter's type, inline or declared in
+ * the file. Destructured parameters are left out: renaming one binding would leave its uses.
+ */
+function fakeOptionKeys(source: SourceFile, key: string, callees: ReadonlySet<string>): Node[] {
+  const keys: Node[] = [];
+  for (const property of source.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+    if (!callees.has(property.getName().replace(/['"]/g, ''))) continue;
+    let fake = unwrap(property.getInitializer());
+    if (
+      fake &&
+      Node.isCallExpression(fake) &&
+      /^(?:vi|jest)\.fn$/.test(fake.getExpression().getText())
+    )
+      fake = unwrap(fake.getArguments()[0]);
+    if (!(Node.isArrowFunction(fake) || Node.isFunctionExpression(fake))) continue;
+    const parameter = fake.getParameters()[0];
+    const name = parameter?.getNameNode();
+    if (!parameter || !name || !Node.isIdentifier(name)) continue;
+    for (const access of fake.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression))
+      if (access.getName() === key && access.getExpression().getText() === name.getText())
+        keys.push(access.getNameNode());
+    const type = parameter.getTypeNode();
+    const declared = Node.isTypeReference(type) ? type.getTypeName().getText() : undefined;
+    const literal = declared ? source.getTypeAlias(declared)?.getTypeNode() : type;
+    const members = Node.isTypeLiteral(literal)
+      ? literal.getMembers()
+      : declared
+        ? (source.getInterface(declared)?.getMembers() ?? [])
+        : [];
+    for (const member of members)
+      if (
+        (Node.isPropertySignature(member) || Node.isMethodSignature(member)) &&
+        member.getName().replace(/['"]/g, '') === key
+      )
+        keys.push(member.getNameNode());
+  }
+  // Two fakes typed by one declaration name its member once.
+  return [...new Map(keys.map((k) => [k.getStart(), k])).values()];
+}
+
 /** The options object of each call to one of `callees` (exported names), with its callee. */
 function optionObjects(
   source: SourceFile,
@@ -72,15 +164,7 @@ function optionObjects(
       else if (AGENT_METHODS.has(method) && names.size > 0) callee = `agent.${method}`;
     }
     if (!callee || !callees.has(callee)) return;
-    let argument = call.getArguments()[0];
-    // `{ ... } as Options`, `{ ... } satisfies Options`, `({ ... })`.
-    while (
-      argument &&
-      (Node.isAsExpression(argument) ||
-        Node.isSatisfiesExpression(argument) ||
-        Node.isParenthesizedExpression(argument))
-    )
-      argument = argument.getExpression();
+    const argument = unwrap(call.getArguments()[0]);
     if (argument && Node.isObjectLiteralExpression(argument))
       found.push({ callee, options: spreadOut(argument.getProperties()) });
   };
@@ -131,12 +215,16 @@ function site(source: SourceFile, node: Node): SourceSite {
 export function optionSites(text: string, key: string, callees: ReadonlySet<string>): SourceSite[] {
   if (!text.includes(key)) return [];
   const source = parse(text);
-  return optionObjects(source, callees).flatMap(({ options }) =>
-    options
-      .map(keyOf)
-      .filter((k): k is Node => k !== undefined && k.getText().replace(/['"]/g, '') === key)
-      .map((k) => site(source, k)),
-  );
+  return [
+    ...optionObjects(source, callees).flatMap(({ options }) =>
+      options
+        .map(keyOf)
+        .filter((k): k is Node => k !== undefined && k.getText().replace(/['"]/g, '') === key),
+    ),
+    ...(mocksAi(text) ? fakeOptionKeys(source, key, callees) : []),
+  ]
+    .map((k) => site(source, k))
+    .sort((a, b) => a.line - b.line || a.column - b.column);
 }
 
 /** The option key at the reported site renamed: `system:` → `instructions:`, `{ system }` → `{ instructions: system }`. */
@@ -161,10 +249,22 @@ export function renameOption(
         reason: `\`${key}\` is \`${to}\` in AI SDK 7`,
       };
     }
+  for (const name of mocksAi(text) ? fakeOptionKeys(source, key, callees) : []) {
+    const at = site(source, name);
+    if (at.line !== finding.usage.line || at.column !== finding.usage.column) continue;
+    return {
+      text: `${text.slice(0, name.getStart())}${to}${text.slice(name.getEnd())}`,
+      applied: true,
+      reason: `\`${key}\` is \`${to}\` in AI SDK 7`,
+    };
+  }
   return { text, applied: false, reason: `the reported site is not the \`${key}\` option` };
 }
 
-/** `stepCountIs` imported from `ai`: the import and every reference to the local name. */
+/**
+ * `stepCountIs` imported from `ai`: the import and every reference to the local name, and the key
+ * of a `vi.mock('ai')` factory that fakes it.
+ */
 export function importSites(text: string, exported: string): SourceSite[] {
   if (!text.includes(exported)) return [];
   const source = parse(text);
@@ -186,6 +286,9 @@ export function importSites(text: string, exported: string): SourceSite[] {
           sites.push(site(source, reference));
     }
   }
+  if (mocksAi(text))
+    for (const key of mockKeys(source))
+      if (key.getText().replace(/['"]/g, '') === exported) sites.push(site(source, key));
   return sites.sort((a, b) => a.line - b.line || a.column - b.column);
 }
 

@@ -1,8 +1,11 @@
-import { definePack, type PackRule, replaceAtSite } from '../contract.js';
+import { join, resolve } from 'node:path';
+import { projectFiles } from '../../check/importers.js';
+import { definePack, type Pack, type PackRule, replaceAtSite } from '../contract.js';
 import type { TransformResult } from '../types.js';
 import {
   declaresName,
   importSites,
+  mocksAi,
   optionSites,
   renameOption,
   typeArgumentSites,
@@ -92,7 +95,7 @@ function onlyOnLine(
   return { text: lines.join('\n'), applied: true, reason };
 }
 
-export const aiPack = definePack({
+const base = definePack({
   // A community provider that only peers on `ai`: its 3.x range rejects `ai` 7 and nothing in the
   // registry says to move it. The AI SDK's own 7.0 guide does not name community providers, so the
   // source is the package's own documentation, which says each `ai-sdk-ollama` major targets one
@@ -312,3 +315,20 @@ export const aiPack = definePack({
   instructions:
     'Migrate only the reported site to AI SDK 7, from the compiler error and the guide above. Keep every value, prompt, tool and callback body as it is. Never cast or suppress a diagnostic to make it compile. If the site needs a decision the guide leaves open (which step a value should come from, what a runtime context holds), say so instead of choosing.',
 });
+
+/**
+ * A test that `vi.mock('ai')`s never imports it, so `detect`, which reads the files that import
+ * the package, would skip its fakes (UPT-33). Every project file is a candidate; the text test is
+ * the cheap part.
+ */
+export const aiPack: Pack = {
+  ...base,
+  runtimeFindings(input) {
+    const dir = resolve(input.root, input.workspace);
+    const mocking = projectFiles(dir).files.filter((file) => {
+      const text = input.read(join(input.workspace, file));
+      return text !== undefined && mocksAi(text);
+    });
+    return base.runtimeFindings?.({ ...input, files: [...(input.files ?? []), ...mocking] }) ?? [];
+  },
+};
