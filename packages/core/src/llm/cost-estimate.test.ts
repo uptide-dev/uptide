@@ -44,6 +44,6 @@ it('names the estimate in the stop at the limit and a limit that continues', () 
     'stopped at the $1.00 cost limit (estimated $0.60 for 10 sites; limit $1.00): 3 sites not completed. Run again with --max-cost 2.00 to continue.',
   );
   expect(costStopMessage({ limitUsd: 1, notAttempted: 1 }, sonnet(10, 1, 'maxCost'))).toBe(
-    'stopped at the $1.00 cost limit (estimated $0.60 for 10 sites; limit $1.00): 1 site not completed. Raise maxCost in uptide.yml to 2.00 to continue.',
+    'stopped at the $1.00 cost limit (estimated $0.60 for 10 sites; limit $1.00): 1 site not completed. Raise maxCost in uptide.yml to 2.00 to finish.',
   );
 });

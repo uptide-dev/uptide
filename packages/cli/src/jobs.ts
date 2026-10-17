@@ -38,6 +38,8 @@ export interface FixRequest {
   maxCostUsd?: number;
   /** `maxCost`: the limit comes from uptide.yml, so the stop messages name that setting. */
   costSetting?: '--max-cost' | 'maxCost';
+  /** Action and App runs: no preflight cost stop; the agent works within the limit. */
+  withinBudget?: boolean;
   /** Executor override; authenticated Anthropic runs default to the SDK. */
   agent?: 'patch' | 'sdk';
   target?: string;

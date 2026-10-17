@@ -1150,6 +1150,8 @@ ${runnable(PRIVACY)}`,
                     model: selection.model,
                     maxCostUsd: maxCost,
                     ...(costSetting === 'maxCost' ? { costSetting } : {}),
+                    // Nobody reruns an Action or App run: it spends within the limit, never stops early.
+                    ...(flags.maxCostFromConfig ? { withinBudget: true } : {}),
                     ...(loaded?.config.verify?.build
                       ? { buildScript: loaded.config.verify.build }
                       : {}),

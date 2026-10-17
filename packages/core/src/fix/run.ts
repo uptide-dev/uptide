@@ -145,6 +145,11 @@ export interface FixOptions {
   maxCostUsd?: number;
   /** `maxCost`: the limit comes from uptide.yml (Action, App), so messages name that setting. */
   costSetting?: CostSetting;
+  /**
+   * Action and App runs: no preflight cost stop, since nobody is there to rerun with a higher
+   * limit. The agent works within the limit and the report says what is left.
+   */
+  withinBudget?: boolean;
   /** The package.json script a required build runs (`verify.build`); default: the clone's uptide.yml, else build:ci, build-ci, build. */
   buildScript?: string;
   /**
@@ -807,7 +812,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const estimate = canAssist
     ? costEstimate(selection.provider, selection.model, agentSites, maxCostUsd, options.costSetting)
     : undefined;
-  if (estimate && nanos(estimate.usd) > nanos(estimate.limitUsd))
+  if (estimate && !options.withinBudget && nanos(estimate.usd) > nanos(estimate.limitUsd))
     throw new UptideError('COST_ESTIMATE', overEstimateMessage(estimate));
   if (estimate && agentSites)
     options.onProgress?.({
@@ -862,6 +867,16 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         ),
   );
   if (estimate) llm.estimate = estimate;
+  // The SDK enforces the limit inside its session: the sites it left are what the limit cost.
+  const left = sites.filter((s) => s.outcome === 'manual').length;
+  if (
+    sdkAgent &&
+    !llm.costLimit &&
+    left &&
+    (llm.tasks?.some((t) => t.stop === 'error_max_budget_usd') ||
+      sites.some((s) => s.reason.includes('not attempted: --max-cost reached')))
+  )
+    llm.costLimit = { limitUsd: maxCostUsd, notAttempted: left };
   const agentSpend = llm.costUsd;
   lap('agent', agentSpend);
   for (const site of sites)

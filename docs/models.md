@@ -95,11 +95,15 @@ the limit. When the estimate is above the limit, `fix` stops before any agent ca
 estimated $3.00 for 50 sites; limit $1.00. Run again with --max-cost 3.00.
 ```
 
-In Action and App runs the limit is `maxCost` in `uptide.yml`, so this message, and the stop
-at the limit, say `Raise maxCost in uptide.yml to 3.00` instead. When the agent stops at
-the limit mid-run, the summary and the pull request name the estimate and the limit that
-continues. The SDK executor gives the package's session the limit and enforces it after each
-turn, so it can overshoot by one turn.
+When the agent stops at the limit mid-run, the summary and the pull request name the
+estimate, the sites left and the limit that continues.
+
+Action and App runs never stop on the estimate: nobody is there to rerun them. They work
+within `maxCost` from `uptide.yml`, and when sites are left, the summary and the pull request
+say so: `… 12 sites not completed. Raise maxCost in uptide.yml to 3.00 to finish.`
+
+The SDK executor gives the package's session the limit and enforces it after each turn, so
+it can overshoot by one turn.
 
 The summary's `Phases` row and the PR's run details give wall time per phase (analyze,
 baseline, install, rules, agent, verify, feedback) and the agent's spend in each.

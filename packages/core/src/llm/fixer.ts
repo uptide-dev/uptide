@@ -60,7 +60,9 @@ export function costStopMessage(
   e?: CostEstimate,
 ): string {
   const to = Math.max(2 * limit.limitUsd, e?.usd ?? 0);
-  return `stopped at the ${usd(limit.limitUsd)} cost limit${e ? ` (${describeEstimate(e)})` : ''}: ${plural(limit.notAttempted, 'site')} not completed. ${raiseLimit(e?.setting ?? '--max-cost', to)} to continue.`;
+  const setting = e?.setting ?? '--max-cost';
+  // From uptide.yml nobody reruns by hand: the next scheduled run finishes with the new limit.
+  return `stopped at the ${usd(limit.limitUsd)} cost limit${e ? ` (${describeEstimate(e)})` : ''}: ${plural(limit.notAttempted, 'site')} not completed. ${raiseLimit(setting, to)} to ${setting === 'maxCost' ? 'finish' : 'continue'}.`;
 }
 // One token per UTF-8 byte, including JSON, schema, system prompt and retry feedback,
 // plus 8192 tokens for provider framing/tool overhead. Deliberately NOT chars / 4.

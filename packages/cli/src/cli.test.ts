@@ -323,7 +323,19 @@ describe('uptide fix', () => {
       memoryIo({ cwd: pnpmGitRepo(), env: { ANTHROPIC_API_KEY: 'k' } }),
       action,
     );
-    expect(action.calls.at(-1)).toMatchObject({ maxCostUsd: 0.4, costSetting: 'maxCost' });
+    expect(action.calls.at(-1)).toMatchObject({
+      maxCostUsd: 0.4,
+      costSetting: 'maxCost',
+      withinBudget: true,
+    });
+    // A local run keeps the stop before spending.
+    const local = fakeEngine();
+    await run(
+      ['fix', 'zod'],
+      memoryIo({ cwd: pnpmGitRepo(), env: { ANTHROPIC_API_KEY: 'k' } }),
+      local,
+    );
+    expect(local.calls.at(-1)).not.toHaveProperty('withinBudget');
   });
 
   it('says why a PR was not opened and that the branch stays local', async () => {

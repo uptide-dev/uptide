@@ -339,6 +339,49 @@ describe('fix for a dependency without a pack', () => {
     expect(shown).toBeLessThan(events.indexOf('call'));
   }, 30000);
 
+  it('in Action and App runs, works within the limit and says how to finish', async () => {
+    const action = { withinBudget: true, costSetting: 'maxCost' as const, maxCostUsd: 0.1 };
+    // Patch executor: one $0.06 call fits under $0.10, the other two sites are left.
+    const patch = paintFixture(3);
+    const seen: FixRequest[] = [];
+    const patched = await fix(
+      { cwd: patch.root, only: 'paint', fixer: patch.fixer(0.06, seen), ...action },
+      patch.services,
+    );
+    expect(seen).toHaveLength(1);
+    expect(patched.llm.estimate).toEqual({
+      sites: 3,
+      usd: 0.18,
+      limitUsd: 0.1,
+      setting: 'maxCost',
+    });
+    expect(patched.llm.costLimit).toEqual({ limitUsd: 0.1, notAttempted: 2 });
+    expect(prBody(patched)).toContain(
+      '- The agent stopped at the $0.10 cost limit (estimated $0.18 for 3 sites; limit $0.10): 2 sites not completed. Raise `maxCost` in uptide.yml to 0.20 to finish.',
+    );
+    // SDK executor: the session ends on its budget; the sites it left are counted the same way.
+    const sdk = paintFixture(3);
+    const result = await fix(
+      { cwd: sdk.root, only: 'paint', fixer: sdk.fixer(0.01, []), agent: 'sdk', ...action },
+      {
+        ...sdk.services,
+        agentRunner: async () => ({
+          turns: 1,
+          inputTokens: 1,
+          outputTokens: 1,
+          costUsd: 0.1,
+          durationMs: 1,
+          toolCalls: {},
+          stop: 'error_max_budget_usd',
+        }),
+      },
+    );
+    expect(result.llm.costLimit).toEqual({ limitUsd: 0.1, notAttempted: 3 });
+    expect(prBody(result)).toContain(
+      '3 sites not completed. Raise `maxCost` in uptide.yml to 0.20 to finish.',
+    );
+  }, 60000);
+
   it('stops before any agent call when the estimate exceeds the limit', async () => {
     for (const [costSetting, raise] of [
       [undefined, 'Run again with --max-cost 0.18.'],
