@@ -307,6 +307,26 @@ function atSite(
   }
   return { text, applied: false, reason: 'no safe mechanical transform for this reported site' };
 }
+const UUID = /^ZodString#uuid$/;
+/**
+ * zod 4 keeps `z.string().uuid()` as a deprecated alias, but it now checks the RFC version and
+ * variant bits: ids zod 3 accepted, such as 11111111-1111-1111-1111-111111111111, stop
+ * validating. The type diff calls the site deprecated; the pack knows it is breaking, so `fix`
+ * rewrites it to z.guid() without --include-deprecated (UPT-100).
+ */
+function uuidChecksRfc({ findings }: { findings: Finding[] }): Finding[] {
+  return findings.map((f) =>
+    f.severity === 'deprecated' && UUID.test(f.change.path)
+      ? {
+          ...f,
+          severity: 'breaking',
+          evidence: 'pack',
+          reason:
+            'zod 4 uuid() also checks the RFC version and variant, so ids zod 3 accepted stop validating; z.guid() keeps the zod 3 check',
+        }
+      : f,
+  );
+}
 function transform(text: string, finding: Finding, context: PackContext): TransformResult {
   if (!zodPack.supports(context.from, context.to))
     return { text, applied: false, reason: 'pack supports zod 3 to 4 only' };
@@ -359,9 +379,12 @@ export const zodPack: Pack = {
       kinds: ['deprecated'],
       symbols: /#(email|uuid|url|base64|datetime)$/,
       guide: zodGuide.formats,
+      // uuid() is a behavior change, not only a deprecation (`uuidChecksRfc`): no flag needed.
       rewrite: (text, finding, context) =>
         atSite(text, finding, (call) =>
-          context.includeDeprecated ? formatTransform(text, call) : undefined,
+          context.includeDeprecated || UUID.test(finding.change.path)
+            ? formatTransform(text, call)
+            : undefined,
         ),
     },
     {
@@ -453,6 +476,7 @@ export const zodPack: Pack = {
   instructions: zodGuide.generics,
   transform,
   guide: (f) => ruleFor(zodPack.rules, f)?.guide ?? zodGuide.generics,
+  foldFindings: uuidChecksRfc,
   runtimeFindings: ({ root, workspace, from, to, usages, files = [], read }) => {
     // The base hook (every `detect` over the files the scan visited), then the zod passes that
     // reach further: schemas imported from the repository's own modules, files that only name

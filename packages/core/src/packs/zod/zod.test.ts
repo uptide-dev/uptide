@@ -169,3 +169,30 @@ it('record matching leaves error options with the existing rule', () => {
     rule: 'error-params',
   });
 });
+
+it('treats z.string().uuid() as breaking and rewrites it to z.guid() without the flag (UPT-100)', () => {
+  // zod 4's uuid() rejects ids zod 3 accepted; the type diff only calls the site deprecated.
+  const text = "import { z } from 'zod';\nconst uuid = z.string().uuid();\nz.string().email();\n";
+  const site = (token: string, path: string): Finding => {
+    const finding = at(text, token, true);
+    return {
+      ...finding,
+      change: { ...finding.change, path },
+      severity: 'deprecated',
+      usage: { ...finding.usage, file: 'src/create.ts' },
+    };
+  };
+  const [uuid, email] =
+    zodPack.foldFindings?.({
+      root: '/repo',
+      workspace: '.',
+      findings: [site('uuid()', 'ZodString#uuid'), site('email', 'ZodString#email')],
+    }) ?? [];
+  expect(uuid).toMatchObject({ severity: 'breaking', evidence: 'pack' });
+  expect(email?.severity).toBe('deprecated');
+  const flagless = { ...context, includeDeprecated: false };
+  const result = zodPack.transform(text, uuid as Finding, flagless);
+  expect(result).toMatchObject({ applied: true, rule: 'string-format' });
+  expect(result.text).toContain('const uuid = z.guid();');
+  expect(zodPack.transform(text, email as Finding, flagless).applied).toBe(false);
+});

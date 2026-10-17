@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
-import { Project, ts } from 'ts-morph';
+import { ts } from 'ts-morph';
+import { bundledLib } from '../adapters/typescript/compile.js';
 import { resolveCompiler } from '../adapters/typescript/compiler.js';
 import { readInstalled } from '../adapters/typescript/repo.js';
 import { workspaceSourceMap } from '../adapters/typescript/workspace-source.js';
@@ -59,27 +60,18 @@ function relatedDeclarations(
   });
 }
 
-let bundledLibraries: Map<string, string> | undefined;
+/**
+ * The bundled compiler's host for a repository without a compiler API (TypeScript 7): every
+ * lib it names, `lib: ["ES2023"]` under an older target included, comes from ts-morph's copy.
+ */
 function bundledHost(options: ts.CompilerOptions): ts.CompilerHost {
-  if (!bundledLibraries?.has(ts.getDefaultLibFileName(options))) {
-    const project = new Project({
-      useInMemoryFileSystem: true,
-      compilerOptions: { target: options.target ?? ts.ScriptTarget.ES2025 },
-    });
-    project.createSourceFile('probe.ts', 'const value = 1;');
-    bundledLibraries = new Map(
-      project
-        .getProgram()
-        .compilerObject.getSourceFiles()
-        .filter((f) => f.fileName.includes('/typescript/lib/'))
-        .map((f) => [basename(f.fileName), f.text]),
-    );
-  }
   const host = ts.createCompilerHost(options);
   const read = host.readFile,
     exists = host.fileExists;
   const lib = (file: string) =>
-    file.startsWith('/__uptide_lib__/') ? bundledLibraries?.get(basename(file)) : undefined;
+    file.startsWith('/__uptide_lib__/')
+      ? bundledLib(join('/node_modules/typescript/lib', basename(file)))
+      : undefined;
   host.readFile = (file) => lib(file) ?? read(file);
   host.fileExists = (file) => lib(file) !== undefined || exists(file);
   host.getDefaultLibLocation = () => '/__uptide_lib__';
