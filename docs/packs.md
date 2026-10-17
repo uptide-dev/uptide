@@ -253,10 +253,24 @@ They are scored like the others and never count toward `verified`.
 
 `uptide pack test` fetches each repository once: a shallow fetch of the pinned commit only,
 dependencies installed from its lockfile (npm, pnpm, Yarn or bun) with lifecycle scripts
-off, and nothing from the repository is ever
-executed. They are kept in `~/.cache/uptide/ground-truth` (`UPTIDE_GROUND_TRUTH_CACHE`), so
-`pack test --offline` runs without network after the first time. `pnpm packs:fetch` fills
+off: no lifecycle script or hook of the repository runs, and the only commands are its code
+generators (below). They are kept in `~/.cache/uptide/ground-truth`
+(`UPTIDE_GROUND_TRUTH_CACHE`), so `pack test --offline` runs without network after the first
+time. `pnpm packs:fetch` fills
 the cache for every pack (and `--corpus` for the repositories in `fixtures/corpus.json`).
+
+After the install and before `check`, the preparation runs the repository's known code
+generators, the ones `fix` runs in its clone (UPT-90): `prisma generate` for a
+`schema.prisma`, and GraphQL codegen for a `codegen.ts`/`yml` whose schema is local. On a
+user's machine that generated code exists (`prisma generate` has run), so without it `check`
+cannot resolve the imports of a generated client and scores those files as `unverified`: the
+scoring environment, not the rule, would understate the pack. The generators use the
+repository's own binaries, read local files only and reach no network beyond the registry; a
+codegen config with a remote schema is not run. The step applies to every pack and every
+ground-truth repository alike, never to a single entry. A generator that fails or is not run
+is reported by `pack test` for that repository (`generator failed: …`), which is then scored
+without the generated code, as before. `check` itself still runs no scripts. Fixtures are
+synthetic and installed in this tree; they get no generator step.
 
 The cache is large: each entry is a checkout with its dependencies installed. Measured on
 2026-10-14, per pack: ai 2.1 GB, lucide-react 3.6, next 1.4, react 4.3, @sentry/browser 0.7,
