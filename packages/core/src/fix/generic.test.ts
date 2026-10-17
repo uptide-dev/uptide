@@ -284,9 +284,129 @@ describe('fix for a dependency without a pack', () => {
     );
     // One site still fails to compile: the run is not verified, so nothing could be published.
     expect(result.verification.passed).toBe(false);
+    // The estimate was made before the first call, for the three sites left to the agent.
+    expect(result.llm.estimate).toEqual({
+      sites: 3,
+      usd: 0.18,
+      limitUsd: 1,
+      setting: '--max-cost',
+    });
     expect(prBody(result)).toContain(
-      '- The agent stopped at the cost limit of $1.00 (`--max-cost`): 2 sites not completed. Run again with a higher limit to continue.',
+      '- The agent stopped at the $1.00 cost limit (estimated $0.18 for 3 sites; limit $1.00): 2 sites not completed. Run again with `--max-cost 2.00` to continue.',
     );
+    // Wall time per phase, in order, and the agent's spend where it was made.
+    expect(result.phases?.map((p) => p.name)).toEqual([
+      'analyze',
+      'baseline',
+      'install',
+      'rules',
+      'agent',
+      'verify',
+      'feedback',
+    ]);
+    expect(result.phases?.find((p) => p.name === 'agent')?.costUsd).toBe(0.6);
+    const total = (result.phases ?? []).reduce((ms, p) => ms + p.ms, 0);
+    expect(total).toBeLessThanOrEqual(result.timingMs);
+    expect(prBody(result)).toMatch(/Phases: analyze \d+s · baseline \d+s · .* agent \d+s \$0\.60/);
+  }, 30000);
+
+  it('without --max-cost, keeps the $1 limit and shows the estimate before the first call', async () => {
+    const { root, services, fixer } = paintFixture(3);
+    const events: string[] = [];
+    const seen: FixRequest[] = [];
+    const result = await fix(
+      {
+        cwd: root,
+        only: 'paint',
+        fixer: fixer(0.01, seen),
+        onProgress: (e) => {
+          if (e.warning && e.detail) events.push(e.detail);
+          if (e.phase === 'assist' && e.state === 'start' && e.detail) events.push('call');
+        },
+      },
+      services,
+    );
+    expect(seen.length).toBeGreaterThan(0);
+    expect(result.llm.estimate).toEqual({
+      sites: 3,
+      usd: 0.18,
+      limitUsd: 1,
+      setting: '--max-cost',
+    });
+    expect(result.llm.feedback?.maxCostUsd).toBe(1);
+    const shown = events.indexOf('Agent estimated $0.18 for 3 sites; limit $1.00 (--max-cost)');
+    expect(shown).toBeGreaterThanOrEqual(0);
+    expect(shown).toBeLessThan(events.indexOf('call'));
+  }, 30000);
+
+  it('in Action and App runs, works within the limit and says how to finish', async () => {
+    const action = { withinBudget: true, costSetting: 'maxCost' as const, maxCostUsd: 0.1 };
+    // Patch executor: one $0.06 call fits under $0.10, the other two sites are left.
+    const patch = paintFixture(3);
+    const seen: FixRequest[] = [];
+    const patched = await fix(
+      { cwd: patch.root, only: 'paint', fixer: patch.fixer(0.06, seen), ...action },
+      patch.services,
+    );
+    expect(seen).toHaveLength(1);
+    expect(patched.llm.estimate).toEqual({
+      sites: 3,
+      usd: 0.18,
+      limitUsd: 0.1,
+      setting: 'maxCost',
+    });
+    expect(patched.llm.costLimit).toEqual({ limitUsd: 0.1, notAttempted: 2 });
+    expect(prBody(patched)).toContain(
+      '- The agent stopped at the $0.10 cost limit (estimated $0.18 for 3 sites; limit $0.10): 2 sites not completed. Raise `maxCost` in uptide.yml to 0.20 to finish.',
+    );
+    // SDK executor: the session ends on its budget; the sites it left are counted the same way.
+    const sdk = paintFixture(3);
+    const result = await fix(
+      { cwd: sdk.root, only: 'paint', fixer: sdk.fixer(0.01, []), agent: 'sdk', ...action },
+      {
+        ...sdk.services,
+        agentRunner: async () => ({
+          turns: 1,
+          inputTokens: 1,
+          outputTokens: 1,
+          costUsd: 0.1,
+          durationMs: 1,
+          toolCalls: {},
+          stop: 'error_max_budget_usd',
+        }),
+      },
+    );
+    expect(result.llm.costLimit).toEqual({ limitUsd: 0.1, notAttempted: 3 });
+    expect(prBody(result)).toContain(
+      '3 sites not completed. Raise `maxCost` in uptide.yml to 0.20 to finish.',
+    );
+  }, 60000);
+
+  it('stops before any agent call when the estimate exceeds the limit', async () => {
+    for (const [costSetting, raise] of [
+      [undefined, 'Run again with --max-cost 0.18.'],
+      ['maxCost', 'Raise maxCost in uptide.yml to 0.18.'],
+    ] as const) {
+      const { root, services, fixer } = paintFixture(3);
+      const seen: FixRequest[] = [];
+      await expect(
+        fix(
+          {
+            cwd: root,
+            only: 'paint',
+            fixer: fixer(0.01, seen),
+            maxCostUsd: 0.1,
+            ...(costSetting ? { costSetting } : {}),
+          },
+          services,
+        ),
+      ).rejects.toMatchObject({
+        code: 'COST_ESTIMATE',
+        message: `estimated $0.18 for 3 sites; limit $0.10. ${raise}`,
+      });
+      // Nothing was spent: no call reached the agent.
+      expect(seen).toHaveLength(0);
+    }
   }, 30000);
 
   it('repairs an unconfirmed site when final verification proves a new type error', async () => {

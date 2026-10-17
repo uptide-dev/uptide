@@ -266,7 +266,8 @@ and the gate rejects new errors. Final verification works as it does for a verif
   branch or an install. The same holds when a pack exists but does not cover the installed
   version (typescript 5 → 7 with a 5 → 6 pack).
 - `--max-cost <usd>` (default 1) sets the SDK session budget for each package; enforcement
-  after each turn can overshoot by one turn. With `--agent patch`, it reserves the
+  after each turn can overshoot by one turn. A preflight estimate above it stops the run
+  before any agent call, with exit 2 ([models](../models.md#--max-cost)). With `--agent patch`, it reserves the
   worst-case cost before every call, including
   retries. Sites not completed stay manual, the summary and the pull request say how many,
   and final verification decides whether the result can be published.

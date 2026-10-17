@@ -24,7 +24,7 @@ positive among breaking findings. A pack that has not met that bar yet is a cand
 the row says generic.
 
 A generic `fix` needs a provider API key (there are no rules to fall back on; without a key
-it says so and changes nothing), stops at `--max-cost` (default $1) and reports what it did
+it says so and changes nothing), stops at `--max-cost` (default $1; an estimate above it stops before any agent call) and reports what it did
 not complete. Its pull request opens with a note that no pack covers the package: every edit
 was kept on the compiler's word and deserves a careful review. See [`uptide fix`](commands/fix.md).
 
