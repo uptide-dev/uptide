@@ -1240,7 +1240,7 @@ function verificationDetails(report: FixReport, bounded: boolean): (string | Pie
           '',
           ...report.generated.map(
             (g) =>
-              `Generated before the baseline: \`${g.command}\` in \`${g.workspace}\` — ${g.status === 'generated' ? 'ok (no database contacted)' : `${g.status}: ${(g.output ?? '').split('\n').filter(Boolean).at(-1) ?? ''}`}`,
+              `Generated ${g.phase === 'bump' ? 'after the bump' : 'before the baseline'}: \`${g.command}\` in \`${g.workspace}\` — ${g.status === 'generated' ? 'ok' : `${g.status}: ${(g.output ?? '').split('\n').filter(Boolean).at(-1) ?? ''}`}`,
           ),
         ]
       : []),

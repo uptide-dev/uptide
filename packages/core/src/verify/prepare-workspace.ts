@@ -4,6 +4,7 @@ import { readInstalled } from '../adapters/typescript/repo.js';
 import { workspaceSourceMap } from '../adapters/typescript/workspace-source.js';
 import { type ProgressListener, progress } from '../domain/progress.js';
 import { type buildWorkspaces, configuredBuildScript } from '../fix/build.js';
+import type { Generated, generateClients } from '../fix/generate.js';
 import type { BuildResult } from '../fix/types.js';
 import { globRegExp, workspacePackagesOf } from '../workspaces.js';
 
@@ -174,19 +175,42 @@ export function needsBuildReason(unbuilt: Unbuilt[]): string {
   return `needs build of ${unbuilt.map((u) => u.dir).join(', ')}`;
 }
 
+/** What preparing the workspace ran: generators first, then the builds they may feed. */
+export interface Prepared {
+  generated: Generated[];
+  builds: BuildResult[];
+}
+
 /**
- * Build consumed workspace outputs with fix's verification runner. A build that cannot run
- * or fails is returned as a result, never thrown: the caller reports it and falls back.
+ * Prepare fix's verification clone the way the repository's own scripts would: run its code
+ * generators (a Prisma client), then build consumed workspace outputs. A generator or build
+ * that cannot run or fails is returned as a result, never thrown: the caller reports it and
+ * falls back. Standalone check never calls this; it names the missing step instead.
  */
 export async function prepareWorkspace(
   root: string,
   workspaces: string[],
   options: {
     build: typeof buildWorkspaces;
+    generate?: typeof generateClients;
     buildScript?: string;
     onProgress?: ProgressListener;
     moved?: string[];
   },
+): Promise<Prepared> {
+  const generate = options.generate;
+  const generated = generate
+    ? await progress(options.onProgress, { phase: 'verify', detail: 'generate' }, () =>
+        generate(root, workspaces),
+      )
+    : [];
+  return { generated, builds: await buildConsumed(root, workspaces, options) };
+}
+
+async function buildConsumed(
+  root: string,
+  workspaces: string[],
+  options: Parameters<typeof prepareWorkspace>[2],
 ): Promise<BuildResult[]> {
   const { needed } = plan(root, workspaces, options.moved);
   if (!needed.size) return [];

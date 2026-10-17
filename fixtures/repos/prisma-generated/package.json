@@ -1,0 +1,8 @@
+{
+  "name": "prisma-generated",
+  "private": true,
+  "dependencies": {
+    "@prisma/client": "6.16.0",
+    "plain": "1.0.0"
+  }
+}

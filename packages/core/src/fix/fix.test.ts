@@ -1,4 +1,12 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -1430,10 +1438,6 @@ it('records baseline builds and rebuilds affected output after the upgrade throu
     {
       ...services,
       build,
-      check: async (options) => {
-        await options.workspaceBuild?.(root, ['packages/internal']);
-        return services.check(options);
-      },
       install: async (...args) => {
         await services.install(...args);
         writeFileSync(join(internal, 'dist/index.d.ts'), 'stale output');
@@ -1450,8 +1454,20 @@ it('records baseline builds and rebuilds affected output after the upgrade throu
   );
   expect(upgraded).toBe(true);
   expect(build).toHaveBeenCalledTimes(2);
-  expect(build).toHaveBeenNthCalledWith(1, root, ['packages/internal'], undefined, 'build:ci');
-  expect(build).toHaveBeenNthCalledWith(2, root, ['packages/internal'], undefined, 'build:ci');
+  expect(build).toHaveBeenNthCalledWith(
+    1,
+    realpathSync(root),
+    ['packages/internal'],
+    undefined,
+    'build:ci',
+  );
+  expect(build).toHaveBeenNthCalledWith(
+    2,
+    realpathSync(root),
+    ['packages/internal'],
+    undefined,
+    'build:ci',
+  );
   expect(result.verification.build).toMatchObject([
     { phase: 'baseline', workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
     { workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
@@ -1498,10 +1514,6 @@ it('reports a workspace build that fails instead of throwing', async () => {
     {
       ...services,
       build: buildWorkspaces,
-      check: async (options) => {
-        await options.workspaceBuild?.(root, ['packages/internal']);
-        return services.check(options);
-      },
     },
   );
   expect(result.verification.build).toEqual(
