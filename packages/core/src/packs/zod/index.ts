@@ -12,7 +12,7 @@ import {
 import type { Finding } from '../../domain/report.js';
 import { satisfies } from '../../fetch/range.js';
 import { onReset } from '../../shared-state.js';
-import { type Pack, type PackMeta, ruleFor } from '../contract.js';
+import { detected, type Pack, type PackMeta, ruleFor } from '../contract.js';
 import type { PackContext, TransformResult } from '../types.js';
 import {
   errorMemberFindings,
@@ -420,18 +420,30 @@ export const zodPack: Pack = {
   instructions: zodGuide.generics,
   transform,
   guide: (f) => ruleFor(zodPack.rules, f)?.guide ?? zodGuide.generics,
-  runtimeFindings: ({ root, workspace, from, to, usages, read }) => [
-    ...errorMemberFindings({
-      root,
-      workspace,
-      from,
-      to,
-      usages,
-      read,
-      rewrite: rewriteErrorMembers,
-    }),
-    ...removedExportFindings({ root, workspace, from, to, usages, read }),
-  ],
+  runtimeFindings: ({ root, workspace, from, to, usages, files = [], read }) => {
+    // The base hook (every `detect` over the files the scan visited), then the zod passes that
+    // reach further: schemas imported from the repository's own modules, files that only name
+    // zod in `import('zod')`.
+    const base = [...new Set([...usages.map((u) => u.file), ...files])].sort().flatMap((file) => {
+      const text = read(join(workspace, file));
+      return text === undefined ? [] : detected(zodPack, { file, text, from, to });
+    });
+    const own = [
+      ...errorMemberFindings({
+        root,
+        workspace,
+        from,
+        to,
+        usages,
+        read,
+        rewrite: rewriteErrorMembers,
+      }),
+      ...removedExportFindings({ root, workspace, from, to, usages, read }),
+    ];
+    const key = (f: Finding) => `${f.rule}:${f.usage.file}:${f.usage.line}`;
+    const seen = new Set(own.map(key));
+    return [...own, ...base.filter((f) => !seen.has(key(f)))];
+  },
   scanContext: (root, workspaces) => ({ defaultMessages: defaultMessageSites(root, workspaces) }),
   testFollowUps({ root, failing, context, output }) {
     const edits = [];
