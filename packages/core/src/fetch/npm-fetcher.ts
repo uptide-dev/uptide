@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -56,6 +56,26 @@ export function extractedPath(root: string, name: string, version: string): stri
 
 /** Written last, so a half-extracted directory (a crash, a full disk) is never trusted. */
 const COMPLETE_MARKER = '.uptide-complete';
+
+const concurrentWriter = (err: unknown): boolean =>
+  ['EEXIST', 'ENOTEMPTY'].includes(errorCode(err));
+
+/** Unique staging files also isolate simultaneous requests in the same process. */
+async function cacheFile(path: string, data: string | Buffer): Promise<Buffer> {
+  const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(tmp, data);
+    try {
+      await rename(tmp, path);
+    } catch (err) {
+      if (!concurrentWriter(err)) throw err;
+      return await readFile(path);
+    }
+    return Buffer.from(data);
+  } finally {
+    await rm(tmp, { force: true });
+  }
+}
 
 const EXACT_VERSION = /^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
@@ -129,10 +149,8 @@ export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
       throw err;
     }
     await mkdir(dirname(path), { recursive: true });
-    const tmp = `${path}.${process.pid}.tmp`;
-    await writeFile(tmp, JSON.stringify({ at: Date.now(), value }));
-    await rename(tmp, path);
-    return value;
+    const cached = await cacheFile(path, JSON.stringify({ at: Date.now(), value }));
+    return (JSON.parse(cached.toString()) as { value: T }).value;
   }
 
   function resolved(name: string, requested: string): Promise<ResolvedVersion> {
@@ -167,10 +185,9 @@ export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
     const tgz = await downloadTarball(resolved, config, fetchFn);
     verify(tgz, resolved);
     await mkdir(dirname(path), { recursive: true });
-    const tmp = `${path}.${process.pid}.tmp`;
-    await writeFile(tmp, tgz);
-    await rename(tmp, path);
-    return tgz;
+    const cached = await cacheFile(path, tgz);
+    verify(cached, resolved);
+    return cached;
   }
 
   const allVersions = (name: string): Promise<string[]> =>
@@ -250,10 +267,22 @@ export function createNpmFetcher(opts: NpmFetcherOptions = {}): PackageFetcher {
       const tgz = await tarballFor(target);
       const dir = extractedPath(extractRoot, name, target.version);
       if (!existsSync(join(dir, COMPLETE_MARKER))) {
-        await rm(dir, { recursive: true, force: true });
-        await mkdir(dir, { recursive: true });
-        extractTgz(tgz, dir);
-        await writeFile(join(dir, COMPLETE_MARKER), '');
+        // Only legacy incomplete extractions need removal; new ones are published complete.
+        if (existsSync(dir) && !existsSync(join(dir, COMPLETE_MARKER)))
+          await rm(dir, { recursive: true, force: true });
+        const tmp = `${dir}.${randomUUID()}.tmp`;
+        try {
+          await mkdir(tmp, { recursive: true });
+          extractTgz(tgz, tmp);
+          await writeFile(join(tmp, COMPLETE_MARKER), '');
+          try {
+            await rename(tmp, dir);
+          } catch (err) {
+            if (!concurrentWriter(err) || !existsSync(join(dir, COMPLETE_MARKER))) throw err;
+          }
+        } finally {
+          await rm(tmp, { recursive: true, force: true });
+        }
       }
       return { name, version: target.version, dir };
     },
