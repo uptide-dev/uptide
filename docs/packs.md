@@ -397,9 +397,13 @@ every pack passed, **1** a false positive among breaking findings, a failing fix
 `verification.json` the run does not support, **2** it could not run (not in a checkout, bad
 arguments).
 
-The "Verified packs" table in the README is generated from each pack's `verification.json`
-and ground truth by `pnpm docs:packs`; CI fails when it is stale. Its precision and recall are
+The [pack compatibility matrix](compatibility.md) and the "Verified packs" table in the README
+are generated from the pack registry, each pack's `verification.json` and ground truth by
+`pnpm docs:packs`; CI fails when either is stale. Their precision and recall are
 the breaking ones, `n/a` when nothing breaking was predicted or expected.
+The README lists verified packs and a generated count of candidates; the matrix includes
+both. `meta.targetDescription` describes a target whose scope goes beyond its semver range,
+such as Stripe's API version pinning; version matching still uses `meta.from` and `meta.to`.
 
 ### Config files and transactional edits
 

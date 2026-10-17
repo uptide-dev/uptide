@@ -45,8 +45,8 @@ jobs:
         run: pnpm --filter @uptide/core exec vitest run src/action/action.test.ts src/fix/managers/compatible-ranges.test.ts
 
   docs:
-    # Every relative link in the Markdown resolves, and the README's packs table matches what
-    # each pack's verification.json and ground truth say (`pnpm docs:packs` rewrites it).
+    # Every relative link in the Markdown resolves, and both pack tables match the registry,
+    # verification.json and ground truth (`pnpm docs:packs` rewrites them).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -57,7 +57,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm docs:links
-      - run: pnpm docs:packs --check
+      - name: Check generated pack compatibility matrix and README
+        run: pnpm docs:packs --check
 
   smoke:
     # The packed CLI, installed in a clean Node container, against npm, pnpm and yarn fixtures.
