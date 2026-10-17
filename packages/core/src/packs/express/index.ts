@@ -1,6 +1,64 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Finding } from '../../domain/report.js';
 import { definePack } from '../contract.js';
 import { expressBehavior } from './behavior.js';
-import { paramCallbackSites, redirectOrderSites, routeSites } from './detect.js';
+import {
+  paramCallbackSites,
+  paramDestructureSites,
+  redirectOrderSites,
+  routeSites,
+} from './detect.js';
+
+const PARAMS_ERROR = /'string \| string\[\]' is not assignable/;
+
+/**
+ * A `req.params` error is reported where the value is used, but the guide's fix is one edit
+ * above it where the value is destructured (`const { id } = req.params`). That line is a site
+ * too (UPT-91), found only where the compiler reported an error under it.
+ */
+function paramDestructure({
+  root,
+  workspace,
+  findings,
+}: Parameters<NonNullable<Parameters<typeof definePack>[0]['foldFindings']>>[0]): Finding[] {
+  const errors = new Map<string, Finding[]>();
+  for (const f of findings)
+    if (f.usage.compileError && PARAMS_ERROR.test(f.usage.compileError))
+      errors.set(f.usage.file, [...(errors.get(f.usage.file) ?? []), f]);
+  const anchors: Finding[] = [];
+  for (const [file, list] of errors) {
+    let text: string;
+    try {
+      text = readFileSync(join(root, workspace, file), 'utf8');
+    } catch {
+      continue;
+    }
+    const first = list[0] as Finding;
+    const taken = new Set(findings.filter((f) => f.usage.file === file).map((f) => f.usage.line));
+    for (const site of paramDestructureSites(
+      text,
+      list.map((f) => ({ line: f.usage.line, column: f.usage.column })),
+    )) {
+      if (taken.has(site.line)) continue;
+      const { compileError: _error, compileCode: _code, ...usage } = first.usage;
+      anchors.push({
+        ...first,
+        rule: 'params-string-array',
+        usage: {
+          ...usage,
+          line: site.line,
+          column: site.column,
+          endLine: site.line,
+          endColumn: site.column,
+          snippet: site.snippet,
+        },
+        reason: 'the destructuring that gives the compiler-reported req.params values their type',
+      });
+    }
+  }
+  return [...findings, ...anchors];
+}
 
 const guide =
   'https://github.com/expressjs/expressjs.com/blob/472119366bbffc206e0deba32277d607cf9f6e13/src/content/pages/en/guide/migrating-5.mdx';
@@ -45,6 +103,7 @@ export const expressPack = definePack({
     maintainer: 'uptide-dev',
   },
   defaultTarget: '5.3.0',
+  foldFindings: paramDestructure,
   inventory: ['package.json'],
   rules: [
     {

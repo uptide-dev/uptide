@@ -366,3 +366,42 @@ export function sendStatusSites(text: string): SourceSite[] {
     })
     .map((call) => siteAt(source, call, 'send(status)'));
 }
+
+/**
+ * Where one edit resolves `req.params` errors the compiler reports at their uses (UPT-91): a
+ * `const { id, other } = req.params` whose names an error is reported on. The guide types the
+ * values once, there, instead of at each use; that line is a site as well. Only a handler's own
+ * `req` counts, and only where the compiler reported an error under it.
+ *
+ * A handler annotated bare `Request` is not an anchor: ground truth shows the same shape fixed
+ * on the handler in one repository and at the use in another, so a site there is a guess.
+ */
+export function paramDestructureSites(
+  text: string,
+  errors: { line: number; column: number }[],
+): SourceSite[] {
+  if (!/['"]express['"]/.test(text)) return [];
+  const source = parse(text);
+  const sites = new Map<number, SourceSite>();
+  for (const { line, column } of errors) {
+    const at = source.getDescendantAtPos(
+      source.compilerNode.getPositionOfLineAndCharacter(line - 1, column - 1),
+    );
+    const fn = at?.getAncestors().find(Node.isFunctionLikeDeclaration);
+    const req = fn?.getParameters()[0];
+    if (!at || !fn || !req || !Node.isIdentifier(req.getNameNode()) || !Node.isIdentifier(at))
+      continue;
+    for (const declaration of fn.getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
+      const binding = declaration.getNameNode();
+      if (
+        Node.isObjectBindingPattern(binding) &&
+        declaration.getInitializer()?.getText() === `${req.getName()}.params` &&
+        binding.getElements().some((e) => e.getNameNode().getText() === at.getText())
+      ) {
+        const site = siteAt(source, declaration, 'req.params');
+        sites.set(site.line, site);
+      }
+    }
+  }
+  return [...sites.values()].sort((a, b) => a.line - b.line);
+}

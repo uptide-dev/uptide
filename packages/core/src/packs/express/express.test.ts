@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Finding } from '../../domain/report.js';
 import { ruleFor } from '../contract.js';
 import { runFixtures } from '../tooling/fixtures.js';
-import { incompatible } from './detect.js';
+import { incompatible, paramDestructureSites } from './detect.js';
 import { expressPack } from './index.js';
 
 it('express: every fixture rewrites and detects exactly its marked sites', () => {
@@ -112,4 +112,28 @@ describe('route strings path-to-regexp 8 reads differently', () => {
     'leaves %s alone',
     (path) => expect(incompatible(path)).toBeUndefined(),
   );
+});
+
+describe('paramDestructureSites', () => {
+  const text = [
+    "import express from 'express';",
+    'export function assign(req: express.Request) {',
+    '  const { id, role } = req.params;',
+    '  const copy = { ...req.params };',
+    '  return save(id, role);',
+    '}',
+    'export function other(req: express.Request, params: { a: string }) {',
+    '  const { a } = params;',
+    '  return save(a);',
+    '}',
+  ].join('\n');
+
+  it('anchors the destructuring an error identifier is bound by', () => {
+    expect(paramDestructureSites(text, [{ line: 5, column: 15 }]).map((s) => s.line)).toEqual([3]);
+  });
+
+  it('leaves a destructuring of something other than req.params, and an error that is not on one of its names', () => {
+    expect(paramDestructureSites(text, [{ line: 9, column: 15 }])).toEqual([]);
+    expect(paramDestructureSites(text, [{ line: 5, column: 10 }])).toEqual([]);
+  });
 });
