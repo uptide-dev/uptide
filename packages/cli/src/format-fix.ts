@@ -2,6 +2,7 @@ import { isAbsolute, relative } from 'node:path';
 import {
   baselineHeadline,
   baselineHealthOf,
+  describeOutOfScope,
   describeTransitive,
   type FixReport,
   fixVerdict,
@@ -67,6 +68,14 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
           `  ${pad('Tier', 9)} generic: no migration pack; every edit is the agent's, kept on the compiler's word. Review each one.`,
         ]
       : []),
+    ...(report.agentFallback?.length
+      ? [`  ${pad('Fallback', 9)} agent-led draft: ${report.agentFallback.join('; ')}`]
+      : []),
+    ...(report.llm.feedback
+      ? [
+          `  ${pad('Feedback', 9)} ${report.llm.feedback.roundsUsed}/${report.llm.feedback.maxRounds} rounds · $${report.llm.costUsd.toFixed(2)} of $${report.llm.feedback.maxCostUsd.toFixed(2)}`,
+        ]
+      : []),
     ...(report.llm.costLimit
       ? [
           `  ${pad('Agent', 9)} stopped at $${report.llm.costLimit.limitUsd.toFixed(2)} (--max-cost): ${report.llm.costLimit.notAttempted} site${report.llm.costLimit.notAttempted === 1 ? '' : 's'} not completed`,
@@ -85,6 +94,11 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
       lines.push(
         `  ${peer.name} ${peer.version}: ${peer.peers.map((p) => `${p.peer} ${p.range} rejects ${p.target}`).join('; ')}${peer.allowed ? ' · explicitly allowed in package.json' : ''}`,
       );
+    lines.push('');
+  }
+  if (report.lockfile?.outOfScope?.length) {
+    lines.push(colors.bold('Lockfile changes outside the upgrade: review'));
+    for (const c of report.lockfile.outOfScope) lines.push(`  ${describeOutOfScope(c)}`);
     lines.push('');
   }
   if (report.lockfile?.peerReresolved?.length) {

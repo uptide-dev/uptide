@@ -32,6 +32,38 @@ describe('formatFixSummary', () => {
     expect(out).toContain('other 1.0.0: react ^18 rejects 19.0.0');
   });
 
+  it('shows the agent-led fallback, its rounds and spend, and out-of-scope lockfile changes', () => {
+    const base = fixReport(false);
+    const out = formatFixSummary(
+      {
+        ...base,
+        agentFallback: ['Install check: 1 lockfile resolution changed'],
+        llm: {
+          ...base.llm,
+          costUsd: 0.42,
+          feedback: { roundsUsed: 2, maxRounds: 3, maxCostUsd: 1 },
+        },
+        lockfile: {
+          manager: 'pnpm',
+          file: 'pnpm-lock.yaml',
+          added: [],
+          removed: [],
+          changed: [],
+          allowed: [],
+          outOfScope: [{ name: 'picomatch', from: '4.0.2', to: '4.0.3' }],
+        },
+      },
+      { color: false },
+    );
+    expect(out).toContain(
+      '  Fallback  agent-led draft: Install check: 1 lockfile resolution changed',
+    );
+    expect(out).toContain('  Feedback  2/3 rounds · $0.42 of $1.00');
+    expect(out).toContain(
+      'Lockfile changes outside the upgrade: review\n  picomatch 4.0.2 → 4.0.3',
+    );
+  });
+
   it('says the five facts, where the branch is, and the exact next commands', () => {
     const report = {
       ...fixReport(true),

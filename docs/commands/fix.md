@@ -120,6 +120,15 @@ The PR's **Peer risks** lists every conflict, the original peer range and whethe
 it. An override permits dependency resolution; it does not establish runtime compatibility.
 Uptide never adds `--legacy-peer-deps` or `--force`.
 
+With an assisting agent (an API key, LLM on), these preflight refusals do not exit 2: the run
+continues as an **agent-led draft**. A peer blocker runs as the suggested command above; root
+pins without `--update-pins` consent are updated (`updatePins: false` in `uptide.yml` still
+refuses); companions that cannot move together leave the lead alone; and resolutions the
+install changed outside the upgrade's subtree are kept for review instead of refused. The
+reason heads the PR body and the terminal summary, with feedback rounds and spend, and the PR
+opens as a draft. With `--no-llm`, without an agent, or on a downgrade, `fix` refuses as
+described here.
+
 For pnpm and Yarn, conflicts are reported but do not stop planning. Their own settings may
 still reject the install (for example strict peer checking). `--allow-peer` writes the native
 setting when requested; Yarn resolutions select a version but may still leave peer warnings.
@@ -249,7 +258,8 @@ and the gate rejects new errors. Final verification works as it does for a verif
 
 - It needs the selected provider's environment API key ([models](../models.md)). Without
   one, or with `--no-llm`, it says what it cannot do and exits before creating a clone, a
-  branch or an install.
+  branch or an install. The same holds when a pack exists but does not cover the installed
+  version (typescript 5 → 7 with a 5 → 6 pack).
 - `--max-cost <usd>` (default 1) sets the SDK session budget for each package; enforcement
   after each turn can overshoot by one turn. With `--agent patch`, it reserves the
   worst-case cost before every call, including

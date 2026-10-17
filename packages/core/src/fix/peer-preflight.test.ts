@@ -85,19 +85,19 @@ it('selects the lowest newer stable release with an accepting peer, not latest o
 });
 
 it.each([false, true])(
-  'npm stops before clone, branch, check, install or LLM (newer=%s)',
+  'npm without an agent stops before clone, branch, check or install (newer=%s)',
   async (newer) => {
     const { root, services } = fixture('npm', newer);
     const runs = join(scratch, `runs-${newer}`);
     vi.stubEnv('UPTIDE_RUNS_DIR', runs);
     try {
       const check = vi.fn(services.check),
-        install = vi.fn(services.install),
-        spend = vi.fn();
+        install = vi.fn(services.install);
       const before = git(root, 'branch');
+      // Without an agent; with one, the run continues agent-led (UPT-78, isolate.test.ts).
       await expect(
         isolatedFix(
-          { cwd: root, only: 'zod', target: '4.6.5', fixer: { id: 'test', fix: spend } },
+          { cwd: root, only: 'zod', target: '4.6.5', fixer: null },
           { ...services, check, install },
         ),
       ).rejects.toThrow(
@@ -107,7 +107,6 @@ it.each([false, true])(
       );
       expect(check).not.toHaveBeenCalled();
       expect(install).not.toHaveBeenCalled();
-      expect(spend).not.toHaveBeenCalled();
       expect(git(root, 'branch')).toBe(before);
       expect(existsSync(runs) ? readdirSync(runs) : []).toEqual([]);
     } finally {

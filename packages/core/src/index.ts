@@ -129,8 +129,10 @@ export {
   watchInterruptibleClones,
 } from './fix/isolate.js';
 export {
+  describeOutOfScope,
   describeTransitive,
   type MovedSubtree,
+  type OutOfScopeChange,
   type TransitiveChange,
 } from './fix/managers/lock-guard.js';
 export {

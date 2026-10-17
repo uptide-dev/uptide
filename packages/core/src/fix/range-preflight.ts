@@ -4,10 +4,14 @@ import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import { hoistedPackageDir } from '../adapters/typescript/usages.js';
 import { companionsOf, type InstalledDependency } from '../check/companions.js';
 import { ownTypesFrom } from '../check/removed.js';
+import { compareVersions } from '../check/version.js';
+import { UptideError } from '../errors.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { installedManifest, type Manifest } from '../list/evidence.js';
+import { ACCEPTED_KEYS } from '../llm/config.js';
 import { activePack } from '../packs/index.js';
+import { isMajorUpgrade, NO_PACK_YET } from './no-pack.js';
 import type { FixOptions, FixServices } from './run.js';
 import { resolveTarget } from './target.js';
 import { validateVersionRanges } from './versions.js';
@@ -53,9 +57,40 @@ export async function rangePreflight(
     releaseGroup: pack?.releaseGroup?.map((c) => c.name),
     ...(metadata ? { ownTypes: ownTypesFrom(metadata) } : {}),
   });
-  if (plan.conflicts.length) throw new Error(plan.conflicts.join('; '));
+  if (plan.conflicts.length)
+    throw new UptideError('INCONSISTENT_UPGRADE', plan.conflicts.join('; '));
   validateVersionRanges(root, plan.companions, read);
   return target;
+}
+
+/**
+ * The stops `fix` makes when no pack covers the installed versions, before a clone exists
+ * (UPT-77 saw them after clone and install, up to 189 s): no agent, or a major for a PR.
+ */
+export function noPackPreflight(
+  options: FixOptions,
+  target: string,
+  assist: boolean,
+  read = (file: string) => readFileSync(join(options.cwd, file), 'utf8'),
+): void {
+  if (options.pack || options.pinCurrentApi) return;
+  const pack = activePack(options.only, options.allowCandidate);
+  const behind = [...fixDependencies(options.cwd, read).installed.values()]
+    .filter((d) => d.name === options.only && compareVersions(d.version, target) < 0)
+    .map((d) => d.version)
+    .sort(compareVersions);
+  const lowest = behind[0];
+  if (!lowest || (pack?.rules.length && behind.every((v) => pack.supports(v, target)))) return;
+  if (!assist)
+    throw new UptideError(
+      'NO_FIXER',
+      `${pack ? `${options.only} ${lowest} → ${target} is outside the ${options.only} pack's range` : `${options.only} has no migration pack`}, so every fix would come from the agent, and ${options.fixer === null ? 'assisted fixes are off (--no-llm)' : `no selected-provider API key is set; accepted environment variables: ${ACCEPTED_KEYS}`}. Nothing was changed.`,
+    );
+  if (options.pr && !options.plannerFailure && isMajorUpgrade(lowest, target))
+    throw new UptideError(
+      'PUBLICATION_REFUSED',
+      `${NO_PACK_YET}: ${options.only} ${lowest} → ${target} is a major upgrade, and Uptide opens a pull request for one only with a verified migration pack. Nothing was changed.`,
+    );
 }
 
 /** Direct installed dependencies, excluding local workspace links. */

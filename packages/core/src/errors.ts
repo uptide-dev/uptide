@@ -117,7 +117,8 @@ export type ErrorCode =
   | 'PACK_EXISTS'
   | 'INVALID_CONFIG'
   | 'ONBOARDING_REFUSED'
-  | 'RELEASE_AGE';
+  | 'RELEASE_AGE'
+  | 'UNSAFE_DATA';
 /** Stable across rendering and worker serialization. Human wording is not an API. */
 export class UptideError extends Error {
   override readonly name = 'UptideError';
@@ -129,6 +130,11 @@ export class UptideError extends Error {
     super(message, options);
   }
 }
+/**
+ * A refusal no agent continues past (UPT-78): downgrades, secrets, private data. Fallbacks
+ * check this type, never where the error was thrown.
+ */
+export class SafetyRefusal extends UptideError {}
 export function errorCode(error: unknown): ErrorCode {
   if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string')
     return error.code as ErrorCode;

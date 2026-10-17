@@ -78,6 +78,8 @@ export class PeerPreflightError extends UptideError {
     readonly peerConflicts: PeerBlockerGroup[],
     readonly next: string,
     message: string,
+    /** `next` as options: what an agent-led run continues with (UPT-78). */
+    readonly plan: { also: string[]; allowPeer: string[] } = { also: [], allowPeer: [] },
   ) {
     super('INCONSISTENT_UPGRADE', message);
   }
@@ -320,6 +322,7 @@ export async function peerPreflight(
       blockers,
       command,
       `uptide fix · ${options.only} ${deps.find((d) => d.name === options.only)?.version ?? '?'} → ${target} · ${blockers.length} peer blocker${blockers.length === 1 ? '' : 's'} to resolve first\n${blockers.map(describe).join('\n')}\n\nNext: ${command}`,
+      { also: [...extras], allowPeer: [...allowances] },
     );
   }
   for (const peer of groupPeerBlockers(actual.peers))

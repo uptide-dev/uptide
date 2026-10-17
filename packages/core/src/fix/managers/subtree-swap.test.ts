@@ -56,6 +56,11 @@ describe.each(managers)(
       // Only the outside change is named; the swap itself stays allowed next to it.
       expect(message).not.toMatch(/old-dep|old-leaf|new-dep|new-leaf|swap/);
     });
+
+    it('reports that change instead of refusing when an agent leads (UPT-78)', () => {
+      const diff = assertLockScope(read('before'), read('control'), 'ui', [], [], true);
+      expect(diff.outOfScope?.map((c) => c.name)).toContain('shared');
+    });
   },
 );
 

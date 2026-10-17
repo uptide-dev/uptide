@@ -26,6 +26,8 @@ export interface Upgrade {
   remove?: string[];
   /** Packages whose peer edges the user explicitly overrides, without changing their ranges. */
   allowedPeers?: string[];
+  /** Agent-led (UPT-78): resolutions outside the subtree are reported in `outOfScope`, not refused. */
+  acceptOutOfScope?: boolean;
 }
 /**
  * What a workspace installs, and so what names a lockfile descriptor. A peer range is a
@@ -150,6 +152,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       scope,
       peerReresolved.flatMap((p) => p.records),
       removed,
+      upgrade.acceptOutOfScope,
     );
   } catch (error) {
     if (pm.kind === 'npm' && error instanceof UptideError && error.code === 'LOCKFILE_OUT_OF_SCOPE')
