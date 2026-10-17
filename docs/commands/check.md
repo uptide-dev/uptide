@@ -71,12 +71,13 @@ Next
 Each row: installed → target, how far behind, the tier, the verdict (breaking sites and
 files), and who can fix them (a rule, the agent, or you). Under each package: the verdict
 with what verified it, the [coverage line](../concepts.md#the-coverage-line), one line per
-rule or root cause, and deprecated calls. `--details` adds every site with its reason and
+breaking rule or root cause, a count of possible impact, and deprecated calls. `--details` adds every site with its reason and
 compiler message.
 
 Breaking means confirmed: the compiler, the runtime probe or a pack
 ([concepts](../concepts.md#breaking-means-confirmed)). What the declaration diff suggests but
-nothing confirms is listed as possible impact and never counted.
+nothing confirms is possible impact: counted on one line, listed only by `--details`, and
+never counted as breaking.
 
 Packages that must move with the upgrade (`@types/react` with `react`, `@ai-sdk/*` with
 `ai`) are named on a companions line, and `check`'s plan says which and why; `fix` moves

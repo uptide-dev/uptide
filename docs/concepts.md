@@ -41,9 +41,10 @@ In both tiers a finding is called breaking only when something confirms it at th
 
 Everything else the declaration diff suggests is **possible impact**: the types changed where
 your code uses them, nothing confirmed that it breaks. The row counts it apart
-(`✗ 3 breaking, 17 possible`), the package lists it under "possible impact: N sites in M
-files, not confirmed by the compiler or the runtime probe", and `--details` has every site.
-It is never counted as breaking.
+(`✗ 3 breaking, 17 possible`), the package says it in one line ("+17 possible impact in 4
+files, not counted as breaking"), and `--details` and `--json` have every site. The first
+screen never lists them: on a large repository they run to thousands. It is never counted
+as breaking.
 
 ## The coverage line
 
