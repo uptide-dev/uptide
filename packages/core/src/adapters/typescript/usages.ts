@@ -283,8 +283,12 @@ function isUntyped(expression: Node): boolean {
   }
 }
 
-/** Whether a member access chain (`a.b().c`, `A.B`) starts at an import binding. */
-function rootedAtImport(access: Node, extraRoots: Set<MorphSymbol> = new Set()): boolean {
+/** Whether a member access chain starts at an import, following local initializers too. */
+function rootedAtImport(
+  access: Node,
+  extraRoots: Set<MorphSymbol> = new Set(),
+  seen: Set<MorphSymbol> = new Set(),
+): boolean {
   let node: Node = access;
   for (;;) {
     if (Node.isPropertyAccessExpression(node) || Node.isElementAccessExpression(node)) {
@@ -301,8 +305,14 @@ function rootedAtImport(access: Node, extraRoots: Set<MorphSymbol> = new Set()):
   }
   if (!Node.isIdentifier(node)) return false;
   const symbol = node.getSymbol();
-  if (!symbol) return false;
-  return (symbol.getFlags() & ts.SymbolFlags.Alias) !== 0 || extraRoots.has(symbol);
+  if (!symbol || seen.has(symbol)) return false;
+  if ((symbol.getFlags() & ts.SymbolFlags.Alias) !== 0 || extraRoots.has(symbol)) return true;
+  seen.add(symbol);
+  const declaration = symbol.getDeclarations()[0];
+  const initializer = Node.isVariableDeclaration(declaration)
+    ? declaration.getInitializer()
+    : undefined;
+  return initializer !== undefined && rootedAtImport(initializer, extraRoots, seen);
 }
 
 /** The innermost receiver of `a.b().c`: an identifier, a call, or whatever starts the chain. */

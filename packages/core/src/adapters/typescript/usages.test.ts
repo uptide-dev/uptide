@@ -358,6 +358,83 @@ describe('findUsages under Node16/NodeNext', () => {
 });
 
 describe('findUsages on values the import does not visibly reach', () => {
+  it('resolves common members on local results of imported schemas without guessing by name', async () => {
+    const dir = tempRepo(
+      (d) => {
+        const pkg = join(d, 'node_modules/validation');
+        mkdirSync(pkg, { recursive: true });
+        writeFileSync(
+          join(pkg, 'package.json'),
+          JSON.stringify({ name: 'validation', version: '1.0.0', types: 'index.d.ts' }),
+        );
+        writeFileSync(
+          join(pkg, 'index.d.ts'),
+          `export interface ValidationError { errors: string[] }
+export declare const schema: {
+  safeParse(value: unknown): { success: false; error: ValidationError };
+  safeParseAsync(value: unknown): Promise<{ success: false; error: ValidationError }>;
+};
+${Array.from({ length: 9 }, (_, i) => `export interface Other${i} { errors: string[] }`).join('\n')}
+`,
+        );
+        writeFileSync(
+          join(d, 'src/schema.ts'),
+          "import { schema } from 'validation';\nexport const documentSchema = schema;\n",
+        );
+        writeFileSync(join(d, 'src/barrel.ts'), "export * from './schema';\n");
+        writeFileSync(
+          join(d, 'src/reader.ts'),
+          `import { documentSchema } from '@/barrel';
+const result = await documentSchema.safeParseAsync({});
+const alias = result;
+const error = alias.error;
+result.error.errors;
+alias.error?.errors;
+error!.errors;
+const sync = documentSchema.safeParse({});
+sync.error.errors;
+const form = { errors: [] };
+form.errors;
+const loose: any = result;
+loose.errors;
+function shadow(documentSchema: any) {
+  const result = documentSchema.safeParse({});
+  return result.error.errors;
+}
+const a = b;
+const b = a;
+a.errors;
+`,
+        );
+      },
+      {
+        ...BASE_TSCONFIG,
+        compilerOptions: {
+          ...BASE_TSCONFIG.compilerOptions,
+          baseUrl: '.',
+          paths: { '@/*': ['src/*'] },
+        },
+      },
+    );
+    const surface = await adapter.extractSurface({
+      name: 'validation',
+      version: '1.0.0',
+      dir: join(dir, 'node_modules/validation'),
+    });
+    expect(surface.symbols.filter((s) => s.path.endsWith('#errors')).length).toBeGreaterThan(8);
+    const found = (await adapter.findUsages({ dir }, 'validation', surface)).usages;
+    expect(
+      found
+        .filter((u) => u.file === 'src/reader.ts' && u.symbolPath.endsWith('#errors'))
+        .map((u) => `${u.line} ${u.symbolPath} ${u.via}`),
+    ).toEqual([
+      '5 ValidationError#errors direct',
+      '6 ValidationError#errors direct',
+      '7 ValidationError#errors direct',
+      '9 ValidationError#errors direct',
+    ]);
+  });
+
   it('resolves a distinctive member on a value another module returned, and infers the one meaning on an any-typed receiver', async () => {
     const dir = tempRepo(
       (d) => {
