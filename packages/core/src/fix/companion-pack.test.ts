@@ -5,6 +5,7 @@ import { afterAll, expect, it } from 'vitest';
 import type { CheckReport, Finding } from '../domain/report.js';
 import { activePack } from '../packs/index.js';
 import { git } from './process.js';
+import { prBody } from './report.js';
 import { fix } from './run.js';
 import { diagnostics, testWorkspaces } from './verify.js';
 
@@ -194,4 +195,7 @@ it("runs a companion pack's rule in the lead's fix, under the companion's versio
     },
   ]);
   expect(result.verification.passed).toBe(true);
+  // react's review notes get their own section in the PR body, under react's versions.
+  expect(result.reviewSections?.map((s) => s.title)).toContain('react 18.3.1 → 19.3.0');
+  expect(prBody(result)).toContain('**react 18.3.1 → 19.3.0**');
 });

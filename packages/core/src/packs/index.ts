@@ -66,13 +66,12 @@ export function withCompanionPacks(
   if (!companions.length) return lead;
   const of = (finding: Finding): MigrationPack =>
     companions.find((p) => p.name === finding.change.package) ?? lead;
-  // A companion's site migrates between its own versions, not the lead's.
-  const own = (finding: Finding, context: PackContext): PackContext =>
-    of(finding) === lead
-      ? context
-      : { ...context, from: finding.change.from, to: finding.change.to };
-  // ponytail: the companion's scanContext and review sections are not built; its rules see the
-  // lead's. Build them per pack if a companion pack needs more than its sites.
+  // A companion's site migrates between its own versions, with its own scan context.
+  const own = (finding: Finding, context: PackContext): PackContext => {
+    if (of(finding) === lead) return context;
+    const mine = context.companions?.[finding.change.package] ?? context;
+    return { ...mine, from: finding.change.from, to: finding.change.to, helpers: context.helpers };
+  };
   return {
     ...lead,
     // Each companion's detect-based rules run over its own package: its versions, its usages
@@ -88,6 +87,19 @@ export function withCompanionPacks(
               files: packInventory(input.root, input.workspace, pack.inventory),
               companions: [],
             })
+          : [];
+      }),
+    ],
+    // A section per companion that moved, with its own review notes and sections.
+    reviewSections: (context, rules) => [
+      ...(lead.reviewSections?.(context, rules) ?? []),
+      ...companions.flatMap((pack) => {
+        const mine = context.companions?.[pack.name];
+        return mine
+          ? [
+              { title: `${pack.name} ${mine.from} → ${mine.to}`, lines: pack.reviewNotes(mine) },
+              ...(pack.reviewSections?.(mine, rules) ?? []),
+            ]
           : [];
       }),
     ],
