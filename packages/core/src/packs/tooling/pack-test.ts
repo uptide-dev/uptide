@@ -24,6 +24,7 @@ import {
   type EnsureOptions,
   ensureFixture,
   ensureRepo,
+  generatorFailures,
   label,
   pinnedRepo,
   truthProblems,
@@ -67,6 +68,8 @@ export interface RepoScore {
   error?: string;
   /** What the lockfile says is installed, when it is not the ground truth's `from`. */
   installedMismatch?: string;
+  /** Code generators that did not run or failed: the repository is scored without their code. */
+  generatorFailed?: string[];
   /** What `check` moves with the package there, at versions that agree (`fix` installs them together). */
   companions?: Companion[];
   /** Packages of the scope `check` leaves where they are (`check/companions.ts`). */
@@ -351,6 +354,8 @@ async function scoreRepo(
       timing.fetchMs = since(start);
       start = performance.now();
       dir = await ensureRepo(pinned, options);
+      const failed = generatorFailures(pinned, options.cacheDir);
+      if (failed.length) base.generatorFailed = failed;
     }
     timing.installMs = since(start);
     const project = entry.directory ? join(dir, entry.directory) : dir;
