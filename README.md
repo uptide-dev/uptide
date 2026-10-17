@@ -63,13 +63,14 @@ See the [pack compatibility matrix](docs/compatibility.md) and the [migration pa
 | `react` | 18 → 19 | 8 | 100% | 69% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6 → 7 | 13 | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
 | `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 83% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
+| `@sentry/browser` | 10 → 11 | 16 | 100% | 50% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
 | `@sentry/nextjs` | 10 → 11 | 24 | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `stripe` | 14+ → latest, API version pinning | 5 | 100% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
 | `typescript` | 5 → 6 | 12 | 100% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
 | `vitest` | 4 → 5 | 6 | 100% | 50% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
 | `zod` | 3 → 4 | 7 | 100% | 64% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
 
-5 more in validation: see the [compatibility matrix](docs/compatibility.md).
+4 more in validation: see the [compatibility matrix](docs/compatibility.md).
 <!-- packs:end -->
 
 Any other dependency gets the same analysis without a pack, and `fix` migrates it with the
