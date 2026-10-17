@@ -58,19 +58,21 @@ function repo(moves: boolean) {
   // What the plan writes before the install.
   writeFileSync(join(root, 'package.json'), manifest('2.0.0'));
   const installs: string[] = [];
-  vi.spyOn(process, 'command').mockImplementation(async (_root, _bin, args) => {
+  const calls: { target: string; bin: string; args: string[]; env: unknown }[] = [];
+  vi.spyOn(process, 'command').mockImplementation(async (_root, bin, args, _timeout, env) => {
     if (args.includes('--version')) return { code: 0, output: '9.15.0', timeout: false };
     if (args.includes('--no-frozen-lockfile')) {
       const spec = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies.target;
       const target = spec.replace('^', '');
       installs.push(target);
+      calls.push({ target, bin, args, env });
       const other = moves && target === '2.0.0' ? '1.1.0' : '1.0.0';
       writeFileSync(join(root, 'pnpm-lock.yaml'), lock(target, other, 'new'));
     }
     return { code: 0, output: '', timeout: false };
   });
   const upgrade = { name: 'target', version: '2.0.0', files: ['package.json'], workspaces: ['.'] };
-  return { installs, upgrade };
+  return { installs, calls, upgrade };
 }
 
 it('reports churn the parent commit already has instead of refusing', async () => {
@@ -101,4 +103,19 @@ it('agent-led runs list only the upgrade-caused resolutions for review', async (
   expect(names).toContain('other');
   expect(names).not.toContain('picomatch');
   expect(report.parentChurn?.map((c) => c.name)).toEqual(['picomatch']);
+});
+
+it('runs the parent install exactly as the upgrade install: same binary, flags and env, scripts off', async () => {
+  const { calls, upgrade } = repo(false);
+  await upgradeInstall(root, upgrade);
+  const parent = calls.filter((c) => c.target === '1.0.0');
+  const upgraded = calls.filter((c) => c.target === '2.0.0');
+  expect(parent).toHaveLength(1);
+  for (const call of upgraded) {
+    expect(parent[0]?.bin).toBe(call.bin);
+    expect(parent[0]?.args).toEqual(call.args);
+    expect(parent[0]?.env).toEqual(call.env);
+  }
+  // Lifecycle scripts never run: the flag is on the parent install itself, not only the upgrade.
+  expect(parent[0]?.args).toContain('--ignore-scripts');
 });
