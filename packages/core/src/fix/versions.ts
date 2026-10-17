@@ -9,7 +9,7 @@ import { join, relative } from 'node:path';
 import { parseDocument } from 'yaml';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import { compareVersions, parseVersion } from '../check/version.js';
-import { UptideError } from '../errors.js';
+import { SafetyRefusal, UptideError } from '../errors.js';
 import { satisfies, validRange } from '../fetch/range.js';
 import { installedManifest } from '../list/evidence.js';
 import { command } from './process.js';
@@ -29,7 +29,7 @@ export function assertNoDowngrades(
     }
   }
   if (rejected.size)
-    throw new UptideError(
+    throw new SafetyRefusal(
       'INCONSISTENT_UPGRADE',
       `Refusing planned downgrades before install:\n${[...rejected].join('\n')}\nNothing was changed.`,
     );

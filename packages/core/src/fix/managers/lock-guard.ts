@@ -107,6 +107,8 @@ export interface LockDiff {
   peerReresolved?: PeerReresolution[];
   /** Per moved package, the transitive changes its own subtree accounts for. */
   transitive?: MovedSubtree[];
+  /** Agent-led runs only: resolutions outside the subtree, kept for review instead of refused. */
+  outOfScope?: string[];
 }
 function closure(graph: LockGraph, roots: Iterable<string>): Set<string> {
   const queue = [...roots];
@@ -213,6 +215,7 @@ export function assertLockScope(
   target: Targets,
   extraRoots: readonly string[] = [],
   removed: readonly string[] = [],
+  acceptOutOfScope = false,
 ): LockDiff {
   const names = targetNames(target);
   const originalScope = lockScope(before, after, target);
@@ -340,10 +343,12 @@ export function assertLockScope(
             ? `${key} (${a} → ${b})`
             : `${key} (same version, different resolution, dependencies or execution fields)`;
     });
-    throw new UptideError(
-      'LOCKFILE_OUT_OF_SCOPE',
-      `Install changed resolutions outside ${names.join(', ')}'s dependency subtree: ${described.join('; ')}. No upgrade will be committed.`,
-    );
+    if (acceptOutOfScope) diff.outOfScope = described;
+    else
+      throw new UptideError(
+        'LOCKFILE_OUT_OF_SCOPE',
+        `Install changed resolutions outside ${names.join(', ')}'s dependency subtree: ${described.join('; ')}. No upgrade will be committed.`,
+      );
   }
   if (housekeeping.deduped.length || housekeeping.metadata.length) diff.housekeeping = housekeeping;
   const transitive = transitiveChanges(before, after, target).filter((m) => m.changes.length);

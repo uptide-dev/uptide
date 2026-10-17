@@ -5,7 +5,10 @@ import type { CheckReport, Finding } from '../domain/report.js';
 import { installedManifest } from '../list/evidence.js';
 import { nanos } from '../llm/pricing.js';
 import { applySitePatch } from './patch.js';
+import { type PeerPlan, PeerPreflightError, peerPreflight } from './peer-preflight.js';
 import { git } from './process.js';
+import { describeRootPin, RootPinConsentError } from './root-pins.js';
+import type { FixOptions, FixServices } from './run.js';
 import { protectedFile, type TaskRunner } from './sdk-agent.js';
 import { safeFile } from './settle.js';
 import { isTestFile } from './test-edits.js';
@@ -188,4 +191,34 @@ export function fallbackReport(
       failed: 1,
     },
   };
+}
+
+/**
+ * Preflight refusals an assisting agent continues past (UPT-78): the run becomes an agent-led
+ * draft with the reason in `agentFallback`. Without an agent, it refuses as before.
+ */
+export async function assistedPeerPreflight(
+  options: FixOptions,
+  services: FixServices | undefined,
+  read: ((file: string) => string) | undefined,
+  assist: boolean,
+): Promise<{ options: FixOptions; plan?: PeerPlan | undefined; reason?: string }> {
+  try {
+    return { options, plan: await peerPreflight(options, services, read) };
+  } catch (error) {
+    if (!assist || !(error instanceof PeerPreflightError)) throw error;
+    // The plan's own next command: the blockers' majors, overrides where no release accepts.
+    const next = { ...options, ...error.plan };
+    return {
+      options: next,
+      plan: await peerPreflight(next, services, read),
+      reason: `Peer blockers need a major upgrade (${error.peerConflicts.map((p) => p.name).join(', ')}); continued as \`${error.next}\``,
+    };
+  }
+}
+
+/** Missing pin consent, continued by an agent. An explicit `updatePins: false` still refuses. */
+export function pinConsentFallback(error: unknown, assist: boolean): string {
+  if (!assist || !(error instanceof RootPinConsentError) || error.refused) throw error;
+  return `Root pins updated without --update-pins consent: ${error.pins.map(describeRootPin).join(' ')}`;
 }

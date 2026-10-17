@@ -4,6 +4,7 @@ import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import { hoistedPackageDir } from '../adapters/typescript/usages.js';
 import { companionsOf, type InstalledDependency } from '../check/companions.js';
 import { ownTypesFrom } from '../check/removed.js';
+import { UptideError } from '../errors.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { installedManifest, type Manifest } from '../list/evidence.js';
@@ -53,7 +54,8 @@ export async function rangePreflight(
     releaseGroup: pack?.releaseGroup?.map((c) => c.name),
     ...(metadata ? { ownTypes: ownTypesFrom(metadata) } : {}),
   });
-  if (plan.conflicts.length) throw new Error(plan.conflicts.join('; '));
+  if (plan.conflicts.length)
+    throw new UptideError('INCONSISTENT_UPGRADE', plan.conflicts.join('; '));
   validateVersionRanges(root, plan.companions, read);
   return target;
 }

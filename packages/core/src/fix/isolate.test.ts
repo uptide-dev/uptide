@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import { SafetyRefusal, UptideError } from '../errors.js';
 import { genericPack } from '../packs/generic.js';
 import { version } from '../version.js';
 import {
@@ -28,6 +29,8 @@ import {
 import * as peers from './peer-preflight.js';
 import { openPr } from './pr.js';
 import { command, git, quietEnv } from './process.js';
+import * as ranges from './range-preflight.js';
+import { prBody } from './report.js';
 import { zodFixture } from './test-fixture.js';
 import type { FixRequest } from './types.js';
 
@@ -934,4 +937,182 @@ it('checks committed root pins before cloning, even if the working copy removes 
   ).rejects.toThrow('--update-pins');
   expect(check).not.toHaveBeenCalled();
   expect(changedSince(root, before)).toEqual([]);
+});
+
+describe('preflight refusals become agent-led drafts with an agent (UPT-78)', () => {
+  const agent = {
+    only: 'zod',
+    target: '4.6.5',
+    tool: TOOL,
+    agent: 'sdk' as const,
+    provider: 'anthropic' as const,
+    maxCostUsd: 0.25,
+  };
+  const runner = () =>
+    vi.fn(async () => ({
+      turns: 1,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0.1,
+      durationMs: 0,
+      toolCalls: {},
+    }));
+  const pinned = (config?: string) => {
+    const { root, services } = zodFixture(scratch);
+    const file = join(root, 'package.json');
+    const manifest = JSON.parse(readFileSync(file, 'utf8'));
+    writeFileSync(file, JSON.stringify({ ...manifest, resolutions: { zod: '3.25.76' } }));
+    if (config) writeFileSync(join(root, 'uptide.yml'), config);
+    git(root, 'add', '.');
+    git(root, 'commit', '-m', 'root pin');
+    return { root, services };
+  };
+
+  it('root pin without consent: refused without an agent, updated in a draft with one', async () => {
+    const { root, services } = pinned();
+    await expect(
+      isolatedFix({ cwd: root, only: 'zod', fixer: null, tool: TOOL }, services),
+    ).rejects.toThrow('--update-pins');
+    const agentRunner = runner();
+    const result = await isolatedFix({ cwd: root, ...agent }, { ...services, agentRunner });
+    expect(agentRunner).toHaveBeenCalled();
+    expect(result.agentFallback?.join(';')).toContain('Root pins updated without --update-pins');
+    expect(result.rootPins).toMatchObject([{ name: 'zod', before: '3.25.76', after: '4.6.5' }]);
+    const body = prBody(result);
+    expect(body.indexOf('**Agent-led draft.**')).toBeLessThan(body.indexOf('Root pins changed'));
+    expect(body).toMatch(/Feedback rounds: \d\/3\. Spend: \$/);
+  });
+
+  it('root pin refused in uptide.yml stays refused with an agent', async () => {
+    const { root, services } = pinned('version: 1\nupdatePins: false\n');
+    const agentRunner = runner();
+    await expect(
+      isolatedFix({ cwd: root, ...agent }, { ...services, agentRunner }),
+    ).rejects.toThrow('--update-pins');
+    expect(agentRunner).not.toHaveBeenCalled();
+  });
+
+  it("peer blocker that needs a major: continues as the plan's next command", async () => {
+    const { root, services } = zodFixture(scratch);
+    const file = join(root, 'package.json');
+    const manifest = JSON.parse(readFileSync(file, 'utf8'));
+    manifest.dependencies = { ...manifest.dependencies, 'zod-form': '^1.0.0' };
+    writeFileSync(file, JSON.stringify(manifest));
+    mkdirSync(join(root, 'node_modules/zod-form'), { recursive: true });
+    writeFileSync(
+      join(root, 'node_modules/zod-form/package.json'),
+      JSON.stringify({ name: 'zod-form', version: '1.0.0', peerDependencies: { zod: '^3' } }),
+    );
+    git(root, 'add', 'package.json');
+    git(root, 'commit', '-m', 'peer');
+    const blocker = new peers.PeerPreflightError(
+      [
+        {
+          name: 'zod-form',
+          version: '1.0.0',
+          peers: [{ peer: 'zod', range: '^3', target: '4.6.5', version: '1.0.0' }],
+          newer: '2.0.0',
+          allowed: false,
+        },
+      ],
+      'uptide fix zod zod-form --target 4.6.5',
+      'fixture peer blocker',
+      { also: ['zod-form'], allowPeer: [] },
+    );
+    const planner = vi.spyOn(peers, 'peerPreflight').mockImplementation(async (options) => {
+      if (!options.also?.length) throw blocker;
+      return {
+        target: '4.6.5',
+        targetSource: 'requested',
+        companions: [
+          { name: 'zod-form', from: '1.0.0', to: '2.0.0', reason: 'explicit peer upgrade' },
+        ],
+        conflicts: [],
+      };
+    });
+    try {
+      await expect(
+        isolatedFix({ cwd: root, only: 'zod', fixer: null, tool: TOOL }, services),
+      ).rejects.toBe(blocker);
+      const agentRunner = runner();
+      const result = await isolatedFix({ cwd: root, ...agent }, { ...services, agentRunner });
+      expect(planner.mock.calls.some(([options]) => options.also?.includes('zod-form'))).toBe(true);
+      expect(agentRunner).toHaveBeenCalled();
+      expect(result.agentFallback?.join(';')).toContain(
+        'Peer blockers need a major upgrade (zod-form); continued as `uptide fix zod zod-form',
+      );
+      // The plan stands: the blocker's major moves in the same install.
+      expect(result.companions).toMatchObject([{ name: 'zod-form', to: '2.0.0' }]);
+    } finally {
+      planner.mockRestore();
+    }
+  });
+
+  it('companions that cannot move together: the lead alone, before the clone', async () => {
+    const { root, services } = zodFixture(scratch);
+    const planner = vi
+      .spyOn(ranges, 'rangePreflight')
+      .mockRejectedValue(new UptideError('INCONSISTENT_UPGRADE', 'fixture companion conflict'));
+    const check = vi.fn(services.check);
+    try {
+      await expect(
+        isolatedFix({ cwd: root, only: 'zod', fixer: null, tool: TOOL }, { ...services, check }),
+      ).rejects.toThrow('fixture companion conflict');
+      expect(check).not.toHaveBeenCalled();
+      const result = await isolatedFix(
+        { cwd: root, ...agent },
+        { ...services, agentRunner: runner() },
+      );
+      expect(result.agentFallback?.join(';')).toContain(
+        'Planner refused; upgrading the lead only: fixture companion conflict',
+      );
+    } finally {
+      planner.mockRestore();
+    }
+  });
+
+  it('install check: out-of-scope resolutions are kept for review in a draft', async () => {
+    const { root, services } = zodFixture(scratch);
+    const install = services.install;
+    services.install = async (dir, upgrade) => {
+      await install(dir, upgrade);
+      if (!upgrade?.acceptOutOfScope)
+        throw new UptideError('LOCKFILE_OUT_OF_SCOPE', 'fixture install check');
+      return {
+        added: [],
+        removed: [],
+        changed: [],
+        allowed: [],
+        manager: 'pnpm',
+        file: 'pnpm-lock.yaml',
+        outOfScope: ['picomatch@4.0.2 (same version, different resolution)'],
+      };
+    };
+    await expect(
+      isolatedFix({ cwd: root, only: 'zod', fixer: null, tool: TOOL }, services),
+    ).rejects.toThrow('fixture install check');
+    const agentRunner = runner();
+    const result = await isolatedFix({ cwd: root, ...agent }, { ...services, agentRunner });
+    expect(agentRunner).toHaveBeenCalled();
+    expect(result.agentFallback?.join(';')).toContain('Install check: resolutions changed');
+    expect(result.agentFallback?.join(';')).toContain('picomatch@4.0.2');
+  });
+
+  it('never falls back on a safety refusal', async () => {
+    const { root, services } = zodFixture(scratch);
+    const planner = vi
+      .spyOn(peers, 'peerPreflight')
+      .mockRejectedValue(
+        new SafetyRefusal('INCONSISTENT_UPGRADE', 'Refusing planned downgrades before install'),
+      );
+    const agentRunner = runner();
+    try {
+      await expect(
+        isolatedFix({ cwd: root, ...agent }, { ...services, agentRunner }),
+      ).rejects.toThrow('Refusing planned downgrades');
+      expect(agentRunner).not.toHaveBeenCalled();
+    } finally {
+      planner.mockRestore();
+    }
+  });
 });

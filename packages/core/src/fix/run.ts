@@ -6,7 +6,7 @@ import { compareVersions } from '../check/version.js';
 import type { PackageFetcher } from '../domain/io.js';
 import { type ProgressListener, progress } from '../domain/progress.js';
 import type { CheckReport, Finding } from '../domain/report.js';
-import { UptideError } from '../errors.js';
+import { SafetyRefusal, UptideError } from '../errors.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
@@ -32,9 +32,11 @@ import { baselineHealth } from './baseline.js';
 import { behaviorCheck } from './behavior.js';
 import { buildWorkspaces, configuredBuildScript } from './build.js';
 import {
+  assistedPeerPreflight,
   fallbackReport,
   feedbackFiles,
   feedbackPatchRunner,
+  pinConsentFallback,
   trimOutput,
   verificationFeedback,
 } from './feedback.js';
@@ -44,12 +46,7 @@ import { assertManagerAvailable } from './managers/availability.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
 import type { InstallReport, Upgrade } from './managers/upgrade.js';
 import { isMajorUpgrade, NO_PACK_YET } from './no-pack.js';
-import {
-  groupPeerBlockers,
-  type PeerPlan,
-  peerPreflight,
-  writePeerOverrides,
-} from './peer-preflight.js';
+import { groupPeerBlockers, type PeerPlan, writePeerOverrides } from './peer-preflight.js';
 import { pinCurrentApi } from './pin.js';
 import { command, git, projectRoot } from './process.js';
 import { publicationBlockers } from './publish.js';
@@ -108,6 +105,8 @@ export interface FixOptions {
   peerPlan?: PeerPlan;
   /** Read-only planning failed before isolation; continue with the lead and record why. */
   plannerFailure?: string;
+  /** Preflight refusals an agent continues past with the plan intact (UPT-78): a draft. */
+  agentLed?: string[];
   target?: string;
   includeDeprecated?: boolean;
   pr?: boolean;
@@ -294,12 +293,16 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (!options.pinCurrentApi) assertNpmLockSync(root);
   const fallback: string[] = options.plannerFailure ? [options.plannerFailure] : [];
   const canAssist = sdkAgent || !!fixer;
+  const agentLed = [...(options.agentLed ?? [])];
   let peerPlan = options.peerPlan;
   if (!peerPlan && !options.plannerFailure) {
     try {
-      peerPlan = await peerPreflight(options, services);
+      const planned = await assistedPeerPreflight(options, services, undefined, canAssist);
+      options = planned.options;
+      peerPlan = planned.plan;
+      if (planned.reason) agentLed.push(planned.reason);
     } catch (error) {
-      if (!canAssist) throw error;
+      if (!canAssist || error instanceof SafetyRefusal) throw error;
       fallback.push(
         `Planner refused; upgrading the lead only: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -321,7 +324,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(target))
     throw new Error('target must be an exact version');
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])]);
-  planRootPins(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])], options);
+  try {
+    planRootPins(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])], options);
+  } catch (error) {
+    agentLed.push(pinConsentFallback(error, canAssist));
+    options = { ...options, updatePins: true };
+  }
   const branch = `uptide/${pack.name}-${target}`;
   packageManager(root);
   if (services.install === install) await assertManagerAvailable(root);
@@ -425,6 +433,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           ]),
         ).values(),
       ].sort((a, b) => a.name.localeCompare(b.name));
+  // Refused before the clone, continued by the agent: the pack and the plan still apply.
+  fallback.push(...agentLed);
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...companions]);
   const pins = planRootPins(root, [{ name: pack.name, to: target }, ...companions], options);
   for (const pin of pins)
@@ -577,8 +587,13 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           ? { also: companions.map((c) => ({ name: c.name, version: c.to })) }
           : {}),
         ...(removals.length ? { remove: removals.map((r) => r.name) } : {}),
+        ...(canAssist ? { acceptOutOfScope: true } : {}),
       }),
   );
+  if (lockfile?.outOfScope?.length)
+    fallback.push(
+      `Install check: resolutions changed outside the upgrade's dependency subtree: ${lockfile.outOfScope.join('; ')}`,
+    );
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const moved = companions.map((c) => `${c.name} ${c.to}`).join(', ');
   const dropped = removals.map((r) => r.name).join(', ');

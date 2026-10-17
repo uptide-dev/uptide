@@ -696,6 +696,12 @@ export function renderMigration(
     report.mode === 'pin'
       ? [`## Pin the Stripe API version to ${report.apiVersion}`, '']
       : [`## Upgrade ${report.package} ${from} → ${report.target}`, ''];
+  // Why the mechanical path stopped and the agent led: the first thing a reviewer reads.
+  if (report.agentFallback?.length)
+    lines.push(
+      `> ⚠️ **Agent-led draft.** The mechanical path stopped: ${report.agentFallback.join('; ')}`,
+      '',
+    );
   if (report.rootPins?.length)
     lines.push(
       must(

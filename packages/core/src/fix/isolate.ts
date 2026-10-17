@@ -16,12 +16,13 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { isMainThread } from 'node:worker_threads';
 import { workspacePackagesOf } from '../adapters/typescript/repo.js';
-import { UptideError } from '../errors.js';
+import { errorCode, SafetyRefusal, UptideError } from '../errors.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { activePack, assertCandidateLocal } from '../packs/index.js';
 import { uptideVersionInfo } from '../version.js';
+import { assistedPeerPreflight, pinConsentFallback } from './feedback.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
-import { PeerPreflightError, peerPreflight } from './peer-preflight.js';
+import { PeerPreflightError } from './peer-preflight.js';
 import { git, projectRoot } from './process.js';
 import { rangePreflight } from './range-preflight.js';
 import { prBody } from './report.js';
@@ -561,42 +562,57 @@ export async function isolatedFix(
       'DIRTY_UPTIDE_TREE',
       `uptide fix --pr refuses to run from an Uptide checkout with uncommitted changes (at ${tool.uptideCommit.slice(0, 12)}); commit or stash them, rebuild, and run again`,
     );
-  const target = await rangePreflight(options, services, (file) =>
-    git(source, 'show', `${preflight.head}:${join(project, file)}`),
-  );
-  if (target) options = { ...options, target };
-  if (!options.pinCurrentApi)
-    assertNpmLockSync(options.cwd, (file) =>
-      git(source, 'show', `${preflight.head}:${join(project, file)}`),
-    );
-  try {
-    const peerPlan = await peerPreflight(options, services, (file) =>
-      git(source, 'show', `${preflight.head}:${join(project, file)}`),
-    );
-    if (peerPlan) options = { ...options, target: peerPlan.target, peerPlan };
-  } catch (error) {
-    if (
-      error instanceof PeerPreflightError ||
-      options.fixer === null ||
-      !(options.fixer || selected.available || (options.agent === 'sdk' && services?.agentRunner))
-    )
-      throw error;
+  const committed = (file: string) =>
+    git(source, 'show', `${preflight.head}:${join(project, file)}`);
+  // An assisting agent continues past a planning refusal as an agent-led draft (UPT-78).
+  const assist =
+    options.fixer !== null &&
+    !!(options.fixer || selected.available || (options.agent === 'sdk' && services?.agentRunner));
+  const agentLed: string[] = [];
+  const leadOnly = (error: unknown): void => {
+    if (!assist || error instanceof SafetyRefusal) throw error;
     options = {
       ...options,
       plannerFailure: `Planner refused; upgrading the lead only: ${error instanceof Error ? error.message : String(error)}`,
     };
-  }
+  };
+  const target = await rangePreflight(options, services, committed).catch((error: unknown) => {
+    // Companions that cannot move together: the lead alone, as a planner refusal in `fix`.
+    if (errorCode(error) !== 'INCONSISTENT_UPGRADE') throw error;
+    leadOnly(error);
+    return undefined;
+  });
+  if (target) options = { ...options, target };
+  if (!options.pinCurrentApi) assertNpmLockSync(options.cwd, committed);
+  if (!options.plannerFailure)
+    try {
+      const planned = await assistedPeerPreflight(options, services, committed, assist);
+      options = planned.options;
+      if (planned.reason) agentLed.push(planned.reason);
+      if (planned.plan)
+        options = { ...options, target: planned.plan.target, peerPlan: planned.plan };
+    } catch (error) {
+      if (error instanceof PeerPreflightError) throw error;
+      leadOnly(error);
+    }
   if (!options.pinCurrentApi && options.target)
-    planRootPins(
-      options.cwd,
-      [{ name: options.only, to: options.target }, ...(options.peerPlan?.companions ?? [])],
-      options,
-      (file) => {
-        const path = join(project, file);
-        if (!git(source, 'ls-tree', '--name-only', preflight.head, '--', path)) return undefined;
-        return git(source, 'show', `${preflight.head}:${path}`);
-      },
-    );
+    try {
+      planRootPins(
+        options.cwd,
+        [{ name: options.only, to: options.target }, ...(options.peerPlan?.companions ?? [])],
+        options,
+        (file) => {
+          const path = join(project, file);
+          if (!git(source, 'ls-tree', '--name-only', preflight.head, '--', path)) return undefined;
+          return git(source, 'show', `${preflight.head}:${path}`);
+        },
+      );
+    } catch (error) {
+      agentLed.push(pinConsentFallback(error, assist));
+      options = { ...options, updatePins: true };
+    }
+  if (agentLed.length)
+    options = { ...options, agentLed: [...(options.agentLed ?? []), ...agentLed] };
   const before = snapshot(source);
   const base = options.base ?? remoteDefaultBranch(source)?.name;
   const clone = isolate(source, undefined, project);

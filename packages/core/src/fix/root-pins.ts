@@ -98,12 +98,27 @@ export function planRootPins(
     const config = read(UPTIDE_CONFIG_FILE);
     updatePins = config === undefined || parseUptideConfig(config).config.updatePins !== false;
   }
-  if (pins.length && !updatePins)
-    throw new UptideError(
+  if (pins.length && !updatePins) {
+    const config = read(UPTIDE_CONFIG_FILE);
+    throw new RootPinConsentError(
+      pins,
+      config !== undefined && parseUptideConfig(config).config.updatePins === false,
+    );
+  }
+  return pins;
+}
+
+/** Pins this upgrade must change, without consent. `refused`: uptide.yml says `updatePins: false`. */
+export class RootPinConsentError extends UptideError {
+  constructor(
+    readonly pins: RootPin[],
+    readonly refused: boolean,
+  ) {
+    super(
       'INCONSISTENT_UPGRADE',
       `Root pins conflict with this upgrade:\n${pins.map(describeRootPin).join('\n')}\nRerun with --update-pins to approve these changes, or update them manually. Nothing was changed.`,
     );
-  return pins;
+  }
 }
 
 /** An anchored value can also be another package's pin. */
