@@ -24,7 +24,13 @@ import {
 } from './error-members.js';
 import { zodGuide } from './guide.js';
 import { defaultMessageSites } from './messages.js';
-import { removedExportFindings, removedExportSites } from './removed-exports.js';
+import { removedExportFindings, removedExportSites, siteFindings } from './removed-exports.js';
+import {
+  deprecatedNameSites,
+  errorMapSites,
+  refineMessageSites,
+  siteRules,
+} from './source-rules.js';
 
 const params: Record<string, number> = {
   string: 0,
@@ -400,6 +406,33 @@ export const zodPack: Pack = {
       detect: (text, file) => removedExportSites(text, file),
     },
     {
+      id: 'refine-message',
+      summary: 'refine(check, { message }): message is deprecated, use error',
+      severity: 'deprecated',
+      kinds: [],
+      symbols: /$^/,
+      guide: zodGuide.refineMessage,
+      detect: (text, file) => refineMessageSites(text, file),
+    },
+    {
+      id: 'deprecated-names',
+      summary: 'ZodTypeAny, ZodSchema, ZodIssue and the other aliases zod 4 marks deprecated',
+      severity: 'deprecated',
+      kinds: [],
+      symbols: /$^/,
+      guide: zodGuide.deprecatedNames,
+      detect: (text, file) => deprecatedNameSites(text, file),
+    },
+    {
+      id: 'error-map',
+      summary: 'errorMap options and ctx.defaultError: use error',
+      severity: 'deprecated',
+      kinds: [],
+      symbols: /$^/,
+      guide: zodGuide.errorMap,
+      detect: (text, file) => errorMapSites(text, file),
+    },
+    {
       id: 'types',
       summary: 'ZodType generics and ZodTypeDef changed; type-level code is migrated by the agent',
       severity: 'breaking',
@@ -439,6 +472,9 @@ export const zodPack: Pack = {
         rewrite: rewriteErrorMembers,
       }),
       ...removedExportFindings({ root, workspace, from, to, usages, read }),
+      ...siteRules.flatMap((spec) =>
+        siteFindings({ root, workspace, from, to, usages, read }, spec),
+      ),
     ];
     const key = (f: Finding) => `${f.rule}:${f.usage.file}:${f.usage.line}`;
     const seen = new Set(own.map(key));

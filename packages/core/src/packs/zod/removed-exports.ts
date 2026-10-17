@@ -181,7 +181,11 @@ const isZod = (node: ts.Node | undefined): boolean =>
   node !== undefined && ts.isStringLiteral(node) && node.text === ZOD;
 
 /** The sites of names zod 4's root no longer exports, one per line the code names them on. */
-export function removedExportSites(text: string, file: string): SourceSite[] {
+export function removedExportSites(
+  text: string,
+  file: string,
+  listed: ReadonlySet<string> = GONE,
+): SourceSite[] {
   if (!text.includes(ZOD)) return [];
   const tsx = /\.[cm]?[jt]sx$/.test(file);
   const source = ts.createSourceFile(
@@ -205,7 +209,7 @@ export function removedExportSites(text: string, file: string): SourceSite[] {
       for (const specifier of bindings.elements) {
         const imported = (specifier.propertyName ?? specifier.name).text;
         if (imported === 'z') spaces.add(specifier.name.text);
-        else if (GONE.has(imported)) names.set(specifier.name.text, imported);
+        else if (listed.has(imported)) names.set(specifier.name.text, imported);
       }
   }
   const sites = new Map<number, SourceSite>();
@@ -223,24 +227,24 @@ export function removedExportSites(text: string, file: string): SourceSite[] {
   const visit = (node: ts.Node): void => {
     if (ts.isImportSpecifier(node) && ts.isImportDeclaration(node.parent.parent.parent)) {
       const imported = (node.propertyName ?? node.name).text;
-      if (isZod(node.parent.parent.parent.moduleSpecifier) && GONE.has(imported))
+      if (isZod(node.parent.parent.parent.moduleSpecifier) && listed.has(imported))
         add(node, imported);
     } else if (ts.isIdentifier(node) && names.has(node.text) && usesBinding(node)) {
       add(node, names.get(node.text) as string);
     } else if (ts.isQualifiedName(node)) {
-      if (ts.isIdentifier(node.left) && spaces.has(node.left.text) && GONE.has(node.right.text))
+      if (ts.isIdentifier(node.left) && spaces.has(node.left.text) && listed.has(node.right.text))
         add(node, node.right.text);
     } else if (ts.isPropertyAccessExpression(node)) {
       if (
         ts.isIdentifier(node.expression) &&
         spaces.has(node.expression.text) &&
-        GONE.has(node.name.text)
+        listed.has(node.name.text)
       )
         add(node, node.name.text);
     } else if (ts.isImportTypeNode(node)) {
       const argument = node.argument;
       const name = node.qualifier && ts.isIdentifier(node.qualifier) ? node.qualifier.text : '';
-      if (ts.isLiteralTypeNode(argument) && isZod(argument.literal) && GONE.has(name))
+      if (ts.isLiteralTypeNode(argument) && isZod(argument.literal) && listed.has(name))
         add(node, name);
     }
     ts.forEachChild(node, visit);
@@ -266,26 +270,48 @@ function usesBinding(node: ts.Identifier): boolean {
   );
 }
 
+export interface SiteRule {
+  rule: string;
+  severity: 'breaking' | 'deprecated';
+  sites: (text: string, file: string) => SourceSite[];
+  reason: (name: string) => string;
+}
+
+export const removedExportRule: SiteRule = {
+  rule: RULE,
+  severity: 'breaking',
+  sites: removedExportSites,
+  reason: (name) => `${name} is exported from zod 3's root and, in zod 4, only from 'zod/v3'`,
+};
+
 /**
  * The pack's findings for one workspace: its files that mention zod, whether or not the type
  * scan visited them (`import('zod').ZodTypeAny` alone is no import). Files are
  * workspace-relative, as the usages are.
  */
-export function removedExportFindings(input: {
-  root: string;
-  workspace: string;
-  from: string;
-  to: string;
-  usages: readonly Usage[];
-  read: (file: string) => string | undefined;
-}): Finding[] {
+export function removedExportFindings(input: Parameters<typeof siteFindings>[0]): Finding[] {
+  return siteFindings(input, removedExportRule);
+}
+
+/** One rule's findings over the workspace's files, whether or not the type scan visited them. */
+export function siteFindings(
+  input: {
+    root: string;
+    workspace: string;
+    from: string;
+    to: string;
+    usages: readonly Usage[];
+    read: (file: string) => string | undefined;
+  },
+  spec: SiteRule,
+): Finding[] {
   const dir = resolve(input.root, input.workspace);
   const direct = input.usages.map((u) => u.file);
   const findings: Finding[] = [];
   for (const file of [...new Set([...direct, ...projectFiles(dir).files])].sort()) {
     const text = input.read(join(input.workspace, file));
     if (text === undefined) continue;
-    for (const site of removedExportSites(text, file))
+    for (const site of spec.sites(text, file))
       findings.push({
         change: {
           package: ZOD,
@@ -293,7 +319,7 @@ export function removedExportFindings(input: {
           to: input.to,
           path: site.name as string,
           kind: 'removed',
-          severity: 'breaking',
+          severity: spec.severity,
           source: 'pack',
           confidence: 1,
         },
@@ -308,11 +334,11 @@ export function removedExportFindings(input: {
           snippet: site.snippet,
           via: 'direct',
         },
-        severity: 'breaking',
+        severity: spec.severity,
         confidence: 1,
         fixability: 'assisted',
-        reason: `${site.name} is exported from zod 3's root and, in zod 4, only from 'zod/v3'`,
-        rule: RULE,
+        reason: spec.reason(site.name as string),
+        rule: spec.rule,
       });
   }
   return findings;

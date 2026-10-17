@@ -11,6 +11,9 @@ const label = (field: string) => `${field} is required`;
 export const city = z.string({ required_error: label('City') }); // @uptide error-params at:z.string
 
 // Left for a person: an existing errorMap must be merged by hand, a spread may hide the keys.
-export const merged = z.string({ required_error: 'x', errorMap: () => ({ message: 'y' }) }); // @uptide error-params keep at:z.string
+export const merged = z.string({ // @uptide error-params keep at:z.string
+  required_error: 'x',
+  errorMap: () => ({ message: 'y' }), // @uptide error-map at:errorMap
+});
 const base = { description: 'shared' };
 export const spread = z.string({ ...base, required_error: 'x' }); // @uptide error-params keep at:z.string
