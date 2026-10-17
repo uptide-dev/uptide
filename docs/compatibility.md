@@ -25,7 +25,7 @@ already run as assisted ([verification gate](packs.md)).
 | Package | From → to | Rules | Precision | Recall | Breaking sites | Ground-truth repositories | Status |
 | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
 | `ai` | 6 → 7 | 12 | 100% | 82% | 11 | vercel/chatbot, miurla/morphic | verified |
-| `express` | 4 → 5 | 8 | 100% | 85% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
+| `express` | 4 → 5 | 8 | 100% | 86% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
 | `ioredis` | 5 → 6 | 2 | n/a | 0% | 2 | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
 | `joi` | 17 → 18 | 1 | n/a | n/a | — | edtech4good/edtech-lms-api, senacor/azure-function-middleware | candidate |
 | `lucide-react` | 0 → 1 | 5 | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
