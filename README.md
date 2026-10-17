@@ -63,7 +63,7 @@ See the [pack compatibility matrix](docs/compatibility.md) and the [migration pa
 | Package | From → to | Rules | Precision | Found, any severity | Found as breaking | Breaking sites | Ground-truth repositories | Status |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
 | `ai` | 6 → 7 | 12 | 100% | 82% | 82% | 11 | vercel/chatbot, miurla/morphic | verified |
-| `express` | 4 → 5 | 8 | 100% | 85% | 85% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
+| `express` | 4 → 5 | 8 | 100% | 86% | 86% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
 | `lucide-react` | 0 → 1 | 5 | 100% | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
 | `next` | 15 → 16 | 9 | 100% | 88% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
 | `react` | 18 → 19 | 8 | 100% | 95% | 95% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
