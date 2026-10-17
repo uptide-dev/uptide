@@ -549,14 +549,18 @@ describe('tiers, the time budget and failures on the first screen', () => {
     expect(formatCheck(report([verified]), { color: false })).not.toContain('generic: no pack');
   });
 
-  it('lists what nothing confirmed as possible impact, apart from the breaking count, in every tier', () => {
+  it('counts what nothing confirmed as possible impact, apart from the breaking count, in every tier', () => {
     const out = formatCheck(report([generic]), { color: false });
     expect(out).toContain('✗ 1 breaking, 1 possible');
     expect(out).toContain(
-      '? possible impact: 1 site in 1 file   the types changed where this code uses them; nothing confirmed that it breaks, so these are not counted as breaking',
+      '? +1 possible impact in 1 file, not counted as breaking   (--details lists them)',
     );
-    expect(out).toMatch(/\n {4}\? sharp\.cache removed +image\.ts:4/);
+    // The breaking line is listed; what nothing confirmed is a count, never a list (UPT-97).
+    expect(out).toMatch(/\n {2}✗ sharp\.cache removed +thumb\.ts:9/);
+    expect(out).not.toContain('image.ts');
     expect(out).not.toContain('unverified');
+    // --details still lists every site.
+    expect(formatCheck(report([generic]), { color: false, details: true })).toContain('image.ts');
     const none = formatCheck(report([{ ...generic, status: 'safe', findings: [unconfirmed] }]), {
       color: false,
     });
@@ -570,7 +574,8 @@ describe('tiers, the time budget and failures on the first screen', () => {
       { color: false },
     );
     expect(kept).toContain('? 1 possible impact');
-    expect(kept).toContain('? possible impact: 1 site in 1 file');
+    expect(kept).toContain('? +1 possible impact in 1 file');
+    expect(kept).not.toContain('image.ts');
   });
 
   it('prints how much of the code the compiler judged under every analyzed package', () => {
@@ -593,11 +598,30 @@ describe('tiers, the time budget and failures on the first screen', () => {
       },
     });
     const out = formatCheck(report([covered]), { color: false });
-    expect(out).toContain(
-      'zod   0 breaking · types partly verified: compiled 12 of 40 files in 2 workspaces; skipped: not in the workspace tsconfig (28)',
-    );
+    // The heading does not repeat the coverage line under it.
+    expect(out).toContain('zod   0 breaking · types partly verified\n');
     expect(out).toContain(
       '\n  compiled 12 of 40 files in 2 workspaces; skipped: not in the workspace tsconfig (28)',
+    );
+    // A monorepo's unbuilt workspace chains are one count; --details names each.
+    const unbuilt = {
+      ...covered,
+      compile: {
+        ...covered.compile,
+        coverage: {
+          compiled: 12,
+          total: 40,
+          workspaces: 2,
+          skipped: [
+            { reason: 'not in the workspace tsconfig', count: 20 },
+            { reason: 'needs build of libs/a', count: 3 },
+            { reason: 'needs build of libs/a, libs/b', count: 5 },
+          ],
+        },
+      },
+    } as PackageReport;
+    expect(formatCheck(report([unbuilt]), { color: false })).toContain(
+      '\n  compiled 12 of 40 files in 2 workspaces; skipped: not in the workspace tsconfig (20), needs build of workspace packages (8)\n',
     );
     const full = {
       ...covered,

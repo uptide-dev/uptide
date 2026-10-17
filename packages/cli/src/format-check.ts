@@ -235,7 +235,7 @@ function deprecatedNames(groups: PlanGroup[]): string {
     .join(', ')}${names.length > 3 ? ', ...' : ''}`;
 }
 
-/** One line per rule; possible impact under its own line; deprecations are one line for the package. */
+/** One line per breaking rule; possible impact and deprecations are one count line each. */
 function sectionLines(row: Row, colors: Colors): string[] {
   const acting = row.plan.filter((g) => g.severity === 'breaking');
   const possible = row.plan.filter((g) => g.severity === 'unverified');
@@ -253,16 +253,31 @@ function sectionLines(row: Row, colors: Colors): string[] {
   });
   // Every analyzed package says its verdict and what verified it, zero breaking included, and
   // how much of the code that uses it the compiler judged.
-  const heading = row.summary
-    ? `${colors.bold(row.p.name)}   ${colors.dim(row.summary)}`
+  const c = row.p.compile?.coverage;
+  // The coverage line below says what "partly" means: the heading does not repeat it.
+  const partly = (row.p.verdict ?? verdictOf(row.p)).partlyVerified;
+  const summary = c && partly ? row.summary?.replace(`: ${partly}`, '') : row.summary;
+  const heading = summary
+    ? `${colors.bold(row.p.name)}   ${colors.dim(summary)}`
     : colors.bold(row.p.name);
   // Errors already there at the installed version: subtracted here, and what `fix` can only compare against.
   const preexisting = row.p.compile?.baselineErrors
     ? ` · ${row.p.compile.baselineErrors} pre-existing type error${row.p.compile.baselineErrors === 1 ? '' : 's'} in these files (subtracted)`
     : '';
-  const coverage = row.p.compile?.coverage
-    ? [colors.dim(`  ${coverageLine(row.p.compile.coverage)}${preexisting}`)]
-    : [];
+  // One count for every workspace chain still to build: a monorepo names dozens (--details has them).
+  const unbuilt = c?.skipped.filter((s) => s.reason.startsWith('needs build of ')) ?? [];
+  const compact = c &&
+    unbuilt.length > 1 && {
+      ...c,
+      skipped: [
+        ...c.skipped.filter((s) => !unbuilt.includes(s)),
+        {
+          reason: 'needs build of workspace packages',
+          count: unbuilt.reduce((n, s) => n + s.count, 0),
+        },
+      ],
+    };
+  const coverage = c ? [colors.dim(`  ${coverageLine(compact || c)}${preexisting}`)] : [];
   const plan = planBlock(row.p, colors);
   if (
     acting.length === 0 &&
@@ -282,19 +297,13 @@ function sectionLines(row: Row, colors: Colors): string[] {
   // A package with dozens of distinct changes (a compiler API that was removed) gets its
   // largest ones here and the rest as a count: --details has every one.
   const listed = acting.length > MAX_RULE_LINES ? acting.slice(0, MAX_RULE_LINES - 1) : acting;
-  // Possible impact gets the lines the breaking ones leave, and at least one.
-  const room = Math.max(1, MAX_RULE_LINES - listed.length);
-  const listedPossible = possible.length > room ? possible.slice(0, room - 1) : possible;
-  const shown = [...listed, ...listedPossible];
-  const titleWidth = Math.max(...shown.map((g) => g.title.length), 0);
-  const scopeWidth = Math.max(...shown.map((g) => scope(g).length), 0);
+  const titleWidth = Math.max(...listed.map((g) => g.title.length), 0);
+  const scopeWidth = Math.max(...listed.map((g) => scope(g).length), 0);
   const lines = [heading, ...coverage];
-  const ruleLine = (g: PlanGroup): string => {
-    const mark = g.severity === 'breaking' ? colors.red('✗') : colors.magenta('?');
-    return `  ${mark} ${pad(g.title, titleWidth)}   ${pad(scope(g), scopeWidth)}   ${colors.dim(byLabel(g))}`;
-  };
   for (const g of listed) {
-    lines.push(ruleLine(g));
+    lines.push(
+      `  ${colors.red('✗')} ${pad(g.title, titleWidth)}   ${pad(scope(g), scopeWidth)}   ${colors.dim(byLabel(g))}`,
+    );
     if (g.note) lines.push(colors.dim(`    ${g.note}`));
   }
   if (listed.length < acting.length) {
@@ -306,21 +315,12 @@ function sectionLines(row: Row, colors: Colors): string[] {
     );
   }
   // What the declarations changed at a place the code uses, and nothing confirmed breaks
-  // there: listed apart, never counted as breaking.
-  if (possible.length > 0) {
+  // there: a count, never counted as breaking. Listing it here buried the breaking lines
+  // (hundreds of sites on a large repository); --details and --json have every one.
+  if (possible.length > 0)
     lines.push(
-      `  ${colors.magenta('?')} possible impact: ${plural(sitesOf(possible), 'site')} in ${plural(filesOf(possible), 'file')}   ${colors.dim('the types changed where this code uses them; nothing confirmed that it breaks, so these are not counted as breaking')}`,
+      `  ${colors.magenta('?')} +${sitesOf(possible)} possible impact in ${plural(filesOf(possible), 'file')}, not counted as breaking   ${colors.dim('(--details lists them)')}`,
     );
-    for (const g of listedPossible) lines.push(`  ${ruleLine(g)}`);
-    if (listedPossible.length < possible.length) {
-      const rest = possible.slice(listedPossible.length);
-      lines.push(
-        colors.dim(
-          `    … ${plural(rest.length, 'more change')}, ${plural(sitesOf(rest), 'site')} (--details)`,
-        ),
-      );
-    }
-  }
   if (deprecated.length > 0) {
     const sites = sitesOf(deprecated);
     const byRule = deprecated.reduce((n, g) => n + g.by.rule, 0);
