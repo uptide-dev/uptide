@@ -7,14 +7,16 @@ function ruleIdOf(pack: MigrationPack, finding: Finding, result?: TransformResul
   return result?.rule ?? finding.rule ?? pack.ruleOf?.(finding) ?? ruleFor(pack.rules, finding)?.id;
 }
 
-/** A site of a rule no real upgrade exercised: assisted, whatever its rewrite says (UPT-48). */
+/** A site of a rule no real upgrade exercised, or that rewrites wrongly too often: assisted. */
 export function isUnexercised(
   pack: MigrationPack,
   finding: Finding,
   result?: TransformResult,
 ): boolean {
   const id = ruleIdOf(pack, finding, result);
-  return id !== undefined && (pack.unexercised ?? []).includes(id);
+  return (
+    id !== undefined && [...(pack.unexercised ?? []), ...(pack.lowPrecision ?? [])].includes(id)
+  );
 }
 
 /**
@@ -24,18 +26,23 @@ export function isUnexercised(
 export function withUnexercised(
   pack: MigrationPack,
   unexercised: readonly string[] | undefined,
+  lowPrecision: readonly string[] = [],
 ): MigrationPack {
-  if (!unexercised?.length) return pack;
+  if (!unexercised?.length && !lowPrecision.length) return pack;
   const wrapped: MigrationPack = {
     ...pack,
     unexercised,
+    lowPrecision,
     transform(text, finding, context) {
       const result = pack.transform(text, finding, context);
       if (!result.applied || !isUnexercised(wrapped, finding, result)) return result;
+      const id = ruleIdOf(pack, finding, result);
       return {
         text,
         applied: false,
-        reason: `no real upgrade in the ground truth exercised the ${ruleIdOf(pack, finding, result)} rewrite yet: assisted`,
+        reason: lowPrecision.includes(id ?? '')
+          ? `the ${id} rewrite was wrong too often on ground truth: assisted`
+          : `no real upgrade in the ground truth exercised the ${id} rewrite yet: assisted`,
       };
     },
   };
