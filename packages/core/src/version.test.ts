@@ -100,4 +100,27 @@ describe('uptideInvocation', () => {
     expect(uptideInvocation('0.3.0')).toBe(installed ? 'uptide' : 'npx uptide');
     expect(uptideInvocation('0.3.0-next.1')).toBe(installed ? 'uptide' : 'npx uptide@next');
   });
+
+  it.each([
+    ['pnpm exec', (l: string) => ['./node_modules/.bin', join(l, 'node_modules/.bin')]],
+    ['npm run', (l: string) => [join(l, 'node_modules/.bin')]],
+  ])('ignores project-local launchers on the %s PATH', (_name, localDirs) => {
+    root = mkdtempSync(join(tmpdir(), 'uptide-invocation-'));
+    const project = join(root, 'project');
+    const bin = join(root, 'dist/index.js');
+    mkdirSync(join(project, 'node_modules/.bin'), { recursive: true });
+    mkdirSync(dirname(bin), { recursive: true });
+    writeFileSync(bin, '');
+    symlinkSync(bin, join(project, 'node_modules/.bin/uptide'));
+    vi.spyOn(process, 'cwd').mockReturnValue(project);
+    vi.stubEnv('npm_command', 'run-script');
+    process.argv[1] = bin;
+    vi.stubEnv('PATH', localDirs(project).join(delimiter));
+    expect(uptideInvocation('0.3.0')).toBe('npx uptide');
+    // A real global install later on the same PATH still prints `uptide`.
+    mkdirSync(join(root, 'prefix/bin'), { recursive: true });
+    symlinkSync(bin, join(root, 'prefix/bin/uptide'));
+    vi.stubEnv('PATH', [...localDirs(project), join(root, 'prefix/bin')].join(delimiter));
+    expect(uptideInvocation('0.3.0')).toBe('uptide');
+  });
 });
