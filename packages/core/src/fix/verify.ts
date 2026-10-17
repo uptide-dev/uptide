@@ -216,22 +216,39 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
     ).fileNames;
     for (const f of files) fileNames.add(f);
   }
-  // A file another tsconfig owns gets its diagnostics from that workspace's own check (below),
-  // so it is not a root here: a root tsconfig that includes `packages/**` would otherwise build
-  // the whole repository into one program (UPT-82). Imports still pull such files in for types;
-  // declaration files stay roots for the globals they declare.
-  const ownerOf = (file: string): string => {
+  // A file another tsconfig includes gets its diagnostics from that workspace's own check
+  // (below), so it is not a root here: a root tsconfig that includes `packages/**` would
+  // otherwise build the whole repository into one program (UPT-82). A file under another
+  // tsconfig that does not include it (or does not parse) has no other check: it stays here.
+  // Imports still pull claimed files in for types; declaration files stay roots for globals.
+  const included = new Map<string, Set<string> | undefined>();
+  const claimedBy = (file: string): string | undefined => {
+    if (!file.startsWith(`${root}/`) || file.endsWith('.d.ts')) return undefined;
     let owner = dirname(file);
     while (owner !== root && owner !== dir && !existsSync(join(owner, 'tsconfig.json')))
       owner = dirname(owner);
-    return owner;
+    if (owner === root || owner === dir) return undefined;
+    if (!included.has(owner)) {
+      const path = join(owner, 'tsconfig.json');
+      const own = compiler.readConfigFile(path, compiler.sys.readFile);
+      included.set(
+        owner,
+        own.error || !own.config
+          ? undefined
+          : new Set(
+              compiler.parseJsonConfigFileContent(own.config, compiler.sys, owner, undefined, path)
+                .fileNames,
+            ),
+      );
+    }
+    return included.get(owner)?.has(file) ? owner : undefined;
   };
   const rootNames: string[] = [];
   const discovered = new Set<string>();
   for (const file of fileNames) {
-    const owner = file.endsWith('.d.ts') ? dir : ownerOf(file);
-    if (owner === dir || owner === root || !file.startsWith(`${root}/`)) rootNames.push(file);
-    else discovered.add(relative(root, owner));
+    const owner = claimedBy(file);
+    if (owner) discovered.add(relative(root, owner));
+    else rootNames.push(file);
   }
   if (
     state.result &&
@@ -284,8 +301,8 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
     seen.set(file.fileName, file.text);
     // Source dependencies provide types to this program, but their implementation
     // diagnostics belong to their own tsconfig (module resolution may differ).
-    const owner = ownerOf(file.fileName);
-    if (owner !== dir && owner !== root) {
+    const owner = claimedBy(file.fileName);
+    if (owner) {
       discovered.add(relative(root, owner));
       continue;
     }
