@@ -1,0 +1,308 @@
+{
+  "$comment": "UPT-77 sample: public TypeScript repositories with a root lockfile, ordered by sha256(salt:name) within each package-manager bucket. Pinned commits; nothing here is a fork, a repository by the maintainers, or in any pack ground truth. Regenerate with bench/oss-sample/build-sample.mjs.",
+  "selected": "2026-10-17",
+  "salt": "upt-77",
+  "perManager": 10,
+  "repos": [
+    {
+      "id": "AgoraIO-Extensions__react-native-agora",
+      "repo": "AgoraIO-Extensions/react-native-agora",
+      "commit": "cea3490582c2caa329e6d432f00be11f547e205f",
+      "license": "mit",
+      "stars": 653,
+      "sizeKb": 48927,
+      "manager": "yarn-berry",
+      "monorepo": true
+    },
+    {
+      "id": "alovajs__alova",
+      "repo": "alovajs/alova",
+      "commit": "7e9be7a3ad4e924f0b9473cae174b4ca3cb7c4a6",
+      "license": "mit",
+      "stars": 4022,
+      "sizeKb": 22027,
+      "manager": "pnpm",
+      "monorepo": true
+    },
+    {
+      "id": "arwes__arwes",
+      "repo": "arwes/arwes",
+      "commit": "bdbaa0324900ee978d42036d1304a053c1fe54b5",
+      "license": "mit",
+      "stars": 7565,
+      "sizeKb": 70424,
+      "manager": "npm",
+      "monorepo": true
+    },
+    {
+      "id": "Brandawg93__PeaNUT",
+      "repo": "Brandawg93/PeaNUT",
+      "commit": "cdb3bc13336b9fc5e9b6f5e5f4bab7774c2c1e04",
+      "license": "apache-2.0",
+      "stars": 1703,
+      "sizeKb": 5582,
+      "manager": "pnpm",
+      "monorepo": false
+    },
+    {
+      "id": "express-rate-limit__express-rate-limit",
+      "repo": "express-rate-limit/express-rate-limit",
+      "commit": "97bc073db526ac43ab0838cd89eb549dd715300e",
+      "license": "mit",
+      "stars": 3313,
+      "sizeKb": 4184,
+      "manager": "pnpm",
+      "monorepo": false
+    },
+    {
+      "id": "folke__devmoji",
+      "repo": "folke/devmoji",
+      "commit": "a3bf53076f23df5c5a40f1494ab91b9aac10c034",
+      "license": "apache-2.0",
+      "stars": 390,
+      "sizeKb": 4048,
+      "manager": "yarn",
+      "monorepo": false
+    },
+    {
+      "id": "gitalk__gitalk",
+      "repo": "gitalk/gitalk",
+      "commit": "05c57859670739d8557559356fa4015960e1f337",
+      "license": "mit",
+      "stars": 7158,
+      "sizeKb": 4601,
+      "manager": "pnpm",
+      "monorepo": true
+    },
+    {
+      "id": "googlemaps__google-maps-services-js",
+      "repo": "googlemaps/google-maps-services-js",
+      "commit": "11152acb29159db0d703a9a9f594f109a377f309",
+      "license": "apache-2.0",
+      "stars": 3063,
+      "sizeKb": 23256,
+      "manager": "yarn",
+      "monorepo": false
+    },
+    {
+      "id": "gremo__nest-winston",
+      "repo": "gremo/nest-winston",
+      "commit": "54564c880761d3ffc09916758a6e73399a7eefac",
+      "license": "mit",
+      "stars": 732,
+      "sizeKb": 65502,
+      "manager": "npm",
+      "monorepo": false
+    },
+    {
+      "id": "HelloGitHub-Team__geese",
+      "repo": "HelloGitHub-Team/geese",
+      "commit": "c7712facc8f06b9738af1e4664bea90b13b997ee",
+      "license": "apache-2.0",
+      "stars": 560,
+      "sizeKb": 20426,
+      "manager": "yarn",
+      "monorepo": false
+    },
+    {
+      "id": "line__abc-user-feedback",
+      "repo": "line/abc-user-feedback",
+      "commit": "b4e0d101b8b52bbf8b417457f3e80e672661fbf1",
+      "license": "apache-2.0",
+      "stars": 378,
+      "sizeKb": 106636,
+      "manager": "pnpm",
+      "monorepo": true
+    },
+    {
+      "id": "makenotion__notion-sdk-js",
+      "repo": "makenotion/notion-sdk-js",
+      "commit": "0ffdbba3004b27438ca72df769412268e4fdede1",
+      "license": "mit",
+      "stars": 5675,
+      "sizeKb": 3239,
+      "manager": "npm",
+      "monorepo": false
+    },
+    {
+      "id": "nestjs__typeorm",
+      "repo": "nestjs/typeorm",
+      "commit": "07156bd7a60094652436a2512e0a2efd30dddf82",
+      "license": "mit",
+      "stars": 2165,
+      "sizeKb": 11919,
+      "manager": "npm",
+      "monorepo": false
+    },
+    {
+      "id": "nestjsx__nestjs-config",
+      "repo": "nestjsx/nestjs-config",
+      "commit": "0af0ba83dc365149eeb7a5bc3b4238a569484ea9",
+      "license": "mit",
+      "stars": 704,
+      "sizeKb": 1829,
+      "manager": "yarn",
+      "monorepo": false
+    },
+    {
+      "id": "nestjsx__nestjs-typeorm-paginate",
+      "repo": "nestjsx/nestjs-typeorm-paginate",
+      "commit": "a931fe6169f69614fcb12c5d37334bed912269ed",
+      "license": "mit",
+      "stars": 877,
+      "sizeKb": 2320,
+      "manager": "yarn",
+      "monorepo": false
+    },
+    {
+      "id": "octokit__webhooks.js",
+      "repo": "octokit/webhooks.js",
+      "commit": "b47e4b0049f8353d4ad796a5d0af26c4e568d732",
+      "license": "mit",
+      "stars": 349,
+      "sizeKb": 6208,
+      "manager": "npm",
+      "monorepo": false
+    },
+    {
+      "id": "oh-my-mermaid__oh-my-mermaid",
+      "repo": "oh-my-mermaid/oh-my-mermaid",
+      "commit": "38ccdb69298adec949177c92c88d6e3ddfb5bab7",
+      "license": "mit",
+      "stars": 3154,
+      "sizeKb": 2359,
+      "manager": "npm",
+      "monorepo": false
+    },
+    {
+      "id": "oil-oil__wolfcha",
+      "repo": "oil-oil/wolfcha",
+      "commit": "9fca80f61cbba5ea575d0fb9a3c158512c2fee01",
+      "license": "apache-2.0",
+      "stars": 734,
+      "sizeKb": 85368,
+      "manager": "pnpm",
+      "monorepo": true
+    },
+    {
+      "id": "onflow__fcl-js",
+      "repo": "onflow/fcl-js",
+      "commit": "a25656fe367ba8df6d809153656bc69da8902875",
+      "license": "apache-2.0",
+      "stars": 333,
+      "sizeKb": 63147,
+      "manager": "npm",
+      "monorepo": true
+    },
+    {
+      "id": "oomol-lab__open-connector",
+      "repo": "oomol-lab/open-connector",
+      "commit": "01b7eb717abec46fdf8d1b3253211e8856fe0b3d",
+      "license": "apache-2.0",
+      "stars": 6031,
+      "sizeKb": 33545,
+      "manager": "npm",
+      "monorepo": true
+    },
+    {
+      "id": "open-telemetry__opentelemetry-js",
+      "repo": "open-telemetry/opentelemetry-js",
+      "commit": "7d2455e76ff2dd9d1ffae008d0682a49af4c55f3",
+      "license": "apache-2.0",
+      "stars": 3494,
+      "sizeKb": 103750,
+      "manager": "npm",
+      "monorepo": true
+    },
+    {
+      "id": "orchetron__storm",
+      "repo": "orchetron/storm",
+      "commit": "ca47e22e375d5752cbe888928f327e5ed2a26948",
+      "license": "mit",
+      "stars": 396,
+      "sizeKb": 11884,
+      "manager": "npm",
+      "monorepo": false
+    },
+    {
+      "id": "prettier__pretty-quick",
+      "repo": "prettier/pretty-quick",
+      "commit": "3ff9d17a394b1bb3856201998496d596d4245942",
+      "license": "mit",
+      "stars": 2289,
+      "sizeKb": 5115,
+      "manager": "yarn-berry",
+      "monorepo": false
+    },
+    {
+      "id": "react-native-community__cli",
+      "repo": "react-native-community/cli",
+      "commit": "f4c4ef37ccf98e0205d4a8bc5d9f40f24f1120fd",
+      "license": "mit",
+      "stars": 2938,
+      "sizeKb": 14635,
+      "manager": "yarn",
+      "monorepo": true
+    },
+    {
+      "id": "reactchartjs__react-chartjs-2",
+      "repo": "reactchartjs/react-chartjs-2",
+      "commit": "7c7be48ae5b585f45bc6aef718cc8d4b51f34d0a",
+      "license": "mit",
+      "stars": 6937,
+      "sizeKb": 6304,
+      "manager": "pnpm",
+      "monorepo": true
+    },
+    {
+      "id": "saas-js__saas-ui",
+      "repo": "saas-js/saas-ui",
+      "commit": "ffccfc697b51a8bbbfee17bd8c229e4198542472",
+      "license": "mit",
+      "stars": 1659,
+      "sizeKb": 72799,
+      "manager": "pnpm",
+      "monorepo": true
+    },
+    {
+      "id": "stephenh__ts-proto",
+      "repo": "stephenh/ts-proto",
+      "commit": "9b630b8b8912dc5f1aaf75e03ff5299f1852e73d",
+      "license": "apache-2.0",
+      "stars": 2595,
+      "sizeKb": 27724,
+      "manager": "yarn-berry",
+      "monorepo": false
+    },
+    {
+      "id": "t3-oss__create-t3-turbo",
+      "repo": "t3-oss/create-t3-turbo",
+      "commit": "8f945b7bb3bfb3ca8358d48b1ff0214079bc11ee",
+      "license": "mit",
+      "stars": 6111,
+      "sizeKb": 8677,
+      "manager": "pnpm",
+      "monorepo": true
+    },
+    {
+      "id": "TanStack__virtual",
+      "repo": "TanStack/virtual",
+      "commit": "28ff2cab7a970f4e0908229d65a0da8803903900",
+      "license": "mit",
+      "stars": 7149,
+      "sizeKb": 9909,
+      "manager": "pnpm",
+      "monorepo": true
+    },
+    {
+      "id": "VoidenHQ__voiden",
+      "repo": "VoidenHQ/voiden",
+      "commit": "d7a0d05c40acb6cc483000643c700f17aecba0ef",
+      "license": "apache-2.0",
+      "stars": 1835,
+      "sizeKb": 18658,
+      "manager": "yarn-berry",
+      "monorepo": true
+    }
+  ]
+}
