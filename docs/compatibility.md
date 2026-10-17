@@ -31,7 +31,7 @@ already run as assisted ([verification gate](packs.md)).
 | `lucide-react` | 0 → 1 | 5 | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
 | `next` | 15 → 16 | 9 | 100% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
 | `openai` | 4 → 7 | 15 | 100% | 15% | 20 | zeikar/charivo, openai/openai-guardrails-js, wardby/wardby, csnyder256/ux-struggle-detector, grantsingleton/batch-ai, digitalchokro/askchokro, microsoft/prompty | candidate |
-| `react` | 18 → 19 | 8 | 100% | 69% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
+| `react` | 18 → 19 | 8 | 100% | 95% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6 → 7 | 13 | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
 | `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 83% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
 | `@sentry/browser` | 10 → 11 | 16 | 100% | 82% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
