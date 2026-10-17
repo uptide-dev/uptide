@@ -22,7 +22,7 @@ import { runFixtures } from './tooling/fixtures.js';
 import { scoreSites } from './tooling/pack-test.js';
 import { parseRegistry, renderRegistry } from './tooling/registry-file.js';
 import { truthProblems } from './tooling/truth.js';
-import type { MigrationPack } from './types.js';
+import type { MigrationPack, PackContext } from './types.js';
 
 const packsDir = fileURLToPath(new URL('.', import.meta.url));
 
@@ -441,20 +441,21 @@ describe('scoring', () => {
   });
 });
 
+const pack = (name: string): MigrationPack => ({
+  name,
+  defaultTarget: '',
+  rules: [],
+  supports: () => true,
+  transform: (text, _finding, context) => ({
+    text: `${name} ${context.from} → ${context.to}`,
+    applied: text !== '',
+    reason: name,
+  }),
+  guide: () => name,
+  reviewNotes: () => [],
+});
+
 it("routes a companion pack's sites to it, between its own versions (UPT-10)", () => {
-  const pack = (name: string): MigrationPack => ({
-    name,
-    defaultTarget: '',
-    rules: [],
-    supports: () => true,
-    transform: (text, _finding, context) => ({
-      text: `${name} ${context.from} → ${context.to}`,
-      applied: text !== '',
-      reason: name,
-    }),
-    guide: () => name,
-    reviewNotes: () => [],
-  });
   const both = withCompanionPacks(pack('zod'), [pack('express')]);
   const site = (name: string, from: string, to: string) =>
     ({ change: { package: name, from, to } }) as Finding;
@@ -467,4 +468,35 @@ it("routes a companion pack's sites to it, between its own versions (UPT-10)", (
   );
   expect(both.guide(site('express', '4.0.0', '5.0.0'))).toBe('express');
   expect(withCompanionPacks(both, [])).toBe(both);
+});
+
+it('gives a companion its own scan context and review section (UPT-98)', () => {
+  const seen: unknown[] = [];
+  const companion = {
+    ...pack('express'),
+    reviewNotes: () => ['express note'],
+    transform: (text: string, _f: Finding, context: PackContext) => {
+      seen.push(context.defaultMessages);
+      return { text, applied: true, reason: '' };
+    },
+  };
+  const both = withCompanionPacks(pack('zod'), [companion]);
+  const mine = { from: '4.0.0', to: '5.0.0', includeDeprecated: false, defaultMessages: [] };
+  const lead = {
+    from: '3.25.0',
+    to: '4.6.5',
+    includeDeprecated: false,
+    defaultMessages: [{ file: 'lead.ts' }] as never,
+    companions: { express: mine },
+  };
+  both.transform(
+    'x',
+    { change: { package: 'express', from: '4.0.0', to: '5.0.0' } } as Finding,
+    lead,
+  );
+  expect(seen).toEqual([[]]);
+  expect(both.reviewSections?.(lead)).toEqual([
+    { title: 'express 4.0.0 → 5.0.0', lines: ['express note'] },
+  ]);
+  expect(both.reviewSections?.({ ...lead, companions: {} })).toEqual([]);
 });

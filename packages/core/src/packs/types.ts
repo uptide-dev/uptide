@@ -34,6 +34,8 @@ export interface Headline {
   decision: string[];
 }
 export interface PackContext {
+  /** A moved companion pack's own context (its versions, inventory, scan context), by package. */
+  companions?: Record<string, PackContext>;
   /** Pre-edit inventory, with repository-relative paths and file contents. */
   inventory?: { file: string; text: string }[];
   from: string;

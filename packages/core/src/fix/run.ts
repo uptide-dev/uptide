@@ -537,8 +537,28 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     };
   packContext = { ...packContext, inventory: decisionInventory(root, workspaces, pack) };
   if (pack.scanContext) packContext = { ...packContext, ...pack.scanContext(root, workspaces) };
+  // Each moved companion pack gets the context the lead got, over its own versions.
+  if (sitePack !== pack) {
+    const moved = companionPacks.flatMap((c) => {
+      const move = companions.find((m) => m.name === c.pack.name);
+      return move ? [{ pack: c.pack, from: move.from, to: move.to }] : [];
+    });
+    const contexts: Record<string, PackContext> = {};
+    for (const c of moved) {
+      const base = { from: c.from, to: c.to, includeDeprecated: initialContext.includeDeprecated };
+      const resolved: PackContext = c.pack.resolveContext
+        ? await c.pack.resolveContext(base)
+        : base;
+      contexts[c.pack.name] = {
+        ...resolved,
+        inventory: decisionInventory(root, workspaces, c.pack),
+        ...c.pack.scanContext?.(root, workspaces),
+      };
+    }
+    packContext = { ...packContext, companions: contexts };
+  }
   // Validate checked-in knowledge before any version or source write.
-  pack.reviewSections?.(packContext);
+  sitePack.reviewSections?.(packContext);
   const verify = <T>(detail: string, work: () => T | Promise<T>): Promise<T> =>
     progress(options.onProgress, { phase: 'verify', package: pack.name, detail }, work);
   const names = (list: string[]): string =>
@@ -1168,7 +1188,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   // is made from is kept, so a later build can render the same run with what it has learned.
   const rules = [...new Set(sites.map((s) => s.rule).filter((r): r is string => !!r))];
   result.packContext = packContext;
-  refreshReview(result, pack);
+  refreshReview(result, sitePack);
   // A pack that says something first reads the branch as the edits left it, not the base.
   const settled = pack.headline
     ? { ...packContext, ...pack.scanContext?.(root, workspaces) }
@@ -1269,8 +1289,15 @@ export function confirmedEvidence(
  */
 export function refreshReview(
   result: FixReport,
-  pack: MigrationPack | undefined = activePack(result.package),
+  lead: MigrationPack | undefined = activePack(result.package),
 ): void {
+  const pack =
+    lead && result.companions?.length
+      ? withCompanionPacks(
+          lead,
+          result.companions.flatMap((c) => activePack(c.name) ?? []),
+        )
+      : lead;
   if (!pack || !result.packContext) return;
   const rules = [...new Set(result.sites.map((s) => s.rule).filter((r): r is string => !!r))];
   try {
