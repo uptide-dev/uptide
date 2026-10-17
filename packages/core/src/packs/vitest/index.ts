@@ -1,4 +1,6 @@
-import { definePack, type PackRule } from '../contract.js';
+import { join, resolve } from 'node:path';
+import { projectFiles } from '../../check/importers.js';
+import { definePack, type Pack, type PackRule } from '../contract.js';
 import {
   bareCoveragePatternSites,
   jestDomRegistrationSites,
@@ -85,7 +87,7 @@ const rules: PackRule[] = [
   },
 ];
 
-export const vitestPack = definePack({
+const base = definePack({
   meta: {
     package: 'vitest',
     from: '>=4 <5',
@@ -108,6 +110,8 @@ export const vitestPack = definePack({
     maintainer: '@uptide-dev',
   },
   defaultTarget: '5.0.3',
+  // A config that imports `defineConfig` from a shared file never imports vitest itself.
+  inventory: ['{vite,vitest}.config.{ts,mts,cts,js,mjs,cjs}'],
   rules,
   behavior: [
     {
@@ -200,3 +204,20 @@ export const vitestPack = definePack({
   instructions:
     'Migrate only the reported site to Vitest 5, from the compiler error and the guide above. Keep every assertion, mock, timeout and test name as it is. Never cast `expect` to `any`, add `// @ts-expect-error`, or delete a test to make it compile. If the site needs a decision the guide leaves open (which jest-dom version to rely on, whether a coverage pattern should keep matching a directory, whether a test relied on the old mock history), say so instead of choosing.',
 });
+
+/**
+ * A setup file whose only vitest import is `import '@testing-library/jest-dom/vitest'` does not
+ * import the package, so `detect`, which reads the files that do, would skip it (UPT-85).
+ */
+export const vitestPack: Pack = {
+  ...base,
+  runtimeFindings(input) {
+    const dir = resolve(input.root, input.workspace);
+    const registering = projectFiles(dir).files.filter((file) =>
+      input.read(join(input.workspace, file))?.includes('@testing-library/jest-dom'),
+    );
+    return (
+      base.runtimeFindings?.({ ...input, files: [...(input.files ?? []), ...registering] }) ?? []
+    );
+  },
+};

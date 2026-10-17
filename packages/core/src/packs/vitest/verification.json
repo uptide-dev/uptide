@@ -4,17 +4,17 @@
   "repos": 2,
   "breaking": {
     "precision": 1,
-    "recall": 0.5,
+    "recall": 0.9688,
     "falsePositives": 0,
-    "truePositives": 16,
-    "falseNegatives": 16
+    "truePositives": 31,
+    "falseNegatives": 1
   },
   "behavior": {
     "precision": 1,
-    "recall": 0,
+    "recall": 1,
     "falsePositives": 0,
-    "truePositives": 0,
-    "falseNegatives": 13
+    "truePositives": 13,
+    "falseNegatives": 0
   },
   "class": "breaking",
   "breakingSites": 32,
