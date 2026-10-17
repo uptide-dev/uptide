@@ -71,9 +71,10 @@ describe('README', () => {
   });
 
   it('lists the verified packs from a generated table, and privacy in four lines plus the table', () => {
+    expect(readme).toContain('[pack compatibility matrix](docs/compatibility.md)');
     const packs = section('<!-- packs:start -->', '<!-- packs:end -->');
     expect(packs).toContain(
-      '| Package | Range | Precision | Recall | Breaking sites | Ground-truth repositories | Status |',
+      '| Package | From → to | Rules | Precision | Recall | Breaking sites | Ground-truth repositories | Status |',
     );
     for (const name of ['`zod`', '`stripe`', '`ai`']) expect(packs).toContain(`| ${name} |`);
     const privacy = section('## Privacy', '## Documentation');

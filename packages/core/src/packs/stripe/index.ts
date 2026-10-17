@@ -237,6 +237,7 @@ const meta: PackMeta = {
   from: '>=14',
   // Any later version: `supports` also requires the target to be newer than what is installed.
   to: '>=14',
+  targetDescription: 'latest, API version pinning',
   sources: [
     {
       title: 'stripe-node changelog',

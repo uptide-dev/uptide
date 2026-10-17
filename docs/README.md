@@ -12,6 +12,7 @@ what help cannot show.
 | --- | --- |
 | [Getting started](getting-started.md) | Install nothing, run the four commands, what Uptide needs from your repository |
 | [Concepts](concepts.md) | Tiers, what "breaking" means, the coverage line, exit codes |
+| [Pack compatibility matrix](compatibility.md) | Registered upgrades, verified or candidate status, rule counts and ground-truth repositories |
 | [`uptide list`](commands/list.md) | Discovery: priorities, groups, usage counts, what the scan reads |
 | [`uptide check`](commands/check.md) | What an upgrade breaks at your call sites, the HTML report |
 | [`uptide plan`](commands/plan.md) | The order to upgrade in, with the effort each one takes |

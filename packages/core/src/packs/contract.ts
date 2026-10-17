@@ -31,6 +31,8 @@ export interface PackMeta {
   from: string;
   /** Semver range of the target versions (`>=4 <5`). */
   to: string;
+  /** Human-readable target and scope when the semver range alone does not describe the upgrade. */
+  targetDescription?: string;
   /** At least one: the changelog or migration guide each rule and note is taken from. */
   sources: readonly PackSource[];
   /** Who answers for the pack: a GitHub handle (`@octocat`) or `uptide-dev`. */
