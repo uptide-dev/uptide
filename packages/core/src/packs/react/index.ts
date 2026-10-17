@@ -1,6 +1,8 @@
-import { definePack, type PackRule } from '../contract.js';
+import { join, resolve } from 'node:path';
+import { projectFiles } from '../../check/importers.js';
+import { definePack, type Pack, type PackRule } from '../contract.js';
 import type { TransformResult } from '../types.js';
-import { dropRefCallbackReturn, refCallbackReturnSites } from './detect.js';
+import { dropRefCallbackReturn, refCallbackReturnSites, refObjectSites } from './detect.js';
 
 /**
  * react >=18 <19 → >=19 <20, with react-dom and the @types packages that move with it. Taken
@@ -136,6 +138,8 @@ const rules: PackRule[] = [
     kinds: ['type', 'signature'],
     symbols: /^TS(?:2322|2345)$/,
     message: /RefObject</,
+    // The compiler reports a ref where it is passed; the declaration to edit is found here.
+    detect: (text) => refObjectSites(text),
     guide:
       '`useRef<T>(null)` is `RefObject<T | null>` in React 19 types, and `RefObject<T>` has a `current` of exactly `T`. A parameter, prop or field typed `RefObject<HTMLDivElement>` that receives such a ref becomes `RefObject<HTMLDivElement | null>`: edit the declaration the error points through, not the call site, and handle `current` being null where it is read. `types-react-codemod` has `refobject-defaults` for annotations; it skips an aliased `RefObject` import.',
   },
@@ -184,7 +188,7 @@ const rules: PackRule[] = [
   },
 ];
 
-export const reactPack = definePack({
+const base = definePack({
   meta: {
     package: 'react',
     from: '>=18 <19',
@@ -266,3 +270,19 @@ export const reactPack = definePack({
   instructions:
     'Migrate only the reported site to React 19, from the compiler error and the guide above. Keep every value, handler, effect and render result as it is. Never cast to `any` or suppress a diagnostic to make it compile. If the site needs a decision the guide leaves open (which props type an element is read as, whether a root can be unmounted from where the code stands), say so instead of choosing.',
 });
+
+/**
+ * `React.RefObject<T>` needs no import (the UMD `React` namespace), so a file that only types a
+ * prop with it never imports react and `detect`, which reads the files that do, would skip it.
+ * Every project file is a candidate; the text test is the cheap part.
+ */
+export const reactPack: Pack = {
+  ...base,
+  runtimeFindings(input) {
+    const dir = resolve(input.root, input.workspace);
+    const typing = projectFiles(dir).files.filter((file) =>
+      input.read(join(input.workspace, file))?.includes('RefObject<'),
+    );
+    return base.runtimeFindings?.({ ...input, files: [...(input.files ?? []), ...typing] }) ?? [];
+  },
+};

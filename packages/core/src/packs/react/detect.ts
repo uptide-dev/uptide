@@ -1,4 +1,12 @@
-import { type ArrowFunction, Node, Project, type SourceFile, SyntaxKind } from 'ts-morph';
+import {
+  type ArrowFunction,
+  Node,
+  Project,
+  type SourceFile,
+  SyntaxKind,
+  type TypeNode,
+  type TypeReferenceNode,
+} from 'ts-morph';
 import type { Finding } from '../../domain/report.js';
 import { onReset } from '../../shared-state.js';
 import type { SourceSite } from '../contract.js';
@@ -81,4 +89,69 @@ export function dropRefCallbackReturn(
     };
   }
   return { text, applied: false, reason: 'the reported site is not a ref callback that assigns' };
+}
+
+/**
+ * Where a ref is typed as holding an element and nothing else: `ref: React.RefObject<HTMLDivElement>`.
+ * In React 19 types `useRef<T>(null)` is `RefObject<T | null>` and `RefObject<T>` holds exactly `T`,
+ * so the annotation has to say `| null`. The compiler reports it where a ref is passed in (a use
+ * site, with the one cause spread over many), and the fix is at the declaration, which this finds.
+ * Only an element type (or a type parameter bounded by one) counts: `RefObject<number>` for
+ * `useRef(0)` stays valid. A cast (`ref as RefObject<HTMLDivElement>`) compiles, so it is not a site.
+ */
+function isElement(type: TypeNode): boolean {
+  if (Node.isUnionTypeNode(type)) return type.getTypeNodes().every(isElement);
+  if (!Node.isTypeReference(type)) return false;
+  const name = type.getTypeName().getText();
+  if (/Element$/.test(name)) return true;
+  return type
+    .getAncestors()
+    .some(
+      (a) =>
+        Node.isTypeParametered(a) &&
+        a
+          .getTypeParameters()
+          .some((p) => p.getName() === name && /Element$/.test(p.getConstraint()?.getText() ?? '')),
+    );
+}
+
+function isCast(type: Node): boolean {
+  let node = type;
+  for (let up = node.getParent(); up && Node.isTypeNode(up); up = node.getParent()) node = up;
+  const parent = node.getParent();
+  return (
+    !!parent &&
+    (Node.isAsExpression(parent) ||
+      Node.isTypeAssertion(parent) ||
+      Node.isSatisfiesExpression(parent))
+  );
+}
+
+function refObjectAnnotations(source: SourceFile): TypeReferenceNode[] {
+  const imported = source
+    .getImportDeclarations()
+    .some(
+      (d) =>
+        d.getModuleSpecifierValue() === 'react' &&
+        d.getNamedImports().some((n) => n.getName() === 'RefObject' && !n.getAliasNode()),
+    );
+  return source.getDescendantsOfKind(SyntaxKind.TypeReference).filter((ref) => {
+    const name = ref.getTypeName();
+    const qualified = Node.isQualifiedName(name);
+    // `React.RefObject` needs no import (the UMD namespace); a bare `RefObject` must come from "react".
+    if (qualified ? name.getLeft().getText() !== 'React' : !imported) return false;
+    if ((qualified ? name.getRight().getText() : name.getText()) !== 'RefObject') return false;
+    const [arg, ...rest] = ref.getTypeArguments();
+    if (!arg || rest.length > 0 || !isElement(arg)) return false;
+    return !isCast(ref);
+  });
+}
+
+export function refObjectSites(text: string): SourceSite[] {
+  if (!text.includes('RefObject<')) return [];
+  const source = parse(text);
+  return refObjectAnnotations(source).map((ref) => {
+    const { line, column } = source.getLineAndColumnAtPos(ref.getStart());
+    return { line, column, snippet: (text.split('\n')[line - 1] ?? '').trim(), name: 'RefObject' };
+  });
 }
