@@ -1,0 +1,12 @@
+packages: [packages/*]
+# Keep workspace policy and unrelated pins.
+overrides:
+  '@types/react': '18.0.26' # root pin
+  other: '18.0.26'
+catalog:
+  '@types/react': '^18.0.26' # shared types
+  other: '18.0.26'
+catalogs:
+  types:
+    '@types/react-dom': '~18.0.9'
+    other: '18.0.26'

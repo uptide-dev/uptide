@@ -54,6 +54,7 @@ import { pinCurrentApi } from './pin.js';
 import { command, git, projectRoot } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { changeRule, editDiff, prBody } from './report.js';
+import { describeRootPin, planRootPins, writeRootPins } from './root-pins.js';
 import { assistWithSdk, sdkInstalled, type TaskRunner } from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
@@ -82,7 +83,6 @@ import {
 import {
   assertInstalledVersions,
   assertNoDowngrades,
-  assertNoPinningOverrides,
   bumpVersions,
   declareLead,
   install,
@@ -102,6 +102,8 @@ export interface FixOptions {
   only: string;
   also?: string[];
   allowPeer?: string[];
+  /** Explicit consent to update conflicting, unconditional root pins. */
+  updatePins?: boolean;
   /** Frozen read-only plan made before the CLI clone. */
   peerPlan?: PeerPlan;
   /** Read-only planning failed before isolation; continue with the lead and record why. */
@@ -319,10 +321,11 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(target))
     throw new Error('target must be an exact version');
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])]);
-  assertNoPinningOverrides(root, [
-    { name: pack.name, to: target },
-    ...(peerPlan?.companions ?? []),
-  ]);
+  planRootPins(
+    root,
+    [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])],
+    options.updatePins,
+  );
   const branch = `uptide/${pack.name}-${target}`;
   packageManager(root);
   if (services.install === install) await assertManagerAvailable(root);
@@ -427,7 +430,18 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         ).values(),
       ].sort((a, b) => a.name.localeCompare(b.name));
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...companions]);
-  assertNoPinningOverrides(root, [{ name: pack.name, to: target }, ...companions]);
+  const pins = planRootPins(
+    root,
+    [{ name: pack.name, to: target }, ...companions],
+    options.updatePins,
+  );
+  for (const pin of pins)
+    options.onProgress?.({
+      phase: 'resolve',
+      state: 'done',
+      warning: true,
+      detail: describeRootPin(pin),
+    });
   validateVersionRanges(root, [{ name: pack.name, to: target }, ...companions]);
   const initialContext = {
     from: lowest?.installed ?? '',
@@ -541,6 +555,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ...new Set([
         ...declaredLead,
         ...bumps.flatMap((b) => b.files),
+        ...writeRootPins(root, pins),
         ...writePeerOverrides(root, peerPlan?.conflicts ?? []),
       ]),
     ],
@@ -971,6 +986,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const newErrors = newDiagnostics(baseline, after, gitLineMoves(root, baseHead));
   const behavior = pack.name === 'zod' ? behaviorCheck(root, originals, sites) : undefined;
   const result: FixReport = {
+    ...(pins.length ? { rootPins: pins } : {}),
     ...(fallback.length ? { agentFallback: fallback } : {}),
     ...(pending ? { verificationPending: true } : {}),
     ...(lockfile ? { lockfile } : {}),
@@ -1031,6 +1047,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     timingMs: Date.now() - started,
     prBody: join(root, '.uptide/pr-body.md'),
     notes: [
+      ...pins.map((pin) => describeRootPin(pin).replace('it will be updated', 'updated')),
       ...fallback.map((reason) => `Agent-led fallback: ${reason}`),
       ...pack.reviewNotes(packContext),
       ...bumps.flatMap((b) =>

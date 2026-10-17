@@ -5,6 +5,7 @@ import type { BaselineHealth } from './baseline.js';
 import type { BehaviorResult } from './behavior.js';
 import type { InstallReport } from './managers/upgrade.js';
 import type { PeerBlockerGroup } from './peer-preflight.js';
+import type { RootPin } from './root-pins.js';
 export interface RelatedDeclaration {
   file: string;
   line: number;
@@ -201,6 +202,7 @@ export interface Fixer {
   fix(input: FixRequest, remainingUsd?: number): Promise<FixResponse>;
 }
 export interface FixReport {
+  rootPins?: RootPin[];
   /** Pack pipeline limitations: agent-led results can be published only as drafts. */
   agentFallback?: string[];
   /** A local candidate smoke run; never eligible for publication. */

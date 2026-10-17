@@ -944,6 +944,22 @@ export function renderMigration(
       ]).join('\n');
     lines.push(piece, '');
   });
+  if (report.rootPins?.length)
+    lines.push(
+      must(
+        [
+          '### Root version pins',
+          '',
+          'Updated with explicit `--update-pins` consent:',
+          '',
+          ...report.rootPins.map(
+            (pin) =>
+              `- ${pin.file} ${pin.path.map((key) => JSON.stringify(key)).join(' > ')}: ${pin.before} → ${pin.after} (${pin.name}@${pin.to}).`,
+          ),
+        ].join('\n'),
+      ),
+      '',
+    );
   if (report.peerConflicts?.length)
     lines.push(
       must(

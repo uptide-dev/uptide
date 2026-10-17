@@ -33,6 +33,7 @@ export interface FixRequest {
   only: string;
   also?: string[];
   allowPeer?: string[];
+  updatePins?: boolean;
   /** `--max-cost`: where the agent stops, in USD. */
   maxCostUsd?: number;
   /** Executor override; authenticated Anthropic runs default to the SDK. */

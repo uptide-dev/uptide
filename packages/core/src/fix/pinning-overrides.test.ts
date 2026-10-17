@@ -2,7 +2,7 @@ import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { assertNoPinningOverrides } from './versions.js';
+import { planRootPins } from './root-pins.js';
 
 const fixtures = resolve(import.meta.dirname, '../../../../fixtures/lockfiles/subtree-swap');
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-pins-'));
@@ -29,35 +29,28 @@ describe.each([
   it('stop the upgrade before anything runs when they pin a moved package', () => {
     for (const key of ['ui', '**/ui'])
       expect(() =>
-        assertNoPinningOverrides(
-          repo({ resolutions: { [key]: '^1.0.0' } }, [lock, 'yarn.lock']),
-          moves,
-        ),
-      ).toThrow(
-        `package.json pins what this upgrade moves: resolutions["${key}"] is ^1.0.0 (ui → 2.0.0).`,
-      );
+        planRootPins(repo({ resolutions: { [key]: '^1.0.0' } }, [lock, 'yarn.lock']), moves),
+      ).toThrow(`"resolutions" > "${key}" pins ui to ^1.0.0; it will be updated to 2.0.0`);
   });
 
-  it('are left alone when scoped to one dependent, or when the target satisfies them', () => {
-    for (const resolutions of [{ 'other/ui': '^1.0.0' }, { ui: '^2.0.0' }, { swap: '1.0.0' }])
-      expect(() =>
-        assertNoPinningOverrides(repo({ resolutions }, [lock, 'yarn.lock']), moves),
-      ).not.toThrow();
+  it('leave unrelated and compatible pins alone', () => {
+    for (const resolutions of [{ 'other/swap': '^1.0.0' }, { ui: '^2.0.0' }, { swap: '1.0.0' }])
+      expect(() => planRootPins(repo({ resolutions }, [lock, 'yarn.lock']), moves)).not.toThrow();
   });
 });
 
 it('reads npm overrides and pnpm overrides the same way', () => {
-  expect(() => assertNoPinningOverrides(repo({ overrides: { ui: '1.0.0' } }), moves)).toThrow(
-    'overrides["ui"] is 1.0.0 (ui → 2.0.0)',
+  expect(() => planRootPins(repo({ overrides: { ui: '1.0.0' } }), moves)).toThrow(
+    'pins ui to 1.0.0; it will be updated to 2.0.0',
   );
+  expect(() => planRootPins(repo({ pnpm: { overrides: { ui: '<2' } } }), moves)).toThrow(
+    'pins ui to <2; it will be updated to 2.0.0',
+  );
+  // Scoped pins require a manual decision.
   expect(() =>
-    assertNoPinningOverrides(repo({ pnpm: { overrides: { ui: '<2' } } }), moves),
-  ).toThrow('pnpm.overrides["ui"] is <2 (ui → 2.0.0)');
-  // npm's nested form and pnpm's `parent>name` decide one dependent's copy only.
-  expect(() =>
-    assertNoPinningOverrides(
+    planRootPins(
       repo({ overrides: { other: { ui: '1.0.0' } }, pnpm: { overrides: { 'other>ui': '1' } } }),
       moves,
     ),
-  ).not.toThrow();
+  ).toThrow('cannot be updated safely');
 });
