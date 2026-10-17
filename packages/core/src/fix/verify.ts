@@ -187,9 +187,15 @@ function remembering(host: ts.CompilerHost, root: string): ts.CompilerHost {
 const unchanged = (seen: Map<string, string>): boolean =>
   [...seen].every(([file, text]) => existsSync(file) && readFileSync(file, 'utf8') === text);
 
-/** One workspace, re-checked only when a repository file its program reads has changed. */
-function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace) {
-  const { dir, compiler } = state;
+/**
+ * What a workspace's `tsc` compiles: its tsconfig, then each project it references, parsed
+ * with `include`/`exclude` applied (JavaScript only under `allowJs`/`checkJs`). Without a
+ * tsconfig, its TypeScript files. `projects[0]` is the workspace's own.
+ */
+export function workspaceProjects(
+  compiler: typeof ts,
+  dir: string,
+): { config: ReturnType<typeof ts.readConfigFile>; projects: ts.ParsedCommandLine[] } {
   const tsconfig = join(dir, 'tsconfig.json');
   const config = compiler.readConfigFile(tsconfig, compiler.sys.readFile);
   const parsed = compiler.parseJsonConfigFileContent(
@@ -202,20 +208,26 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
     undefined,
     config.config ? tsconfig : undefined,
   );
-  const sources = workspaceSourceMap(dir, readInstalled(dir).installed);
-  const fileNames = new Set(parsed.fileNames);
+  const projects = [parsed];
   for (const reference of parsed.projectReferences ?? []) {
     const path = reference.path.endsWith('.json')
       ? reference.path
       : join(reference.path, 'tsconfig.json');
     const ref = compiler.readConfigFile(path, compiler.sys.readFile);
-    const files = compiler.parseJsonConfigFileContent(
-      ref.config ?? {},
-      compiler.sys,
-      dirname(path),
-    ).fileNames;
-    for (const f of files) fileNames.add(f);
+    projects.push(
+      compiler.parseJsonConfigFileContent(ref.config ?? {}, compiler.sys, dirname(path)),
+    );
   }
+  return { config, projects };
+}
+
+/** One workspace, re-checked only when a repository file its program reads has changed. */
+function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace) {
+  const { dir, compiler } = state;
+  const { config, projects } = workspaceProjects(compiler, dir);
+  const parsed = projects[0] as ts.ParsedCommandLine;
+  const sources = workspaceSourceMap(dir, readInstalled(dir).installed);
+  const fileNames = new Set(projects.flatMap((p) => p.fileNames));
   // A file another tsconfig includes gets its diagnostics from that workspace's own check
   // (below), so it is not a root here: a root tsconfig that includes `packages/**` would
   // otherwise build the whole repository into one program (UPT-82). A file under another

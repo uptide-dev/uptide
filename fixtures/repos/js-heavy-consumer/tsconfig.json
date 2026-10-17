@@ -11,5 +11,6 @@
     "baseUrl": ".",
     "paths": { "synthetic": ["../../synthetic/dist/index.d.ts"] }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/generated"]
 }

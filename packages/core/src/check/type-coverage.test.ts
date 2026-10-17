@@ -52,6 +52,7 @@ it('lists the files that import a package, JavaScript included, and nothing else
   expect(filesImporting(JS_HEAVY, ['synthetic'])).toEqual([
     'src/api.js',
     'src/checked.js',
+    'src/generated/schema.ts',
     'src/legacy/admin.js',
     'src/legacy/billing.js',
     'src/legacy/search.js',
@@ -61,7 +62,7 @@ it('lists the files that import a package, JavaScript included, and nothing else
     'src/users.js',
     'src/version.ts',
   ]);
-  expect(filesImporting(JS_HEAVY, ['synthetic'], [join(JS_HEAVY, 'src/legacy')])).toHaveLength(7);
+  expect(filesImporting(JS_HEAVY, ['synthetic'], [join(JS_HEAVY, 'src/legacy')])).toHaveLength(8);
 });
 
 it('calls coverage low below the threshold only', () => {
@@ -75,11 +76,12 @@ it('calls coverage low below the threshold only', () => {
 describe('a JS-heavy workspace (UPT-12)', () => {
   it('states the type coverage and does not present the compile as proof', async () => {
     const pkg = await synthetic(JS_HEAVY);
-    // Two .ts files and the one under // @ts-check; the seven plain .js files are not type-checked.
-    expect(pkg.typeCoverage).toEqual({ checked: 3, affected: 10 });
-    expect(pkg.verdict?.lowTypeCoverage).toBe('types cover 3 of 10 affected files');
+    // Two .ts files and the one under // @ts-check. Not the seven plain .js files, nor the .ts
+    // file the tsconfig excludes: a TypeScript extension is not a type-check.
+    expect(pkg.typeCoverage).toEqual({ checked: 3, affected: 11 });
+    expect(pkg.verdict?.lowTypeCoverage).toBe('types cover 3 of 11 affected files');
     expect(pkg.verdict?.summary).toMatch(
-      / · types cover 3 of 10 affected files: the compile result is not proof, tests and build decide$/,
+      / · types cover 3 of 11 affected files: the compile result is not proof, tests and build decide$/,
     );
     expect(pkg.verdict?.summary).not.toMatch(/compiled against|new type error/);
     // Breaking-site detection still ran on the JavaScript: flagged, never on the compiler's word.
@@ -100,7 +102,8 @@ describe('a JS-heavy workspace (UPT-12)', () => {
     tsconfig.compilerOptions.paths = { synthetic: [join(ROOT, 'synthetic/dist/index.d.ts')] };
     writeFileSync(join(cwd, 'tsconfig.json'), JSON.stringify(tsconfig));
     const pkg = await synthetic(cwd);
-    expect(pkg.typeCoverage).toEqual({ checked: 10, affected: 10 });
+    // Every file but the excluded one.
+    expect(pkg.typeCoverage).toEqual({ checked: 10, affected: 11 });
     expect(pkg.verdict?.lowTypeCoverage).toBeUndefined();
     expect(pkg.verdict?.summary).not.toMatch(/types cover/);
   });
