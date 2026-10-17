@@ -177,6 +177,18 @@ export interface PackVerification {
   class?: 'breaking' | 'behavior';
   /** Expected breaking and behavior-note sites across public repositories. */
   breakingSites?: number;
+  /**
+   * Of `breakingScored`, the breaking sites a finding landed on at any severity (a deprecation
+   * or an unverified finding counts). Absent from records written before it.
+   */
+  breakingFoundAny?: number;
+  /** Of `breakingScored`, those a finding reported as breaking landed on: `breaking.truePositives` on a breaking truth. */
+  breakingFound?: number;
+  /**
+   * Breaking ground-truth sites in the repositories `breaking` covers, fixtures included. Not
+   * `breakingSites`, which is the public repositories only.
+   */
+  breakingScored?: number;
   behaviorSites?: number;
   /** Mechanical rules no real site confirmed: `fix` runs their sites as assisted. */
   unexercised?: string[];

@@ -48,27 +48,27 @@ Draft PR runs update conflicting root Yarn resolutions and npm/pnpm overrides an
 ## Verified packs
 
 A pack is everything Uptide knows about one upgrade: rules, a guide for the agent, behavior
-checks, and ground truth from public repositories it is scored against. Precision and recall
-are for breaking findings on that ground truth, as recorded by `npx uptide pack test`; a pack is
-verified with two or more public repositories, five real breaking sites, and no false positive.
+checks, and ground truth from public repositories it is scored against. Precision is breaking findings
+on a ground-truth site; the Found columns are shares of every breaking site scored, by any finding and by a
+breaking one ([definitions](docs/compatibility.md)). Verified: two or more public repositories, five real sites, no false positive.
 See the [pack compatibility matrix](docs/compatibility.md) and the [migration pack contract](docs/packs.md).
 
 <!-- packs:start -->
-| Package | From → to | Rules | Precision | Recall | Breaking sites | Ground-truth repositories | Status |
-| --- | --- | ---: | ---: | ---: | ---: | --- | --- |
-| `ai` | 6 → 7 | 12 | 100% | 82% | 11 | vercel/chatbot, miurla/morphic | verified |
-| `express` | 4 → 5 | 8 | 100% | 86% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
-| `lucide-react` | 0 → 1 | 5 | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
-| `next` | 15 → 16 | 9 | 100% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
-| `react` | 18 → 19 | 8 | 100% | 95% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
-| `react-router` | 6 → 7 | 13 | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
-| `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 83% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
-| `@sentry/browser` | 10 → 11 | 16 | 100% | 82% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
-| `@sentry/nextjs` | 10 → 11 | 24 | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
-| `stripe` | 14+ → latest, API version pinning | 5 | 100% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
-| `typescript` | 5 → 6 | 12 | 100% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
-| `vitest` | 4 → 5 | 6 | 100% | 97% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
-| `zod` | 3 → 4 | 11 | 100% | 76% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
+| Package | From → to | Rules | Precision | Found, any severity | Found as breaking | Breaking sites | Ground-truth repositories | Status |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| `ai` | 6 → 7 | 12 | 100% | 82% | 82% | 11 | vercel/chatbot, miurla/morphic | verified |
+| `express` | 4 → 5 | 8 | 100% | 86% | 86% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
+| `lucide-react` | 0 → 1 | 5 | 100% | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
+| `next` | 15 → 16 | 9 | 100% | 88% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
+| `react` | 18 → 19 | 8 | 100% | 95% | 95% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
+| `react-router` | 6 → 7 | 13 | 100% | 89% | 78% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
+| `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 85% | 75% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
+| `@sentry/browser` | 10 → 11 | 16 | 100% | 82% | 82% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
+| `@sentry/nextjs` | 10 → 11 | 24 | 100% | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
+| `stripe` | 14+ → latest, API version pinning | 5 | 100% | 92% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
+| `typescript` | 5 → 6 | 12 | 100% | 99% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
+| `vitest` | 4 → 5 | 6 | 100% | 97% | 97% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
+| `zod` | 3 → 4 | 11 | 100% | 93% | 22% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
 
 4 more in validation: see the [compatibility matrix](docs/compatibility.md).
 <!-- packs:end -->

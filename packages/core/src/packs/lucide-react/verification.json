@@ -18,6 +18,9 @@
   },
   "class": "breaking",
   "breakingSites": 11,
+  "breakingFoundAny": 11,
+  "breakingFound": 11,
+  "breakingScored": 11,
   "behaviorSites": 0,
   "unexercised": ["renamed-icons"],
   "mechanical": {

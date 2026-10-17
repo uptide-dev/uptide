@@ -527,6 +527,7 @@ export async function testPack(
   }
   const status: PackStatus = gate.reasons.length ? 'candidate' : 'verified';
   gate.status = status;
+  const coverage = breakingCoverage(pack, repos);
   const verification: PackVerification = {
     status,
     truth: read ? truthDigest(read.text) : '',
@@ -535,6 +536,9 @@ export async function testPack(
     behavior: verificationTally(behavior),
     class: gate.class,
     breakingSites: gate.breakingSites,
+    breakingFoundAny: coverage.any,
+    breakingFound: coverage.found,
+    breakingScored: coverage.scored,
     behaviorSites: gate.behaviorSites,
     unexercised: gate.unexercised,
     ...(Object.keys(gate.mechanical).length ? { mechanical: gate.mechanical } : {}),
@@ -618,6 +622,30 @@ export function gateOf(
     mechanical,
   });
   return { ...gate, breakingSites, behaviorSites, mechanical };
+}
+
+/**
+ * Breaking ground-truth sites of the repositories the breaking tally covers (every scored one,
+ * fixtures included), those a finding landed on at any severity, and those one reported as breaking.
+ */
+function breakingCoverage(
+  pack: Pick<Pack, 'rules' | 'behavior'>,
+  repos: RepoScore[],
+): { any: number; found: number; scored: number } {
+  let any = 0;
+  let found = 0;
+  let scored = 0;
+  for (const r of repos) {
+    if (r.error) continue;
+    const seen = new Map(r.predicted.map((p) => [key(p), p.severity]));
+    for (const e of r.expected) {
+      if (siteSeverity(pack, e.rule) !== 'breaking') continue;
+      scored++;
+      if (seen.has(key(e))) any++;
+      if (seen.get(key(e)) === 'breaking') found++;
+    }
+  }
+  return { any, found, scored };
 }
 
 /**

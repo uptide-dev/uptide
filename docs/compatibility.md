@@ -11,9 +11,15 @@ excluding local fixtures. Multiple upgrade cases from the same repository appear
 
 **Status** is recorded by `uptide pack test --write` in `verification.json`. A **verified**
 pack passed the [verification gate](packs.md); **candidate** packs ship but are not active
-by default. Precision and recall measure breaking findings on the recorded ground truth,
-with `n/a` when nothing breaking was predicted or expected. These results describe that
-ground truth, not a guarantee that every breaking change in another repository is covered.
+by default. The numbers measure breaking findings on the recorded ground truth, over every
+repository `pack test` scores, the pack's synthetic fixture repositories included. **Precision**
+is the share of breaking-severity findings that land on a ground-truth site, `n/a` when none was
+predicted. **Found, any severity** and **Found as breaking** are shares of the same set, every
+breaking site of those repositories: the first counts a site a finding landed on whatever its
+severity (a deprecation, an unverified finding), the second only a site a breaking-severity
+finding landed on; `—` for a record written before they were kept. **Breaking sites** counts the
+public repositories only. These results describe that ground truth, not a guarantee that every
+breaking change in another repository is covered.
 
 The second table lists every rule with a rewrite, breaking or not. Its **precision** counts the
 rule's real true positives in public repositories against its false positives wherever
@@ -22,25 +28,25 @@ flag is a warning only: it changes no pack's status and no rule's run mode. Unex
 already run as assisted ([verification gate](packs.md)).
 
 <!-- packs:start -->
-| Package | From → to | Rules | Precision | Recall | Breaking sites | Ground-truth repositories | Status |
-| --- | --- | ---: | ---: | ---: | ---: | --- | --- |
-| `ai` | 6 → 7 | 12 | 100% | 82% | 11 | vercel/chatbot, miurla/morphic | verified |
-| `express` | 4 → 5 | 8 | 100% | 86% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
-| `ioredis` | 5 → 6 | 2 | n/a | 0% | 2 | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
-| `joi` | 17 → 18 | 1 | n/a | n/a | — | edtech4good/edtech-lms-api, senacor/azure-function-middleware | candidate |
-| `lucide-react` | 0 → 1 | 5 | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
-| `next` | 15 → 16 | 9 | 100% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
-| `openai` | 4 → 7 | 15 | 100% | 15% | 20 | zeikar/charivo, openai/openai-guardrails-js, wardby/wardby, csnyder256/ux-struggle-detector, grantsingleton/batch-ai, digitalchokro/askchokro, microsoft/prompty | candidate |
-| `react` | 18 → 19 | 8 | 100% | 95% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
-| `react-router` | 6 → 7 | 13 | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
-| `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 83% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
-| `@sentry/browser` | 10 → 11 | 16 | 100% | 82% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
-| `@sentry/nextjs` | 10 → 11 | 24 | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
-| `@sentry/react` | 10 → 11 | 16 | 88% | 72% | 29 | owine/youth-activity-scheduler, successible/cleanslate, Seklfreak/flimm, daler91/Hyrox-Companion, jey3dayo/ultra-rss-reader, jirikrucek/ricochet-app, louisclarencepeter/destinationparadise, poporonnet/kaniwriter, preijm/milk-me-not, CandeeGenerations/central-flock, DougZeThug/717rec, CandeeGenerations/attendance-public, cucumber/cucumber-reports, Simple-With-Us/BotFleet | candidate |
-| `stripe` | 14+ → latest, API version pinning | 5 | 100% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
-| `typescript` | 5 → 6 | 12 | 100% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
-| `vitest` | 4 → 5 | 6 | 100% | 97% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
-| `zod` | 3 → 4 | 11 | 100% | 76% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
+| Package | From → to | Rules | Precision | Found, any severity | Found as breaking | Breaking sites | Ground-truth repositories | Status |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| `ai` | 6 → 7 | 12 | 100% | 82% | 82% | 11 | vercel/chatbot, miurla/morphic | verified |
+| `express` | 4 → 5 | 8 | 100% | 86% | 86% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
+| `ioredis` | 5 → 6 | 2 | n/a | 0% | 0% | 2 | ferni-ai/voiceai, syzygyhack/open-foundry, simondietschi/dokunc, safe-global/safe-client-gateway, kazumadev619-dev/FishingConditionsApp | candidate |
+| `joi` | 17 → 18 | 1 | n/a | — | — | — | edtech4good/edtech-lms-api, senacor/azure-function-middleware | candidate |
+| `lucide-react` | 0 → 1 | 5 | 100% | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
+| `next` | 15 → 16 | 9 | 100% | 88% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
+| `openai` | 4 → 7 | 15 | 100% | — | — | 20 | zeikar/charivo, openai/openai-guardrails-js, wardby/wardby, csnyder256/ux-struggle-detector, grantsingleton/batch-ai, digitalchokro/askchokro, microsoft/prompty | candidate |
+| `react` | 18 → 19 | 8 | 100% | 95% | 95% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
+| `react-router` | 6 → 7 | 13 | 100% | 89% | 78% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
+| `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 85% | 75% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
+| `@sentry/browser` | 10 → 11 | 16 | 100% | 82% | 82% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
+| `@sentry/nextjs` | 10 → 11 | 24 | 100% | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
+| `@sentry/react` | 10 → 11 | 16 | 88% | — | — | 29 | owine/youth-activity-scheduler, successible/cleanslate, Seklfreak/flimm, daler91/Hyrox-Companion, jey3dayo/ultra-rss-reader, jirikrucek/ricochet-app, louisclarencepeter/destinationparadise, poporonnet/kaniwriter, preijm/milk-me-not, CandeeGenerations/central-flock, DougZeThug/717rec, CandeeGenerations/attendance-public, cucumber/cucumber-reports, Simple-With-Us/BotFleet | candidate |
+| `stripe` | 14+ → latest, API version pinning | 5 | 100% | 92% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
+| `typescript` | 5 → 6 | 12 | 100% | 99% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
+| `vitest` | 4 → 5 | 6 | 100% | 97% | 97% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
+| `zod` | 3 → 4 | 11 | 100% | 93% | 22% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
 
 | Package | Rewrite rule | Precision | Real true positives | False positives | Note |
 | --- | --- | ---: | ---: | ---: | --- |

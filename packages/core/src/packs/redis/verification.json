@@ -18,6 +18,9 @@
   },
   "class": "breaking",
   "breakingSites": 20,
+  "breakingFoundAny": 17,
+  "breakingFound": 15,
+  "breakingScored": 20,
   "behaviorSites": 2,
   "unexercised": ["keep-alive", "quit-disconnect", "scan-iterators", "unstable-resp3"],
   "mechanical": {
