@@ -34,7 +34,7 @@ already run as assisted ([verification gate](packs.md)).
 | `react` | 18 → 19 | 8 | 100% | 69% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6 → 7 | 13 | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
 | `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 83% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
-| `@sentry/browser` | 10 → 11 | 16 | 100% | 50% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
+| `@sentry/browser` | 10 → 11 | 16 | 100% | 82% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
 | `@sentry/nextjs` | 10 → 11 | 24 | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `@sentry/react` | 10 → 11 | 16 | 88% | 72% | 29 | owine/youth-activity-scheduler, successible/cleanslate, Seklfreak/flimm, daler91/Hyrox-Companion, jey3dayo/ultra-rss-reader, jirikrucek/ricochet-app, louisclarencepeter/destinationparadise, poporonnet/kaniwriter, preijm/milk-me-not, CandeeGenerations/central-flock, DougZeThug/717rec, CandeeGenerations/attendance-public, cucumber/cucumber-reports, Simple-With-Us/BotFleet | candidate |
 | `stripe` | 14+ → latest, API version pinning | 5 | 100% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
@@ -76,7 +76,7 @@ already run as assisted ([verification gate](packs.md)).
 | `@sentry/browser` | `enable-logs` | 100% | 2 | 0 |  |
 | `@sentry/browser` | `enable-metrics` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/browser` | `integration-names` | n/a | 0 | 0 | unexercised: runs assisted |
-| `@sentry/browser` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/browser` | `renamed-exports` | 100% | 7 | 0 |  |
 | `@sentry/browser` | `streamed-span-wrapper` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/nextjs` | `build-options` | 100% | 1 | 0 |  |
 | `@sentry/nextjs` | `enable-logs` | n/a | 0 | 0 | unexercised: runs assisted |

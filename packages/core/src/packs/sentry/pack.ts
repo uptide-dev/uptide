@@ -1,4 +1,5 @@
 import { definePack, type Pack } from '../contract.js';
+import { scriptsMentioning } from '../reach.js';
 import { sentryBehavior } from './behavior.js';
 import { releaseGroup, SOURCES } from './meta.js';
 import { type Lead, rulesFor } from './rules.js';
@@ -22,7 +23,7 @@ const NEXT_INVENTORY = [
  * knowledge, filtered to what that SDK exports. Sources and classification: RESEARCH.md.
  */
 export function sentryPack(lead: Lead): Pack {
-  return definePack({
+  const base = definePack({
     meta: {
       package: lead,
       from: '>=10 <11',
@@ -41,4 +42,14 @@ export function sentryPack(lead: Lead): Pack {
     instructions:
       'Sources read 2026-10-14; see packs/sentry/RESEARCH.md. Migrate only the reported sites. Keep sampling rates, data-collection scope, scrubbing (beforeSend, beforeSendSpan), filtering and error capture what they were on v10 unless the owner chose otherwise: where v11 changed a default or removed a switch, say what you chose in decisions instead of accepting the more permissive behavior. Never cast to any, suppress a diagnostic, add a dependency on @sentry/types or @sentry/node-core, or enable tracing, logs or profiling that was off.',
   });
+  // A script that only requires `@sentry/core` (or a sibling SDK of the same release) is in no
+  // pack's analyzed set otherwise: the compile scope skips JS and `detect` reads importers.
+  return {
+    ...base,
+    runtimeFindings: (input) =>
+      base.runtimeFindings?.({
+        ...input,
+        files: [...(input.files ?? []), ...scriptsMentioning(input, '@sentry/')],
+      }) ?? [],
+  };
 }

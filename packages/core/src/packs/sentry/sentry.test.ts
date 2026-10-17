@@ -1,6 +1,10 @@
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { detectIn } from '../contract.js';
 import { packDecisions } from '../decisions.js';
+import { packInventory } from '../inventory.js';
 import { sentryBrowserPack } from '../sentry-browser/index.js';
 import { sentryNextjsPack } from '../sentry-nextjs/index.js';
 import { sentryNodePack } from '../sentry-node/index.js';
@@ -303,5 +307,50 @@ describe('the release group and the leads', () => {
   it('asks for the choice in decisions wherever a guide offers options', () => {
     for (const rule of SENTRY_RULES.filter((r) => /\boptions(?::| are)/i.test(r.guide)))
       expect(rule.guide, rule.id).toMatch(/decisions/);
+  });
+});
+
+describe('scripts that never import the pack package (UPT-89)', () => {
+  it('reads a JS file outside the tsconfig include that only requires @sentry/core', () => {
+    const root = mkdtempSync(join(tmpdir(), 'uptide-sentry-'));
+    try {
+      const write = (file: string, text: string) => {
+        mkdirSync(join(root, 'bridge', file, '..'), { recursive: true });
+        writeFileSync(join(root, 'bridge', file), text);
+      };
+      write('tsconfig.json', '{ "include": ["src"] }');
+      write(
+        'test.js',
+        'const { spanToStreamedSpanJSON } = require("@sentry/core");\nspanToStreamedSpanJSON(span);\n',
+      );
+      write(
+        'dist/bundle.js',
+        'const { spanToStreamedSpanJSON } = require("@sentry/core");\nspanToStreamedSpanJSON(span);\n',
+      );
+      write('other.js', 'const spanToStreamedSpanJSON = 1;\n');
+      const findings =
+        sentryBrowserPack.runtimeFindings?.({
+          root,
+          workspace: 'bridge',
+          from: '10.75.2',
+          to: '11.5.0',
+          installedDir: '',
+          targetDir: '',
+          usages: [],
+          files: packInventory(root, 'bridge', sentryBrowserPack.inventory),
+          read: (file) => {
+            try {
+              return readFileSync(join(root, file), 'utf8');
+            } catch {
+              return undefined;
+            }
+          },
+        }) ?? [];
+      expect(findings.map((f) => `${f.usage.file}:${f.usage.line}:${f.rule}`)).toEqual([
+        'test.js:2:renamed-exports',
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
