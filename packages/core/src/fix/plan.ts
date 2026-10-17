@@ -71,6 +71,11 @@ export function planPackage(
       const severity = first.finding.severity as PlanGroup['severity'];
       const count = (o: Outcome): number => sites.filter((s) => s.outcome === o).length;
       const assisted = sites.filter((s) => s.outcome !== 'mechanical');
+      // A cluster's sites are its downstream errors; anywhere else they are consequences.
+      const downstream = sites.reduce(
+        (n, s) => n + (s.finding.change.kind === 'cause' ? 0 : (s.finding.downstream?.length ?? 0)),
+        0,
+      );
       const group: PlanGroup = {
         rule: first.rule,
         title: titleOf(first.rule, sites, usable ? summaryOf(pack, first.rule) : undefined),
@@ -83,6 +88,7 @@ export function planPackage(
         locations: sites
           .map((s) => ({ file: s.finding.usage.file, line: s.finding.usage.line }))
           .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line),
+        ...(downstream > 0 ? { downstream } : {}),
         detail: (first.finding.usage.compileError ?? first.finding.reason).split('\n')[0] ?? '',
       };
       if (severity === 'deprecated') {

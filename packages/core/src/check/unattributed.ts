@@ -46,7 +46,8 @@ export function unattributedFindings(
   const clusters = new Map<string, CompileDiagnostic[]>();
   const single: CompileDiagnostic[] = [];
   for (const d of diagnostics) {
-    if (!d.cause) {
+    // A consequence of another new error folds into that error's finding (root-cause.ts).
+    if (!d.cause || d.origin) {
       single.push(d);
       continue;
     }
@@ -153,6 +154,7 @@ function plainFindings(
       change,
       usage,
       ...(d.root ? { root: sharedRoot(d.root) } : {}),
+      ...(d.origin ? { origin: d.origin } : {}),
       severity: inconclusive ? 'unverified' : 'breaking',
       confidence: 1,
       fixability: 'unknown',

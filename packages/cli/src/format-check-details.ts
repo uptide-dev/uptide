@@ -74,6 +74,9 @@ function findingLines(
   if (f.usage.compileError)
     lines.push(colors.dim(`      compiler: ${f.usage.compileError.split('\n')[0]}`));
   for (const detail of f.details ?? []) lines.push(colors.dim(`      ${detail}`));
+  // Errors folded into this site (UPT-99, option cascades): every one, under its root.
+  for (const d of f.downstream ?? [])
+    lines.push(colors.dim(`        ${d.file}:${d.line}  TS${d.code}: ${d.message}`));
   const others = (f.sites ?? []).filter((s) => s.line !== f.usage.line);
   if (others.length > 0)
     lines.push(

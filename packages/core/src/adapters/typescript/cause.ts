@@ -46,12 +46,14 @@ function offendingExpression(tsc: typeof ts, node: ts.Node): ts.Expression | und
   return n as ts.Expression;
 }
 
-/** The same declaration in the other program, by file and position. */
+/** The same node in the other program, by file, position and width (`a.b` inside `a.b.c` starts at the same place). */
 function counterpart(tsc: typeof ts, decl: ts.Node, program: ts.Program): ts.Node | undefined {
   const file = program.getSourceFile(decl.getSourceFile().fileName);
   if (!file) return undefined;
+  const width = decl.getEnd() - decl.getStart();
   let node: ts.Node | undefined = deepestAt(tsc, file, decl.getStart());
-  while (node && node.kind !== decl.kind) node = node.parent;
+  while (node && (node.kind !== decl.kind || node.getEnd() - node.getStart() !== width))
+    node = node.parent;
   return node;
 }
 
@@ -67,6 +69,51 @@ function typeText(tsc: typeof ts, decl: ts.Node, program: ts.Program): string | 
         .replace(/import\("[^"]*"\)\./g, '')
         // The same type prints as `ParamsDictionary` in one program and `core.ParamsDictionary` in another.
         .replace(/\b[A-Za-z_$][\w$]*\.(?=[A-Z])/g, '')
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * A type as text that does not depend on member order: the installed and target programs may
+ * list one declaration's members, or a union's, in a different order. Anonymous object types
+ * are spelled member by member, sorted; named ones by name, as `typeText` prints them.
+ */
+function shapeText(tsc: typeof ts, node: ts.Node, program: ts.Program): string | undefined {
+  const checker = program.getTypeChecker();
+  const print = (t: ts.Type): string =>
+    checker
+      .typeToString(t, undefined, tsc.TypeFormatFlags.NoTruncation)
+      .replace(/import\("[^"]*"\)\./g, '')
+      .replace(/\b[A-Za-z_$][\w$]*\.(?=[A-Z])/g, '');
+  const shape = (t: ts.Type, depth: number): string => {
+    if (depth > 6) return print(t);
+    if (t.isUnionOrIntersection())
+      return t.types
+        .map((m) => shape(m, depth + 1))
+        .sort()
+        .join(t.isUnion() ? ' | ' : ' & ');
+    if (checker.isArrayType(t)) {
+      const [element] = checker.getTypeArguments(t as ts.TypeReference);
+      return element ? `${shape(element, depth + 1)}[]` : print(t);
+    }
+    const anonymous = !t.aliasSymbol && ['__type', '__object'].includes(t.symbol?.name ?? '');
+    if (!(t.flags & tsc.TypeFlags.Object) || !anonymous) return print(t);
+    if (checker.getSignaturesOfType(t, tsc.SignatureKind.Call).length) return print(t);
+    return `{ ${checker
+      .getPropertiesOfType(t)
+      .map(
+        (p) =>
+          `${p.name}${p.flags & tsc.SymbolFlags.Optional ? '?' : ''}: ${shape(checker.getTypeOfSymbolAtLocation(p, node), depth + 1)}`,
+      )
+      .sort()
+      .join('; ')} }`;
+  };
+  try {
+    return shape(
+      checker.getTypeAtLocation(tsc.getNameOfDeclaration(node as ts.Declaration) ?? node),
+      0,
     );
   } catch {
     return undefined;
@@ -235,6 +282,181 @@ export function findCause(
     return undefined;
   }
   return undefined;
+}
+
+/**
+ * The new diagnostic this one is a consequence of (UPT-99): the value at `diagnostic` is
+ * followed back with the checker, through variable and destructured declarations, a
+ * callback's `any` receiver (`errors.map(e => …)`), members of returned object literals and
+ * calls of repository functions, until it reaches the expression of another new diagnostic
+ * that is typed `any` at the target (`result.error.errors`, TS2339). A repository function's
+ * call is followed only when every return whose type changed between the installed version
+ * and the target leads to such an expression; one it cannot trace and nothing is returned.
+ * Never by distance: no trace, no origin.
+ */
+export function flowOrigin(
+  programs: Programs,
+  diagnostic: ts.Diagnostic,
+  file: ts.SourceFile,
+  repoDir: string,
+  /** Every new diagnostic, by file name. */
+  fresh: ReadonlyMap<string, readonly ts.Diagnostic[]>,
+): ts.Diagnostic | undefined {
+  const tsc = programs.ts;
+  if (diagnostic.start === undefined) return undefined;
+  const checker = programs.overlay.getTypeChecker();
+  const inRepo = (n: ts.Node): boolean => {
+    const f = n.getSourceFile().fileName;
+    return f.startsWith(`${repoDir}/`) && !f.includes('/node_modules/');
+  };
+  const isAny = (n: ts.Node): boolean =>
+    (checker.getTypeAtLocation(n).flags & tsc.TypeFlags.Any) !== 0;
+  const declarationOf = (n: ts.Node): ts.Declaration | undefined => {
+    const symbol = checker.getSymbolAtLocation(n);
+    const target =
+      symbol && symbol.flags & tsc.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+    return target?.declarations?.[0];
+  };
+  const changed = (n: ts.Node): boolean => {
+    const before = counterpart(tsc, n, programs.base);
+    const earlier = before && shapeText(tsc, before, programs.base);
+    const after = shapeText(tsc, n, programs.overlay);
+    return earlier === undefined || after === undefined || earlier !== after;
+  };
+  /** `x as SafeParseReturnType<…>` whose import is itself a new error: the cast is `any` because of it. */
+  const castRoot = (n: ts.AsExpression): ts.Diagnostic | undefined => {
+    if (!tsc.isTypeReferenceNode(n.type) || !isAny(n)) return undefined;
+    let name: ts.EntityName = n.type.typeName;
+    while (tsc.isQualifiedName(name)) name = name.left;
+    const decl = checker.getSymbolAtLocation(name)?.declarations?.[0];
+    if (!decl || !tsc.isImportSpecifier(decl)) return undefined;
+    return fresh
+      .get(decl.getSourceFile().fileName)
+      ?.find(
+        (d) =>
+          d !== diagnostic &&
+          d.start !== undefined &&
+          d.start >= decl.getStart() &&
+          d.start < decl.getEnd(),
+      );
+  };
+  /** The other new diagnostic at this expression's own position: an access's name, a call's callee. */
+  const rootAt = (n: ts.Expression): ts.Diagnostic | undefined => {
+    const callee = tsc.isCallExpression(n) ? n.expression : n;
+    const at = tsc.isPropertyAccessExpression(callee) ? callee.name : callee;
+    const start = at.getStart();
+    const root = fresh
+      .get(n.getSourceFile().fileName)
+      ?.find((d) => d !== diagnostic && d.start === start);
+    return root && isAny(n) ? root : undefined;
+  };
+  const seen = new Set<ts.Node>();
+  /** Every expression here whose type changed leads to an origin: the first one, or none. */
+  const explained = (
+    expressions: readonly ts.Expression[],
+    depth: number,
+  ): ts.Diagnostic | undefined => {
+    let first: ts.Diagnostic | undefined;
+    for (const e of expressions) {
+      if (!changed(e)) continue;
+      const root = origin(e, depth);
+      if (!root) return undefined;
+      first ??= root;
+    }
+    return first;
+  };
+  const origin = (start: ts.Node | undefined, depth: number): ts.Diagnostic | undefined => {
+    let n = start;
+    while (
+      n &&
+      (tsc.isParenthesizedExpression(n) ||
+        tsc.isAwaitExpression(n) ||
+        tsc.isAsExpression(n) ||
+        tsc.isNonNullExpression(n))
+    ) {
+      const root = tsc.isAsExpression(n) ? castRoot(n) : undefined;
+      if (root) return root;
+      n = n.expression;
+    }
+    if (!n || depth > MAX_HOPS || seen.has(n)) return undefined;
+    seen.add(n);
+    if (tsc.isExpression(n)) {
+      const root = rootAt(n);
+      if (root) return root;
+    }
+    if (tsc.isCallExpression(n)) {
+      const callee = n.expression;
+      const decl = declarationOf(tsc.isPropertyAccessExpression(callee) ? callee.name : callee);
+      if (decl && inRepo(decl)) return explained(returnedExpressions(tsc, decl), depth + 1);
+      return undefined;
+    }
+    if (tsc.isObjectLiteralExpression(n)) {
+      const members = n.properties.flatMap((p) => {
+        if (tsc.isPropertyAssignment(p)) return [p.initializer];
+        if (tsc.isShorthandPropertyAssignment(p)) return [p.name];
+        return [];
+      });
+      return explained(members, depth + 1);
+    }
+    if (tsc.isPropertyAccessExpression(n)) {
+      if (isAny(n.expression)) return origin(n.expression, depth + 1);
+      // A member of the repository's own object (a returned literal's `errors`): its value.
+      const symbol = checker.getSymbolAtLocation(n.name);
+      for (const decl of symbol?.declarations ?? []) {
+        if (!inRepo(decl) || !tsc.isPropertyAssignment(decl)) continue;
+        const root = origin(decl.initializer, depth + 1);
+        if (root) return root;
+      }
+      return undefined;
+    }
+    if (!tsc.isIdentifier(n)) return undefined;
+    const value = tsc.isShorthandPropertyAssignment(n.parent)
+      ? checker.getShorthandAssignmentValueSymbol(n.parent)?.declarations?.[0]
+      : declarationOf(n);
+    if (!value || !inRepo(value)) return undefined;
+    if (tsc.isVariableDeclaration(value)) return origin(value.initializer, depth + 1);
+    if (tsc.isBindingElement(value)) {
+      // Destructured: from the value the pattern takes apart.
+      let holder: ts.Node = value.parent.parent;
+      while (tsc.isBindingElement(holder)) holder = holder.parent.parent;
+      return tsc.isVariableDeclaration(holder) ? origin(holder.initializer, depth + 1) : undefined;
+    }
+    if (tsc.isParameter(value)) {
+      // A callback's parameter typed by nothing but an `any` receiver: `errors.map(e => …)`.
+      const fn = value.parent;
+      const call = fn.parent;
+      if (
+        (tsc.isArrowFunction(fn) || tsc.isFunctionExpression(fn)) &&
+        tsc.isCallExpression(call) &&
+        call.arguments.some((a) => a === fn) &&
+        tsc.isPropertyAccessExpression(call.expression) &&
+        isAny(call.expression.expression)
+      )
+        return origin(call.expression.expression, depth + 1);
+    }
+    return undefined;
+  };
+  return origin(offendingExpression(tsc, deepestAt(tsc, file, diagnostic.start)), 0);
+}
+
+/** Every value a function returns: its expression body, or each `return` outside nested functions. */
+function returnedExpressions(tsc: typeof ts, decl: ts.Declaration): ts.Expression[] {
+  let body: ts.Node | undefined;
+  if (tsc.isVariableDeclaration(decl) && decl.initializer) body = decl.initializer;
+  else if (tsc.isFunctionLike(decl) && 'body' in decl) body = (decl as { body?: ts.Node }).body;
+  else return [];
+  if (body && (tsc.isArrowFunction(body) || tsc.isFunctionExpression(body))) {
+    if (!tsc.isBlock(body.body)) return [body.body];
+    body = body.body;
+  }
+  if (!body || !tsc.isBlock(body)) return [];
+  const returned: ts.Expression[] = [];
+  const visit = (n: ts.Node): void => {
+    if (tsc.isReturnStatement(n) && n.expression) returned.push(n.expression);
+    else if (!tsc.isFunctionLike(n)) tsc.forEachChild(n, visit);
+  };
+  tsc.forEachChild(body, visit);
+  return returned;
 }
 
 function findImportDeclaration(tsc: typeof ts, node: ts.Node): ts.ImportDeclaration | undefined {

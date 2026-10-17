@@ -288,11 +288,13 @@ function sectionLines(row: Row, colors: Colors): string[] {
   )
     return row.summary || plan.length ? [heading, ...coverage, ...plan] : [];
   const scope = (g: PlanGroup): string => {
+    // Errors folded into these sites go with their edits: counted, never sites (UPT-99).
+    const downstream = g.downstream ? `, +${plural(g.downstream, 'downstream error')}` : '';
     if (g.fixes !== g.sites)
-      return `${plural(g.fixes, 'fix', 'fixes')}, ${plural(g.sites, 'error')}`;
+      return `${plural(g.fixes, 'fix', 'fixes')}, ${plural(g.sites, 'error')}${downstream}`;
     const only = g.locations[0];
     // A single site is worth naming; the full path is in --details.
-    return g.sites === 1 && only ? `${basename(only.file)}:${only.line}` : plural(g.sites, 'site');
+    return `${g.sites === 1 && only ? `${basename(only.file)}:${only.line}` : plural(g.sites, 'site')}${downstream}`;
   };
   // A package with dozens of distinct changes (a compiler API that was removed) gets its
   // largest ones here and the rest as a count: --details has every one.

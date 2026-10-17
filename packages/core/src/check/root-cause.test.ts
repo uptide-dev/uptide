@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Finding, PackageReport } from '../domain/report.js';
 import { planPackage } from '../fix/plan.js';
 import { sitesOf } from './check.js';
-import { callSitesLine, foldSharedRoots, groupRootCauses } from './root-cause.js';
+import { callSitesLine, foldConsequences, foldSharedRoots, groupRootCauses } from './root-cause.js';
 
 it('groups missing TypeScript API members without losing sites or unrelated diagnostics', () => {
   const finding = (line: number, code = 2339): Finding => ({
@@ -197,5 +197,114 @@ describe('foldSharedRoots', () => {
         { file: 'b', line: 1, code: 1, message: '', workspace: 'x' },
       ]),
     ).toBe('2 call sites');
+  });
+});
+
+describe('foldConsequences (UPT-99)', () => {
+  const at = (
+    file: string,
+    line: number,
+    column: number,
+    code: number,
+    extra: Partial<Finding> = {},
+  ): Finding => ({
+    change: {
+      package: 'issues',
+      from: '1.0.0',
+      to: '2.0.0',
+      path: `TS${code}`,
+      kind: 'type',
+      severity: 'breaking',
+      source: 'types',
+      confidence: 1,
+    },
+    usage: {
+      file,
+      line,
+      column,
+      endLine: line,
+      endColumn: column + 6,
+      symbolPath: `TS${code}`,
+      access: 'read',
+      via: 'inferred',
+      snippet: '',
+      compileCode: code,
+      compileError: `error ${code}`,
+    },
+    severity: 'breaking',
+    confidence: 1,
+    fixability: 'unknown',
+    reason: 'compile error not attributed to a known API change',
+    ...extra,
+  });
+  const root = at('src/action.ts', 4, 52, 2339, {
+    change: {
+      package: 'issues',
+      from: '1.0.0',
+      to: '2.0.0',
+      path: 'Failure#errors',
+      kind: 'removed',
+      severity: 'breaking',
+      source: 'types',
+      confidence: 1,
+    },
+  });
+  const origin = { file: 'src/action.ts', line: 4, column: 52 };
+
+  it('folds traced errors into the root, keeps the rest, and leaves no origin behind', () => {
+    const implicitAny = at('src/form.ts', 5, 31, 7006, { origin });
+    const narrowing = at('src/form.ts', 6, 10, 18048, { origin });
+    // Traced through the narrowing error, which is a consequence itself: same root.
+    const chained = at('src/form.ts', 9, 3, 2532, {
+      origin: { file: 'src/form.ts', line: 6, column: 10 },
+    });
+    const unrelated = at('src/form.ts', 1, 10, 2305);
+    const orphan = at('src/form.ts', 8, 3, 7006, {
+      origin: { file: 'src/other.ts', line: 1, column: 1 },
+    });
+    const out = foldConsequences(
+      [root, implicitAny, narrowing, chained, unrelated, orphan],
+      'apps/web/',
+    );
+    expect(out).toHaveLength(3);
+    const [folded, ...rest] = out;
+    expect(folded?.downstream?.map((d) => [d.file, d.line, d.code])).toEqual([
+      ['apps/web/src/form.ts', 5, 7006],
+      ['apps/web/src/form.ts', 6, 18048],
+      ['apps/web/src/form.ts', 9, 2532],
+    ]);
+    expect(folded?.details?.at(-1)).toMatch(/^\+3 downstream errors/);
+    // Nothing breaking at its origin: it stays, without the internal field.
+    const { origin: _, ...orphanAsIs } = orphan;
+    expect(rest).toEqual([unrelated, orphanAsIs]);
+    expect(out.some((f) => 'origin' in f)).toBe(false);
+    // A consequence is never a site: the plan counts it under its root, not as one.
+    const report: PackageReport = {
+      name: 'issues',
+      installed: '1.0.0',
+      target: '2.0.0',
+      latest: '2.0.0',
+      workspace: '.',
+      majorsBehind: 1,
+      findings: [folded as Finding],
+      status: 'breaking',
+      callSitesChecked: 1,
+      unanalyzed: [],
+      notes: [],
+      timing: { fetchMs: 0, diffMs: 0, usagesMs: 0, compileMs: 0 },
+    };
+    const [group] = planPackage(report);
+    expect(group).toMatchObject({ sites: 1, downstream: 3 });
+    expect(sitesOf(folded as Finding)).toBe(1);
+  });
+
+  it('does not fold into a root that is not breaking, or a loop', () => {
+    const deprecated = { ...root, severity: 'deprecated' as const };
+    const a = at('src/a.ts', 1, 1, 7006, { origin: { file: 'src/b.ts', line: 1, column: 1 } });
+    const b = at('src/b.ts', 1, 1, 7006, { origin: { file: 'src/a.ts', line: 1, column: 1 } });
+    const c = at('src/form.ts', 5, 31, 7006, { origin });
+    const out = foldConsequences([deprecated, a, b, c]);
+    expect(out).toHaveLength(4);
+    expect(out.every((f) => f.downstream === undefined)).toBe(true);
   });
 });

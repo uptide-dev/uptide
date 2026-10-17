@@ -66,7 +66,7 @@ import { foldOptionCascades } from './option-cascades.js';
 import { mapWithLimit, mapWithSerialRetry } from './pool.js';
 import { isBehind, rankCandidates } from './rank.js';
 import { ownTypesFrom } from './removed.js';
-import { foldSharedRoots, groupRootCauses } from './root-cause.js';
+import { foldConsequences, foldSharedRoots, groupRootCauses } from './root-cause.js';
 import { runtimeChangeFindings } from './runtime-changes.js';
 import { type StandIns, standInLeads } from './stand-ins.js';
 import { confirmBreaking, evidenceOf, tierOf } from './tier.js';
@@ -474,6 +474,17 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
           findings: report.findings,
         });
     }
+  // Compile errors the compiler traces to another breaking site go with that site's edit (UPT-99).
+  for (const report of results.flat()) {
+    const findings = foldConsequences(
+      report.findings,
+      report.workspace === '.' || report.workspace === '*' ? '' : `${report.workspace}/`,
+    );
+    const folded = findings.length < report.findings.length;
+    report.findings = findings;
+    // The verdict counts breaking findings: recount without the folded ones.
+    if (folded && report.verdict) report.verdict = verdictOf(report, report.verdict.notVerified);
+  }
   const order = new Map(workspaces.map((w, i) => [w, i]));
   const packages = mergeAcrossWorkspaces(
     results.flat().sort((a, b) => (order.get(a.workspace) ?? 0) - (order.get(b.workspace) ?? 0)),
