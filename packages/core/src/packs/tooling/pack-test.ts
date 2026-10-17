@@ -20,7 +20,14 @@ import {
   verifiedGate,
 } from '../contract.js';
 import { type FixtureResult, fixturesPass, runFixtures } from './fixtures.js';
-import { type EnsureOptions, ensureFixture, ensureRepo, label, truthProblems } from './truth.js';
+import {
+  type EnsureOptions,
+  ensureFixture,
+  ensureRepo,
+  label,
+  pinnedRepo,
+  truthProblems,
+} from './truth.js';
 
 /**
  * A site as scored: repository-relative file, line, the rule it belongs to, its severity. A
@@ -334,11 +341,7 @@ async function scoreRepo(
     let dir: string;
     if (entry.fixture) dir = await ensureFixture(root, entry.fixture, options);
     else {
-      const pinned = {
-        repo: entry.repo as string,
-        commit: entry.commit as string,
-        ...(entry.directory ? { directory: entry.directory } : {}),
-      };
+      const pinned = pinnedRepo(entry);
       // Fetched first, without installing, so the two are timed apart.
       await ensureRepo(pinned, { ...options, install: false });
       timing.fetchMs = since(start);

@@ -10,7 +10,14 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ensureRepo, type PinnedRepo, registeredPacks, truthCacheDir } from '@uptide/core';
+import {
+  ensureRepo,
+  type GroundTruth,
+  type PinnedRepo,
+  pinnedRepo,
+  registeredPacks,
+  truthCacheDir,
+} from '@uptide/core';
 
 const args = process.argv.slice(2);
 const names = args.filter((a) => !a.startsWith('--'));
@@ -22,16 +29,15 @@ for (const entry of registeredPacks()) {
   if (names.length && !names.includes(entry.pack.name) && !names.includes(entry.dir)) continue;
   const truth = JSON.parse(
     readFileSync(join(root, 'packages/core/src/packs', entry.dir, 'ground-truth.json'), 'utf8'),
-  ) as { repos: { repo?: string; commit?: string }[] };
+  ) as GroundTruth;
   for (const r of truth.repos)
-    if (r.repo && r.commit)
-      wanted.push({ repo: { repo: r.repo, commit: r.commit }, for: entry.pack.name });
+    if (r.repo && r.commit) wanted.push({ repo: pinnedRepo(r), for: entry.pack.name });
 }
 if (args.includes('--corpus'))
   for (const r of JSON.parse(
     readFileSync(join(root, 'fixtures/corpus.json'), 'utf8'),
   ) as PinnedRepo[])
-    wanted.push({ repo: { repo: r.repo, commit: r.commit }, for: 'corpus' });
+    wanted.push({ repo: pinnedRepo(r), for: 'corpus' });
 
 console.log(`cache: ${truthCacheDir()}`);
 let failed = 0;
