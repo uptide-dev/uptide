@@ -20,7 +20,7 @@ import { errorCode, SafetyRefusal, UptideError } from '../errors.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { activePack, assertCandidateLocal } from '../packs/index.js';
 import { uptideVersionInfo } from '../version.js';
-import { assistedPeerPreflight, pinConsentFallback } from './feedback.js';
+import { assistedPeerPreflight, assistedRootPins } from './feedback.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
 import { PeerPreflightError } from './peer-preflight.js';
 import { git, projectRoot } from './process.js';
@@ -596,22 +596,21 @@ export async function isolatedFix(
       leadOnly(error);
     }
   if (options.target) noPackPreflight(options, options.target, assist, committed);
-  if (!options.pinCurrentApi && options.target)
-    try {
-      planRootPins(
-        options.cwd,
-        [{ name: options.only, to: options.target }, ...(options.peerPlan?.companions ?? [])],
-        options,
-        (file) => {
+  if (!options.pinCurrentApi && options.target) {
+    const lead = { name: options.only, to: options.target };
+    const pins = assistedRootPins(
+      options,
+      (o) =>
+        planRootPins(options.cwd, [lead, ...(o.peerPlan?.companions ?? [])], o, (file) => {
           const path = join(project, file);
           if (!git(source, 'ls-tree', '--name-only', preflight.head, '--', path)) return undefined;
           return git(source, 'show', `${preflight.head}:${path}`);
-        },
-      );
-    } catch (error) {
-      agentLed.push(pinConsentFallback(error, assist));
-      options = { ...options, updatePins: true };
-    }
+        }),
+      assist,
+    );
+    options = pins.options;
+    agentLed.push(...pins.reasons);
+  }
   if (agentLed.length)
     options = { ...options, agentLed: [...(options.agentLed ?? []), ...agentLed] };
   const before = snapshot(source);

@@ -212,6 +212,8 @@ export interface FixReport {
   rootPins?: RootPin[];
   /** Pack pipeline limitations: agent-led results can be published only as drafts. */
   agentFallback?: string[];
+  /** Agent-led runs: the repository's frozen install on the final branch, run in the fix clone. */
+  cleanInstall?: { command: string; passed: boolean; output?: string };
   /** A local candidate smoke run; never eligible for publication. */
   packWarning?: 'candidate pack, not verified';
   peerConflicts?: PeerBlockerGroup[];

@@ -701,7 +701,9 @@ describe('fix with companions', () => {
       'brush 1.0.0 has no release that agrees with paint 2.0.0',
     ]);
     const result = await fix({ cwd: root, only: 'paint', fixer: fixer(0.01) }, services);
-    expect(installs).toHaveLength(1);
+    // The upgrade, then the draft's clean install (no upgrade argument).
+    expect(installs).toHaveLength(2);
+    expect(installs[1]).toBeUndefined();
     expect(installs[0]?.also).toBeUndefined();
     expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies.brush).toBe(
       '1.0.0',

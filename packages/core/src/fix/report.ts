@@ -717,6 +717,11 @@ export function renderMigration(
       `> ⚠️ **Agent-led draft.** The mechanical path stopped: ${report.agentFallback.join('; ')}`,
       '',
     );
+  if (report.cleanInstall?.passed === false)
+    lines.push(
+      `> ❌ **This branch does not install.** \`${report.cleanInstall.command}\` failed in the fix clone: ${report.cleanInstall.output?.split('\n').find((l) => l.trim()) ?? 'no output'}`,
+      '',
+    );
   if (report.lockfile?.outOfScope?.length)
     lines.push(
       must(

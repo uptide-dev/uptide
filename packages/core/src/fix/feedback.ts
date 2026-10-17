@@ -5,9 +5,19 @@ import type { CheckReport, Finding } from '../domain/report.js';
 import { installedManifest } from '../list/evidence.js';
 import { nanos } from '../llm/pricing.js';
 import { applySitePatch } from './patch.js';
-import { type PeerPlan, PeerPreflightError, peerPreflight } from './peer-preflight.js';
+import {
+  type PeerBlockerGroup,
+  type PeerPlan,
+  PeerPreflightError,
+  peerPreflight,
+} from './peer-preflight.js';
 import { git } from './process.js';
-import { describeRootPin, RootPinConsentError } from './root-pins.js';
+import {
+  describeRootPin,
+  describeUnsafePin,
+  RootPinConsentError,
+  UnsafeRootPinError,
+} from './root-pins.js';
 import type { FixOptions, FixServices } from './run.js';
 import { protectedFile, type TaskRunner } from './sdk-agent.js';
 import { safeFile } from './settle.js';
@@ -193,6 +203,18 @@ export function fallbackReport(
   };
 }
 
+/** What the continued run does with one blocker: the first release that accepts the targets, or none (UPT-102). */
+function blockerOutcome(p: PeerBlockerGroup, allowPeer: readonly string[]): string {
+  const peers = [
+    ...new Set(p.peers.filter((r) => r.version === p.version).map((r) => `${r.peer} ${r.target}`)),
+  ].join(', ');
+  if (p.newer && !allowPeer.includes(p.name))
+    return `${p.name} ${p.version} → ${p.newer}, the first release that accepts ${peers}`;
+  return p.via
+    ? `${p.name} ${p.version} (peer of ${p.via.join(' → ')}) rejects installed ${peers}; kept with a peer override`
+    : `no ${p.name} release accepts ${peers}; ${p.version} kept with a peer override`;
+}
+
 /**
  * Preflight refusals an assisting agent continues past (UPT-78): the run becomes an agent-led
  * draft with the reason in `agentFallback`. Without an agent, it refuses as before.
@@ -212,13 +234,39 @@ export async function assistedPeerPreflight(
     return {
       options: next,
       plan: await peerPreflight(next, services, read),
-      reason: `Peer blockers need a major upgrade (${error.peerConflicts.map((p) => p.name).join(', ')}); continued as \`${error.next}\``,
+      reason: `Peer blockers: ${error.peerConflicts.map((p) => blockerOutcome(p, error.plan.allowPeer)).join('; ')}; continued as \`${error.next}\``,
     };
   }
 }
 
-/** Missing pin consent, continued by an agent. An explicit `updatePins: false` still refuses. */
-export function pinConsentFallback(error: unknown, assist: boolean): string {
-  if (!assist || !(error instanceof RootPinConsentError) || error.refused) throw error;
-  return `Root pins updated without --update-pins consent: ${error.pins.map(describeRootPin).join(' ')}`;
+/**
+ * Root pins an agent continues past: missing consent (UPT-78) updates them; pins Uptide cannot
+ * update safely are left as written and named, exactly, for the reviewer (UPT-102). An explicit
+ * `updatePins: false` still refuses, and so does every case without an agent.
+ */
+export function assistedRootPins<T extends { updatePins?: boolean; unsafePins?: 'leave' }>(
+  options: T,
+  plan: (options: T) => unknown,
+  assist: boolean,
+): { options: T; reasons: string[] } {
+  const reasons: string[] = [];
+  for (;;) {
+    try {
+      plan(options);
+      return { options, reasons };
+    } catch (error) {
+      if (!assist) throw error;
+      if (error instanceof UnsafeRootPinError && options.unsafePins !== 'leave') {
+        reasons.push(
+          `Root pins left unchanged, Uptide cannot update them safely; check each by hand: ${error.pins.map(describeUnsafePin).join('; ')}`,
+        );
+        options = { ...options, unsafePins: 'leave' };
+      } else if (error instanceof RootPinConsentError && !error.refused && !options.updatePins) {
+        reasons.push(
+          `Root pins updated without --update-pins consent: ${error.pins.map(describeRootPin).join(' ')}`,
+        );
+        options = { ...options, updatePins: true };
+      } else throw error;
+    }
+  }
 }

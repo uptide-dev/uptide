@@ -126,13 +126,18 @@ it. An override permits dependency resolution; it does not establish runtime com
 Uptide never adds `--legacy-peer-deps` or `--force`.
 
 With an assisting agent (an API key, LLM on), these preflight refusals do not exit 2: the run
-continues as an **agent-led draft**. A peer blocker runs as the suggested command above; root
-pins without `--update-pins` consent are updated (`updatePins: false` in `uptide.yml` still
-refuses); companions that cannot move together leave the lead alone; and resolutions the
+continues as an **agent-led draft**. A peer blocker runs as the suggested command above, and
+the reason names each blocker's first release that accepts the target, or says that no release
+does and an override keeps it; root pins without `--update-pins` consent are updated
+(`updatePins: false` in `uptide.yml` still refuses); root pins Uptide cannot update safely
+(nested or selector keys, non-version values) are left as written, each named with its exact
+path and value; companions that cannot move together leave the lead alone; and resolutions the
 install changed outside the upgrade's subtree are kept for review instead of refused. The
 reason heads the PR body and the terminal summary, with feedback rounds and spend, and the PR
-opens as a draft. With `--no-llm`, without an agent, or on a downgrade, `fix` refuses as
-described here.
+opens as a draft. Before it is delivered, a draft must pass the repository's clean install
+(`npm ci`, `pnpm install --frozen-lockfile`, `yarn install --immutable`) in the fix clone; if it
+does not, the PR body says so right under the reason and the run does not pass. With
+`--no-llm`, without an agent, or on a downgrade, `fix` refuses as described here.
 
 For pnpm and Yarn, conflicts are reported but do not stop planning. Their own settings may
 still reject the install (for example strict peer checking). `--allow-peer` writes the native

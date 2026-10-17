@@ -1008,6 +1008,67 @@ describe('preflight refusals become agent-led drafts with an agent (UPT-78)', ()
     expect(body).toMatch(/Feedback rounds: \d\/3\. Spend: \$/);
   });
 
+  // enki's shape (UPT-102): a nested override Uptide cannot rewrite without guessing.
+  const unsafePin = () => {
+    const { root, services } = zodFixture(scratch);
+    const file = join(root, 'package.json');
+    const manifest = JSON.parse(readFileSync(file, 'utf8'));
+    const overrides = { 'zod-form': { peerDependencies: { zod: '3.25.76' } } };
+    writeFileSync(file, JSON.stringify({ ...manifest, overrides }));
+    git(root, 'add', '.');
+    git(root, 'commit', '-m', 'nested pin');
+    return { root, services, overrides };
+  };
+  const exactPin =
+    'package.json overrides > zod-form > peerDependencies > zod = "3.25.76" (pins zod, which moves to 4.6.5)';
+
+  it('pin that cannot be updated safely: exit-2 refusal without an agent or with --no-llm', async () => {
+    const { root, services } = unsafePin();
+    for (const options of [
+      { cwd: root, only: 'zod', fixer: null, tool: TOOL },
+      { cwd: root, ...agent, fixer: null },
+    ])
+      await expect(isolatedFix(options, services)).rejects.toThrow(
+        'package.json overrides > zod-form > peerDependencies > zod may pin zod, but its selector or value cannot be updated safely.',
+      );
+  });
+
+  it('pin that cannot be updated safely: a draft with an agent, the pin left as written and named first', async () => {
+    const { root, services, overrides } = unsafePin();
+    const agentRunner = runner();
+    const result = await isolatedFix({ cwd: root, ...agent }, { ...services, agentRunner });
+    expect(agentRunner).toHaveBeenCalled();
+    expect(result.agentFallback?.[0]).toBe(
+      `Root pins left unchanged, Uptide cannot update them safely; check each by hand: ${exactPin}`,
+    );
+    expect(JSON.parse(git(root, 'show', `${result.branch}:package.json`)).overrides).toEqual(
+      overrides,
+    );
+    expect(result.cleanInstall).toMatchObject({ passed: true, command: expect.any(String) });
+    const body = prBody(result);
+    expect(body.split('\n').slice(0, 4).join('\n')).toContain(`**Agent-led draft.**`);
+    expect(body.split('\n').slice(0, 4).join('\n')).toContain(exactPin);
+    expect(body).not.toContain('does not install');
+  });
+
+  it('a draft whose clean install fails says so at the top and does not pass', async () => {
+    const { root, services } = unsafePin();
+    const install: typeof services.install = async (cwd, upgrade) => {
+      if (upgrade) return services.install(cwd, upgrade);
+      throw new UptideError('INSTALL_FAILED', 'install failed: npm error code ERESOLVE');
+    };
+    const result = await isolatedFix(
+      { cwd: root, ...agent },
+      { ...services, install, agentRunner: runner() },
+    );
+    expect(result.cleanInstall).toMatchObject({ passed: false });
+    expect(result.cleanInstall?.output).toContain('ERESOLVE');
+    expect(result.verification.passed).toBe(false);
+    const top = prBody(result).split('\n').slice(0, 6).join('\n');
+    expect(top).toContain('**This branch does not install.**');
+    expect(top).toContain('npm error code ERESOLVE');
+  });
+
   it('root pin refused in uptide.yml stays refused with an agent', async () => {
     const { root, services } = pinned('version: 1\nupdatePins: false\n');
     const agentRunner = runner();
@@ -1064,7 +1125,7 @@ describe('preflight refusals become agent-led drafts with an agent (UPT-78)', ()
       expect(planner.mock.calls.some(([options]) => options.also?.includes('zod-form'))).toBe(true);
       expect(agentRunner).toHaveBeenCalled();
       expect(result.agentFallback?.join(';')).toContain(
-        'Peer blockers need a major upgrade (zod-form); continued as `uptide fix zod zod-form',
+        'Peer blockers: zod-form 1.0.0 → 2.0.0, the first release that accepts zod 4.6.5; continued as `uptide fix zod zod-form',
       );
       // The plan stands: the blocker's major moves in the same install.
       expect(result.companions).toMatchObject([{ name: 'zod-form', to: '2.0.0' }]);
