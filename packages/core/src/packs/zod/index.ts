@@ -24,6 +24,7 @@ import {
 } from './error-members.js';
 import { zodGuide } from './guide.js';
 import { defaultMessageSites } from './messages.js';
+import { removedExportFindings, removedExportSites } from './removed-exports.js';
 
 const params: Record<string, number> = {
   string: 0,
@@ -227,7 +228,11 @@ function formatTransform(text: string, call: CallExpression): TransformResult | 
       applied: false,
       reason: 'comments inside the format receiver require manual placement',
     };
-  const name = expression.getName() === 'datetime' ? 'iso.datetime' : expression.getName();
+  // zod 3's uuid() accepted any 8-4-4-4-12 hex id; z.uuid() in zod 4 checks the RFC version and
+  // variant bits, so ids such as 11111111-1111-1111-1111-111111111111 stop validating. z.guid()
+  // is the zod 4 check with zod 3's pattern.
+  const renamed: Record<string, string> = { datetime: 'iso.datetime', uuid: 'guid' };
+  const name = renamed[expression.getName()] ?? expression.getName();
   const changes: Edit[] = [
     {
       start: expression.getStart(),
@@ -252,7 +257,10 @@ function formatTransform(text: string, call: CallExpression): TransformResult | 
     text: edit(text, changes),
     applied: true,
     rule: 'string-format',
-    reason: 'use top-level format factory, preserving arguments and subsequent chain',
+    reason:
+      expression.getName() === 'uuid'
+        ? 'use z.guid(), which accepts the ids zod 3 uuid() accepted; z.uuid() also checks the RFC version and variant'
+        : 'use top-level format factory, preserving arguments and subsequent chain',
   };
 }
 /**
@@ -381,6 +389,17 @@ export const zodPack: Pack = {
       rewrite: (text, finding) => rewriteErrors(text, finding),
     },
     {
+      id: 'removed-exports',
+      summary:
+        "names zod 3 exported from its root that only 'zod/v3' still exports: SafeParseReturnType, ZodTypeDef, ZodEffects",
+      severity: 'breaking',
+      // Only its own sites: the type diff counts the name as still exported (from zod/v3).
+      kinds: [],
+      symbols: /$^/,
+      guide: zodGuide.removedExports,
+      detect: (text, file) => removedExportSites(text, file),
+    },
+    {
       id: 'types',
       summary: 'ZodType generics and ZodTypeDef changed; type-level code is migrated by the agent',
       severity: 'breaking',
@@ -401,8 +420,18 @@ export const zodPack: Pack = {
   instructions: zodGuide.generics,
   transform,
   guide: (f) => ruleFor(zodPack.rules, f)?.guide ?? zodGuide.generics,
-  runtimeFindings: ({ root, workspace, from, to, usages, read }) =>
-    errorMemberFindings({ root, workspace, from, to, usages, read, rewrite: rewriteErrorMembers }),
+  runtimeFindings: ({ root, workspace, from, to, usages, read }) => [
+    ...errorMemberFindings({
+      root,
+      workspace,
+      from,
+      to,
+      usages,
+      read,
+      rewrite: rewriteErrorMembers,
+    }),
+    ...removedExportFindings({ root, workspace, from, to, usages, read }),
+  ],
   scanContext: (root, workspaces) => ({ defaultMessages: defaultMessageSites(root, workspaces) }),
   testFollowUps({ root, failing, context, output }) {
     const edits = [];
