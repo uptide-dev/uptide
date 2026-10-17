@@ -30,7 +30,12 @@ interface Generator {
  * local files only: `prisma generate` contacts no database, and a codegen config with a remote
  * schema is reported, not run. It runs in fix's clone, with the repository's own binary.
  */
-export async function generateClients(root: string, workspaces: string[]): Promise<Generated[]> {
+export async function generateClients(
+  root: string,
+  workspaces: string[],
+  /** Added to each generator's environment: ground truth blocks downloads with it. */
+  env: Record<string, string> = {},
+): Promise<Generated[]> {
   const out: Generated[] = [];
   for (const workspace of workspaces) {
     const dir = join(root, workspace);
@@ -42,7 +47,7 @@ export async function generateClients(root: string, workspaces: string[]): Promi
       }
       const bin = findBin(dir, root, g.bin);
       if (!bin) continue;
-      const result = await command(dir, bin, g.args, 180_000, g.env);
+      const result = await command(dir, bin, g.args, 180_000, { ...g.env, ...env });
       out.push({
         workspace,
         command: typed,

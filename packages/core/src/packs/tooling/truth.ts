@@ -146,6 +146,13 @@ interface Marker {
 
 const MARKER = '.uptide-ground-truth.json';
 
+/**
+ * Prisma 5 and 6 download their engine binaries on first use when the install script did not
+ * run: a mirror nothing listens on keeps that off the network (UPT-95), so the generator fails
+ * and is reported instead. Prisma 7's client generator needs no engine.
+ */
+const NO_DOWNLOADS = { PRISMA_ENGINES_MIRROR: 'http://127.0.0.1:9' };
+
 function readMarker(dir: string): Marker | undefined {
   try {
     return JSON.parse(readFileSync(join(dir, MARKER), 'utf8')) as Marker;
@@ -251,7 +258,7 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
         `installed with ${result.manager}${result.frozen ? '' : ', lockfile not frozen'}`,
       );
     }
-    generated[at] = await generateClients(project, workspacePackagesOrRoot(project));
+    generated[at] = await generateClients(project, workspacePackagesOrRoot(project), NO_DOWNLOADS);
     for (const g of generated[at])
       options.log?.(`${g.status}: ${g.command}${g.workspace === '.' ? '' : ` in ${g.workspace}`}`);
   }
@@ -269,7 +276,9 @@ export function generatorFailures(entry: PinnedRepo, cacheDir = truthCacheDir())
   return (done ?? [])
     .filter((g) => g.status !== 'generated')
     .map((g) => {
-      const why = g.output?.trim().split('\n').at(-1);
+      // The last line that says what failed: codegen ends on its summary (`✔ Generate outputs`).
+      const lines = g.output?.trim().split('\n') ?? [];
+      const why = lines.findLast((l) => /fail|error|cannot/i.test(l)) ?? lines.at(-1);
       const where = g.workspace === '.' ? '' : ` in ${g.workspace}`;
       return `generator ${g.status === 'timeout' ? 'timed out' : 'failed'}: ${g.command}${where}${why ? ` (${why})` : ''}`;
     });
