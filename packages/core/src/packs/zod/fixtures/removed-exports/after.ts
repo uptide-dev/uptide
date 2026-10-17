@@ -1,5 +1,5 @@
 import { z, type SafeParseReturnType, type ZodTypeDef } from 'zod'; // @uptide removed-exports at:SafeParseReturnType
-import { ZodTypeAny } from 'zod';
+import { ZodType } from 'zod';
 
 // Shape of actions/event.ts in vzdc-artcc/website: a result typed with a zod 3 root export.
 export const parse = (input: unknown): SafeParseReturnType<unknown, string> => // @uptide removed-exports at:SafeParseReturnType
@@ -7,7 +7,7 @@ export const parse = (input: unknown): SafeParseReturnType<unknown, string> => /
 
 export type Def = z.ZodTypeDef; // @uptide removed-exports at:z.ZodTypeDef
 export type Shape = Record<string, import('zod').ZodEffects<z.ZodString>>; // @uptide removed-exports at:import('zod')
-export const schema: ZodTypeAny = z.string();
+export const schema: ZodType = z.string();
 
 // Left alone: a local type that shares the name, and a member that is not the export.
 type SafeParseSuccess = { success: true };

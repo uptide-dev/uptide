@@ -13,6 +13,12 @@ export const zodGuide = {
     'ZodError.formErrors and ZodError.errors were removed in Zod 4 and read undefined. formErrors was identical to flatten(): use z.flattenError(error), which returns the same { formErrors, fieldErrors } object (flatten() is deprecated). errors was an alias of issues: use error.issues. Keep the returned shape and the control flow; do not cast to hide the change.',
   removedExports:
     "Zod 4's root no longer exports the names zod 3 kept for its internals: SafeParseReturnType, SafeParseSuccess and SafeParseError (use ZodSafeParseResult, which takes only the output type), ZodTypeDef and the Zod*Def interfaces (gone), ZodEffects (a refinement or transform is now the schema itself, a ZodPipe for transform), ZodNativeEnum (use ZodEnum), and the parse and issue helpers. They are still exported from 'zod/v3', which keeps zod 3's runtime and types, not the schemas you build with 'zod'. Replace the name with its zod 4 equivalent; do not import it from 'zod/v3' while the schemas come from 'zod'.",
+  refineMessage:
+    'refine(check, { message }) still works in Zod 4 but message is deprecated: pass { error: message } (or a string as the second argument). path and params are unchanged.',
+  deprecatedNames:
+    'ZodTypeAny, ZodSchema, ZodIssue, ZodIssueCode, ZodErrorMap, ZodFlattenedError and ZodFormattedError are deprecated aliases. Use z.ZodType, z.core.$ZodIssue, the raw issue code strings, z.core.$ZodErrorMap, z.core.$ZodFlattenedError and z.core.$ZodFormattedError.',
+  errorMap:
+    'errorMap was removed from schema params and refinements: pass error, a function that receives the issue and returns a message or undefined to use the default. There is no ctx: ctx.defaultError has no equivalent, return undefined to fall through to the default message.',
   generics:
     'ZodType now takes Output and Input, defaulting to unknown. The definition type parameter is gone. Remove reliance on ZodTypeDef without weakening the input/output contract. SafeParse success contains data; failure contains error. Narrow on success before accessing either. Preserve validation and type safety; do not cast to any to hide diagnostics.',
 };
