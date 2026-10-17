@@ -1,5 +1,11 @@
 # uptide
 
+## 0.15.1
+
+### Patch Changes
+
+- [#213](https://github.com/uptide-dev/uptide/pull/213) [`2de3a18`](https://github.com/uptide-dev/uptide/commit/2de3a180955b19736aa6c81bb2ec3ddf2a160bed) Thanks [@lucasbraum](https://github.com/lucasbraum)! - A companion pack that moves with the lead's fix (react beside next) now gets its own scan context and inventory, and the PR body carries a section with its review notes.
+
 ## 0.15.0
 
 ### Minor Changes
