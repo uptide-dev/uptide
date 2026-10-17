@@ -18,7 +18,9 @@
   },
   "class": "breaking",
   "breakingSites": 1399,
+  "breakingFoundAny": 1379,
   "breakingFound": 1379,
+  "breakingScored": 1399,
   "behaviorSites": 4,
   "unexercised": ["downlevel-iteration", "import-assertions", "module-keyword"],
   "mechanical": {

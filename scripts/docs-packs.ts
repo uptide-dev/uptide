@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  type PackVerification,
   RULE_PRECISION_WARNING,
   rateLabel,
   rulePrecision,
@@ -39,10 +40,11 @@ function rangeLabel(range: string): string {
   return range;
 }
 
-/** Breaking sites a breaking-severity finding landed on, over all of them; `—` before it was recorded. */
-function foundLabel(v: { breakingFound?: number; breakingSites?: number }): string {
-  if (v.breakingFound === undefined || !v.breakingSites) return '—';
-  return `${Math.round((v.breakingFound / v.breakingSites) * 100)}%`;
+/** A share of the breaking sites of the repositories scored; `—` for a record written before it. */
+function foundLabel(v: PackVerification, found: 'breakingFoundAny' | 'breakingFound'): string {
+  const n = v[found];
+  if (n === undefined || !v.breakingScored) return '—';
+  return `${Math.round((n / v.breakingScored) * 100)}%`;
 }
 
 export function packsTable(verifiedOnly = false): string {
@@ -56,10 +58,10 @@ export function packsTable(verifiedOnly = false): string {
     ) as GroundTruth;
     const repos = [...new Set(truth.repos.filter((r) => r.repo).map((r) => r.repo as string))];
     const range = `${rangeLabel(pack.meta.from)} → ${pack.meta.targetDescription ?? rangeLabel(pack.meta.to)}`;
-    return `| \`${pack.meta.package}\` | ${range} | ${pack.rules.length} | ${rateLabel(verification.breaking, 'precision')} | ${rateLabel(verification.breaking, 'recall')} | ${foundLabel(verification)} | ${verification.breakingSites ?? '—'} | ${repos.join(', ') || '—'} | ${verification.status} |`;
+    return `| \`${pack.meta.package}\` | ${range} | ${pack.rules.length} | ${rateLabel(verification.breaking, 'precision')} | ${foundLabel(verification, 'breakingFoundAny')} | ${foundLabel(verification, 'breakingFound')} | ${verification.breakingSites ?? '—'} | ${repos.join(', ') || '—'} | ${verification.status} |`;
   });
   return [
-    '| Package | From → to | Rules | Precision | Recall | Breaking found as breaking | Breaking sites | Ground-truth repositories | Status |',
+    '| Package | From → to | Rules | Precision | Found, any severity | Found as breaking | Breaking sites | Ground-truth repositories | Status |',
     '| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |',
     ...rows,
     ...(verifiedOnly

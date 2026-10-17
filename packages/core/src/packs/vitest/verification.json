@@ -18,7 +18,9 @@
   },
   "class": "breaking",
   "breakingSites": 32,
+  "breakingFoundAny": 31,
   "breakingFound": 31,
+  "breakingScored": 32,
   "behaviorSites": 13,
   "unexercised": ["removed-entrypoints"],
   "mechanical": {

@@ -2,4 +2,4 @@
 "uptide": patch
 ---
 
-`pack test --write` records how many breaking sites a breaking-severity finding landed on (`breakingFound`), and the pack tables in the README and the compatibility matrix show it as "Breaking found as breaking" beside recall, which also counts the sites a pack reports only as deprecations. Packs recorded before it show `—`.
+`pack test --write` records how many breaking sites a finding landed on at any severity and as breaking, out of all breaking sites it scored, and the pack tables show both ("Found, any severity", "Found as breaking") in place of the single recall column. Packs recorded before it show `—`.
