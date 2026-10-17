@@ -266,7 +266,9 @@ user's machine that generated code exists (`prisma generate` has run), so withou
 cannot resolve the imports of a generated client and scores those files as `unverified`: the
 scoring environment, not the rule, would understate the pack. The generators use the
 repository's own binaries, read local files only and reach no network beyond the registry; a
-codegen config with a remote schema is not run. The step applies to every pack and every
+codegen config with a remote schema is not run, and a Prisma that would download its engine
+binaries (Prisma 5 and 6, whose install script did not run) cannot reach the download and
+fails. The step applies to every pack and every
 ground-truth repository alike, never to a single entry. A generator that fails or is not run
 is reported by `pack test` for that repository (`generator failed: …`), which is then scored
 without the generated code, as before. `check` itself still runs no scripts. Fixtures are
