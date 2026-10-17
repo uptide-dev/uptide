@@ -11,6 +11,8 @@ export default defineConfig({
     // directory the tests make (`mkdtempSync(join(tmpdir(), ...))`) starts from the real path.
     env: {
       TMPDIR: realpathSync(tmpdir()),
+      // Hints print `npx uptide` however the runner was launched (installed bin, npx, pnpm).
+      npm_command: 'exec',
       // Offline tests must not select a live fixer from the developer's credentials.
       ANTHROPIC_API_KEY: '',
       OPENAI_API_KEY: '',

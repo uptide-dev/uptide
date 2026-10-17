@@ -139,3 +139,9 @@ exports[`friendly failures: each says what to run next > unsupported package man
   "  Next: bun install --save-text-lockfile",
 ]
 `;
+
+exports[`reports cache failures on stderr with {"flags":["--details"]} 1`] = `[]`;
+
+exports[`reports cache failures on stderr with {"flags":["--json"]} 1`] = `[]`;
+
+exports[`reports cache failures on stderr with {"flags":[]} 1`] = `[]`;

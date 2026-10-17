@@ -79,6 +79,11 @@ it.skipIf(!existsSync(bin)).each([
         ],
       ])
         execFileSync('git', args, { cwd });
+      // `pnpm run`/`pnpm exec` add a relative ./node_modules/.bin, which in this cwd finds the launcher.
+      const inheritedPath = (process.env.PATH ?? '')
+        .split(delimiter)
+        .filter((dir) => !/(^|[\\/])node_modules[\\/]\.bin$/.test(dir))
+        .join(delimiter);
       const invoke = (json: boolean) =>
         promisify(execFile)(
           process.execPath,
@@ -93,8 +98,8 @@ it.skipIf(!existsSync(bin)).each([
               NPM_CONFIG_USERCONFIG: '/nonexistent',
               npm_command: npmCommand,
               PATH: onPath
-                ? `${join(cwd, 'node_modules/.bin')}${delimiter}${process.env.PATH ?? ''}`
-                : process.env.PATH,
+                ? `${join(cwd, 'node_modules/.bin')}${delimiter}${inheritedPath}`
+                : inheritedPath,
               UPTIDE_TELEMETRY: '0',
               UPTIDE_CACHE_DIR: join(cwd, 'cache'),
             },
