@@ -48,15 +48,9 @@ Draft PR runs update conflicting root Yarn resolutions and npm/pnpm overrides an
 ## Verified packs
 
 A pack is everything Uptide knows about one upgrade: rules, a guide for the agent, behavior
-checks, and ground truth from public repositories it is scored against. The numbers are for
-breaking findings on that ground truth, as recorded by `npx uptide pack test`, over every
-repository it scores, the pack's synthetic fixture repositories included. Precision is the share
-of breaking-severity findings that land on a ground-truth site. "Found, any severity" and "Found as
-breaking" are shares of the same set, every breaking site of those repositories: the first counts a
-site a finding landed on whatever its severity (a deprecation, an unverified finding), the second
-only a site a breaking-severity finding landed on. "Breaking sites" counts the public repositories
-only. A pack is verified with two or more public repositories, five real breaking sites, and no
-false positive.
+checks, and ground truth from public repositories it is scored against. Precision is breaking findings
+on a ground-truth site; the Found columns are shares of every breaking site scored, by any finding and by a
+breaking one ([definitions](docs/compatibility.md)). Verified: two or more public repositories, five real sites, no false positive.
 See the [pack compatibility matrix](docs/compatibility.md) and the [migration pack contract](docs/packs.md).
 
 <!-- packs:start -->

@@ -11,9 +11,15 @@ excluding local fixtures. Multiple upgrade cases from the same repository appear
 
 **Status** is recorded by `uptide pack test --write` in `verification.json`. A **verified**
 pack passed the [verification gate](packs.md); **candidate** packs ship but are not active
-by default. Precision and recall measure breaking findings on the recorded ground truth,
-with `n/a` when nothing breaking was predicted or expected. These results describe that
-ground truth, not a guarantee that every breaking change in another repository is covered.
+by default. The numbers measure breaking findings on the recorded ground truth, over every
+repository `pack test` scores, the pack's synthetic fixture repositories included. **Precision**
+is the share of breaking-severity findings that land on a ground-truth site, `n/a` when none was
+predicted. **Found, any severity** and **Found as breaking** are shares of the same set, every
+breaking site of those repositories: the first counts a site a finding landed on whatever its
+severity (a deprecation, an unverified finding), the second only a site a breaking-severity
+finding landed on; `—` for a record written before they were kept. **Breaking sites** counts the
+public repositories only. These results describe that ground truth, not a guarantee that every
+breaking change in another repository is covered.
 
 The second table lists every rule with a rewrite, breaking or not. Its **precision** counts the
 rule's real true positives in public repositories against its false positives wherever
