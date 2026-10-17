@@ -2352,6 +2352,15 @@ async function checkGroup(
             ...packDirs(only),
             usages: only.scan.usages,
             files: inventory,
+            companions: prepared
+              .filter((p) => p !== only)
+              .map((p) => ({
+                name: p.name,
+                from: p.installedVersion,
+                to: p.target,
+                ...packDirs(p),
+                usages: p.scan.usages,
+              })),
             read: (file) => {
               try {
                 return readFileSync(resolve(ctx.opts.cwd, file), 'utf8');

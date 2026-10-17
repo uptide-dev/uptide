@@ -358,6 +358,18 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ...(options.onProgress ? { onProgress: options.onProgress } : {}),
       cwd: root,
       only: [pack.name, ...companionPacks.map((c) => c.pack.name)],
+      // The lead's pack speaks for its group in check: its companions' detect rules run too.
+      ...(companionPacks.length
+        ? {
+            packs: [
+              withCompanionPacks(
+                pack,
+                companionPacks.map((c) => c.pack),
+              ),
+              ...activePacks(options.allowCandidate).filter((p) => p.name !== pack.name),
+            ],
+          }
+        : {}),
       targets: {
         [pack.name]: target,
         ...Object.fromEntries(companionPacks.map((c) => [c.pack.name, c.to])),

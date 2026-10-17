@@ -2,6 +2,7 @@ import type { Finding } from '../domain/report.js';
 import { UptideError } from '../errors.js';
 import { type PackStatus, type RegisteredPack, recordedStatus } from './contract.js';
 import { withUnexercised } from './fixability.js';
+import { packInventory } from './inventory.js';
 import { REGISTRY } from './registry.js';
 import type { MigrationPack, PackContext } from './types.js';
 
@@ -70,10 +71,26 @@ export function withCompanionPacks(
     of(finding) === lead
       ? context
       : { ...context, from: finding.change.from, to: finding.change.to };
-  // ponytail: the companion's own context (inventory, scanContext, review sections) is not built;
-  // its rules see the lead's. Build it per pack if a companion pack needs more than its sites.
+  // ponytail: the companion's scanContext and review sections are not built; its rules see the
+  // lead's. Build them per pack if a companion pack needs more than its sites.
   return {
     ...lead,
+    // Each companion's detect-based rules run over its own package: its versions, its usages
+    // and its own inventory. Without this they never fire (UPT-89).
+    runtimeFindings: (input) => [
+      ...(lead.runtimeFindings?.(input) ?? []),
+      ...companions.flatMap((pack) => {
+        const own = input.companions?.find((c) => c.name === pack.name);
+        return own && pack.runtimeFindings
+          ? pack.runtimeFindings({
+              ...input,
+              ...own,
+              files: packInventory(input.root, input.workspace, pack.inventory),
+              companions: [],
+            })
+          : [];
+      }),
+    ],
     rules: [...lead.rules, ...companions.flatMap((p) => p.rules)],
     unexercised: [lead, ...companions].flatMap((p) => p.unexercised ?? []),
     transform: (text, finding, context) =>
