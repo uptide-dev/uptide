@@ -205,7 +205,7 @@ export const SENTRY_RULES: readonly SentryRule[] = [
     kinds: [...INIT_KINDS],
     symbols: symbols(['ignoreTransactions']),
     message: named(['ignoreTransactions']),
-    detect: initOptionSites(['ignoreTransactions']),
+    detect: initOptionSites(['ignoreTransactions'], ['traceLifecycle']),
     guide: `ignoreTransactions still compiles (deprecated) but does nothing with span streaming (${anchor('replacing-ignoretransactions-with-ignorespans')}). Options: (a) ignoreSpans with the same patterns — it matches every span, not only the root, so prefer the object form { name, attributes: { 'sentry.op': ... } } where a child span could share the name; (b) traceLifecycle: 'static' to keep transactions (temporary: planned for removal). Span names are low-cardinality in v11 and ignoreSpans runs at span start: a pattern matching a raw URL or SQL text may need to match url.path or db.query.text instead. ${CHOOSE}`,
   },
   {
@@ -216,7 +216,7 @@ export const SENTRY_RULES: readonly SentryRule[] = [
     kinds: [...INIT_KINDS],
     symbols: symbols(['beforeSendTransaction']),
     message: named(['beforeSendTransaction']),
-    detect: initOptionSites(['beforeSendTransaction']),
+    detect: initOptionSites(['beforeSendTransaction'], ['traceLifecycle']),
     guide: `beforeSendTransaction still compiles (deprecated) but no transaction events exist with span streaming (${anchor('replacing-beforesendtransaction')}). Options: (a) move scrubbing to beforeSendSpan guarded by span.is_segment, and dropping to ignoreSpans (beforeSendSpan cannot drop); (b) traceLifecycle: 'static' to keep transactions. Scope tags and extra no longer reach spans: use setAttribute(s). ${CHOOSE}`,
   },
   {

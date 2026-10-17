@@ -29,10 +29,19 @@ import {
 const SOURCE = /\.[cm]?[jt]sx?$/;
 const NEXT_CONFIG = /(?:^|\/)next\.config\.(?:js|mjs|cjs|ts|mts)$/;
 
-/** `Sentry.init` option paths found in a file, as sites. */
-export function initOptionSites(paths: readonly string[]) {
+/**
+ * `Sentry.init` option paths found in a file, as sites. `unless` names options of the same
+ * object that keep the path working (`traceLifecycle` keeps `beforeSendTransaction`): an object
+ * that sets one is not reported.
+ */
+export function initOptionSites(paths: readonly string[], unless: readonly string[] = []) {
   return (text: string, file: string): SourceSite[] =>
-    SOURCE.test(file) ? propertySites(initOptions(parse(text, file)), paths) : [];
+    SOURCE.test(file)
+      ? propertySites(
+          initOptions(parse(text, file)).filter((o) => !unless.some((key) => propertyAt(o, key))),
+          paths,
+        )
+      : [];
 }
 
 /** Option paths of the named integrations' options objects. */
