@@ -364,21 +364,20 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const branch = `uptide/${pack.name}-${target}`;
   packageManager(root);
   if (services.install === install) await assertManagerAvailable(root);
-  const workspaceBuilds: BuildResult[] = [];
+  // Generated clients and consumed workspace builds, before the planner compiles anything.
+  const prepared = await prepareWorkspace(root, workspacePackagesOf(root), {
+    build: services.build ?? buildWorkspaces,
+    generate: services.generate ?? generateClients,
+    buildScript: options.buildScript,
+    onProgress: options.onProgress,
+  });
+  const generated = prepared.generated;
+  const workspaceBuilds: BuildResult[] = prepared.builds.map((result) => ({
+    ...result,
+    phase: 'baseline' as const,
+  }));
   const report = await services
     .check({
-      workspaceBuild: async (dir, scopes, timeout) => {
-        const results = await (services.build ?? buildWorkspaces)(
-          dir,
-          scopes,
-          timeout,
-          options.buildScript ?? configuredBuildScript(root),
-        );
-        workspaceBuilds.push(
-          ...results.map((result) => ({ ...result, phase: 'baseline' as const })),
-        );
-        return results;
-      },
       ...(options.onProgress ? { onProgress: options.onProgress } : {}),
       cwd: root,
       only: [pack.name, ...companionPacks.map((c) => c.pack.name)],
@@ -545,10 +544,6 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const names = (list: string[]): string =>
     list.map((w) => (w === '.' ? 'root' : (w.split('/').pop() ?? w))).join(', ');
   lap('analyze');
-  // What the repository's own types and tests need generated, before anything is measured.
-  const generated = await verify('generate', () =>
-    (services.generate ?? generateClients)(root, workspaces),
-  );
   const needsBuild = generic || pack.requiresBuild === true;
   const runBuild = async (): Promise<BuildResult[]> => {
     if (!needsBuild) return [];
@@ -667,16 +662,15 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     [...bump.files, join(root, packageManager(root).lockfile)],
   );
   // The install replaced node_modules, and what was generated into it with them.
-  if (generated.length)
-    await verify('generate', () => (services.generate ?? generateClients)(root, workspaces));
-  workspaceBuilds.push(
-    ...(await prepareWorkspace(root, workspaces, {
-      build: services.build ?? buildWorkspaces,
-      moved: [pack.name, ...companions.map((c) => c.name), ...removals.map((r) => r.name)],
-      buildScript: options.buildScript,
-      onProgress: options.onProgress,
-    })),
-  );
+  const rebuilt = await prepareWorkspace(root, workspaces, {
+    build: services.build ?? buildWorkspaces,
+    generate: services.generate ?? generateClients,
+    moved: [pack.name, ...companions.map((c) => c.name), ...removals.map((r) => r.name)],
+    buildScript: options.buildScript,
+    onProgress: options.onProgress,
+  });
+  generated.push(...rebuilt.generated.map((g) => ({ ...g, phase: 'bump' as const })));
+  workspaceBuilds.push(...rebuilt.builds);
   const targetChecker =
     sdkAgent && services.diagnostics === diagnostics ? typeChecker(root, workspaces) : undefined;
   const checkTarget = targetChecker?.check ?? (() => services.diagnostics(root, workspaces));

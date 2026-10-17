@@ -265,12 +265,13 @@ export interface FixReport {
   verificationPending?: boolean;
   branch: string;
   sites: FixSite[];
-  /** Generated code produced in the clone before the baseline (a Prisma client), per workspace. */
+  /** Generated code produced in the clone (a Prisma client), per workspace and phase. */
   generated?: {
     workspace: string;
     command: string;
     status: 'generated' | 'failed' | 'timeout';
     output?: string;
+    phase?: 'bump';
   }[];
   verification: {
     baseline: FixDiagnostic[];

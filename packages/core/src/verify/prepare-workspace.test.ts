@@ -16,8 +16,8 @@ import { buildWorkspaces } from '../fix/build.js';
 import { diagnostics } from '../fix/verify.js';
 import { prepareWorkspace as prepare, unbuiltWorkspaces } from './prepare-workspace.js';
 
-const prepareWorkspace = (root: string, workspaces: string[], options = {}) =>
-  prepare(root, workspaces, { build: buildWorkspaces, ...options });
+const prepareWorkspace = async (root: string, workspaces: string[], options = {}) =>
+  (await prepare(root, workspaces, { build: buildWorkspaces, ...options })).builds;
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-prepare-'));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -72,11 +72,13 @@ it.each([
 it('reports a runner that cannot run instead of throwing', async () => {
   const root = fixture();
   expect(
-    await prepare(root, ['packages/app'], {
-      build: async () => {
-        throw new Error('spawn ENOENT');
-      },
-    }),
+    (
+      await prepare(root, ['packages/app'], {
+        build: async () => {
+          throw new Error('spawn ENOENT');
+        },
+      })
+    ).builds,
   ).toMatchObject([{ status: 'failed', output: expect.stringMatching(/could not run.*ENOENT/) }]);
 });
 it('does not build an unrelated workspace', async () => {
@@ -113,7 +115,8 @@ it('check runs no scripts: consumers of missing output are not verified, never b
   await check({ ...options, compile: false });
   await check(options);
   expect(existsSync(join(root, 'packages/internal/dist/index.d.ts'))).toBe(false);
-  await check({ ...options, workspaceBuild: buildWorkspaces });
+  await prepareWorkspace(root, ['packages/app']);
+  await check(options);
   expect(diagnostics(root, ['packages/app'])).toEqual([]);
   expect(unbuiltWorkspaces(root, ['packages/app'])).toEqual({});
 });

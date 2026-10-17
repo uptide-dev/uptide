@@ -30,7 +30,6 @@ import { createNpmFetcher, releasePackage } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { maxSatisfying } from '../fetch/range.js';
 import { heldBackText } from '../fetch/release-age.js';
-import type { buildWorkspaces } from '../fix/build.js';
 import { FIXABILITY, planPackage, siteOutcome } from '../fix/plan.js';
 import { scanImports } from '../list/scan.js';
 import { activePacks, CANDIDATE_WARNING, candidatePack } from '../packs/index.js';
@@ -42,7 +41,6 @@ import { resetSharedState } from '../shared-state.js';
 import {
   importersOf,
   needsBuildReason,
-  prepareWorkspace,
   type Unbuilt,
   unbuiltWorkspaces,
 } from '../verify/prepare-workspace.js';
@@ -97,8 +95,6 @@ export interface CheckOptions {
   only?: string[];
   /** Run Signal B (compile against the target). Default true; it only runs for packages with at least one usage. */
   compile?: boolean;
-  /** Internal: fix's verification runner, only in its clone. Standalone check runs no scripts. */
-  workspaceBuild?: typeof buildWorkspaces;
   /** Internal: each workspace's consumed workspaces whose build output is missing. */
   unbuilt?: Record<string, Unbuilt[]>;
   assignability?: boolean;
@@ -194,13 +190,8 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
   // while the small config/import index is reused until the next check starts.
   adapter.forgetRepo?.(root);
   const workspaces = (await adapter.workspacePackages?.(root)) ?? ['.'];
-  // Only fix's verification clone builds; a build that did not produce the output, and every
-  // missing output in standalone check, leaves the consumers' types not verified.
-  if (opts.compile !== false && opts.workspaceBuild)
-    await prepareWorkspace(opts.cwd, workspaces, {
-      onProgress: opts.onProgress,
-      build: opts.workspaceBuild,
-    });
+  // Check runs no scripts: fix prepares its clone before calling it, and a missing output
+  // leaves the consumers' types not verified.
   const unbuilt = opts.compile !== false ? unbuiltWorkspaces(opts.cwd, workspaces) : {};
   const memo = memoizingFetcher(fetcher);
   const installedByWorkspace: Record<string, Record<string, string>> = {};
@@ -320,15 +311,7 @@ export async function check(opts: CheckOptions): Promise<CheckResult> {
       };
     }),
   );
-  const {
-    adapter: _a,
-    fetcher: _f,
-    cache: _c,
-    onProgress: _p,
-    packs: _k,
-    workspaceBuild: _b,
-    ...givenOpts
-  } = opts;
+  const { adapter: _a, fetcher: _f, cache: _c, onProgress: _p, packs: _k, ...givenOpts } = opts;
   const plainOpts: WorkspaceJob['opts'] = {
     ...givenOpts,
     ...(Object.keys(unbuilt).length ? { unbuilt } : {}),

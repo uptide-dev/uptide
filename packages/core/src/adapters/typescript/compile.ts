@@ -19,6 +19,7 @@ import type {
   DiagnosticCause,
 } from '../../domain/usage.js';
 import { satisfies } from '../../fetch/range.js';
+import { missingGeneratorStep } from '../../fix/generate.js';
 import { onReset } from '../../shared-state.js';
 import { augmentationCause, findCause, parameterCause } from './cause.js';
 import {
@@ -295,6 +296,7 @@ function coverageOf(
 
 /** A baseline nobody can subtract from: bad config, or most files unable to see their imports. */
 function structuralFailure(
+  dir: string,
   program: ts.Program,
   files: ts.SourceFile[],
   baseline: ts.Diagnostic[],
@@ -302,12 +304,17 @@ function structuralFailure(
   const config = program.getConfigFileParsingDiagnostics();
   if (config.length > 0)
     return `invalid tsconfig: ${messageOf(config[0] as ts.Diagnostic).split('\n')[0]}`;
-  const unresolvable = new Set(
-    baseline
-      .filter((d) => d.code === CANNOT_FIND_MODULE || d.code === CANNOT_FIND_MODULE_JSX)
-      .map((d) => d.file?.fileName),
-  ).size;
+  const missing = baseline.filter(
+    (d) => d.code === CANNOT_FIND_MODULE || d.code === CANNOT_FIND_MODULE_JSX,
+  );
+  const unresolvable = new Set(missing.map((d) => d.file?.fileName)).size;
   if (files.length > 0 && unresolvable / files.length > 0.5) {
+    // Check runs no scripts: name the generator whose output the imports miss.
+    const step = missingGeneratorStep(
+      dir,
+      missing.flatMap((d) => /'([^']+)'/.exec(messageOf(d))?.[1] ?? []),
+    );
+    if (step) return `types not verified: run \`${step}\` (generated client missing)`;
     return `${unresolvable} of ${files.length} files cannot resolve their imports at the installed version; compile signal skipped`;
   }
   return undefined;
@@ -316,6 +323,7 @@ function structuralFailure(
 /** The skip reason as the coverage names it: short, without the counts the message carries. */
 function skipReasonOf(skipped: string): string {
   if (skipped.startsWith('invalid tsconfig')) return 'invalid tsconfig';
+  if (skipped.startsWith('types not verified: run')) return skipped;
   if (skipped.includes('cannot resolve their imports'))
     return 'most files cannot resolve their imports at the installed version';
   return skipped.split(';')[0] ?? skipped;
@@ -1043,7 +1051,7 @@ async function compileProject(
       )
     : undefined;
   const baselineMs = Date.now() - t0;
-  const skipped = setupFailure ?? structuralFailure(checked, files, baseline);
+  const skipped = setupFailure ?? structuralFailure(repo.dir, checked, files, baseline);
   if (skipped) {
     return {
       diagnostics: [],
