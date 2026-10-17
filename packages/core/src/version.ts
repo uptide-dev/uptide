@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
-import { delimiter, dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 declare const __UPTIDE_BUILD_VERSION__: string;
@@ -102,6 +102,9 @@ export function uptideInvocation(cliVersion: string): string {
     const binary = realpathSync(process.argv[1]);
     const names = process.platform === 'win32' ? ['uptide', 'uptide.cmd'] : ['uptide'];
     for (const dir of process.env.PATH?.split(delimiter) ?? []) {
+      // Only a real global install counts: package managers prepend project-local
+      // (often relative) node_modules/.bin entries that are not on the user's own PATH.
+      if (!isAbsolute(dir) || /(^|[\\/])node_modules[\\/]\.bin[\\/]?$/.test(dir)) continue;
       for (const name of names) {
         try {
           return realpathSync(join(dir, name)) === binary ? 'uptide' : portable;

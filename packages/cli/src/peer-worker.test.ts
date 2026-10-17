@@ -40,6 +40,9 @@ it.skipIf(!existsSync(bin)).each([
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     try {
+      // A global install (outside node_modules) and a project-local launcher, which must not count.
+      mkdirSync(join(cwd, 'global/bin'), { recursive: true });
+      symlinkSync(bin, join(cwd, 'global/bin/uptide'));
       mkdirSync(join(cwd, 'node_modules/.bin'), { recursive: true });
       symlinkSync(bin, join(cwd, 'node_modules/.bin/uptide'));
       const dependencies = { react: '18.2.0', 'react-dom': '18.2.0', plugin: '1.0.0' };
@@ -93,7 +96,7 @@ it.skipIf(!existsSync(bin)).each([
               NPM_CONFIG_USERCONFIG: '/nonexistent',
               npm_command: npmCommand,
               PATH: onPath
-                ? `${join(cwd, 'node_modules/.bin')}${delimiter}${process.env.PATH ?? ''}`
+                ? `${join(cwd, 'global/bin')}${delimiter}${process.env.PATH ?? ''}`
                 : process.env.PATH,
               UPTIDE_TELEMETRY: '0',
               UPTIDE_CACHE_DIR: join(cwd, 'cache'),
