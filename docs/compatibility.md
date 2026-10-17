@@ -73,7 +73,7 @@ already run as assisted ([verification gate](packs.md)).
 | `redis` | `renamed-exports` | 100% | 2 | 0 |  |
 | `redis` | `scan-iterators` | n/a | 0 | 0 | unexercised: runs assisted |
 | `redis` | `unstable-resp3` | n/a | 0 | 0 | unexercised: runs assisted |
-| `@sentry/browser` | `enable-logs` | 100% | 1 | 0 |  |
+| `@sentry/browser` | `enable-logs` | 100% | 2 | 0 |  |
 | `@sentry/browser` | `enable-metrics` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/browser` | `integration-names` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/browser` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
@@ -86,9 +86,9 @@ already run as assisted ([verification gate](packs.md)).
 | `@sentry/nextjs` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/nextjs` | `streamed-span-wrapper` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/nextjs` | `with-sentry-config-import` | 100% | 3 | 0 |  |
-| `@sentry/react` | `enable-logs` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/react` | `enable-logs` | 100% | 4 | 0 |  |
 | `@sentry/react` | `enable-metrics` | n/a | 0 | 0 | unexercised: runs assisted |
-| `@sentry/react` | `integration-names` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/react` | `integration-names` | 0% | 0 | 1 | unexercised: runs assisted |
 | `@sentry/react` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/react` | `streamed-span-wrapper` | n/a | 0 | 0 | unexercised: runs assisted |
 | `stripe` | `api-version-unpinned` | 100% | 5 | 0 |  |

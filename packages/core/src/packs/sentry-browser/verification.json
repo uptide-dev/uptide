@@ -27,7 +27,7 @@
   ],
   "mechanical": {
     "enable-logs": {
-      "truePositives": 1,
+      "truePositives": 2,
       "falsePositives": 0
     },
     "enable-metrics": {
