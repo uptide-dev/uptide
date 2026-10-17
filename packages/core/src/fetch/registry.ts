@@ -29,6 +29,7 @@ export interface ResolvedVersion {
 interface Manifest {
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   bin?: string | Record<string, string>;
   types?: unknown;
   typings?: unknown;
@@ -264,6 +265,8 @@ export async function listVersions(
 export interface VersionDependencies {
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
+  /** `{ esbuild: { optional: true } }`: a peer npm checks when installed but never installs. */
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   /** npm's deprecation message: `@types/ioredis` 5.0.0 is "a stub types definition". */
   deprecated?: string;
 }
@@ -290,6 +293,9 @@ export async function listManifests(
     out[version] = {
       ...(manifest.dependencies ? { dependencies: manifest.dependencies } : {}),
       ...(manifest.peerDependencies ? { peerDependencies: manifest.peerDependencies } : {}),
+      ...(manifest.peerDependenciesMeta
+        ? { peerDependenciesMeta: manifest.peerDependenciesMeta }
+        : {}),
       ...(manifest.deprecated ? { deprecated: manifest.deprecated } : {}),
     };
   }

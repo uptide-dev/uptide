@@ -617,3 +617,100 @@ it('fix installs a declared release member even when the installed peer already 
     JSON.parse(readFileSync(join(root, 'node_modules/plugin/package.json'), 'utf8')).version,
   ).toBe('4.6.5');
 });
+
+/** An npm repo on zod 3 with `stays` installed beside it, and a registry for the rest (UPT-80). */
+function stayingPeerFixture(
+  stays: Record<string, string>,
+  registry: Record<string, Awaited<ReturnType<NonNullable<PackageFetcher['manifests']>>>>,
+) {
+  const f = fixture('npm');
+  const json = JSON.parse(readFileSync(join(f.root, 'package.json'), 'utf8'));
+  const lock = JSON.parse(readFileSync(join(f.root, 'package-lock.json'), 'utf8'));
+  // plugin accepts zod 4: it only makes the preflight look at peers.
+  writeFileSync(
+    join(f.root, 'node_modules/plugin/package.json'),
+    JSON.stringify({ name: 'plugin', version: '1.0.0', peerDependencies: { zod: '^3 || ^4' } }),
+  );
+  for (const [name, version] of Object.entries(stays)) {
+    json.dependencies[name] = version;
+    lock.packages[`node_modules/${name}`] = { version };
+    mkdirSync(join(f.root, 'node_modules', name), { recursive: true });
+    writeFileSync(
+      join(f.root, 'node_modules', name, 'package.json'),
+      JSON.stringify({ name, version }),
+    );
+  }
+  lock.packages[''] = json;
+  writeFileSync(join(f.root, 'package.json'), JSON.stringify(json));
+  writeFileSync(join(f.root, 'package-lock.json'), JSON.stringify(lock));
+  git(f.root, 'add', '.');
+  git(f.root, 'commit', '-m', 'staying peers');
+  f.services.manifests.mockImplementation(async (name) => registry[name] ?? {});
+  return f;
+}
+
+it("npm stops when the target's own optional peer rejects a package that stays", async () => {
+  const { root, services } = stayingPeerFixture(
+    { '@types/node': '20.0.0' },
+    {
+      zod: {
+        '4.6.5': {
+          peerDependencies: { '@types/node': '^22.0.0 || >=24.0.0' },
+          peerDependenciesMeta: { '@types/node': { optional: true } },
+        },
+      },
+    },
+  );
+  const error = await peerPreflight(
+    { cwd: root, only: 'zod', target: '4.6.5', fixer: null },
+    services,
+  ).catch((e: unknown) => e);
+  expect(error).toBeInstanceOf(PeerPreflightError);
+  expect((error as PeerPreflightError).message).toContain(
+    'zod 4.6.5  peer @types/node ^22.0.0 || >=24.0.0  →  rejects installed @types/node 20.0.0: upgrade @types/node into range first, or use --allow-peer zod',
+  );
+  expect((error as PeerPreflightError).plan).toEqual({ also: [], allowPeer: ['zod'] });
+  const plan = await peerPreflight(
+    { cwd: root, only: 'zod', target: '4.6.5', allowPeer: ['zod'] },
+    services,
+  );
+  expect(plan?.conflicts).toMatchObject([{ name: 'zod', peer: '@types/node', allowed: true }]);
+  const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  allowPeerOverrides(manifest, 'npm', plan?.conflicts ?? []);
+  expect(manifest.overrides).toEqual({ zod: { '@types/node': '$@types/node' } });
+});
+
+it('npm names the chain when a peer it installs for the target rejects a package that stays', async () => {
+  const { root, services } = stayingPeerFixture(
+    { esbuild: '0.25.0' },
+    {
+      zod: { '4.6.5': { peerDependencies: { vite: '^7.0.0 || ^8.0.0' } } },
+      // npm installs the newest vite in range; its optional peers are checked, never installed.
+      vite: {
+        '7.0.0': {},
+        '8.0.0': {
+          peerDependencies: { esbuild: '^0.27.0', sass: '*' },
+          peerDependenciesMeta: { esbuild: { optional: true }, sass: { optional: true } },
+        },
+        '9.0.0-beta.1': {},
+      },
+    },
+  );
+  await expect(
+    peerPreflight({ cwd: root, only: 'zod', target: '4.6.5', fixer: null }, services),
+  ).rejects.toThrow(
+    'vite 8.0.0 (peer of zod 4.6.5)  peer esbuild ^0.27.0  →  rejects installed esbuild 0.25.0: upgrade esbuild into range first, or use --allow-peer vite',
+  );
+  expect(services.manifests).not.toHaveBeenCalledWith('sass');
+});
+
+it('pnpm keeps reporting staying peers as before: npm alone refuses on them', async () => {
+  const { root, services } = stayingPeerFixture(
+    { esbuild: '0.25.0' },
+    { zod: { '4.6.5': { peerDependencies: { esbuild: '^0.27.0' } } } },
+  );
+  writeFileSync(join(root, 'pnpm-lock.yaml'), "lockfileVersion: '9.0'\n");
+  rmSync(join(root, 'package-lock.json'));
+  const plan = await peerPreflight({ cwd: root, only: 'zod', target: '4.6.5' }, services);
+  expect(plan?.conflicts).toEqual([]);
+});
