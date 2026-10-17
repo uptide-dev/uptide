@@ -284,9 +284,52 @@ describe('fix for a dependency without a pack', () => {
     );
     // One site still fails to compile: the run is not verified, so nothing could be published.
     expect(result.verification.passed).toBe(false);
+    // The estimate was made before the first call, for the three sites left to the agent.
+    expect(result.llm.estimate).toEqual({ sites: 3, usd: 0.18, limitUsd: 1, scaled: false });
     expect(prBody(result)).toContain(
-      '- The agent stopped at the cost limit of $1.00 (`--max-cost`): 2 sites not completed. Run again with a higher limit to continue.',
+      '- The agent stopped at the $1.00 cost limit (--max-cost; the $0.18 estimate for 3 agent sites): 2 sites not completed. Run again with `--max-cost 2` to continue.',
     );
+    // Wall time per phase, in order, and the agent's spend where it was made.
+    expect(result.phases?.map((p) => p.name)).toEqual([
+      'analyze',
+      'baseline',
+      'install',
+      'rules',
+      'agent',
+      'verify',
+      'feedback',
+    ]);
+    expect(result.phases?.find((p) => p.name === 'agent')?.costUsd).toBe(0.6);
+    const total = (result.phases ?? []).reduce((ms, p) => ms + p.ms, 0);
+    expect(total).toBeLessThanOrEqual(result.timingMs);
+    expect(prBody(result)).toMatch(/Phases: analyze \d+s · baseline \d+s · .* agent \d+s \$0\.60/);
+  }, 30000);
+
+  it('without --max-cost, scales the limit from the estimate and says so before the first call', async () => {
+    const { root, services, fixer } = paintFixture(3);
+    const events: string[] = [];
+    const seen: FixRequest[] = [];
+    const result = await fix(
+      {
+        cwd: root,
+        only: 'paint',
+        fixer: fixer(0.01, seen),
+        onProgress: (e) => {
+          if (e.warning && e.detail) events.push(e.detail);
+          if (e.phase === 'assist' && e.state === 'start' && e.detail) events.push('call');
+        },
+      },
+      services,
+    );
+    expect(seen.length).toBeGreaterThan(0);
+    // $0.18 for three sites: twice that is under the $1 floor.
+    expect(result.llm.estimate).toEqual({ sites: 3, usd: 0.18, limitUsd: 1, scaled: true });
+    expect(result.llm.feedback?.maxCostUsd).toBe(1);
+    const shown = events.indexOf(
+      'Agent cost limit $1.00 (default: the $1 minimum; the $0.18 estimate for 3 agent sites)',
+    );
+    expect(shown).toBeGreaterThanOrEqual(0);
+    expect(shown).toBeLessThan(events.indexOf('call'));
   }, 30000);
 
   it('repairs an unconfirmed site when final verification proves a new type error', async () => {

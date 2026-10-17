@@ -3,10 +3,65 @@ import { adapters } from './adapters.js';
 import { KEY_ENV, type Selection } from './config.js';
 import { nanos, reserveCost, usageCost } from './pricing.js';
 import { messages } from './prompt.js';
-import type { Call } from './types.js';
+import type { Call, Provider } from './types.js';
 
 export const MAX_OUTPUT_TOKENS = 8192;
 export const DEFAULT_MAX_COST_USD = 1;
+// What one agent site is assumed to cost, SDK turns and the gate's retries included, uncached.
+// ponytail: assumed, not calibrated against stored runs; tune from report.json `llm.estimate`
+// against `llm.costUsd` once runs with many agent sites exist.
+export const SITE_INPUT_TOKENS = 20_000;
+export const SITE_OUTPUT_TOKENS = 2_000;
+/** The scaled default never goes above this without an explicit `--max-cost`. */
+export const MAX_DEFAULT_COST_USD = 10;
+export interface CostEstimate {
+  sites: number;
+  usd: number;
+  /** The limit the run had: `--max-cost`, or the scaled default. */
+  limitUsd: number;
+  /** No `--max-cost`: the limit is twice the estimate, between $1 and the cap. */
+  scaled: boolean;
+}
+// Up to the next cent, without float noise turning $0.18 into $0.19.
+const cents = (usd: number) => Math.ceil(Number((usd * 100).toFixed(6))) / 100;
+/** The preflight estimate for the sites the agent will handle, and the limit the run will have. */
+export function costEstimate(
+  provider: Provider,
+  model: string,
+  sites: number,
+  maxCostUsd?: number,
+): CostEstimate {
+  const site = usageCost(provider, model, {
+    inputTokens: SITE_INPUT_TOKENS,
+    outputTokens: SITE_OUTPUT_TOKENS,
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    cacheWriteHourTokens: 0,
+  });
+  const usd = cents(sites * site);
+  // Twice the estimate leaves room for the verification feedback rounds.
+  const scaled = Math.min(MAX_DEFAULT_COST_USD, Math.max(DEFAULT_MAX_COST_USD, cents(2 * usd)));
+  return { sites, usd, limitUsd: maxCostUsd ?? scaled, scaled: maxCostUsd === undefined };
+}
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+/** Where the limit came from, with the estimate: `default: 2× the $0.70 estimate for 12 agent sites`. */
+export function describeLimit(e: CostEstimate): string {
+  const basis = `the $${e.usd.toFixed(2)} estimate for ${plural(e.sites, 'agent site')}`;
+  if (!e.scaled) return `--max-cost; ${basis}`;
+  if (2 * e.usd > MAX_DEFAULT_COST_USD)
+    return `default: 2× ${basis}, capped at $${MAX_DEFAULT_COST_USD}`;
+  if (2 * e.usd < DEFAULT_MAX_COST_USD)
+    return `default: the $${DEFAULT_MAX_COST_USD} minimum; ${basis}`;
+  return `default: 2× ${basis}`;
+}
+/** The stop message: the limit, where it came from, what was left, and the flag that continues. */
+export function costStopMessage(
+  limit: { limitUsd: number; notAttempted: number },
+  e?: CostEstimate,
+): string {
+  const raise = Math.ceil(Math.max(2 * limit.limitUsd, e ? 2 * e.usd : 0));
+  return `stopped at the $${limit.limitUsd.toFixed(2)} cost limit (${e ? describeLimit(e) : '--max-cost'}): ${plural(limit.notAttempted, 'site')} not completed. Run again with --max-cost ${raise} to continue.`;
+}
 // One token per UTF-8 byte, including JSON, schema, system prompt and retry feedback,
 // plus 8192 tokens for provider framing/tool overhead. Deliberately NOT chars / 4.
 export const estimateInputTokens = (call: Call): number =>

@@ -10,7 +10,7 @@ import { SafetyRefusal, UptideError } from '../errors.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
-import { DEFAULT_MAX_COST_USD, providerFixer } from '../llm/fixer.js';
+import { costEstimate, DEFAULT_MAX_COST_USD, describeLimit, providerFixer } from '../llm/fixer.js';
 import { nanos } from '../llm/pricing.js';
 import { decidedRules, decisionInventory, packDecisions } from '../packs/decisions.js';
 import { genericPack } from '../packs/generic.js';
@@ -61,6 +61,7 @@ import type {
   BuildResult,
   FixDiagnostic,
   Fixer,
+  FixPhase,
   FixReport,
   FixSite,
   LintResult,
@@ -241,6 +242,14 @@ export async function fix(
 
 async function fixPackage(options: FixOptions, services: FixServices): Promise<FixReport> {
   const started = Date.now();
+  // Each phase ends where the next begins, so together they are the run's wall time.
+  const phases: FixPhase[] = [];
+  let lapped = started;
+  const lap = (name: FixPhase['name'], costUsd?: number): void => {
+    const now = Date.now();
+    phases.push({ name, ms: now - lapped, ...(costUsd !== undefined ? { costUsd } : {}) });
+    lapped = now;
+  };
   const root = realpathSync(resolve(options.cwd));
   if (
     options.maxCostUsd !== undefined &&
@@ -494,6 +503,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     progress(options.onProgress, { phase: 'verify', package: pack.name, detail }, work);
   const names = (list: string[]): string =>
     list.map((w) => (w === '.' ? 'root' : (w.split('/').pop() ?? w))).join(', ');
+  lap('analyze');
   // What the repository's own types and tests need generated, before anything is measured.
   const generated = await verify('generate', () =>
     (services.generate ?? generateClients)(root, workspaces),
@@ -550,6 +560,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     throw new Error('baseline tests modified the working tree; review their changes before fixing');
   // Lint of the same files before anything changes: a failure that is already there is not ours.
   const baselineLint = await (services.lint ?? lintFiles)(root, affected);
+  lap('baseline');
   const baseHead = git(root, 'rev-parse', 'HEAD');
   git(root, 'switch', '-c', branch);
   // A workspace that reaches the lead only through an alternate lead declares it now.
@@ -629,6 +640,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     sdkAgent && services.diagnostics === diagnostics ? typeChecker(root, workspaces) : undefined;
   const checkTarget = targetChecker?.check ?? (() => services.diagnostics(root, workspaces));
   const targetErrors = await verify(`types (${names(workspaces)})`, checkTarget);
+  lap('install');
   const sites: FixSite[] = [];
   const changed = new Set<string>();
   const rulesStarted = performance.now();
@@ -777,6 +789,21 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       }
     }
   }
+  lap('rules');
+  // Before any agent call: what the sites left to the agent should cost, and the limit that sets.
+  const agentSites = sites.filter((s) => s.outcome === 'manual').length;
+  const estimate = canAssist
+    ? costEstimate(selection.provider, selection.model, agentSites, options.maxCostUsd)
+    : undefined;
+  const maxCostUsd = estimate?.limitUsd ?? options.maxCostUsd ?? DEFAULT_MAX_COST_USD;
+  if (estimate && agentSites)
+    options.onProgress?.({
+      phase: 'assist',
+      package: pack.name,
+      state: 'done',
+      warning: true,
+      detail: `Agent cost limit $${maxCostUsd.toFixed(2)} (${describeLimit(estimate)})`,
+    });
   const llm = await progress(options.onProgress, { phase: 'assist', package: pack.name }, () =>
     sdkAgent
       ? assistWithSdk({
@@ -786,7 +813,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           pack,
           context: packContext,
           model: selection.model,
-          maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD,
+          maxCostUsd,
           // Reuse the post-install program; final verification still checks independently.
           diagnostics: checkTarget,
           tests: (files) =>
@@ -818,9 +845,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           packContext,
           options.fixer === null,
           options.onProgress,
-          { maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD },
+          { maxCostUsd },
         ),
   );
+  if (estimate) llm.estimate = estimate;
+  const agentSpend = llm.costUsd;
+  lap('agent', agentSpend);
   for (const site of sites)
     for (const file of site.editedFiles ?? []) if (!affected.includes(file)) affected.push(file);
   const followed: Followed[] = [];
@@ -910,6 +940,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       via: 'inferred',
     },
   };
+  lap('verify');
   const feedbackRunner = sdkAgent
     ? services.agentRunner
     : fixer
@@ -918,7 +949,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const feedbackLimits = {
     roundsUsed: 0,
     maxRounds: 3,
-    maxCostUsd: options.maxCostUsd ?? DEFAULT_MAX_COST_USD,
+    maxCostUsd,
   };
   llm.feedback = feedbackLimits;
   let previousAttempt = '';
@@ -932,10 +963,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     );
     if (!feedback && !(round === 1 && fallback.length)) break;
     const remaining =
-      (nanos(options.maxCostUsd ?? DEFAULT_MAX_COST_USD) -
-        nanos(llm.costUsd) -
-        nanos(llm.unreportedCostUsd ?? 0)) /
-      1e9;
+      (nanos(maxCostUsd) - nanos(llm.costUsd) - nanos(llm.unreportedCostUsd ?? 0)) / 1e9;
     if (remaining < 0.02 || llm.unreportedCostUsd) break;
     // Never let a rejected agent task reset files written by a check.
     if (git(root, 'status', '--porcelain', '--untracked-files=all')) break;
@@ -999,6 +1027,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       }),
     );
   }
+  if (feedbackLimits.roundsUsed) lap('feedback', (nanos(llm.costUsd) - nanos(agentSpend)) / 1e9);
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
@@ -1064,6 +1093,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     llm: sdkMissing ? { ...llm, sdkMissing: true } : llm,
     ...(behavior ? { behavior } : {}),
     timingMs: Date.now() - started,
+    phases,
     prBody: join(root, '.uptide/pr-body.md'),
     notes: [
       ...pins.map((pin) => describeRootPin(pin).replace('it will be updated', 'updated')),

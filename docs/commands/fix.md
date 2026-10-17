@@ -265,7 +265,8 @@ and the gate rejects new errors. Final verification works as it does for a verif
   one, or with `--no-llm`, it says what it cannot do and exits before creating a clone, a
   branch or an install. The same holds when a pack exists but does not cover the installed
   version (typescript 5 → 7 with a 5 → 6 pack).
-- `--max-cost <usd>` (default 1) sets the SDK session budget for each package; enforcement
+- `--max-cost <usd>` (default: twice the estimate for the agent's sites, $1 to $10; see
+  [models](../models.md#--max-cost)) sets the SDK session budget for each package; enforcement
   after each turn can overshoot by one turn. With `--agent patch`, it reserves the
   worst-case cost before every call, including
   retries. Sites not completed stay manual, the summary and the pull request say how many,

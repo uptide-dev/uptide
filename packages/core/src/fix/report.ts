@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import type { Finding } from '../domain/report.js';
 import { BY } from '../domain/wording.js';
+import { costStopMessage } from '../llm/fixer.js';
 import { GENERIC_NOTE } from '../packs/generic.js';
 import { UPTIDE_COMMAND } from '../version.js';
 import { baselineHeadline, baselineHealthOf } from './baseline.js';
@@ -13,7 +14,7 @@ import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import { agentDecisionLines, testOutput } from './review-evidence.js';
 import { stripeChangelog } from './stripe-changelog.js';
 import { isTestFile } from './test-edits.js';
-import type { FixDiagnostic, FixReport, FixSite, ReviewSection } from './types.js';
+import type { FixDiagnostic, FixPhase, FixReport, FixSite, ReviewSection } from './types.js';
 import { missingPackages, newDiagnostics } from './verify.js';
 
 export function fixCounts(report: FixReport) {
@@ -1088,7 +1089,7 @@ export function renderMigration(
     );
   if (report.llm.costLimit)
     review.push(
-      `- The agent stopped at the cost limit of $${report.llm.costLimit.limitUsd.toFixed(2)} (\`--max-cost\`): ${count(report.llm.costLimit.notAttempted, 'site')} not completed. Run again with a higher limit to continue.`,
+      `- The agent ${costStopMessage(report.llm.costLimit, report.llm.estimate).replace(/--max-cost \d+/, '`$&`')}`,
     );
   for (const s of report.sites.filter((s) => s.outcome === 'manual'))
     review.push(
@@ -1139,6 +1140,7 @@ export function renderMigration(
     '',
     ...collapse('Run details', [
       `Uptide ${report.uptideVersion ?? 'version not retained'} · ${report.llm.disabled ? 'agent disabled (--no-llm)' : (report.llm.model ?? 'agent unavailable')} · ${(report.llm.inputTokens / 1000).toFixed(1)}k/${(report.llm.outputTokens / 1000).toFixed(1)}k tokens · $${report.llm.costUsd.toFixed(2)} · ${Math.round(report.timingMs / 60_000)} min`,
+      ...(report.phases?.length ? [`Phases: ${describePhases(report.phases)}`] : []),
       '',
       `Uptide commit: \`${report.uptideCommit ?? 'not retained'}\`${report.uptideDirty ? ' (working-tree changes)' : ''}`,
       `Branch: \`${report.branch}\``,
@@ -1426,6 +1428,16 @@ function withLists(section: ReviewSection, report: FixReport): ReviewSection {
   }
   while (lines.at(-1) === '') lines.pop();
   return { ...section, lines, lists };
+}
+/** `analyze 12s · baseline 31s · agent 1m 04s $0.42`: wall time per phase, and spend where there was any. */
+export function describePhases(phases: FixPhase[]): string {
+  const time = (ms: number) => {
+    const s = Math.round(ms / 1000);
+    return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+  };
+  return phases
+    .map((p) => `${p.name} ${time(p.ms)}${p.costUsd ? ` $${p.costUsd.toFixed(2)}` : ''}`)
+    .join(' · ');
 }
 /** The PR description: everything that fits GitHub's limit, in the order that matters. */
 export const prBody = (report: FixReport): string =>

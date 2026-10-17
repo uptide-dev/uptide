@@ -38,7 +38,7 @@ Only `version` is required. Every other field has the default shown in the table
 | `schedule` | cron (UTC) or `manual` | `17 6 * * 1` | When the workflow runs. See [Schedule](#schedule). |
 | `maxOpenPrs` | 1 to 50 | `3` | No new pull request is opened while this many Uptide pull requests are open. |
 | `llm.provider` | `anthropic`, `openai`, `gemini` | `anthropic` | Who receives the code around call sites no rule fixes, with the repository's own API key. The Uptide Action takes `anthropic` only. |
-| `maxCost` | USD, more than 0, at most 100 | `1` | LLM budget; the SDK may overshoot by one turn. |
+| `maxCost` | USD, more than 0, at most 100 | `1` | LLM budget; the SDK may overshoot by one turn. Unset, a local `fix` scales its limit from the estimate ([models](models.md#--max-cost)). |
 | `executor` | `auto`, `patch`, `sdk` | `auto` | With `auto`, SDK for Anthropic when it is installed, patch otherwise. `patch` or `sdk` explicitly selects the executor. |
 | `minReleaseAgeDays` | days, 0 to 365 | none | Uptide never targets a release younger than this, when the repository sets no release-age policy of its own. Days, unlike pnpm's minutes. See [Release age](#release-age). |
 | `updatePins` | boolean | PR runs: enabled; local runs: explicit consent | Set `false` to disable automatic root pin updates in draft PRs. `--update-pins` explicitly approves them even when this setting is false. |

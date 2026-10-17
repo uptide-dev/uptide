@@ -2,7 +2,9 @@ import { isAbsolute, relative } from 'node:path';
 import {
   baselineHeadline,
   baselineHealthOf,
+  costStopMessage,
   describeOutOfScope,
+  describePhases,
   describeTransitive,
   type FixReport,
   fixVerdict,
@@ -78,10 +80,9 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
         ]
       : []),
     ...(report.llm.costLimit
-      ? [
-          `  ${pad('Agent', 9)} stopped at $${report.llm.costLimit.limitUsd.toFixed(2)} (--max-cost): ${report.llm.costLimit.notAttempted} site${report.llm.costLimit.notAttempted === 1 ? '' : 's'} not completed`,
-        ]
+      ? [`  ${pad('Agent', 9)} ${costStopMessage(report.llm.costLimit, report.llm.estimate)}`]
       : []),
+    ...(report.phases?.length ? [`  ${pad('Phases', 9)} ${describePhases(report.phases)}`] : []),
     // What the check behind this run could not see, per workspace (the files are in the report).
     ...(report.importersNotAnalyzed ?? []).map(
       (gap) =>

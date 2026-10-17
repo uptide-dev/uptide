@@ -1,4 +1,5 @@
 import type { Finding, ImportersNotAnalyzed, Tier } from '../domain/report.js';
+import type { CostEstimate } from '../llm/fixer.js';
 import type { Provider } from '../llm/types.js';
 import type { ApiChangeFacts, Headline, PackContext } from '../packs/types.js';
 import type { BaselineHealth } from './baseline.js';
@@ -201,6 +202,12 @@ export interface Fixer {
   estimate?(input: FixRequest): number;
   fix(input: FixRequest, remainingUsd?: number): Promise<FixResponse>;
 }
+export interface FixPhase {
+  name: 'analyze' | 'baseline' | 'install' | 'rules' | 'agent' | 'verify' | 'feedback';
+  ms: number;
+  /** Agent spend in this phase; only the agent and feedback phases call an LLM. */
+  costUsd?: number;
+}
 export interface FixReport {
   rootPins?: RootPin[];
   /** Pack pipeline limitations: agent-led results can be published only as drafts. */
@@ -292,6 +299,8 @@ export interface FixReport {
     disabled?: boolean;
     /** Set when `--max-cost` stopped the agent: the limit and unfinished sites (including stopped retries). */
     costLimit?: { limitUsd: number; notAttempted: number };
+    /** The preflight estimate shown before the first agent call, and the limit it set. */
+    estimate?: CostEstimate;
     /** Agent SDK sessions (the Anthropic default) instead of the patch agent. */
     agent?: 'sdk';
     /** The SDK would have been the default but is not installed: the patch agent ran. */
@@ -300,6 +309,8 @@ export interface FixReport {
     feedback?: { roundsUsed: number; maxRounds: number; maxCostUsd: number };
   };
   timingMs: number;
+  /** Wall time and agent spend per phase, in run order; together about `timingMs`. */
+  phases?: FixPhase[];
   prBody: string;
   /** The migration report as a page, written by the CLI next to the stored run. */
   html?: string;

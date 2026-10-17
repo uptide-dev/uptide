@@ -151,6 +151,7 @@ export {
   publishTarget,
 } from './fix/publish.js';
 export {
+  describePhases,
   fixCounts,
   formatFix,
   migrationBody,
@@ -162,7 +163,7 @@ export {
 export { type ReverifyOptions, reverify } from './fix/reverify.js';
 export { type FixOptions, fix } from './fix/run.js';
 export { detectStyle } from './fix/style.js';
-export type { Fixer, FixReport, FixRequest, FixResponse } from './fix/types.js';
+export type { Fixer, FixPhase, FixReport, FixRequest, FixResponse } from './fix/types.js';
 export { buildToolMajor } from './list/evidence.js';
 export {
   type ListedDependency,
@@ -173,7 +174,14 @@ export {
 } from './list/list.js';
 export type { PackageSignals, Priority, Signal } from './list/priorities.js';
 export { ACCEPTED_KEYS, KEY_ENV, selectLlm } from './llm/config.js';
-export { DEFAULT_MAX_COST_USD, providerFixer } from './llm/fixer.js';
+export {
+  type CostEstimate,
+  costEstimate,
+  costStopMessage,
+  DEFAULT_MAX_COST_USD,
+  describeLimit,
+  providerFixer,
+} from './llm/fixer.js';
 export { DEFAULT_MODELS, PRICE_DATE, PRICE_SOURCES, PRICES, priceFor } from './llm/pricing.js';
 export type { Provider } from './llm/types.js';
 export * from './onboarding/index.js';

@@ -575,22 +575,30 @@ describe('uptide fix', () => {
             outputTokens: 1,
             costUsd: 0.6,
             costLimit: { limitUsd: 1, notAttempted: 3 },
+            estimate: { sites: 4, usd: 0.24, limitUsd: 1, scaled: true },
           },
+          phases: [
+            { name: 'analyze', ms: 12_000 },
+            { name: 'agent', ms: 64_000, costUsd: 0.6 },
+          ],
         };
       },
     });
     const io = memoryIo({ cwd, env: { ANTHROPIC_API_KEY: 'test-key' } });
     await run(['fix', '--only', 'lodash'], io, engine);
     expect(engine.calls).toEqual([expect.objectContaining({ only: 'lodash', llm: true })]);
+    // No --max-cost and none in uptide.yml: the engine scales the limit from its estimate.
+    expect(engine.calls[0]).not.toHaveProperty('maxCostUsd');
     expect(io.stderr()).toContain(
-      'lodash has no migration pack (generic tier): every fix comes from the agent, up to $1.00 (--max-cost)',
+      'lodash has no migration pack (generic tier): every fix comes from the agent\n',
     );
     expect(io.stdout()).toContain(
       "  Tier      generic: no migration pack; every edit is the agent's, kept on the compiler's word. Review each one.",
     );
     expect(io.stdout()).toContain(
-      '  Agent     stopped at $1.00 (--max-cost): 3 sites not completed',
+      '  Agent     stopped at the $1.00 cost limit (default: the $1 minimum; the $0.24 estimate for 4 agent sites): 3 sites not completed. Run again with --max-cost 2 to continue.',
     );
+    expect(io.stdout()).toContain('  Phases    analyze 12s · agent 1m 04s $0.60');
     expect(io.stderr()).toContain('LLM spend: $0.60\n');
     // --max-cost reaches the engine; nonsense is refused.
     await run(
@@ -889,7 +897,9 @@ it('selects each provider from its key, passes model and the universal budget, a
     const engine = fakeEngine();
     const io = memoryIo({ cwd: pnpmGitRepo(), env: { [key]: 'test-key' } });
     expect(await run(['fix', 'zod'], io, engine)).toBe(0);
-    expect(engine.calls[0]).toMatchObject({ provider, model, maxCostUsd: 1 });
+    expect(engine.calls[0]).toMatchObject({ provider, model });
+    expect(engine.calls[0]).not.toHaveProperty('maxCostUsd');
+    expect(io.stderr()).toContain('budget scales with the agent sites');
     // Gemini is experimental: its evaluation runs failed on service errors (docs/provider-evaluation.md).
     expect(io.stderr()).toContain(
       `LLM: ${provider}${provider === 'gemini' ? ' (experimental)' : ''} / ${model}`,

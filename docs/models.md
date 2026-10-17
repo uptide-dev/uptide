@@ -80,9 +80,21 @@ reservation fits the budget.
 
 ## `--max-cost`
 
-`--max-cost` defaults to **$1 per package**, including zod and stripe. The SDK executor gives
-the package's session this budget and enforces it after each turn, so it can overshoot
+Before the first agent call, `fix` estimates what the sites left to the agent will cost:
+20k input and 2k output tokens per site, at the selected model's rates (about $0.06 a site
+on `claude-sonnet-5-5`). These are assumptions, not yet calibrated against stored runs;
+`report.json` keeps the estimate (`llm.estimate`) next to the actual spend (`llm.costUsd`)
+to compare them.
+
+Without `--max-cost` (or `maxCost` in `uptide.yml`) the limit is **twice that estimate,
+at least $1 and at most $10** per package, including zod and stripe. The run prints the limit
+and where it came from before the first call. When the agent stops at the limit, the summary
+and the pull request name the estimate and the `--max-cost` that continues. The SDK executor
+gives the package's session this budget and enforces it after each turn, so it can overshoot
 by one turn.
+
+The summary's `Phases` row and the PR's run details give wall time per phase (analyze,
+baseline, install, rules, agent, verify, feedback) and the agent's spend in each.
 
 With the patch executor, before every call and retry, Uptide reserves its worst-case input
 and maximum output cost. A call that would exceed
