@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -206,3 +207,80 @@ it.each(['10.9.3', '11.19.0'])(
     }
   },
 );
+
+// UPT-29: npm 11.6 drops sharp's optional `@emnapi/*` on the first lock-only install after a
+// manifest change and keeps a `@emnapi/wasi-threads` that no longer satisfies, so `npm ci`
+// rejects the lockfile. The next install over the same manifest writes one it accepts.
+it('reconciles npm twice so ci accepts optional platform churn the parent commit has too', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'uptide-emnapi-'));
+  const manifest = (target: string) =>
+    `${JSON.stringify({ dependencies: { sharp: '^0.34.0', target } }, null, 2)}\n`;
+  const lock = (target: string, settled: boolean) =>
+    JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        '': { dependencies: { sharp: '^0.34.0', target } },
+        'node_modules/target': { version: target.replace('^', '') },
+        'node_modules/sharp': {
+          version: '0.34.5',
+          optionalDependencies: { '@emnapi/runtime': '^1.7.0' },
+        },
+        ...(settled && {
+          'node_modules/@emnapi/runtime': {
+            version: '1.11.3',
+            optional: true,
+            dependencies: { '@emnapi/wasi-threads': '1.2.3' },
+          },
+        }),
+        'node_modules/@emnapi/wasi-threads': {
+          version: settled ? '1.2.3' : '1.1.0',
+          optional: true,
+        },
+      },
+    });
+  writeFileSync(join(root, 'package.json'), manifest('^1.0.0'));
+  writeFileSync(join(root, 'package-lock.json'), lock('^1.0.0', true).replace('1.11.3', '1.7.1'));
+  for (const args of [
+    ['init', '-q'],
+    ['add', '.'],
+    ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'parent'],
+  ])
+    execFileSync('git', args, { cwd: root });
+  writeFileSync(join(root, 'package.json'), manifest('^2.0.0'));
+  let previous = '';
+  let settled = true;
+  const command = vi.spyOn(process, 'command').mockImplementation(async (_root, _bin, args) => {
+    if (args[0] === '--version') return { code: 0, output: '11.6.2', timeout: false };
+    if (args[0] === 'install') {
+      const current = readFileSync(join(root, 'package.json'), 'utf8');
+      settled = current === previous;
+      previous = current;
+      writeFileSync(
+        join(root, 'package-lock.json'),
+        lock(JSON.parse(current).dependencies.target, settled),
+      );
+    }
+    if (args[0] === 'ci' && !settled)
+      return {
+        code: 1,
+        output: "lock file's @emnapi/wasi-threads@1.1.0 does not satisfy",
+        timeout: false,
+      };
+    return { code: 0, output: '', timeout: false };
+  });
+  try {
+    const report = await upgradeInstall(root, {
+      name: 'target',
+      version: '2.0.0',
+      files: ['package.json'],
+      workspaces: ['.'],
+    });
+    expect(report.parentChurn?.map((c) => c.name)).toEqual(
+      expect.arrayContaining(['sharp', '@emnapi/runtime']),
+    );
+    expect(report.outOfScope).toBeUndefined();
+  } finally {
+    command.mockRestore();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
