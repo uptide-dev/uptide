@@ -4,10 +4,10 @@
   "repos": 5,
   "breaking": {
     "precision": 1,
-    "recall": 0.5,
+    "recall": 0.8182,
     "falsePositives": 0,
-    "truePositives": 11,
-    "falseNegatives": 11
+    "truePositives": 18,
+    "falseNegatives": 4
   },
   "behavior": {
     "precision": 1,
@@ -19,12 +19,7 @@
   "class": "breaking",
   "breakingSites": 22,
   "behaviorSites": 0,
-  "unexercised": [
-    "enable-metrics",
-    "integration-names",
-    "renamed-exports",
-    "streamed-span-wrapper"
-  ],
+  "unexercised": ["enable-metrics", "integration-names", "streamed-span-wrapper"],
   "mechanical": {
     "enable-logs": {
       "truePositives": 2,
@@ -35,7 +30,7 @@
       "falsePositives": 0
     },
     "renamed-exports": {
-      "truePositives": 0,
+      "truePositives": 7,
       "falsePositives": 0
     },
     "integration-names": {
