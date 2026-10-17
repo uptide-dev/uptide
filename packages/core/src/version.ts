@@ -67,6 +67,8 @@ export function uptideVersionInfo(env: NodeJS.ProcessEnv = process.env): {
     const git = (...args: string[]) =>
       execFileSync('git', ['-C', root, ...args], {
         encoding: 'utf8',
+        // shortcut: buffers up to 256 MiB, stream if larger repository status is needed.
+        maxBuffer: 256 * 1024 * 1024,
         stdio: ['ignore', 'pipe', 'ignore'],
         timeout: 30_000,
         killSignal: 'SIGKILL',
