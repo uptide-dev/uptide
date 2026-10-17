@@ -677,11 +677,9 @@ const droppable = (rank: number, block: string[], what: string): Piece => ({
   rank,
   alt: `_${what} omitted to fit the PR body budget. Full text is retained in report.json; see the job summary for verification results when run in Actions._`,
 });
-/** Commands a reader may run are written with the published dist-tag, wherever they came from. */
+/** Readers of a shared report may not have Uptide installed. */
 const withCommand = (text: string): string =>
-  text
-    .replace(/\bnpx uptide(?!@)/g, UPTIDE_COMMAND)
-    .replace(/`uptide (fix|pr|pr-body|verify|check|clean)\b/g, `\`${UPTIDE_COMMAND} $1`);
+  text.replace(/\b(?:npx )?uptide(?:@[\w.-]+)?(?= [a-z-])/g, UPTIDE_COMMAND);
 
 export function renderMigration(
   report: FixReport,
@@ -1116,6 +1114,8 @@ export function renderMigration(
       '',
       `Uptide commit: \`${report.uptideCommit ?? 'not retained'}\`${report.uptideDirty ? ' (working-tree changes)' : ''}`,
       `Branch: \`${report.branch}\``,
+      ...(report.base ? [`Started from: \`${report.base}\``] : []),
+      ...(report.baseHead ? [`Starting commit: \`${report.baseHead}\``] : []),
       ...(report.tier
         ? [
             `Tier: ${report.packWarning ? 'candidate' : report.tier} (${report.tier === 'verified' ? 'a migration pack covers this upgrade' : 'no migration pack: nothing analyzed the upgrade; only the checks under Verified by vouch for it'})`,
@@ -1131,7 +1131,7 @@ export function renderMigration(
     ]),
     '',
   );
-  // Normalize commands before measuring: @next must not push a fitted body over budget.
+  // Normalize retained commands before measuring the body.
   return fitPieces(
     lines.map((part): Piece => {
       const piece = typeof part === 'string' ? must(part) : part;

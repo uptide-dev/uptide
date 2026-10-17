@@ -107,9 +107,9 @@ for (const fixture of ['npm', 'npm-workspaces', 'pnpm', 'yarn', 'yarn-berry']) {
   matches(
     `${manager} status`,
     status.out,
-    /Run `npx uptide\S* list`, then `npx uptide\S* check <package>` for impact\./,
+    /Run `uptide\S* list`, then `uptide\S* check <package>` for impact\./,
   );
-  // `npx uptide` from a release, `npx uptide@next` from a snapshot: the commands reach this build.
+  // Suggestions use the installed CLI for releases and snapshots.
   failures.push(...invocationFailures(`${manager} status`, status.out, version));
 
   const inventory = uptide(repo, 'list', '--json');
@@ -163,7 +163,7 @@ for (const fixture of ['npm', 'npm-workspaces', 'pnpm', 'yarn', 'yarn-berry']) {
   );
   has(`${manager} check`, check.out, 'auto-fixable');
   has(`${manager} check`, check.out, 'needs the agent (LLM)');
-  matches(`${manager} check`, check.out, /\nNext\n(?: {2}.*\n)*? {2}npx uptide\S* fix zod /);
+  matches(`${manager} check`, check.out, /\nNext\n(?: {2}.*\n)*? {2}uptide\S* fix zod /);
   has(`${manager} check`, check.out, 'check zod stripe --target zod@');
   for (const noise of ['low-confidence', 'pre-existing type error', 'BREAKING'])
     expect(
@@ -260,7 +260,7 @@ for (const fixture of ['npm', 'npm-workspaces', 'pnpm', 'yarn', 'yarn-berry']) {
   matches(
     `${fixture} fix`,
     fix.out,
-    new RegExp(`\\nNext\\n {2}npx uptide\\S* pr --branch ${zodBranch.replace('/', '\\/')} `),
+    new RegExp(`\\nNext\\n {2}uptide\\S* pr --branch ${zodBranch.replace('/', '\\/')} `),
   );
   has(`${fixture} fix`, fix.out, 'report.html');
   expect(`${fixture} fix`, !fix.out.includes('### What changed'), fix.out);

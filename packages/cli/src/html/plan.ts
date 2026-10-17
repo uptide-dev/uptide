@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { TIER_LEGEND, type UpgradePlan } from '@uptide/core';
+import { TIER_LEGEND, type UpgradePlan, uptideCommand } from '@uptide/core';
 import { effortLine, type FormatPlanOptions, stepTitle } from '../format-plan.js';
+import { quote } from '../invocation.js';
 import { elapsed } from '../progress.js';
 import { css } from './assets.js';
 import { escapeHtml } from './render.js';
@@ -16,7 +17,9 @@ export interface PlanHtmlOptions extends FormatPlanOptions {
 /** The plan as a page: the same steps, constraints and effort as the terminal. No script, no network. */
 export function renderPlanHtml(plan: UpgradePlan, opts: PlanHtmlOptions): string {
   const e = escapeHtml;
-  const uptide = opts.invocation ?? 'npx uptide';
+  const uptide = opts.invocation ?? uptideCommand(opts.version);
+  const suggest = (command: string) => opts.suggest?.(command) ?? command;
+  const cwd = opts.cwd ? ` --cwd ${quote(opts.cwd)}` : '';
   const tone = {
     unknown: 'unverified',
     none: 'safe',
@@ -31,7 +34,7 @@ export function renderPlanHtml(plan: UpgradePlan, opts: PlanHtmlOptions): string
           (p) =>
             `<article class="site"><div class="mono">${e(p.name)} ${e(p.installed)} → ${e(p.target)} · ${e(p.tier)}</div><p class="muted">${e(effortLine(p.effort))}</p>${
               opts.fixable && p.effort.level !== 'none'
-                ? `<div class="command"><code>${e(`${uptide} ${p.effort.level === 'unknown' ? 'check' : 'fix'} ${p.name}`)}</code></div>`
+                ? `<div class="command"><code>${e(suggest(`${uptide} ${p.effort.level === 'unknown' ? 'check' : 'fix'} ${p.name}${cwd}`))}</code></div>`
                 : ''
             }</article>`,
         )

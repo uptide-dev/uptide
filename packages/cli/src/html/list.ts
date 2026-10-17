@@ -5,6 +5,7 @@ import {
   type ListGroup,
   type ListReport,
   type Priority,
+  uptideCommand,
 } from '@uptide/core';
 import {
   advisoryStatus,
@@ -46,6 +47,7 @@ export interface ListHtmlOptions extends FormatListOptions {
 /** Where a row is shown; the Groups, Tooling and Possibly unused filters read it. */
 type Section = 'group' | 'used' | 'tooling' | 'unused';
 export function renderListHtml(report: ListReport, opts: ListHtmlOptions): string {
+  opts = { ...opts, invocation: opts.invocation ?? uptideCommand(opts.version) };
   const { groups, used, tooling, unused } = listSections(report);
   const failures = [...new Map(report.failures.map((f) => [f.name, f])).values()];
   let section = 0;

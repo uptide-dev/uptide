@@ -17,7 +17,7 @@ joi   0 breaking · types not verified: the compiler did not run
 pg   0 breaking · types not verified: the compiler did not run
 
 Next
-  npx uptide check sharp twilio lodash joi pg --details    every site and reason
+  uptide check sharp twilio lodash joi pg --details    every site and reason
 "
 `;
 
@@ -30,7 +30,7 @@ ioredis   0 breaking · types not verified: the compiler did not run
   ✗ blocked: ioredis 5.4.1 needs denque ^3.0.0; installed 1.5.1, and only a new major satisfies it (denque 3.0.0)   a new major, never made by Uptide
 
 Next
-  npx uptide@next check ioredis --details    every site and reason
+  uptide check ioredis --details    every site and reason
 "
 `;
 
@@ -43,7 +43,7 @@ ioredis   0 breaking · types not verified: the compiler did not run
   ↑ upgrades with ioredis-mock 7.4.0 → 8.9.0   release group
 
 Next
-  npx uptide@next check ioredis --details    every site and reason
+  uptide check ioredis --details    every site and reason
 "
 `;
 
@@ -56,7 +56,7 @@ ioredis   0 breaking · types not verified: the compiler did not run
   ↑ moves denque 1.5.1 → 2.1.0   moved because ioredis 5.4.1 requires denque ^2.1.0
 
 Next
-  npx uptide@next check ioredis --details    every site and reason
+  uptide check ioredis --details    every site and reason
 "
 `;
 
@@ -69,7 +69,7 @@ ioredis   0 breaking · types not verified: the compiler did not run
   − removed: @types/ioredis, ioredis 5 ships its own types   npm deprecates its new release as a stub; was 4.28.10
 
 Next
-  npx uptide@next check ioredis --details    every site and reason
+  uptide check ioredis --details    every site and reason
 "
 `;
 
@@ -82,7 +82,7 @@ ioredis   0 breaking · types not verified: the compiler did not run
   · bull stays at 3.29.3 (versioned on its own)
 
 Next
-  npx uptide@next check ioredis --details    every site and reason
+  uptide check ioredis --details    every site and reason
 "
 `;
 
@@ -100,7 +100,7 @@ ioredis  4.28.5 → 5.4.1
 Summary: 0 packages need attention · 0 breaking · 0 deprecated · 0 unaffected
 
 Next
-  npx uptide@next check ioredis    the summary, one line per change
+  uptide check ioredis    the summary, one line per change
 "
 `;
 
@@ -128,10 +128,10 @@ stripe   4 breaking · compiled against 23.0.0
 vitest   not analyzed: no pack yet · compiled against 5.0.3
 
 Next
-  npx uptide@next fix zod                              migrate on a new branch, verify, no push
-  npx uptide@next fix stripe                           migrate on a new branch, verify, no push
-  npx uptide@next plan                                 the order to upgrade in, with the effort
-  npx uptide@next check zod stripe vitest --details    every site and reason
+  uptide fix zod                              migrate on a new branch, verify, no push
+  uptide fix stripe                           migrate on a new branch, verify, no push
+  uptide plan                                 the order to upgrade in, with the effort
+  uptide check zod stripe vitest --details    every site and reason
 "
 `;
 
@@ -144,8 +144,8 @@ zod   4 breaking · compiled against 4.6.5
   ✗ New error API (required_error → error)   4 sites   auto-fixable
 
 Next
-  npx uptide@next fix zod                migrate on a new branch, verify, no push
-  npx uptide@next check zod --details    every site and reason
+  uptide fix zod                migrate on a new branch, verify, no push
+  uptide check zod --details    every site and reason
 "
 `;
 
@@ -175,7 +175,7 @@ Summary: 1 package needs attention · 4 breaking · 0 deprecated · 0 unaffected
          4 of 4 findings are mechanical
 
 Next
-  npx uptide@next fix zod      migrate on a new branch, verify, no push
-  npx uptide@next check zod    the summary, one line per change
+  uptide fix zod      migrate on a new branch, verify, no push
+  uptide check zod    the summary, one line per change
 "
 `;

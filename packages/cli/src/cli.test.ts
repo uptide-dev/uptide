@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type FixReport, PeerPreflightError, PublishError, UptideError } from '@uptide/core';
@@ -25,6 +25,15 @@ describe('uptide (no command)', () => {
       'Run `npx uptide list`, then `npx uptide check <package>` for impact.',
     );
     expect(io.stderr()).toMatch(/✔ Repository {2}shop \(npm\) \(\d+ms\)/);
+  });
+
+  it('keeps cwd in status hints', async () => {
+    const cwd = npmRepo();
+    const io = memoryIo({ cwd: '/' });
+    await run(['--cwd', cwd], io, fakeEngine());
+    expect(io.stdout()).toContain(
+      `Run \`npx uptide list --cwd ${cwd}\`, then \`npx uptide check <package> --cwd ${cwd}\` for impact.`,
+    );
   });
 
   it('names the package manager, the workspaces and catalog pins', async () => {
@@ -139,6 +148,40 @@ describe('uptide check', () => {
     const io = memoryIo({ cwd: '/' });
     await run(['check', '--cwd', cwd, '--only', 'zod'], io, fakeEngine());
     expect(io.stdout()).toContain(`  npx uptide check zod --details --cwd ${cwd}`);
+  });
+
+  it('keeps compatible flags without applying another package target to fix hints', async () => {
+    const cwd = npmRepo({ 'custom settings.yml': 'version: 1\n' });
+    const io = memoryIo({ cwd });
+    await run(
+      [
+        'check',
+        'zod',
+        'stripe',
+        '--target',
+        'zod@4.6.5',
+        '--config',
+        'custom settings.yml',
+        '--allow-candidate',
+      ],
+      io,
+      fakeEngine({
+        check: async () =>
+          JSON.parse(
+            readFileSync(new URL('./__fixtures__/storefront-check.json', import.meta.url), 'utf8'),
+          ),
+      }),
+    );
+    const hints = io
+      .stdout()
+      .split('\n')
+      .filter((line) => line.startsWith('  npx uptide '));
+    expect(hints.length, io.stderr()).toBeGreaterThan(1);
+    expect(hints.map((line) => line.trim().replace(/ {2,}.*/, ''))).toMatchSnapshot();
+    const stripe = hints.find((line) => line.includes('fix stripe'));
+    expect(stripe).toContain("--config 'custom settings.yml'");
+    expect(stripe).toContain('--allow-candidate');
+    expect(stripe).not.toContain('--target');
   });
 
   it('exits 1 when a breaking change reaches the code', async () => {
@@ -364,6 +407,24 @@ describe('uptide fix', () => {
     });
   });
 
+  it('keeps explicit flags in the peer retry hint', async () => {
+    const next = 'npx uptide fix zod plugin --target 4.6.5';
+    const engine = fakeEngine({
+      fix: async () => {
+        throw new PeerPreflightError([], next, `Peer blocker\n\nNext: ${next}`);
+      },
+    });
+    const io = memoryIo({ cwd: pnpmGitRepo() });
+    await run(
+      ['fix', 'zod', '--max-cost', '3', '--no-llm', '--model', 'claude-test-model', '--json'],
+      io,
+      engine,
+    );
+    expect(JSON.parse(io.stdout()).next).toMatchInlineSnapshot(
+      `"npx uptide fix zod plugin --target 4.6.5 --model claude-test-model --no-llm --max-cost 3 --json"`,
+    );
+  });
+
   it('emits grouped peer blockers and the full Next command as JSON with exit 2', async () => {
     const peerConflicts = [
       {
@@ -391,15 +452,18 @@ describe('uptide fix', () => {
     const io = memoryIo({ cwd: pnpmGitRepo() });
     expect(await run(['fix', 'zod', '--no-llm', '--json'], io, engine)).toBe(2);
     expect(JSON.parse(io.stdout())).toEqual({
-      error: { code: 'INCONSISTENT_UPGRADE', message: error.message },
+      error: {
+        code: 'INCONSISTENT_UPGRADE',
+        message: error.message.replace(next, `${next} --no-llm --json`),
+      },
       peerConflicts,
-      next,
+      next: `${next} --no-llm --json`,
     });
     expect(io.stderr()).not.toContain('error:');
     for (const tty of [false, true]) {
       const plain = memoryIo({ cwd: pnpmGitRepo(), outTty: tty, errTty: tty });
       expect(await run(['fix', 'zod', '--no-llm'], plain, engine)).toBe(2);
-      expect(plain.stderr()).toContain(`${error.message}\n`);
+      expect(plain.stderr()).toContain(`${error.message} --no-llm\n`);
       expect(plain.stderr()).not.toMatch(/✖|error:|LLM spend:/);
     }
     expect(io.stderr()).not.toMatch(/✖|LLM spend:/);

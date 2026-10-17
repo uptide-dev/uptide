@@ -90,7 +90,8 @@ const header = { repo: 'shop', manager: 'pnpm', packages: 0, ms: 12_000 };
 
 describe('formatPlan', () => {
   it('prints the steps in order with target, tier, effort, constraints and the command', () => {
-    const out = formatPlan(plan, { color: false, header, invocation: 'npx uptide', fixable: true });
+    const out = formatPlan(plan, { color: false, header, invocation: 'uptide', fixable: true });
+    expect(out).toMatchSnapshot();
     expect(out).toBe(
       [
         'uptide plan · shop (pnpm) · 12s',
@@ -101,17 +102,17 @@ describe('formatPlan', () => {
         '',
         '2  zod 3.25.76 → 4.6.5   verified',
         '   small · 28 sites: 24 auto-fixable, 4 need the agent (LLM)',
-        '   npx uptide fix zod',
+        '   uptide fix zod',
         '',
         '3  react-dom 18.3.1 → 19.2.0   generic',
         '   medium · 7 sites: 7 need the agent (LLM) · 2 unconfirmed to look at',
         '   peer: react-dom 19.2.0 needs react ^19.0.0 (installed: 18.3.1): upgrade react first',
         '   ✗ blocked: old-plugin 1.0.0 needs react-dom ^18.0.0, and react-dom 19.2.0 is outside it; old-plugin has no upgrade in this plan',
-        '   npx uptide fix react-dom',
+        '   uptide fix react-dom',
         '',
         'Not planned',
         '  next 14.2.0: not analyzed: out of time',
-        '  npx uptide list    refresh discovery',
+        '  uptide list    refresh discovery',
         '',
         'verified: migration pack · generic: no pack · in both, breaking only if the compiler, the runtime probe or the pack confirms it',
         'Effort is an estimate from the findings: none (nothing affected), small (rules, or up to 5 sites by hand or agent), medium (up to 25), large (more).',
@@ -137,7 +138,7 @@ describe('formatPlan', () => {
     expect(html).toContain('effort: medium');
     expect(html).toContain('Blocked: old-plugin 1.0.0 needs react-dom ^18.0.0');
     expect(html).toContain('next 14.2.0: not analyzed: out of time');
-    expect(html).toContain('npx uptide fix zod');
+    expect(html).toContain('uptide fix zod');
     expect(html).not.toMatch(/<script|<img|<link|src=/i);
     expect(html).toContain("connect-src 'none'");
     // Names from a manifest are data, never markup.

@@ -24,7 +24,7 @@ import { gitLineMoves, markPreexisting, newDiagnostics, typeResolutionFailure } 
 export const PIN_RULE = 'api-version-pin';
 
 /**
- * `fix --only stripe --pin-current-api`: the small PR. The SDK stays where it is; every client
+ * `fix stripe --pin-current-api`: the small PR. The SDK stays where it is; every client
  * created without `apiVersion` gets the version that SDK defaults to, written down. Zero
  * behaviour change today, and the next SDK bump no longer moves the API version silently.
  * Same guard rails as a migration: clean tree, baseline, branch, verification, PR body.

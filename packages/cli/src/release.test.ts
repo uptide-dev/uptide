@@ -138,7 +138,7 @@ describe('the Release workflow', () => {
     const publish = job('publish');
     const order = [
       runs(publish, 'node scripts/check-release-version.mjs'),
-      // The committed tree, at its committed version: the tests assert `npx uptide`.
+      // The committed tree, at its committed version: the tests assert `uptide`.
       runs(publish, 'pnpm lint'),
       runs(publish, 'node scripts/public-tree.mjs . --require-denylist'),
       runs(publish, 'pnpm build'),

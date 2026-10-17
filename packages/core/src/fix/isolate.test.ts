@@ -305,6 +305,26 @@ describe('fix migrates the commit that is checked out, cloned from the local rep
     30000,
   );
 
+  it.each([false, true])(
+    'retains the starting branch or detached commit (%s)',
+    async (detached) => {
+      const { root, services } = zodFixture(scratch);
+      withOrigin(root);
+      git(root, 'switch', '-c', 'demo-base');
+      const start = commitFile(root, 'local-only.txt');
+      if (detached) git(root, 'switch', '--detach', start);
+      const report = await isolatedFix({ cwd: root, only: 'zod', tool: TOOL }, services);
+      expect(report.base).toBe(detached ? start : 'demo-base');
+      expect(report.baseHead).toBe(start);
+      const stored = JSON.parse(readFileSync(storedRunFile(root, report.branch) as string, 'utf8'));
+      expect(stored.base).toBe(report.base);
+      expect(stored.baseHead).toBe(start);
+      expect(readFileSync(report.prBody, 'utf8')).toContain(`Started from: \`${report.base}\``);
+      expect(readFileSync(report.prBody, 'utf8')).toContain(`Starting commit: \`${start}\``);
+    },
+    30000,
+  );
+
   it('ahead of the upstream: migrates the local commits and says so', async () => {
     const { root, services } = zodFixture(scratch);
     withOrigin(root);
@@ -468,6 +488,7 @@ describe('verify runs in a private clone and only ever adds commits', () => {
 
   it('fast-forwards a branch that is not checked out, without touching the working tree', async () => {
     const { root, services, first } = await migrated();
+    git(root, 'switch', '-c', 'other-branch');
     const before = snapshot(root);
     const again = await isolatedVerify(
       { cwd: root, branch: 'uptide/zod-4.6.5', tool: TOOL },
@@ -476,6 +497,8 @@ describe('verify runs in a private clone and only ever adds commits', () => {
     expect(changedSince(root, before)).toEqual([]);
     expect(again.verification.passed).toBe(true);
     expect(again.head).not.toBe(first.head);
+    expect(again.base).toBe(first.base);
+    expect(again.baseHead).toBe(first.baseHead);
     // One commit on top of the old head; the old head is still its parent.
     expect(git(root, 'rev-parse', 'uptide/zod-4.6.5')).toBe(again.head);
     expect(git(root, 'rev-parse', 'uptide/zod-4.6.5~1')).toBe(first.head);

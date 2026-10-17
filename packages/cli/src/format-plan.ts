@@ -2,12 +2,14 @@ import type { Effort, PlannedPackage, UpgradePlan, UpgradeStep } from '@uptide/c
 import { BY, TIER_LEGEND } from '@uptide/core';
 import pc from 'picocolors';
 import { type CheckHeader, repoLine } from './format-check.js';
+import { quote } from './invocation.js';
 import { elapsed } from './progress.js';
 
 export interface FormatPlanOptions {
   color?: boolean;
   header?: CheckHeader;
   invocation?: string;
+  suggest?: (command: string) => string;
   /** Flags to repeat so the suggested commands act on the same repository. */
   cwd?: string;
   /** Whether `fix` can run here (a supported package manager). */
@@ -52,8 +54,9 @@ export function stepTitle(step: UpgradeStep): string {
  */
 export function formatPlan(plan: UpgradePlan, opts: FormatPlanOptions = {}): string {
   const colors = pc.createColors(opts.color ?? true);
-  const uptide = opts.invocation ?? 'npx uptide';
-  const cwd = opts.cwd ? ` --cwd ${opts.cwd}` : '';
+  const uptide = opts.invocation ?? 'uptide';
+  const cwd = opts.cwd ? ` --cwd ${quote(opts.cwd)}` : '';
+  const suggest = (command: string) => opts.suggest?.(command) ?? command;
   const lines: string[] = [];
   if (opts.header) {
     const dot = colors.dim('·');
@@ -87,7 +90,7 @@ export function formatPlan(plan: UpgradePlan, opts: FormatPlanOptions = {}): str
       for (const p of step.packages)
         lines.push(
           colors.dim(
-            `${indent}${uptide} ${p.effort.level === 'unknown' ? 'check' : 'fix'} ${p.name}${cwd}`,
+            `${indent}${suggest(`${uptide} ${p.effort.level === 'unknown' ? 'check' : 'fix'} ${p.name}${cwd}`)}`,
           ),
         );
     lines.push('');
@@ -98,7 +101,7 @@ export function formatPlan(plan: UpgradePlan, opts: FormatPlanOptions = {}): str
       lines.push(`  ${p.name} ${p.installed}: ${p.reason}`);
     if (plan.notPlanned.length > 12)
       lines.push(colors.dim(`  and ${plan.notPlanned.length - 12} more`));
-    lines.push(colors.dim(`  ${uptide} list${cwd}    refresh discovery`), '');
+    lines.push(colors.dim(`  ${suggest(`${uptide} list${cwd}`)}    refresh discovery`), '');
   }
   if (plan.steps.some((s) => s.packages.some((p) => p.tier === 'generic')))
     lines.push(colors.dim(TIER_LEGEND));

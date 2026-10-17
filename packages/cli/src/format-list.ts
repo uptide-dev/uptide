@@ -7,7 +7,7 @@ import {
 } from '@uptide/core';
 import pc from 'picocolors';
 import type { CheckHeader } from './format-check.js';
-import { INVOCATION } from './invocation.js';
+import { invocation, quote } from './invocation.js';
 import { alignedRows, type Cell, ellipsis, terminalHeader, textWidth } from './terminal.js';
 
 export interface FormatListOptions {
@@ -17,16 +17,17 @@ export interface FormatListOptions {
   details?: boolean;
   header?: CheckHeader;
   invocation?: string;
+  suggest?: (command: string) => string;
   cwd?: string;
 }
 const plural = (count: number, noun: string, multiple = `${noun}s`): string =>
   `${count} ${count === 1 ? noun : multiple}`;
-const quote = (s: string): string =>
-  /^[\w./@:=+-]+$/.test(s) ? s : `'${s.replaceAll("'", "'\"'\"'")}'`;
 const dependencyKey = (p: ListedDependency): string =>
   JSON.stringify([p.name, p.registryName ?? p.name, p.current]);
-export const listCommand = (packages: ListedDependency[], opts: FormatListOptions): string =>
-  `${opts.invocation ?? INVOCATION} check ${[...new Set(packages.map((p) => p.name))].map(quote).join(' ')}${opts.cwd ? ` --cwd ${quote(opts.cwd)}` : ''}`;
+export const listCommand = (packages: ListedDependency[], opts: FormatListOptions): string => {
+  const command = `${opts.invocation ?? invocation()} check ${[...new Set(packages.map((p) => p.name))].map(quote).join(' ')}${opts.cwd ? ` --cwd ${quote(opts.cwd)}` : ''}`;
+  return opts.suggest?.(command) ?? command;
+};
 export const listChange = (p: ListedDependency): string =>
   p.majorGap > 1 ? `${p.majorGap} majors behind` : p.change;
 /**
@@ -43,13 +44,19 @@ export const listSpread = (p: ListedDependency): string =>
   p.versions
     ? `${p.versions.length} versions in ${plural(new Set(p.versions.flatMap((v) => v.workspaces)).size, 'workspace')}`
     : '';
-export const groupCommand = (group: ListGroup, opts: FormatListOptions): string =>
-  `${opts.invocation ?? INVOCATION} check --group ${quote(group.id)}${opts.cwd ? ` --cwd ${quote(opts.cwd)}` : ''}`;
+export const groupCommand = (group: ListGroup, opts: FormatListOptions): string => {
+  const command = `${opts.invocation ?? invocation()} check --group ${quote(group.id)}${opts.cwd ? ` --cwd ${quote(opts.cwd)}` : ''}`;
+  return opts.suggest?.(command) ?? command;
+};
 /** The command that starts on a priority: its group or package, at its smallest fix when it has one. */
-export const priorityCommand = (p: Priority, opts: FormatListOptions): string =>
-  `${opts.invocation ?? INVOCATION} check ${p.group ? `--group ${quote(p.group)}` : p.packages.map(quote).join(' ')}${p.target ? ` --target ${quote(p.target)}` : ''}${opts.cwd ? ` --cwd ${quote(opts.cwd)}` : ''}`;
-export const cheapBatchCommand = (names: string[], opts: FormatListOptions): string =>
-  `${opts.invocation ?? INVOCATION} check ${names.map(quote).join(' ')}${opts.cwd ? ` --cwd ${quote(opts.cwd)}` : ''}`;
+export const priorityCommand = (p: Priority, opts: FormatListOptions): string => {
+  const command = `${opts.invocation ?? invocation()} check ${p.group ? `--group ${quote(p.group)}` : p.packages.map(quote).join(' ')}${p.target ? ` --target ${quote(p.target)}` : ''}${opts.cwd ? ` --cwd ${quote(opts.cwd)}` : ''}`;
+  return opts.suggest?.(command) ?? command;
+};
+export const cheapBatchCommand = (names: string[], opts: FormatListOptions): string => {
+  const command = `${opts.invocation ?? invocation()} check ${names.map(quote).join(' ')}${opts.cwd ? ` --cwd ${quote(opts.cwd)}` : ''}`;
+  return opts.suggest?.(command) ?? command;
+};
 /** What the advisory lookup covered, for the PRIORITIES heading. */
 export function advisoryStatus(report: ListReport): string {
   const a = report.advisories;

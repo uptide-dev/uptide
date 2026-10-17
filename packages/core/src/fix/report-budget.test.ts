@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { expect, it } from 'vitest';
-import { UPTIDE_COMMAND } from '../version.js';
+import { expect, it, vi } from 'vitest';
+import { published, uptideCommand } from '../version.js';
 import { largeStripeReport, manySitesReport } from './__fixtures__/large-reports.js';
 import { migrationBody, PR_BODY_BUDGET, prBody, renderMigration } from './report.js';
 import { stripeChangelog } from './stripe-changelog.js';
@@ -130,7 +130,7 @@ it('trims transitive lists before verification, including notices and expanded c
   expect(body).toContain('1500 transitive changes omitted');
   expect(body).not.toContain('replaced transitive-0');
   expect(body).toContain('PASS billing scenario 0');
-  expect(body).toContain(`${UPTIDE_COMMAND} verify`);
+  expect(body).toContain(`${uptideCommand(published)} verify`);
   balanced(body);
 });
 
@@ -166,5 +166,33 @@ it('keeps every evidenced Stripe entry above details and uncapped under budget p
       expect(body).toContain('report.json');
       expect(body).toMatchSnapshot();
     }
+  }
+});
+
+it.each(['uptide', 'npx uptide', 'npx uptide@next'])(
+  'makes shared PR commands portable from %s reports',
+  (invocation) => {
+    const report = manySitesReport();
+    report.decisions = [`- Run \`${invocation} verify\` after reviewing.`];
+    expect(prBody(report)).toContain(`Run \`${uptideCommand(published)} verify\``);
+  },
+);
+
+it('keeps the Action report and PR body portable without an npm invocation', async () => {
+  const binary = process.argv[1] ?? '';
+  vi.stubEnv('GITHUB_ACTIONS', 'true');
+  vi.stubEnv('npm_command', '');
+  process.argv[1] = '/home/runner/work/_actions/uptide-dev/uptide/main/dist/index.js';
+  try {
+    vi.resetModules();
+    const { UPTIDE_COMMAND } = await import('../version.js');
+    const { prBody } = await import('./report.js');
+    expect(UPTIDE_COMMAND).toBe(uptideCommand(published));
+    const report = manySitesReport();
+    report.decisions = [`- Run \`${UPTIDE_COMMAND} verify\` after reviewing.`];
+    expect(prBody(report)).toContain(`Run \`${uptideCommand(published)} verify\``);
+  } finally {
+    process.argv[1] = binary;
+    vi.unstubAllEnvs();
   }
 });

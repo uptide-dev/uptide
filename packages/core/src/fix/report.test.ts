@@ -782,9 +782,9 @@ it("keeps a PR description under GitHub's limit: what matters first, the rest co
   expect(body).toContain('ok line (repeated 4000 times)');
   // A description is read on GitHub: it never points at a file on the author's machine.
   expect(body).not.toMatch(/report\.html|stored run|\.git\//);
-  // Decisions once; commands with the published dist-tag.
+  // Decisions once; commands use the installed CLI.
   expect(body.match(/Decisions for you/g)).toHaveLength(1);
-  expect(body).not.toMatch(/npx uptide(?!@next)/);
+  expect(body).not.toMatch(/npx uptide|uptide@next|fix --only/);
   // Nothing is cut inside a block.
   const count = (pattern: RegExp) => (body.match(pattern) ?? []).length;
   expect(count(/<details>/g)).toBe(count(/<\/details>/g));

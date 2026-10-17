@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`uptide check > keeps compatible flags without applying another package target to fix hints 1`] = `
+[
+  "npx uptide fix zod --target 4.6.5 --allow-candidate --config 'custom settings.yml'",
+  "npx uptide fix stripe --allow-candidate --config 'custom settings.yml'",
+  "npx uptide plan --only 'zod,stripe' --config 'custom settings.yml'",
+  "npx uptide check zod stripe --target zod@4.6.5 --details --allow-candidate --config 'custom settings.yml'",
+]
+`;

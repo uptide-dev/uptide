@@ -700,7 +700,7 @@ it('reports a client created without apiVersion as a runtime API-version change,
     expect(choice).toContain(
       "(a) the small one, stay on stripe 14.25.0 and write `apiVersion: '2023-10-16'`",
     );
-    expect(choice).toContain('`npx uptide fix --only stripe --pin-current-api`');
+    expect(choice).toContain('`npx uptide fix stripe --pin-current-api`');
     expect(choice).toContain(
       "(b) the full one, this PR: stripe 23.0.0, `apiVersion: '2026-09-30.endive'`",
     );
