@@ -248,13 +248,15 @@ export function loadRepo(cwd: string, rootFiles?: string[], configPath?: string)
   const includesJs = allowJs ?? checkJs ?? false;
   if (rootFiles !== undefined) {
     // Explicit roots bypass tsconfig filtering; excluded JS nodes are never bound by the checker.
-    project.addSourceFilesAtPaths(
-      rootFiles.filter((file) => includesJs || !/\.[cm]?jsx?$/.test(file)),
-    );
+    // One file at a time: given a list, ts-morph globs from the files' common directory and
+    // follows a self-link (`node_modules/<self> -> ..`, Yarn's `link:.`) until ENAMETOOLONG.
+    for (const file of rootFiles.filter((f) => includesJs || !/\.[cm]?jsx?$/.test(f)))
+      project.addSourceFileAtPathIfExists(file);
     // A scoped program still needs what the tsconfig declares globally: the ambient
     // declaration files it includes (`vite-env.d.ts`, `css.d.ts`, `global.d.ts`) are what
     // make `*.module.css` imports and `declare global` names resolve. Nothing imports them.
-    if (existsSync(tsconfig)) project.addSourceFilesAtPaths(ambientDeclarations(tsconfig));
+    if (existsSync(tsconfig))
+      for (const file of ambientDeclarations(tsconfig)) project.addSourceFileAtPathIfExists(file);
   }
   project.resolveSourceFileDependencies();
   return {
