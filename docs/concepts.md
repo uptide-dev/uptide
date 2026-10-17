@@ -88,6 +88,32 @@ declaration it traces to. Common causes are grouped into one finding with a site
 count; `--details` expands sites. For example, TypeScript 7 missing compiler API members form
 one cause rather than dozens.
 
+A compile error whose value comes from another breaking site is that site's consequence,
+not a site of its own. When zod 4 drops `ZodError.errors`, `return { errors:
+result.error.errors }` is the breaking site: one edit (`.issues`) fixes it. Every component
+that calls that action and maps over the result (`errors.map(e => e.message)`, where `e` is
+now implicitly `any`) errors too, and so does the narrowing that depended on it
+(`savedAirport` possibly undefined). Those errors fold into the breaking site as
+**downstream errors**. The rule:
+
+- The new error's value is traced with the compiler, never by line distance: from the
+  expression at the error, through the declaration and initializer of a variable or
+  destructured binding, the receiver of a callback typed by an `any` value
+  (`errors.map(e => …)`), the members of a returned object literal, and the call of a
+  repository function. It folds only when the trace reaches the expression of another new
+  error that is typed `any` at the target, such as `result.error.errors` (TS2339).
+- A repository function's call is followed only when every returned expression whose type
+  changed between the installed version and the target leads to such an expression. If one
+  changed return cannot be traced, the trace stops.
+- The root must be a breaking finding at that expression (a pack's or the declaration
+  diff's, or an unattributed compile error). If it is a consequence itself, the error folds
+  into that one's root. Errors whose trace reaches no reported root stay as they are.
+- The default view adds the count to the rule's line (`61 sites, +58 downstream errors`).
+  `--details` lists each folded error under its root, and `--json` carries them as the
+  root finding's `downstream`.
+- Folding changes what is reported, never what has to compile. `fix` still verifies against
+  every diagnostic, so a fix that leaves a downstream error broken fails verification.
+
 ## Exit codes
 
 For scripts and CI: **0** nothing breaking, **1** breaking changes found, **2** uptide could
