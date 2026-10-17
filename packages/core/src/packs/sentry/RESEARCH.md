@@ -164,8 +164,8 @@ See the pull request for the full output of the final run.
 | Lead | Repos | Breaking P / R | Overall P / R | TP / FP / FN | Status |
 | --- | ---: | --- | --- | --- | --- |
 | `@sentry/nextjs` | 3 | 100% / 100% | 100% / 100% | 8 / 0 / 0 | verified |
-| `@sentry/browser` | 2 | 100% / 100% | 100% / 100% | 3 / 0 / 0 | verified |
-| `@sentry/react` | 2 | 100% / 100% | 100% / 100% | 2 / 0 / 0 | verified (after the engine change in item 1 below) |
+| `@sentry/browser` | 2 → 5 | 100% / 50% | 100% / 50% | 11 / 0 / 11 | verified (UPT-64, below) |
+| `@sentry/react` | 2 → 14 | 88% / 72% | 88% / 72% | 21 / 3 / 8 | candidate (UPT-64, below) |
 | `@sentry/node` | 2 | 67% / 80% | 71% / 83% | 5 / 2 / 1 | candidate |
 
 Misses and why:
@@ -175,17 +175,85 @@ Misses and why:
   with no compiler signal and no general syntactic rule (renaming the active span is legitimate
   elsewhere); covered only by the `span-streaming`/`also-review` decisions.
 
-## Candidates under the UPT-48 gate
+## Browser and React ground truth under the UPT-48 gate (UPT-64)
 
-`verified` now needs at least five expected breaking sites across the public repositories
-(`VERIFIED_MIN_BREAKING_SITES`). `@sentry/browser` has 3 and `@sentry/react` has 2, so both are
-recorded `candidate` until their ground truth has five or more real breaking sites each (precision
-and recall above are unchanged). `@sentry/nextjs` (8) stays verified. Public repositories to search
-later for real 10 → 11 upgrades of these leads: cal.com, midday, rallly, inbox-zero, unkey, twenty.
+UPT-48 demoted `@sentry/browser` (3 breaking sites) and `@sentry/react` (2) to `candidate`: the
+gate needs five. UPT-64 (2026-10-16) added public upgrades by the method above, with the anchor
+rule docs/packs.md has had since UPT-53 applied to the new entries (the 2026-10-14 entries are
+unchanged). Truth was committed before the first score with it and not touched after.
 
-The shared rules no real site exercises (`enable-logs`, `enable-metrics`,
-`http-integration-options`, `integration-names`, `renamed-exports`, `streamed-span-wrapper`, per lead
-as `verification.json` lists them under `unexercised`) run as assisted in `fix`.
+**Selection.** Every merged pull request found by searching GitHub for Sentry 11 upgrades
+(titles naming `@sentry/react`/`@sentry/browser`, the monorepo, "Sentry 11"/"v11"; created after
+11.0.0) whose `package.json` moves a lead from 10 to 11 next to its own lockfile, and whose diff
+removes a line naming an API v11 removed or changed. All of them, not a hand-picked subset:
+
+| Lead | Repository | Parent | Upgrade | Versions | Expected |
+| --- | --- | --- | --- | --- | --- |
+| react | [Seklfreak/flimm](https://github.com/Seklfreak/flimm/pull/28) `frontend/` | `e9fb0517` | `15e1e2cd` | 10.75.3 → 11.0.0 | `sendDefaultPii` |
+| react | [daler91/Hyrox-Companion](https://github.com/daler91/Hyrox-Companion/pull/2102) | `77e68b5e` | merge `febc857a` | 10.75.2 → 11.1.0 | `sendDefaultPii` |
+| react | [jey3dayo/ultra-rss-reader](https://github.com/jey3dayo/ultra-rss-reader/pull/346) | `9b2075e5` | `5881f217` | 10.75.0 → 11.0.0 | `sendDefaultPii` |
+| react | [jirikrucek/ricochet-app](https://github.com/jirikrucek/ricochet-app/pull/33) | `f9313aca` | merge `394f65de` | 10.70.0 → 11.1.0 | `enableLogs` |
+| react | [louisclarencepeter/destinationparadise](https://github.com/louisclarencepeter/destinationparadise/pull/162) | `04894de5` | merge `db318cbc` | 10.75.0 → 11.7.0 (+ node) | 2× `sendDefaultPii` |
+| react | [poporonnet/kaniwriter](https://github.com/poporonnet/kaniwriter/pull/1430) | `34001942` | `8282be75` | 10.76.0 → 11.5.0 | `sendDefaultPii: true` |
+| react | [preijm/milk-me-not](https://github.com/preijm/milk-me-not/pull/293) | `471ec204` | `fbc7d5f1` | 10.76.2 → 11.4.0 | `sendDefaultPii` |
+| react | [CandeeGenerations/central-flock](https://github.com/CandeeGenerations/central-flock/pull/30) | `8d2155e0` | `8e221842` | 10.75.3 → 11.2.0 (+ node) | 2× `sendDefaultPii`, 2× `beforeSendTransaction`, `setupExpressErrorHandler` (TS6387) |
+| react | [DougZeThug/717rec](https://github.com/DougZeThug/717rec/pull/1594) | `b4b9baa8` | merge `d70039fd` | 10.75.2 → 11.0.0 | `sendDefaultPii` |
+| react | [CandeeGenerations/attendance-public](https://github.com/CandeeGenerations/attendance-public/pull/3) | `661c08b6` | merge `14350d8a` | 10.75.3 → 11.2.0 | `sendDefaultPii`, `beforeSendTransaction` |
+| react | [cucumber/cucumber-reports](https://github.com/cucumber/cucumber-reports/pull/314) | `a2b50ccb` | `ec06fa57` | 10.75.3 → 11.2.0 | `enableLogs` |
+| react | [Simple-With-Us/BotFleet](https://github.com/Simple-With-Us/BotFleet/pull/940) | `8ddc42a4` | `d1270b68` | 10.76.1 → 11.6.0 (+ node) | 3× `enableLogs`, 2× `sendDefaultPii`, `httpIntegration` key, 2× `queryParams`, `streamGenAiSpans`, `startNewTrace` |
+| browser | [MihaelaAghirculesei/Pokedex](https://github.com/MihaelaAghirculesei/Pokedex/pull/99) | `9b48984a` | `3919a763` | 10.74.0 → 11.1.0 | `sendDefaultPii` |
+| browser | [Simple-With-Us/ContactLogo](https://github.com/Simple-With-Us/ContactLogo/pull/161) `web/` | `e3ad9520` | `4df8d7d6` | 10.76.0 → 11.4.0 | `sendDefaultPii`, `enableLogs` |
+| browser | [getsentry/sentry-godot](https://github.com/getsentry/sentry-godot/pull/991) `src/sentry/javascript/bridge/` | `be1c5daf` | `1b67a237` | 10.75.2 → 11.5.0 (+ core, wasm) | `sendDefaultPii`, `breadcrumbsIntegration({ console })`, `beforeSendTransaction`, 3× `Scope.clear()`, 8× `spanToStreamedSpanJSON`, 2× `getScopeData().span` |
+
+Conventions, decided while reviewing drafts and before any score, in addition to those above:
+
+- A test line is its own site when it calls the package directly (sentry-godot's `test.js`, a
+  real `Sentry.init` in BotFleet's tests) or has a diagnostic (youth-activity-scheduler's
+  TS2339). A test that asserts the options the repository's own init passes (`objectContaining`,
+  `toMatchObject`, a regex over the source) only follows that source change.
+- Code of a release-group package the upgrade moved with the lead (`with`) is the upgrade's code:
+  `fix` moves it in the same upgrade.
+- A change that compiles and behaves the same on 10 (sentry-godot retyping `options: any` as
+  `BrowserOptions`, and the `orgId` and `beforeSend` annotations that retyping needed) is the
+  repository's cleanup, not a site.
+
+Screened out: argos-ci/argos, nazeeh111/WorkHarbor and element-hq/element-web (the lead in a
+workspace package whose lockfile is at the root); motss-app/test-hono-react-router-vite
+(`deno.lock`); trustlab-dev/blackbar (8 → 11); espoon-voltti/evaka, distr-sh/distr and
+owid/owid-grapher (only `dataCollection` insertions and tag/attribute calls, no breaking site);
+tiagovilasboas/sentry-golden-path (moves TypeScript 6 → 7 in the same commit). Of the issue's list,
+cal.com, midday and inbox-zero declare `@sentry/nextjs` 10, rallly `@sentry/nextjs` 11 (the nextjs
+lead), twenty and outline still `@sentry/react` 10, unkey neither lead.
+
+**Measured** (`pnpm uptide pack test <lead> --write`, the full output is in the pull request):
+
+- `@sentry/browser`: 5 repositories, 22 breaking sites, breaking precision 100%, recall 50%
+  (11/22): **verified**. All 11 misses are sentry-godot: in `test.js`, the plain-JavaScript test
+  outside its tsconfig, the `require` of `spanToStreamedSpanJSON` and its 7 uses and the 2
+  `getScopeData().span` reads; and the block at `src/sentry-bridge.ts:261` that assigns
+  `options.beforeSendTransaction` after the options literal.
+- `@sentry/react`: 14 repositories, 29 breaking sites, precision 88%, recall 72%: **candidate**,
+  3 false positives among breaking findings. Hyrox-Companion `server/bootstrap/observability.ts:114`
+  (`sendDefaultPii` in `@sentry/node` code: `check` moves `@sentry/node` with the release group,
+  the repository kept it at 10.75.2); ultra-rss-reader `src/lib/runtime/monitoring.ts:25`
+  (`"InboundFilters"` in an integration allowlist, renamed in 11 and left by the upgrade);
+  BotFleet `server/sentry-scrub-real-sdk.test.ts:30` (`beforeSendTransaction`, kept working by
+  `traceLifecycle: "static"` inserted into the same call). Misses (8): BotFleet
+  `src/lib/sentry.ts:101` (`enableLogs`) and `:102` (`sendDefaultPii`), `server/sentry.ts:558`
+  (`sendDefaultPii`) and `:561` (`streamGenAiSpans`), `server/sentry-scrub-real-sdk.test.ts:32`
+  (`queryParams`) and `:97` (`startNewTrace`); destinationparadise `src/utils/sentry.js:99` (TS2353
+  in a JavaScript file); central-flock `server/index.ts:120` (`setupExpressErrorHandler`, TS6387).
+  BotFleet's `httpIntegration` key rename (`server/sentry.ts:497`) is reported, under `generic`.
+
+Rules no real site exercises run as assisted in `fix`: `enable-metrics`, `integration-names`,
+`renamed-exports` (sentry-godot's are all misses) and `streamed-span-wrapper` for both leads;
+`enable-logs` is now exercised for both.
+
+Running these locally: corepack 0.34 cannot start pnpm 12 (it looks for `bin/pnpm.cjs`; pnpm 12
+ships `bin/pnpm.mjs` and a native binary), which is why youth-activity-scheduler failed to install
+locally with `MODULE_NOT_FOUND` while CI passes; a `pnpm` on `PATH` that runs pnpm 12's own
+`bin/pnpm.mjs` for repositories pinning `pnpm@12` fixes it. BotFleet keeps binaries in Git LFS:
+without `git-lfs` installed the checkout fails; CI runners have it.
 
 ## What the engine could not express
 

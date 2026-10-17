@@ -34,9 +34,9 @@ already run as assisted ([verification gate](packs.md)).
 | `react` | 18 → 19 | 8 | 100% | 69% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6 → 7 | 13 | 100% | 88% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
 | `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 83% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
-| `@sentry/browser` | 10 → 11 | 16 | 100% | 100% | 3 | Automancer-Ltd/automancer-site, sbomify/sbomify | candidate |
+| `@sentry/browser` | 10 → 11 | 16 | 100% | 50% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
 | `@sentry/nextjs` | 10 → 11 | 24 | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
-| `@sentry/react` | 10 → 11 | 16 | 100% | 100% | 2 | owine/youth-activity-scheduler, successible/cleanslate | candidate |
+| `@sentry/react` | 10 → 11 | 16 | 88% | 72% | 29 | owine/youth-activity-scheduler, successible/cleanslate, Seklfreak/flimm, daler91/Hyrox-Companion, jey3dayo/ultra-rss-reader, jirikrucek/ricochet-app, louisclarencepeter/destinationparadise, poporonnet/kaniwriter, preijm/milk-me-not, CandeeGenerations/central-flock, DougZeThug/717rec, CandeeGenerations/attendance-public, cucumber/cucumber-reports, Simple-With-Us/BotFleet | candidate |
 | `stripe` | 14+ → latest, API version pinning | 5 | 100% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
 | `typescript` | 5 → 6 | 12 | 100% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
 | `vitest` | 4 → 5 | 6 | 100% | 97% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
@@ -73,7 +73,7 @@ already run as assisted ([verification gate](packs.md)).
 | `redis` | `renamed-exports` | 100% | 2 | 0 |  |
 | `redis` | `scan-iterators` | n/a | 0 | 0 | unexercised: runs assisted |
 | `redis` | `unstable-resp3` | n/a | 0 | 0 | unexercised: runs assisted |
-| `@sentry/browser` | `enable-logs` | 100% | 1 | 0 |  |
+| `@sentry/browser` | `enable-logs` | 100% | 2 | 0 |  |
 | `@sentry/browser` | `enable-metrics` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/browser` | `integration-names` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/browser` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
@@ -86,9 +86,9 @@ already run as assisted ([verification gate](packs.md)).
 | `@sentry/nextjs` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/nextjs` | `streamed-span-wrapper` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/nextjs` | `with-sentry-config-import` | 100% | 3 | 0 |  |
-| `@sentry/react` | `enable-logs` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/react` | `enable-logs` | 100% | 4 | 0 |  |
 | `@sentry/react` | `enable-metrics` | n/a | 0 | 0 | unexercised: runs assisted |
-| `@sentry/react` | `integration-names` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@sentry/react` | `integration-names` | 0% | 0 | 1 | unexercised: runs assisted |
 | `@sentry/react` | `renamed-exports` | n/a | 0 | 0 | unexercised: runs assisted |
 | `@sentry/react` | `streamed-span-wrapper` | n/a | 0 | 0 | unexercised: runs assisted |
 | `stripe` | `api-version-unpinned` | 100% | 5 | 0 |  |

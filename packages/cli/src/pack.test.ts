@@ -1,6 +1,6 @@
 import { type PackTestReport, registeredPacks, unfinishedPack } from '@uptide/core';
 import { expect, it } from 'vitest';
-import { formatPackTest } from './pack.js';
+import { formatPackTest, packTestSummary, SUMMARY_LIST_LIMIT, SUMMARY_MAX_BYTES } from './pack.js';
 
 it('prints behavior notes on their own row, n/a where nothing was predicted, and each miss with its severity', () => {
   const entry = registeredPacks()[0];
@@ -170,4 +170,55 @@ it('prints the precision of each rewrite and warns below the threshold without f
   expect(out).toMatch(/rename\s+100%\s+4\s+0\n/);
   expect(out).toContain('warning only: dom-imports below');
   expect(out).toContain(`PASS ${entry.pack.name}: verified`);
+});
+
+it("keeps the job summary under GitHub's 1 MiB with every list cut, and the full lists in the log", () => {
+  const entry = registeredPacks()[0];
+  if (!entry) throw new Error('no registered pack');
+  const tally = {
+    truePositives: 0,
+    falsePositives: 0,
+    falseNegatives: 6000,
+    precision: 1,
+    recall: 0,
+  };
+  const miss = (line: number) => ({
+    file: `src/${'deep/'.repeat(8)}file.ts`,
+    line,
+    rule: 'generic',
+  });
+  const report = (n: number, misses = 6000): PackTestReport => ({
+    ...unfinishedPack(entry, ''),
+    package: `pack-${n}`,
+    problems: [],
+    repos: [
+      {
+        label: 'owner/a-long-repository-name@0123456789ab',
+        from: '1.0.0',
+        to: '2.0.0',
+        predicted: [],
+        expected: [],
+        falsePositives: [],
+        falseNegatives: Array.from({ length: misses }, (_, i) => miss(i + 1)),
+        wrongRule: [],
+      },
+    ],
+    overall: tally,
+    breaking: tally,
+  });
+  const packs = Array.from({ length: 20 }, (_, n) => report(n));
+  const MiB = 1024 * 1024;
+
+  expect(packs.map((p) => formatPackTest(p)).join('').length).toBeGreaterThan(MiB);
+  const summary = packTestSummary(packs, '\nAt least one pack failed.\n');
+  expect(Buffer.byteLength(summary)).toBeLessThan(MiB);
+  expect(summary).toContain('false negatives (6000)');
+  expect(summary).toContain(`… and ${6000 - SUMMARY_LIST_LIMIT} more, see the job log`);
+  expect(summary).toContain('breaking (sites)');
+  expect(summary.endsWith('At least one pack failed.\n')).toBe(true);
+
+  // So many packs that even the cut lists overflow: cut at a line, the fence closed.
+  const many = packTestSummary(Array.from({ length: 2000 }, (_, n) => report(n, 30)));
+  expect(Buffer.byteLength(many)).toBeLessThanOrEqual(SUMMARY_MAX_BYTES);
+  expect(many).toMatch(/\n… cut here to fit the job summary, see the job log\n```\n$/);
 });

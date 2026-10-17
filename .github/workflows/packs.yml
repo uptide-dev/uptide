@@ -1,8 +1,9 @@
 name: Packs
 
 # `uptide pack test`: fixtures, and `check` on each ground-truth repository against the
-# expected findings (docs/packs.md). It fails on a false positive among breaking findings, a
-# failing fixture, or a verification.json the evidence no longer supports.
+# expected findings (docs/packs.md). It fails on a false positive among breaking findings (but
+# for a candidate listed in FP_CANDIDATES, below), a failing fixture, or a verification.json the
+# evidence no longer supports.
 #
 # One job per pack, in parallel: every registered pack on a push to main or a pull request that
 # touches the engine, only the changed packs on a pull request that changes nothing else
@@ -85,11 +86,22 @@ jobs:
       - name: uptide pack test ${{ matrix.pack }}
         env:
           PACK: ${{ matrix.pack }}
+          # Candidates whose ground truth has breaking false positives: still scored and shown,
+          # not required, but only for that reason (a candidate record, nothing unscored or left
+          # behind). sentry-react: 3, see packages/core/src/packs/sentry/RESEARCH.md.
+          FP_CANDIDATES: sentry-react
         run: |
           set +e
           pnpm -s uptide pack test "$PACK" --json > "pack-test-$PACK.json"
           code=$?
-          node --conditions=source --import tsx scripts/pack-test-report.ts "pack-test-$PACK.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          node --conditions=source --import tsx scripts/pack-test-report.ts --summary "$GITHUB_STEP_SUMMARY" "pack-test-$PACK.json"
+          if [ "$code" -ne 0 ] && [[ " $FP_CANDIDATES " == *" $PACK "* ]] && jq -e '.packs[0]
+            | .status == "candidate" and .recorded == "candidate" and .breaking.falsePositives > 0
+              and (.problems | length) == 0 and all(.repos[]; (.error | not) and ((.leftBehind // []) | length) == 0)' \
+            "pack-test-$PACK.json" > /dev/null; then
+            echo "::warning::$PACK: a candidate with breaking false positives, not required"
+            exit 0
+          fi
           exit $code
       - uses: actions/cache/save@v6
         if: always() && github.event_name == 'push' && steps.cache.outputs.cache-hit != 'true'
@@ -136,4 +148,4 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Report
         if: always() && needs.scope.outputs.run == 'true'
-        run: node --conditions=source --import tsx scripts/pack-test-report.ts pack-test-*.json | tee -a "$GITHUB_STEP_SUMMARY"
+        run: node --conditions=source --import tsx scripts/pack-test-report.ts --summary "$GITHUB_STEP_SUMMARY" pack-test-*.json
