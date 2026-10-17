@@ -120,6 +120,36 @@ it('re-checks a workspace only when a file its program reads changed, and sees e
   expect(checker.check().map((d) => d.file)).toEqual(['packages/a/src/index.ts']);
 });
 
+it('reports a file under a workspace tsconfig that does not include it, from the root program', () => {
+  const root = realpathSync(mkdtempSync(join(scratch, 'unclaimed-')));
+  const write = (file: string, text: string) => {
+    mkdirSync(join(root, file, '..'), { recursive: true });
+    writeFileSync(join(root, file), text);
+  };
+  write('package.json', '{"name":"mono"}');
+  write(
+    'tsconfig.json',
+    JSON.stringify({ compilerOptions: { strict: true }, include: ['packages/**/*'] }),
+  );
+  // foo's tsconfig claims src/ only: scripts/ has no check but the root's (UPT-82 review).
+  write('packages/foo/package.json', '{"name":"foo"}');
+  write(
+    'packages/foo/tsconfig.json',
+    JSON.stringify({ compilerOptions: { strict: true }, include: ['src'] }),
+  );
+  write('packages/foo/src/index.ts', 'export const a: number = "src";\n');
+  write('packages/foo/scripts/x.ts', 'export const b: number = "script";\n');
+  // bar's tsconfig does not parse: its files stay the root's too.
+  write('packages/bar/package.json', '{"name":"bar"}');
+  write('packages/bar/tsconfig.json', '{ not json');
+  write('packages/bar/src/y.ts', 'export const c: number = "broken config";\n');
+  expect(diagnostics(root, ['.']).map((d) => [d.file, d.code])).toEqual([
+    ['packages/bar/src/y.ts', 2322],
+    ['packages/foo/scripts/x.ts', 2322],
+    ['packages/foo/src/index.ts', 2322],
+  ]);
+});
+
 it('matches a pre-existing error that an added line moved down, never one on an edited line', () => {
   const before = 'import a from "a";\nconst x = 1;\nfoo.bar;\n';
   const after = 'import a from "a";\nimport { s } from "@/lib/stripe";\nconst x = s;\nfoo.bar;\n';

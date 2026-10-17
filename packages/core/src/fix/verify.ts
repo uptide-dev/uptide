@@ -216,7 +216,40 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
     ).fileNames;
     for (const f of files) fileNames.add(f);
   }
-  const rootNames = [...fileNames];
+  // A file another tsconfig includes gets its diagnostics from that workspace's own check
+  // (below), so it is not a root here: a root tsconfig that includes `packages/**` would
+  // otherwise build the whole repository into one program (UPT-82). A file under another
+  // tsconfig that does not include it (or does not parse) has no other check: it stays here.
+  // Imports still pull claimed files in for types; declaration files stay roots for globals.
+  const included = new Map<string, Set<string> | undefined>();
+  const claimedBy = (file: string): string | undefined => {
+    if (!file.startsWith(`${root}/`) || file.endsWith('.d.ts')) return undefined;
+    let owner = dirname(file);
+    while (owner !== root && owner !== dir && !existsSync(join(owner, 'tsconfig.json')))
+      owner = dirname(owner);
+    if (owner === root || owner === dir) return undefined;
+    if (!included.has(owner)) {
+      const path = join(owner, 'tsconfig.json');
+      const own = compiler.readConfigFile(path, compiler.sys.readFile);
+      included.set(
+        owner,
+        own.error || !own.config
+          ? undefined
+          : new Set(
+              compiler.parseJsonConfigFileContent(own.config, compiler.sys, owner, undefined, path)
+                .fileNames,
+            ),
+      );
+    }
+    return included.get(owner)?.has(file) ? owner : undefined;
+  };
+  const rootNames: string[] = [];
+  const discovered = new Set<string>();
+  for (const file of fileNames) {
+    const owner = claimedBy(file);
+    if (owner) discovered.add(relative(root, owner));
+    else rootNames.push(file);
+  }
   if (
     state.result &&
     rootNames.length === state.rootNames.length &&
@@ -257,7 +290,6 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
     ...builder.getOptionsDiagnostics(),
     ...builder.getGlobalDiagnostics(),
   ];
-  const discovered: string[] = [];
   const seen = new Map<string, string>();
   for (const file of program.getSourceFiles()) {
     if (
@@ -269,10 +301,9 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
     seen.set(file.fileName, file.text);
     // Source dependencies provide types to this program, but their implementation
     // diagnostics belong to their own tsconfig (module resolution may differ).
-    let owner = dirname(file.fileName);
-    while (owner !== root && !existsSync(join(owner, 'tsconfig.json'))) owner = dirname(owner);
-    if (owner !== dir && owner !== root) {
-      discovered.push(relative(root, owner));
+    const owner = claimedBy(file.fileName);
+    if (owner) {
+      discovered.add(relative(root, owner));
       continue;
     }
     errors.push(...builder.getSyntacticDiagnostics(file), ...builder.getSemanticDiagnostics(file));
@@ -301,8 +332,13 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
       ...(relatedLocations.length ? { relatedLocations } : {}),
     });
   }
-  Object.assign(state, { builder, rootNames, seen, result: { diagnostics: found, discovered } });
-  return { diagnostics: found, discovered };
+  Object.assign(state, {
+    builder,
+    rootNames,
+    seen,
+    result: { diagnostics: found, discovered: [...discovered] },
+  });
+  return { diagnostics: found, discovered: [...discovered] };
 }
 
 /**
@@ -313,6 +349,7 @@ function checkWorkspace(root: string, workspace: string, state: CheckedWorkspace
 export function typeChecker(
   root: string,
   workspaces: string[],
+  { retain = true }: { retain?: boolean } = {},
 ): { check(): FixDiagnostic[]; clear(): void } {
   const states = new Map<string, CheckedWorkspace>();
   return {
@@ -332,6 +369,8 @@ export function typeChecker(
         }
         const { diagnostics: found, discovered } = checkWorkspace(root, workspace, state);
         for (const other of discovered) if (!visited.has(other)) queue.push(other);
+        // A one-shot check holds one workspace's program at a time, not all of them (UPT-82).
+        if (!retain) states.delete(workspace);
         for (const value of found)
           all.set(
             `${value.file}:${value.line}:${value.column}:${value.code}:${value.message}`,
@@ -346,7 +385,7 @@ export function typeChecker(
 }
 
 export function diagnostics(root: string, workspaces: string[]): FixDiagnostic[] {
-  return typeChecker(root, workspaces).check();
+  return typeChecker(root, workspaces, { retain: false }).check();
 }
 /** "Cannot find type definition file / module / name": the codes a missing package produces. */
 const RESOLUTION_CODES = new Set([2307, 2580, 2581, 2582, 2591, 2592, 2593, 2688, 2792]);
