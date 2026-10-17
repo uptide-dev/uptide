@@ -179,7 +179,7 @@ it.each(['10.9.3', '11.19.0'])(
       if (args[0] === 'install') {
         delete lock.packages['node_modules/binary'].libc;
         writeFileSync(join(root, 'package-lock.json'), JSON.stringify(lock));
-      } else
+      } else if (version.startsWith('10.'))
         expect(
           JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8')).packages[
             'node_modules/binary'
@@ -195,10 +195,11 @@ it.each(['10.9.3', '11.19.0'])(
         workspaces: [],
       });
       if (version.startsWith('10.')) await expect(result).resolves.toMatchObject({ changed: [] });
-      else {
-        await expect(result).rejects.toThrow('npm 11.19.0: Install changed resolutions');
-        expect(command.mock.calls.some((c) => c[2][0] === 'ci')).toBe(false);
-      }
+      // npm 11 drops libc at the parent commit too (UPT-79): reported, not refused.
+      else
+        await expect(result).resolves.toMatchObject({
+          parentChurn: expect.arrayContaining([{ name: 'binary', from: '1.0.0', to: '1.0.0' }]),
+        });
     } finally {
       command.mockRestore();
       rmSync(root, { recursive: true, force: true });

@@ -711,6 +711,17 @@ export function renderMigration(
       ),
       '',
     );
+  if (report.lockfile?.parentChurn?.length)
+    lines.push(
+      [
+        '### Lockfile churn the parent commit already has',
+        '',
+        'The same install changes these at the parent commit too, so they are not from the upgrade:',
+        '',
+        ...report.lockfile.parentChurn.map((c) => `- ${describeOutOfScope(c)}`),
+      ].join('\n'),
+      '',
+    );
   if (report.rootPins?.length)
     lines.push(
       must(

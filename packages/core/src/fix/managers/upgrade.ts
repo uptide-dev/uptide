@@ -1,9 +1,9 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseNpm, parsePnpm, parseYarn } from '../../adapters/typescript/lockfile.js';
 import { UptideError } from '../../errors.js';
 import { satisfies } from '../../fetch/range.js';
-import { command } from '../process.js';
+import { command, git } from '../process.js';
 import { assertManagerAvailable } from './availability.js';
 import { assertLockScope, type LockDiff, type LockGraph, type Targets } from './lock-guard.js';
 import { type PackageManager, updateArgs } from './manager.js';
@@ -57,17 +57,21 @@ async function run(root: string, pm: PackageManager, args: string[]): Promise<vo
       `${pm.bin} ${args.join(' ')} failed${result.timeout ? ' (timeout)' : ''}: ${result.output}`,
     );
 }
-/** Resolution changes are checked before they can become an upgrade commit. */
-export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<InstallReport> {
-  const pm = await assertManagerAvailable(root);
-  const lockfile = join(root, pm.lockfile);
-  const beforeText = readFileSync(lockfile, 'utf8');
-  const moves = [{ name: upgrade.name, version: upgrade.version }, ...(upgrade.also ?? [])];
-  const names = moves.map((m) => m.name);
-  const removed = upgrade.remove ?? [];
-  const before = lockGraph(pm, beforeText, [...names, ...removed]);
+/**
+ * Resolve exact versions, then restore the manifests; the caller's install reconciles them.
+ * npm and pnpm reuse the satisfying lock entry. A range alone resolves the newest release in
+ * it: `^4.0.1` gives a second @ai-sdk/provider next to the 4.0.1 that ai pins. Yarn takes
+ * root `resolutions`, the root manifest's version first.
+ */
+async function installPinned(
+  root: string,
+  pm: PackageManager,
+  workspaces: string[],
+  names: string[],
+  pin: (file: string, name: string) => string | undefined,
+): Promise<void> {
   const originals = new Map(
-    upgrade.workspaces.map((w) => {
+    workspaces.map((w) => {
       const file = join(w, 'package.json');
       return [file, readFileSync(join(root, file), 'utf8')];
     }),
@@ -78,32 +82,107 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
   try {
     if (yarn) {
       const json = JSON.parse(rootText);
-      json.resolutions = {
-        ...json.resolutions,
-        ...Object.fromEntries(moves.map((m) => [m.name, m.version])),
-      };
+      const files = ['package.json', ...originals.keys()];
+      const pins = new Map<string, string>();
+      for (const name of names) {
+        const version = files.map((f) => pin(f, name)).find(Boolean);
+        if (version) pins.set(name, version);
+      }
+      json.resolutions = { ...json.resolutions, ...Object.fromEntries(pins) };
       writeFileSync(rootManifest, `${JSON.stringify(json, null, 2)}\n`);
     } else {
-      // Resolve an exact version first, then restore range style; npm and pnpm reuse this
-      // satisfying lock entry. A range alone resolves the newest release in it: `^4.0.1` gives
-      // a second @ai-sdk/provider next to the 4.0.1 that ai pins.
       for (const [file, text] of originals) {
         const json = JSON.parse(text);
         for (const section of INSTALLED)
-          for (const m of moves) {
-            const spec = json[section]?.[m.name];
-            if (!spec) continue;
+          for (const name of names) {
+            const spec: string | undefined = json[section]?.[name];
+            const version = pin(file, name);
+            if (!spec || !version) continue;
             const alias = spec.startsWith('npm:') ? spec.slice(0, spec.lastIndexOf('@') + 1) : '';
-            json[section][m.name] = `${alias}${m.version}`;
+            json[section][name] = `${alias}${version}`;
           }
         writeFileSync(join(root, file), `${JSON.stringify(json, null, 2)}\n`);
       }
     }
-    await run(root, pm, updateArgs(pm, root, upgrade.workspaces));
+    await run(root, pm, updateArgs(pm, root, workspaces));
   } finally {
     for (const [file, text] of originals) writeFileSync(join(root, file), text);
     if (yarn) writeFileSync(rootManifest, rootText);
   }
+}
+/**
+ * The lockfile the same install writes at the parent commit (HEAD of the isolated worktree):
+ * the plan's files at HEAD, the original lockfile, the same manager, flags and steps, with each
+ * moved package pinned to the version it already has. A plain install would be a no-op: pnpm
+ * only rewrites (re-serializes, prunes) a lockfile once a manifest changes. Undefined when it
+ * cannot be produced; everything is restored either way, and the caller's final install puts
+ * node_modules back.
+ */
+async function parentLock(
+  root: string,
+  pm: PackageManager,
+  { files, workspaces }: Upgrade,
+  names: string[],
+  lockfile: string,
+  beforeText: string,
+): Promise<string | undefined> {
+  const current = new Map(
+    files
+      .filter((f) => existsSync(join(root, f)))
+      .map((f) => [f, readFileSync(join(root, f), 'utf8')]),
+  );
+  const afterText = readFileSync(lockfile, 'utf8');
+  try {
+    for (const file of current.keys()) {
+      let text: string | undefined;
+      try {
+        text = git(root, 'show', `HEAD:${file}`);
+      } catch {
+        // Added by the plan: absent at the parent.
+      }
+      if (text === undefined) rmSync(join(root, file));
+      else writeFileSync(join(root, file), `${text}\n`);
+    }
+    writeFileSync(lockfile, beforeText);
+    const parse = pm.kind === 'npm' ? parseNpm : pm.kind === 'pnpm' ? parsePnpm : parseYarn;
+    const locked = new Map<string, Map<string, string>>();
+    for (const workspace of workspaces) {
+      const json = JSON.parse(readFileSync(join(root, workspace, 'package.json'), 'utf8'));
+      const ranges = new Map<string, string>();
+      for (const section of INSTALLED)
+        for (const name of names) if (json[section]?.[name]) ranges.set(name, json[section][name]);
+      locked.set(
+        join(workspace, 'package.json'),
+        parse(beforeText, { importer: workspace, declared: ranges }),
+      );
+    }
+    await installPinned(root, pm, workspaces, names, (file, name) => locked.get(file)?.get(name));
+    await run(root, pm, updateArgs(pm, root, workspaces));
+    return readFileSync(lockfile, 'utf8');
+  } catch {
+    return undefined;
+  } finally {
+    for (const [file, text] of current) writeFileSync(join(root, file), text);
+    writeFileSync(lockfile, afterText);
+  }
+}
+/** Resolution changes are checked before they can become an upgrade commit. */
+export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<InstallReport> {
+  const pm = await assertManagerAvailable(root);
+  const lockfile = join(root, pm.lockfile);
+  const beforeText = readFileSync(lockfile, 'utf8');
+  const moves = [{ name: upgrade.name, version: upgrade.version }, ...(upgrade.also ?? [])];
+  const names = moves.map((m) => m.name);
+  const version = new Map(moves.map((m) => [m.name, m.version]));
+  const removed = upgrade.remove ?? [];
+  const before = lockGraph(pm, beforeText, [...names, ...removed]);
+  const originals = new Map(
+    upgrade.workspaces.map((w) => {
+      const file = join(w, 'package.json');
+      return [file, readFileSync(join(root, file), 'utf8')];
+    }),
+  );
+  await installPinned(root, pm, upgrade.workspaces, names, (_, name) => version.get(name));
   if (pm.kind === 'yarn-berry') {
     // Restoring a broad range drops Yarn's temporary resolution; pin its descriptor in the
     // lockfile instead. A range the plan rewrote (`^14.0.0` → `^16.1.0`) is as broad as one it
@@ -143,24 +222,49 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       : written;
   const scope = [...new Set([...names, ...(upgrade.allowedPeers ?? [])])];
   const after = lockGraph(pm, afterText, [...names, ...removed]);
-  const peerReresolved = pm.kind === 'npm' ? npmPeerReresolutions(before, after, names, scope) : [];
-  let diff: LockDiff;
-  try {
-    diff = assertLockScope(
-      before,
+  const guard = (from: LockGraph, accept?: boolean): LockDiff => {
+    const peers = pm.kind === 'npm' ? npmPeerReresolutions(from, after, names, scope) : [];
+    const diff = assertLockScope(
+      from,
       after,
       scope,
-      peerReresolved.flatMap((p) => p.records),
+      peers.flatMap((p) => p.records),
       removed,
-      upgrade.acceptOutOfScope,
+      accept,
     );
+    if (peers.length) diff.peerReresolved = peers;
+    return diff;
+  };
+  let diff: LockDiff;
+  try {
+    try {
+      diff = guard(before);
+    } catch (error) {
+      if (!(error instanceof UptideError && error.code === 'LOCKFILE_OUT_OF_SCOPE')) throw error;
+      // Attribute only what the upgrade adds over the same install at the parent commit.
+      const parentText = await parentLock(root, pm, upgrade, names, lockfile, beforeText);
+      if (parentText === undefined) {
+        if (!upgrade.acceptOutOfScope) throw error;
+        diff = guard(before, true);
+      } else {
+        const parent = lockGraph(
+          pm,
+          pm.kind === 'npm' && Number(pm.actualVersion?.split('.')[0]) < 11
+            ? preserveNpmLibc(beforeText, parentText)
+            : parentText,
+          [...names, ...removed],
+        );
+        diff = guard(parent, upgrade.acceptOutOfScope);
+        const churn = assertLockScope(before, parent, scope, [], removed, true).outOfScope;
+        if (churn?.length) diff.parentChurn = churn;
+      }
+    }
   } catch (error) {
     if (pm.kind === 'npm' && error instanceof UptideError && error.code === 'LOCKFILE_OUT_OF_SCOPE')
       error.message = `${pm.kind} ${pm.actualVersion ?? '(version unknown)'}: ${error.message}`;
     throw error;
   }
   if (afterText !== written) writeFileSync(lockfile, afterText);
-  if (peerReresolved.length) diff.peerReresolved = peerReresolved;
   // Every package that moved resolved the version asked for, in every workspace declaring it.
   for (const workspace of upgrade.workspaces) {
     const json = JSON.parse(readFileSync(join(root, workspace, 'package.json'), 'utf8'));
