@@ -866,6 +866,10 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
         '--allow-candidate',
         'use registered candidate packs locally; never with --pr or --yes',
       )
+      .option(
+        '--update-pins',
+        'approve updating conflicting root version pins for upgraded packages',
+      )
       .option('--pr', 'open a draft PR after verification passes; requires --yes')
       .option(
         '--base <branch>',
@@ -918,6 +922,7 @@ ${PRIVACY}`,
           only?: string;
           target?: string;
           allowPeer?: string[];
+          updatePins?: boolean;
           allowCandidate?: boolean;
           includeDeprecated?: boolean;
           pinCurrentApi?: boolean;
@@ -1091,6 +1096,7 @@ ${PRIVACY}`,
                     ...(flags.allowCandidate ? { allowCandidate: true } : {}),
                     ...(peers.length ? { also: peers } : {}),
                     ...(flags.allowPeer?.length ? { allowPeer: flags.allowPeer } : {}),
+                    ...(flags.updatePins ? { updatePins: true } : {}),
                     ...(flags.pinCurrentApi ? { pinCurrentApi: true } : {}),
                     llm,
                     provider: selection.provider,

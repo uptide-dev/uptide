@@ -26,6 +26,7 @@ import { git, projectRoot } from './process.js';
 import { rangePreflight } from './range-preflight.js';
 import { prBody } from './report.js';
 import { type ReverifyOptions, type ReverifyServices, reverify } from './reverify.js';
+import { planRootPins } from './root-pins.js';
 import { confirmServices, type FixOptions, type FixServices, fix, publishVerified } from './run.js';
 import type { FixReport } from './types.js';
 import { assertVerifiedTree } from './verified-tree.js';
@@ -585,6 +586,17 @@ export async function isolatedFix(
       plannerFailure: `Planner refused; upgrading the lead only: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
+  if (!options.pinCurrentApi && options.target)
+    planRootPins(
+      options.cwd,
+      [{ name: options.only, to: options.target }, ...(options.peerPlan?.companions ?? [])],
+      options.updatePins,
+      (file) => {
+        const path = join(project, file);
+        if (!git(source, 'ls-tree', '--name-only', preflight.head, '--', path)) return undefined;
+        return git(source, 'show', `${preflight.head}:${path}`);
+      },
+    );
   const before = snapshot(source);
   const base = options.base ?? remoteDefaultBranch(source)?.name;
   const clone = isolate(source, undefined, project);

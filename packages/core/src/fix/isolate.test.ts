@@ -881,3 +881,21 @@ it('carries a planner refusal through isolation into an agent-led draft result',
     planner.mockRestore();
   }
 });
+
+it('checks committed root pins before cloning, even if the working copy removes them', async () => {
+  const { root, services } = zodFixture(scratch);
+  const file = join(root, 'package.json');
+  const original = readFileSync(file, 'utf8');
+  writeFileSync(file, JSON.stringify({ ...JSON.parse(original), resolutions: { zod: '3.25.76' } }));
+  git(root, 'add', 'package.json');
+  git(root, 'commit', '-m', 'root pin');
+  writeFileSync(file, original);
+  const check = vi.fn(services.check);
+  services.check = check;
+  const before = snapshot(root);
+  await expect(
+    isolatedFix({ cwd: root, only: 'zod', fixer: null, tool: TOOL }, services),
+  ).rejects.toThrow('--update-pins');
+  expect(check).not.toHaveBeenCalled();
+  expect(changedSince(root, before)).toEqual([]);
+});

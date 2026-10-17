@@ -13,6 +13,7 @@ import { UptideError } from '../errors.js';
 import { satisfies, validRange } from '../fetch/range.js';
 import { installedManifest } from '../list/evidence.js';
 import { command } from './process.js';
+import { assertIndependentYamlPin } from './root-pins.js';
 
 /** Check installed copies in every workspace before a plan can write manifests or install. */
 export function assertNoDowngrades(
@@ -31,46 +32,6 @@ export function assertNoDowngrades(
     throw new UptideError(
       'INCONSISTENT_UPGRADE',
       `Refusing planned downgrades before install:\n${[...rejected].join('\n')}\nNothing was changed.`,
-    );
-}
-
-/**
- * The repository's own pins decide what the install may resolve: a root `resolutions` (Yarn),
- * `overrides` (npm) or `pnpm.overrides` entry for a moved package, keyed by its name alone or
- * `**\/name`, that its target does not satisfy would silently keep the old version (medusa pins
- * `@types/react` to `^18.3.2`). Pins scoped to one dependent (`parent/name`, `parent>name`)
- * only decide that dependent's copy and are left alone. Uptide never rewrites them.
- */
-export function assertNoPinningOverrides(
-  root: string,
-  moves: readonly { name: string; to: string }[],
-): void {
-  let manifest: Record<string, unknown>;
-  try {
-    manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  } catch {
-    return;
-  }
-  const tables: [string, unknown][] = [
-    ['resolutions', manifest.resolutions],
-    ['overrides', manifest.overrides],
-    ['pnpm.overrides', (manifest.pnpm as Record<string, unknown> | undefined)?.overrides],
-  ];
-  const pinned: string[] = [];
-  for (const [field, table] of tables) {
-    if (!table || typeof table !== 'object') continue;
-    for (const [key, value] of Object.entries(table)) {
-      const name = key.replace(/^\*\*\//, '');
-      const move = moves.find((m) => m.name === name);
-      if (!move || typeof value !== 'string' || !validRange(value)) continue;
-      if (!satisfies(move.to, value))
-        pinned.push(`${field}["${key}"] is ${value} (${move.name} → ${move.to})`);
-    }
-  }
-  if (pinned.length)
-    throw new UptideError(
-      'INCONSISTENT_UPGRADE',
-      `package.json pins what this upgrade moves: ${pinned.join('; ')}. The install would keep the pinned version. Update or remove ${pinned.length === 1 ? 'that entry' : 'those entries'} and run again; uptide does not rewrite them. Nothing was changed.`,
     );
 }
 
@@ -167,10 +128,13 @@ export function bumpCatalog(
   if (doc.errors.length) throw doc.errors[0];
   const path = catalog ? ['catalogs', catalog, name] : ['catalog', name];
   const before = doc.getIn(path);
-  if (typeof before !== 'string')
+  if (typeof before !== 'string') {
+    assertIndependentYamlPin(doc, path);
     throw new Error(`catalog ${catalog || '(default)'} has no entry for ${name}`);
+  }
   const after = declaredRange(before, version, 'pnpm-workspace.yaml', path.join('.'), name, peer);
   if (after === before) return yaml;
+  assertIndependentYamlPin(doc, path);
   doc.setIn(path, after);
   return doc.toString();
 }

@@ -28,7 +28,7 @@ preserves workspace and companion ranges that already accept the target, reports
 compatible**, and widens rejecting peer ranges without dropping existing alternatives. What the target
 requires moves within its major, else is a blocker; a deprecated `@types` stub is removed, not
 upgraded. Lockfile, target and companions must match the planned versions, or `fix` and `verify` fail.
-Everything else: [getting started](docs/getting-started.md).
+Conflicting root Yarn resolutions and npm/pnpm overrides require `fix --update-pins` consent. Preflight lists changes; unsupported selectors need a manual edit. Root declarations and pnpm catalogs update alongside workspaces; unrelated pins stay unchanged. Everything else: [getting started](docs/getting-started.md).
 
 ## Why Uptide
 

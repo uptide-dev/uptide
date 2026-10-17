@@ -1,0 +1,8 @@
+{
+  "name": "app",
+  "dependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:types",
+    "other": "1.0.0"
+  }
+}

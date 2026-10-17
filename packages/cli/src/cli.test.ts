@@ -328,6 +328,7 @@ describe('uptide fix', () => {
         'old-plugin',
         '--allow-peer',
         'another-plugin',
+        '--update-pins',
         '--no-llm',
       ],
       memoryIo({ cwd: pnpmGitRepo() }),
@@ -337,6 +338,7 @@ describe('uptide fix', () => {
       only: 'zod',
       also: ['plugin'],
       allowPeer: ['old-plugin', 'another-plugin'],
+      updatePins: true,
       llm: false,
     });
   });
