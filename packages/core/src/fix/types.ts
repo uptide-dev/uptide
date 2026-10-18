@@ -326,6 +326,8 @@ export interface FixReport {
   timingMs: number;
   /** Wall time and agent spend per phase, in run order; together about `timingMs`. */
   phases?: FixPhase[];
+  /** The builds the run executed (workspace preparation and verification) and their wall time. */
+  buildRuns?: { count: number; ms: number };
   prBody: string;
   /** The migration report as a page, written by the CLI next to the stored run. */
   html?: string;
