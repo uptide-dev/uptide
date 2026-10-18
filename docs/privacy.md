@@ -67,9 +67,11 @@ provider you chose (or your `OPENAI_BASE_URL`); your provider's data policy appl
 ## Agent SDK executor
 
 Anthropic assisted fixes use the Claude Agent SDK by default (`--agent sdk`) when
-`@anthropic-ai/claude-agent-sdk` is installed next to Uptide, which runs Anthropic's Claude
-Code binary on your machine ([decision record](decisions/0016-agent-sdk-executor.md)). It is
-an optional peer: Uptide neither bundles nor modifies it, and without it the patch agent runs. Its use is governed by
+`@anthropic-ai/claude-agent-sdk` can load: installed next to Uptide, or installed by the first
+`fix` that needs it into Uptide's cache. It runs Anthropic's Claude Code binary on your machine
+([decision record](decisions/0016-agent-sdk-executor.md)). npm installs Anthropic's unmodified
+package: Uptide neither bundles nor modifies it, and without it the patch agent runs and `fix`
+says so. That install contacts only your npm registry. Its use is governed by
 [Anthropic's terms](https://code.claude.com/docs/en/legal-and-compliance), not Uptide's
 license.
 

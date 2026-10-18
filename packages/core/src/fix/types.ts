@@ -330,8 +330,10 @@ export interface FixReport {
     estimate?: CostEstimate;
     /** Agent SDK sessions (the Anthropic default) instead of the patch agent. */
     agent?: 'sdk';
-    /** The SDK would have been the default but is not installed: the patch agent ran. */
-    sdkMissing?: true;
+    /** The executor assisted fixes use in this run; absent when they are off or have no key. */
+    executor?: 'sdk' | 'patch';
+    /** Why the SDK, the Anthropic default, could not run, so the patch executor did. */
+    sdkMissing?: string;
     tasks?: AgentTaskRecord[];
     feedback?: { roundsUsed: number; maxRounds: number; maxCostUsd: number };
   };

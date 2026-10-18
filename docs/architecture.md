@@ -538,7 +538,7 @@ block with the exact commands for the repository. `--details` keeps the full lis
 With `--agent patch` or a non-Anthropic provider, sites a rule leaves manual go to
 the patch agent (`src/fix/assisted.ts`):
 one site at a time, a snippet and a guide in, one unified diff out, applied and judged per
-attempt by exact diagnostic position. Authenticated Anthropic runs default to `--agent sdk` when the SDK (an optional peer) is installed, replacing
+attempt by exact diagnostic position. Authenticated Anthropic runs default to `--agent sdk` when the SDK can load (next to Uptide, or fetched once into its cache), replacing
 that step with `assistWithSdk` (`src/fix/sdk-agent.ts`). It runs one Claude Agent SDK session
 for the package's manual sites and their rule knowledge, in the clone, with read and edit tools, Uptide's own checks
 as in-process tools and no shell. One gate runs at the end of each task, matching diagnostics

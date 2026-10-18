@@ -69,15 +69,22 @@ Declarations outside the repository or in `node_modules` are never editable.
 ## Assisted-fix executor
 
 With `ANTHROPIC_API_KEY` set and Anthropic selected, assisted fixes use the Claude Agent SDK
-by default, when `@anthropic-ai/claude-agent-sdk` is installed next to Uptide. It is an
-optional peer, not a dependency: it brings the platform-specific Claude Code binary (about
-270 MB), which `--no-llm`, OpenAI and Gemini runs do not need. Without it, `fix` uses the
-patch executor and says so in one line of its output. With `npx`:
-`npx -p uptide -p @anthropic-ai/claude-agent-sdk uptide fix <package>`. The Uptide GitHub
-Action installs it.
+by default, `npx uptide fix <package>` included. `@anthropic-ai/claude-agent-sdk` is not
+installed with Uptide: it brings the Claude Code binary for your platform (about 310 MB), which
+`check`, `list`, `--no-llm`, OpenAI and Gemini runs never need. An SDK installed next to Uptide
+is used as it is (the Uptide GitHub Action installs one). Otherwise the first `fix` that needs
+it installs the version Uptide is tested with into Uptide's cache
+(`~/.cache/uptide/agent-sdk/<version>`, or under `UPTIDE_CACHE_DIR` / `XDG_CACHE_HOME`), says so
+in one line with its size, and later runs reuse it.
+
+If that install fails (offline, a proxy) or the SDK cannot run, `fix` uses the patch executor
+and says so first: as the first line of its output, and at the top of the PR body, with the
+reason and how to get the SDK executor. `report.json` records the executor in `llm.executor`
+and the reason in `llm.sdkMissing`.
 
 Use `--agent patch` for the snippet-and-diff executor. OpenAI and Gemini keep that executor;
-`--agent sdk` requires Anthropic. The SDK is never bundled with Uptide.
+`--agent sdk` requires Anthropic and stops before any work when the SDK cannot load. The SDK
+is installed from npm, never bundled with Uptide.
 Without a key, rule-based packs still work; `--no-llm` disables both executors.
 SDK sessions can read files throughout the temporary clone and send their contents and check
 output to Anthropic; see [privacy](../privacy.md#agent-sdk-executor).

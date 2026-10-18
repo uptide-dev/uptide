@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SDK_VERSION } from '@uptide/core';
 import { describe, expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -26,8 +27,12 @@ describe('published package', () => {
     // CommonJS build calls require("process"), which breaks consumers' ES module builds.
     expect(Object.keys(manifest.dependencies)).toEqual(['yaml']);
     expect(manifest.devDependencies?.yaml).toBeUndefined();
-    // The experimental `--agent sdk` loads the Claude Agent SDK only if the user installed it.
-    expect(manifest.peerDependencies).toEqual({ '@anthropic-ai/claude-agent-sdk': '>=0.3.296' });
+    // Never installed with uptide: an SDK next to it wins, else the first fix that needs it
+    // installs SDK_VERSION, the version the tests run, into Uptide's cache.
+    expect(manifest.peerDependencies).toEqual({
+      '@anthropic-ai/claude-agent-sdk': `>=${SDK_VERSION}`,
+    });
+    expect(manifest.devDependencies['@anthropic-ai/claude-agent-sdk']).toBe(SDK_VERSION);
     expect(manifest.peerDependenciesMeta).toEqual({
       '@anthropic-ai/claude-agent-sdk': { optional: true },
     });
