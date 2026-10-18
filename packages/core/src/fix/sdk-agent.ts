@@ -34,7 +34,13 @@ import type {
   LintResult,
   TestResult,
 } from './types.js';
-import { gitLineMoves, markPreexisting, newDiagnostics, unplacedKey } from './verify.js';
+import {
+  failedTestFiles,
+  gitLineMoves,
+  markPreexisting,
+  newDiagnostics,
+  unplacedKey,
+} from './verify.js';
 
 /**
  * The Anthropic default: assisted fixes run as Claude Agent SDK sessions in the
@@ -91,6 +97,8 @@ export interface SdkAssistInput {
   tests: (files: string[]) => Promise<TestResult[]>;
   /** The agent's own `run_tests`, when it may run less than the gate; the gate runs `tests`. */
   checkTests?: (files: string[]) => Promise<TestResult[]>;
+  /** These repository-relative test files alone, run again: how the gate tells a flaky file. */
+  rerun?: (files: string[]) => Promise<TestResult[]>;
   lint?: (files: string[], baseline?: LintResult[]) => Promise<LintResult[]>;
   /** The repository's formatter, run on the edited files before lint, as `settle` does. */
   format?: (files: string[]) => Promise<string[]>;
@@ -497,6 +505,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     after: FixDiagnostic[],
     files: string[],
     sites: FixSite[],
+    record: AgentTaskRecord,
   ) => {
     // An error a line move explains is the old one (`gitLineMoves`): lines the batch edited stay put.
     const fresh = newDiagnostics(before, after, gitLineMoves(root, start));
@@ -517,11 +526,36 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       { anyCommand: true },
     );
     // A failure the batch did not cause was there at its start: run the same tests there, once.
-    if (tests.some((t) => (t.status === 'failed' || t.status === 'timeout') && !t.preexisting))
-      tests = markPreexisting(tests, await testsAt(start, related));
-    const failing = tests.filter(
+    let atStart: TestResult[] = [];
+    if (tests.some((t) => (t.status === 'failed' || t.status === 'timeout') && !t.preexisting)) {
+      atStart = await testsAt(start, related);
+      tests = markPreexisting(tests, atStart);
+    }
+    let failing = tests.filter(
       (t) => t.status !== 'passed' && t.status !== 'missing' && !t.preexisting,
     );
+    // A test file that failed here and passes when it alone runs again is flaky, not the
+    // batch's: the edits stay and the file is named. One that fails twice still rejects, and a
+    // run that names no failing file (a build, a timeout) has nothing to run again (UPT-111).
+    if (failing.length && input.rerun && failing.every((t) => t.status === 'failed')) {
+      const named = (t: TestResult) =>
+        failedTestFiles(t.output).map((f) =>
+          existsSync(join(root, t.workspace, f)) ? join(t.workspace, f) : f,
+        );
+      const known = new Set(
+        [...input.baselineTests, ...atStart].filter((t) => t.status !== 'passed').flatMap(named),
+      );
+      const ours = failing.map((t) => named(t).filter((f) => !known.has(f)));
+      const flaky = [...new Set(ours.flat())].sort();
+      const rerun = input.rerun;
+      const again = ours.every((files) => files.length)
+        ? await withFollowUps(sites, () => rerun(flaky))
+        : [];
+      if (again.length && again.every((t) => t.status === 'passed')) {
+        record.flaky = flaky;
+        failing = [];
+      }
+    }
     if (failing.length)
       return `tests fail: ${failing.map((t) => `${t.workspace} (${t.status})`).join(', ')}`;
     return undefined;
@@ -687,6 +721,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       current,
       [...new Set([...task.files, ...touched])],
       task.sites,
+      record,
     );
     if (verdict) {
       reset(taskStart);

@@ -162,6 +162,11 @@ export interface AgentTaskRecord {
   rejection?: string;
   /** Undeclared new files removed before validating and checking the remaining edits. */
   discardedFiles?: string[];
+  /**
+   * Test files that failed in the gate and passed when run again alone: kept as flaky, not
+   * counted against the edits. Final verification still runs them in its full gate.
+   */
+  flaky?: string[];
   /** The SDK's stop reason when it did not finish cleanly (`error_max_budget_usd`). */
   stop?: string;
   /** How many single-site tasks shared this task's gate. */
@@ -347,7 +352,13 @@ export interface FixReport {
     /** Why the SDK, the Anthropic default, could not run, so the patch executor did. */
     sdkMissing?: string;
     tasks?: AgentTaskRecord[];
-    feedback?: { roundsUsed: number; maxRounds: number; maxCostUsd: number };
+    feedback?: {
+      roundsUsed: number;
+      maxRounds: number;
+      maxCostUsd: number;
+      /** No further round started: what was left of the limit, below a typical session's cost. */
+      stopped?: { remainingUsd: number; typicalUsd: number };
+    };
   };
   timingMs: number;
   /** Wall time and agent spend per phase, in run order; together about `timingMs`. */

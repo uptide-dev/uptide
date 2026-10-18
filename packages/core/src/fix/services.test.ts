@@ -207,3 +207,42 @@ describe('tests that need services are opt-in', () => {
     ).rejects.toThrow(/no supported lockfile found/);
   });
 });
+
+describe('running failing test files again alone (UPT-111)', () => {
+  it('runs exactly the files with their runner, isolated as the full run, never a script', async () => {
+    const root = repo();
+    // A test script that builds first is skipped: the first run built this tree.
+    writeFileSync(
+      join(root, 'packages/api/package.json'),
+      JSON.stringify({ name: 'api', scripts: { test: 'pnpm run build && vitest run' } }),
+    );
+    const failed = ['packages/api/src/billing.test.ts', 'packages/api/e2e/flow.test.ts'];
+    const plans = planTests(root, ['packages/api'], failed, { only: true });
+    expect(plans.map((p) => p.command)).toEqual([
+      'vitest run --config vitest.uptide-unit.config.mjs packages/api/src/billing.test.ts',
+      // A file the unit-only run leaves out runs nowhere: no run, no pass.
+      '',
+    ]);
+    expect(plans[1]?.scope).toBe('no runner runs packages/api/e2e/flow.test.ts alone');
+    const results = await testWorkspaces(root, ['packages/api'], 10_000, failed, { only: true });
+    expect(results.map((r) => r.status)).toEqual(['passed', 'missing']);
+    expect(results[0]?.output).toContain('vitest.uptide-unit.config.mjs');
+    expect(
+      planTests(root, ['packages/api'], [failed[0] as string], {
+        only: true,
+        withServices: true,
+      }).map((p) => p.command),
+    ).toEqual(['vitest run packages/api/src/billing.test.ts']);
+  });
+
+  it('gives jest the exact paths', () => {
+    const root = repo('jest');
+    writeFileSync(join(root, 'jest.config.ts'), 'export default {};');
+    const [plan] = planTests(root, ['packages/api'], ['packages/api/src/billing.test.ts'], {
+      only: true,
+    });
+    expect(plan?.command).toBe(
+      "jest --runTestsByPath packages/api/src/billing.test.ts --testPathIgnorePatterns '\\.(integration|int|e2e)\\.' '/(integration|e2e)/'",
+    );
+  });
+});

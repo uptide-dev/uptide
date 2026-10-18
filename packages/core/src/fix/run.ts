@@ -956,6 +956,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ...testOptions,
       agentCheck: true,
     });
+  // A gate's failing test files, run once more alone (UPT-111).
+  const rerunTests = (files: string[]) =>
+    services.tests(root, workspaces, options.testTimeoutMs, files, {
+      withServices: options.withServices === true,
+      only: true,
+    });
   const llm = await progress(options.onProgress, { phase: 'assist', package: pack.name }, () =>
     sdkAgent
       ? assistWithSdk({
@@ -974,6 +980,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
               related: true,
             }),
           ...(narrowCheck ? { checkTests: agentCheckTests } : {}),
+          rerun: rerunTests,
           ...(services.lint
             ? {
                 lint: (files: string[], b?: LintResult[]) =>
@@ -1165,7 +1172,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     : fixer
       ? feedbackPatchRunner(fixer, feedbackFinding)
       : undefined;
-  const feedbackLimits = {
+  const feedbackLimits: NonNullable<FixReport['llm']['feedback']> = {
     roundsUsed: 0,
     maxRounds: 3,
     maxCostUsd,
@@ -1184,6 +1191,17 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     const remaining =
       (nanos(maxCostUsd) - nanos(llm.costUsd) - nanos(llm.unreportedCostUsd ?? 0)) / 1e9;
     if (remaining < 0.02 || llm.unreportedCostUsd) break;
+    // A session that would likely cross the limit is not started: one that does stops at the
+    // limit mid-edit, and its spend buys nothing (UPT-111).
+    // ponytail: the mean of this run's sessions; a per-pack history if sessions vary widely.
+    const sessions = (llm.tasks ?? []).filter((t) => t.costUsd > 0);
+    const typicalUsd = sessions.length
+      ? sessions.reduce((n, t) => n + t.costUsd, 0) / sessions.length
+      : 0;
+    if (remaining < typicalUsd) {
+      feedbackLimits.stopped = { remainingUsd: remaining, typicalUsd };
+      break;
+    }
     // Never let a rejected agent task reset files written by a check.
     if (git(root, 'status', '--porcelain', '--untracked-files=all')) break;
     const files = feedbackFiles(root);
@@ -1209,6 +1227,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           fullSuite: true,
           withServices: options.withServices === true,
         }),
+      rerun: rerunTests,
       baselineTests,
       baselineLint,
       affected,

@@ -86,14 +86,19 @@ it('feeds a test-only UUID regression to the agent and verifies the guid repair'
   expect(prBody(result)).not.toContain('No code changes were needed');
 });
 
-it('bounds feedback rounds by the remaining run budget and reports unresolved tests', async () => {
+it('starts no session the remaining budget is below a typical session for (UPT-111)', async () => {
   const { root, services } = await fixture();
   const runner = vi.fn<TaskRunner>(async () => runResult);
   const result = await fix(options(root), { ...services, agentRunner: runner });
-  expect(runner).toHaveBeenCalledTimes(3);
-  expect(runner.mock.calls.map(([input]) => input.maxBudgetUsd)).toEqual([0.25, 0.15, 0.05]);
+  // $0.10 a session against $0.25: a third would start with $0.05 and cross the limit.
+  expect(runner.mock.calls.map(([input]) => input.maxBudgetUsd)).toEqual([0.25, 0.15]);
+  expect(result.llm.costUsd).toBeLessThanOrEqual(0.25);
+  expect(result.llm.feedback?.stopped).toEqual({ remainingUsd: 0.05, typicalUsd: 0.1 });
   expect(result.verification.passed).toBe(false);
   expect(prBody(result)).toContain('Invalid UUID');
+  expect(prBody(result)).toContain(
+    "No further round: $0.05 left, below a session's typical $0.10.",
+  );
 });
 
 it('does not send failures already present at the parent to the agent', async () => {
@@ -321,9 +326,9 @@ it('reports rounds used/max and total spend/cap, including zero feedback rounds'
     if (passes) services.tests = async () => [{ workspace: '.', status: 'passed', output: '' }];
     const runner = vi.fn<TaskRunner>(async () => runResult);
     const result = await fix(options(root), { ...services, agentRunner: runner });
-    expect(prBody(result)).toContain(`Feedback rounds: ${passes ? 0 : 3}/3`);
-    expect(formatFix(result)).toContain(`Feedback rounds: ${passes ? 0 : 3}/3`);
-    expect(prBody(result)).toContain(`Spend: $${passes ? '0.00' : '0.30'} / $0.25 cap`);
+    expect(prBody(result)).toContain(`Feedback rounds: ${passes ? 0 : 2}/3`);
+    expect(formatFix(result)).toContain(`Feedback rounds: ${passes ? 0 : 2}/3`);
+    expect(prBody(result)).toContain(`Spend: $${passes ? '0.00' : '0.20'} / $0.25 cap`);
   }
 });
 
@@ -368,5 +373,51 @@ it.each(['failed', 'timeout'] as const)(
     expect(runner).toHaveBeenCalledTimes(1);
     expect(prBody(result)).toContain('legacy failure sentinel');
     expect(prBody(result)).toContain('old type sentinel');
+  },
+);
+
+it.each([
+  ['passes in verification', false],
+  ['fails verification again', true],
+] as const)(
+  'keeps a session whose new failure passes when run again alone, and names it: %s (UPT-111)',
+  async (_, again) => {
+    const { root, services } = await fixture();
+    const tests = services.tests;
+    const reruns: string[][] = [];
+    let flakes = 0;
+    services.tests = async (cwd, workspaces, timeout, files, o) => {
+      if (o?.only) {
+        reruns.push(files ?? []);
+        return [{ workspace: '.', status: 'passed', output: '', command: 'vitest run' }];
+      }
+      const results = await tests(cwd, workspaces, timeout, files, o);
+      const repaired = readFileSync(join(root, 'index.ts'), 'utf8').includes('.guid()');
+      if (!repaired || (flakes++ > 0 && !again)) return results;
+      return results.map((t) => ({
+        ...t,
+        status: 'failed' as const,
+        output: `${t.output}\n FAIL  flaky.test.ts > admission > times out`,
+      }));
+    };
+    const runner = vi.fn<TaskRunner>(async () => {
+      writeFileSync(
+        join(root, 'index.ts'),
+        readFileSync(join(root, 'index.ts'), 'utf8').replace('.uuid()', '.guid()'),
+      );
+      return runResult;
+    });
+    const result = await fix(options(root), { ...services, agentRunner: runner });
+    expect(result.llm.tasks?.[0]).toMatchObject({ gate: 'accepted', flaky: ['flaky.test.ts'] });
+    expect(reruns[0]).toEqual(['flaky.test.ts']);
+    expect(readFileSync(join(root, 'index.ts'), 'utf8')).toContain('.guid()');
+    expect(prBody(result)).toContain('Flaky: `flaky.test.ts` failed in an agent session');
+    // The final verification keeps its full gate: a flaky failure there is a failure.
+    expect(result.verification.passed).toBe(!again);
+    expect(prBody(result)).toContain(
+      again
+        ? "Verification's full run failed `flaky.test.ts` again: rerun before merging."
+        : 'Verification ran it in its full run.',
+    );
   },
 );

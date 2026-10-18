@@ -645,6 +645,12 @@ export interface TestOptions {
   agentCheck?: boolean;
   /** Run every test in the selected workspaces, including detected runner configurations. */
   fullSuite?: boolean;
+  /**
+   * `files` are test files a run named as failing: run exactly those with their runner, isolated
+   * as the full run is, and nothing else: no `test` script, no fallback, no retry. A file no
+   * runner can take alone is not run, and no run is no pass (UPT-111).
+   */
+  only?: boolean;
 }
 
 const VITEST_CONFIGS = ['vitest.config', 'vitest.workspace'].flatMap((base) =>
@@ -787,7 +793,10 @@ export function planTests(
     { runner: 'vitest' | 'jest'; dir: string; config: string; covers: string[] }
   >();
   const rootScript: string[] = [];
-  const selected = options.related ? relatedWorkspaces(root, workspaces, files) : workspaces;
+  /** With `only`: the files a plan runs, absolute. */
+  const taken = new Set<string>();
+  const selected =
+    options.related || options.only ? relatedWorkspaces(root, workspaces, files) : workspaces;
   for (const workspace of selected) {
     const script = manifest(join(root, workspace))?.scripts?.test;
     // The script a `test` chain ends by running: `… && pnpm run test:unit`.
@@ -811,7 +820,7 @@ export function planTests(
     }
     // A script that is just the runner is planned as the runner: scoped, and classified.
     const bare = /^\s*(?:(?:npx|pnpm exec|yarn)\s+)?(vitest|jest)\b/.exec(script ?? '')?.[1];
-    if (script && !(bare && runnerFor(root, workspace)?.runner === bare)) {
+    if (script && !options.only && !(bare && runnerFor(root, workspace)?.runner === bare)) {
       plans.push({
         workspace,
         covers: [workspace],
@@ -829,6 +838,7 @@ export function planTests(
       shared.set(key, group);
       continue;
     }
+    if (options.only) continue;
     if (workspace !== '.' && manifest(root)?.scripts?.test) rootScript.push(workspace);
     else
       plans.push({
@@ -879,6 +889,33 @@ export function planTests(
       : group.runner === 'vitest'
         ? ['--config', wrapper]
         : ['--testPathIgnorePatterns', '\\.(integration|int|e2e)\\.', '/(integration|e2e)/'];
+    if (options.only) {
+      if (!targets.length) continue;
+      for (const file of targets) taken.add(join(group.dir, file));
+      // The first run already ran `pretest` on this tree; the files alone run again.
+      plans.push({
+        workspace,
+        covers: group.covers,
+        cwd: group.dir,
+        command: [
+          group.runner,
+          ...(group.runner === 'vitest'
+            ? ['run', ...isolate, ...targets]
+            : ['--runTestsByPath', ...targets, ...isolate]
+          ).map(quote),
+        ].join(' '),
+        scope: `${group.runner} on ${targets.length} test file${targets.length === 1 ? '' : 's'} that failed, run again alone`,
+        ...(unitOnly && group.runner === 'vitest'
+          ? {
+              write: {
+                path: join(group.dir, wrapper),
+                text: unitConfig(group.config, needs.setups.length > 0),
+              },
+            }
+          : {}),
+      });
+      continue;
+    }
     const args =
       group.runner === 'vitest'
         ? targets.length
@@ -943,6 +980,15 @@ export function planTests(
         : {}),
     });
   }
+  const untaken = options.only ? files.filter((file) => !taken.has(join(root, file))) : [];
+  if (untaken.length)
+    plans.push({
+      workspace: '.',
+      covers: [],
+      cwd: root,
+      command: '',
+      scope: `no runner runs ${untaken.join(', ')} alone`,
+    });
   if (rootScript.length)
     plans.push({
       workspace: '.',
@@ -1099,7 +1145,13 @@ export async function testWorkspaces(
     let fellBack: TestResult['fallback'];
     try {
       result = await attempt();
-      if (result.code && !result.timeout && !options.related && !options.fullSuite) {
+      if (
+        result.code &&
+        !result.timeout &&
+        !options.related &&
+        !options.fullSuite &&
+        !options.only
+      ) {
         // A failure in a test that is not about the affected files gets one more run: a socket
         // reset in an unrelated e2e test must not fail a migration. A test of an affected file
         // that fails is ours, and is never retried into a pass.

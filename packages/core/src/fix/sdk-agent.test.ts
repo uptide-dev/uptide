@@ -116,7 +116,10 @@ async function task(input: {
   /** The tests when the task starts: after the upgrade, before the agent. */
   startTests?: TestResult[];
   baselineTests?: TestResult[];
+  /** The failing files run again alone; absent, the gate has no rerun. */
+  rerun?: TestResult[];
 }) {
+  const reruns: string[][] = [];
   const root = repo({ 'src/a.ts': ORIGINAL, 'src/other.ts': 'export const x = 1;\n' });
   const siteError = diag('src/a.ts', 2, 2339, "Property 'current_period_end' does not exist");
   const preexisting = diag('src/a.ts', 3, 2304, "Cannot find name 'line3'.");
@@ -161,8 +164,16 @@ async function task(input: {
     baselineLint: [],
     affected: ['src/a.ts'],
     runner: async ({ root }) => ran(input.agent(root)),
+    ...(input.rerun
+      ? {
+          rerun: async (files: string[]) => {
+            reruns.push(files);
+            return input.rerun ?? [];
+          },
+        }
+      : {}),
   });
-  return { root, sites, record: llm.tasks?.[0] };
+  return { root, sites, record: llm.tasks?.[0], reruns };
 }
 
 describe('guard: what an SDK session may touch', () => {
@@ -336,6 +347,49 @@ describe('end-of-task gate', () => {
       tests: [{ ...related, status: 'failed', output: 'build failed' }],
     });
     expect(unnamed.record?.rejection).toMatch(/tests fail/);
+  });
+  it('keeps edits when only a test file that fails once and passes alone failed (UPT-111)', async () => {
+    const flaky = 'FAIL  test/private-admission.test.ts > admission > creates an owner';
+    const kept = await task({
+      agent: doing(migrate),
+      after: [],
+      baselineTests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
+      tests: [{ workspace: '.', status: 'failed', output: `FAIL src/old.test.ts\n${flaky}` }],
+      rerun: [{ workspace: '.', status: 'passed', output: '' }],
+    });
+    expect(kept.record?.gate).toBe('accepted');
+    expect(kept.record?.flaky).toEqual(['test/private-admission.test.ts']);
+    // Only the new failure runs again: the parent's own failure would fail any rerun.
+    expect(kept.reruns).toEqual([['test/private-admission.test.ts']]);
+    expect(kept.sites[0]?.outcome).toBe('agent');
+    expect(git(kept.root, 'log', '-1', '--format=%s')).toBe(
+      'fix(stripe): subscription-period (agent)',
+    );
+
+    const twice = await task({
+      agent: doing(migrate),
+      after: [],
+      tests: [{ workspace: '.', status: 'failed', output: flaky }],
+      rerun: [{ workspace: '.', status: 'failed', output: flaky }],
+    });
+    expect(twice.record?.gate).toBe('rejected');
+    expect(twice.record?.rejection).toMatch(/tests fail/);
+    expect(twice.record?.flaky).toBeUndefined();
+    expect(readFileSync(join(twice.root, 'src/a.ts'), 'utf8')).toBe(ORIGINAL);
+
+    // No run is no pass: a rerun that ran nothing, or a failure that names no file, stands.
+    for (const [tests, rerun] of [
+      [flaky, { workspace: '.', status: 'missing', output: 'no runner runs it alone' }],
+      ['build failed', { workspace: '.', status: 'passed', output: '' }],
+    ] as const) {
+      const stands = await task({
+        agent: doing(migrate),
+        after: [],
+        tests: [{ workspace: '.', status: 'failed', output: tests }],
+        rerun: [rerun],
+      });
+      expect(stands.record?.gate).toBe('rejected');
+    }
   });
   it("keeps the site manual, in the agent's own words, when it changes nothing", async () => {
     const { sites, record } = await task({
