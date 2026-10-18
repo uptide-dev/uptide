@@ -365,6 +365,8 @@ export interface FixReport {
   sourceChanged?: string[];
   /** `origin` of the repository the run belongs to, normalized to its https URL. */
   remote?: string;
+  /** The Actions run this report was made in: its job summary lists every site. */
+  runUrl?: string;
 }
 
 /** Review material from a pack: lines always shown, and lists that may be shortened to fit. */

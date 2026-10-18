@@ -8,7 +8,11 @@ import { UPTIDE_COMMAND } from '../version.js';
 import { baselineHeadline, baselineHealthOf } from './baseline.js';
 import type { BehaviorResult } from './behavior.js';
 import { fitPieces, must, type Piece } from './budget.js';
-import { describeOutOfScope, describeTransitive } from './managers/lock-guard.js';
+import {
+  describeOutOfScope,
+  describeTransitive,
+  type OutOfScopeChange,
+} from './managers/lock-guard.js';
 import { describeEresolveRetry } from './managers/upgrade.js';
 import { noPackBlockers } from './no-pack.js';
 import { uniqueSites } from './paired.js';
@@ -695,6 +699,123 @@ const droppable = (rank: number, block: string[], what: string): Piece => ({
   rank,
   alt: `_${what} omitted to fit the PR body budget. Full text is retained in report.json; see the job summary for verification results when run in Actions._`,
 });
+/** How many entries a list cut down to its compact form still names. */
+const FIRST = 10;
+/** Where every list is in full: report.json, and the job summary when the run was in Actions. */
+const fullLists = (report: FixReport): string =>
+  `report.json${report.runUrl ? ` and the [job summary](${report.runUrl})` : ''}`;
+/**
+ * A list no budget may drop: whole when it fits, else its compact form, which still counts
+ * every entry and names the first ones. It gives way before anything droppable.
+ */
+const shortened = (text: string[], compact: string[]): Piece => ({
+  kind: 'text',
+  rank: 1,
+  text: text.join('\n'),
+  alt: compact.join('\n'),
+});
+/** Lockfile entries: whole, or counts per kind of change and the first packages. */
+function lockfileChanges(heading: string[], changes: OutOfScopeChange[], report: FixReport): Piece {
+  const kinds = new Map<string, number>();
+  for (const c of changes) {
+    const kind = !c.from
+      ? 'added'
+      : !c.to
+        ? 'removed'
+        : c.from === c.to
+          ? 're-resolved at the same version'
+          : 'version changed';
+    kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+  }
+  const line = (c: OutOfScopeChange) => `- ${describeOutOfScope(c)}`;
+  return shortened(
+    [...heading, ...changes.map(line)],
+    [
+      ...heading,
+      `${changes.length} ${changes.length === 1 ? 'entry' : 'entries'}: ${[...kinds].map(([kind, n]) => `${n} ${kind}`).join(', ')}. The first ${FIRST}; all of them are in ${fullLists(report)}.`,
+      '',
+      ...changes.slice(0, FIRST).map(line),
+    ],
+  );
+}
+/** Sites to change by hand: one line each, or per rule a count and the first locations. */
+function manualSites(sites: FixSite[], report: FixReport): Piece {
+  const byRule = new Map<string, FixSite[]>();
+  for (const s of sites)
+    byRule.set(s.rule ?? 'other', [...(byRule.get(s.rule ?? 'other') ?? []), s]);
+  const shown = 5;
+  return shortened(
+    sites.map(
+      (s) =>
+        `- Manual: \`${basename(s.finding.usage.file)}:${s.finding.usage.line}\` — ${sentence(s.reason)}`,
+    ),
+    [
+      `- Manual: ${count(sites.length, 'site')} to change by hand, by rule; each one with its reason is in ${fullLists(report)}.`,
+      ...[...byRule].map(
+        ([rule, list]) =>
+          `  - \`${rule}\` (${list.length}): ${list
+            .slice(0, shown)
+            .map((s) => `\`${s.finding.usage.file}:${s.finding.usage.line}\``)
+            .join(', ')}${list.length > shown ? `, and ${list.length - shown} more` : ''}`,
+      ),
+    ],
+  );
+}
+/**
+ * The description when even the compact sections do not fit: what was checked and how many of
+ * everything, and where the rest is. Its size does not grow with the run.
+ */
+function minimalBody(report: FixReport, title: string): string {
+  const v = report.verification;
+  const sites = (outcome: FixSite['outcome']) =>
+    report.sites.filter((s) => s.outcome === outcome).length;
+  const tests = (status: string) => v.tests.filter((t) => t.status === status).length;
+  const lock = report.lockfile;
+  return [
+    title,
+    '',
+    `> ⚠️ **Shortened description.** This run's evidence does not fit GitHub's size limit even in compact form, so this is its summary. Every section is in ${fullLists(report)}.`,
+    '',
+    ...(report.agentFallback?.length
+      ? [
+          '> ⚠️ **Agent-led draft.** The mechanical path stopped; the reasons are in report.json.',
+          '',
+        ]
+      : []),
+    `**Review required before merging.** Verification: ${v.passed ? 'PASS' : 'FAIL'}.`,
+    '',
+    '### Checks',
+    '',
+    `- Type errors: baseline ${v.baseline.length}; after ${v.after.length}; ${v.newErrors.length} new.`,
+    `- Tests: ${v.tests.length ? `${tests('passed')} passed, ${tests('failed') + tests('timeout')} failed or timed out, ${tests('missing')} missing` : 'none ran'}.`,
+    ...(v.build?.length
+      ? [
+          `- Builds: ${v.build.filter((b) => b.status === 'passed').length} of ${v.build.length} passed.`,
+        ]
+      : []),
+    ...(v.lint?.length
+      ? [
+          `- Lint: ${v.lint.filter((l) => l.status === 'failed').length} of ${v.lint.length} failed.`,
+        ]
+      : []),
+    ...(report.cleanInstall
+      ? [`- Clean install: ${report.cleanInstall.passed ? 'passed' : 'FAILED'}.`]
+      : []),
+    '',
+    '### Counts',
+    '',
+    `- Sites: ${sites('mechanical')} by rule, ${sites('agent')} by the agent, ${sites('manual')} manual.`,
+    ...(lock
+      ? [
+          `- Lockfile: ${lock.outOfScope?.length ?? 0} outside the upgrade, ${lock.parentChurn?.length ?? 0} the parent commit already has, ${lock.transitive?.reduce((n, m) => n + m.changes.length, 0) ?? 0} transitive.`,
+        ]
+      : []),
+    `- Changed files: ${report.changedFiles?.length ?? 0}. Decisions for you: ${(report.decisions?.length ?? 0) + (report.headline?.decision?.length ?? 0)}. Run notes: ${report.notes.length}.`,
+    '',
+    `Branch: \`${report.branch}\`${report.head ? ` · Verified commit: \`${report.head}\`` : ''}`,
+    '',
+  ].join('\n');
+}
 /** Readers of a shared report may not have Uptide installed. */
 const withCommand = (text: string): string =>
   text.replace(/\b(?:npx )?uptide(?:@[\w.-]+)?(?= [a-z-])/g, UPTIDE_COMMAND);
@@ -708,10 +829,11 @@ export function renderMigration(
   const from =
     report.from ??
     ([...new Set(report.sites.map((s) => s.finding.change.from))].join(', ') || 'unknown');
-  const lines: (string | Piece)[] =
+  const title =
     report.mode === 'pin'
-      ? [`## Pin the Stripe API version to ${report.apiVersion}`, '']
-      : [`## Upgrade ${report.package} ${from} → ${report.target}`, ''];
+      ? `## Pin the Stripe API version to ${report.apiVersion}`
+      : `## Upgrade ${report.package} ${from} → ${report.target}`;
+  const lines: (string | Piece)[] = [title, ''];
   // Why the mechanical path stopped and the agent led: the first thing a reviewer reads.
   if (report.agentFallback?.length)
     lines.push(
@@ -725,24 +847,25 @@ export function renderMigration(
     );
   if (report.lockfile?.outOfScope?.length)
     lines.push(
-      must(
-        [
-          '### Lockfile changes outside the upgrade: review',
-          '',
-          ...report.lockfile.outOfScope.map((c) => `- ${describeOutOfScope(c)}`),
-        ].join('\n'),
+      lockfileChanges(
+        ['### Lockfile changes outside the upgrade: review', ''],
+        report.lockfile.outOfScope,
+        report,
       ),
       '',
     );
   if (report.lockfile?.parentChurn?.length)
     lines.push(
-      [
-        '### Lockfile churn the parent commit already has',
-        '',
-        'The same install changes these at the parent commit too, so they are not from the upgrade:',
-        '',
-        ...report.lockfile.parentChurn.map((c) => `- ${describeOutOfScope(c)}`),
-      ].join('\n'),
+      lockfileChanges(
+        [
+          '### Lockfile churn the parent commit already has',
+          '',
+          'The same install changes these at the parent commit too, so they are not from the upgrade:',
+          '',
+        ],
+        report.lockfile.parentChurn,
+        report,
+      ),
       '',
     );
   if (report.rootPins?.length)
@@ -1079,7 +1202,7 @@ export function renderMigration(
       .filter((l): l is string => typeof l === 'string')
       .join('\n')
       .trimEnd()}\n`;
-  const review: string[] = [];
+  const review: (string | Piece)[] = [];
   const notChecked = schemas(report).filter(unchecked);
   if (notChecked.length)
     review.push(
@@ -1135,10 +1258,8 @@ export function renderMigration(
     review.push(
       `- The agent ${costStopMessage(report.llm.costLimit, report.llm.estimate).replace(/--max-cost [\d.]+|maxCost(?= in)/, '`$&`')}`,
     );
-  for (const s of report.sites.filter((s) => s.outcome === 'manual'))
-    review.push(
-      `- Manual: \`${basename(s.finding.usage.file)}:${s.finding.usage.line}\` — ${sentence(s.reason)}`,
-    );
+  const manual = report.sites.filter((s) => s.outcome === 'manual');
+  if (manual.length) review.push(manualSites(manual, report));
   if (report.verification.newErrors.length)
     review.push(
       `- Resolve ${report.verification.newErrors.length} new type errors before merging (see verification details).`,
@@ -1206,7 +1327,7 @@ export function renderMigration(
     '',
   );
   // Normalize retained commands before measuring the body.
-  return fitPieces(
+  const body = fitPieces(
     lines.map((part): Piece => {
       const piece = typeof part === 'string' ? must(part) : part;
       return piece.kind === 'text'
@@ -1225,6 +1346,7 @@ export function renderMigration(
     }),
     budget,
   );
+  return body ?? minimalBody(report, title);
 }
 /** ` (needs DATABASE_URL; set verify.build)` when every failed build stopped before the framework's build. */
 function buildCauseText(build: NonNullable<FixReport['verification']['build']>): string {
@@ -1324,8 +1446,18 @@ function verificationDetails(report: FixReport, bounded: boolean): (string | Pie
       ),
     );
   }
-  // What the migration left broken is never dropped.
-  if (v.newErrors.length) lines.push('', '**Remaining errors**', ...v.newErrors.map(listing));
+  // What the migration left broken is never dropped: at most cut to its first entries.
+  if (v.newErrors.length)
+    lines.push(
+      '',
+      '**Remaining errors**',
+      shortened(v.newErrors.map(listing), [
+        ...v.newErrors.slice(0, FIRST).map(listing),
+        ...(v.newErrors.length > FIRST
+          ? [`- … and ${v.newErrors.length - FIRST} more, all in ${fullLists(report)}.`]
+          : []),
+      ]),
+    );
   if (v.workspaceTypes?.length)
     lines.push(
       '',

@@ -3,7 +3,8 @@
  * GitHub refuses a PR body over 65,536 characters. A piece is dropped whole (replaced by its
  * `alt`, usually one line saying where the content is), a list loses items from its end and
  * says how many; nothing is ever cut inside a block, so no `<details>` or code fence is left
- * open. Lower ranks are kept first; rank 0 is never dropped.
+ * open. Lower ranks are kept first; rank 0 is never dropped. When rank 0 alone does not fit,
+ * there is no document: the caller renders a shorter one (`undefined`).
  */
 export type Piece =
   | { kind: 'text'; text: string; rank: number; alt?: string }
@@ -20,7 +21,7 @@ export type Piece =
 
 export const must = (text: string): Piece => ({ kind: 'text', text, rank: 0 });
 
-export function fitPieces(pieces: Piece[], budget?: number): string {
+export function fitPieces(pieces: Piece[], budget?: number): string | undefined {
   const complete = pieces.map((p) => full(p)).join('\n');
   if (budget === undefined || complete.length <= budget) return complete;
   // What each piece contributes at minimum: a text's alt, a list's "all hidden" line.
@@ -34,12 +35,8 @@ export function fitPieces(pieces: Piece[], budget?: number): string {
         : '';
   const chosen = pieces.map(floor);
   let size = chosen.reduce((n, text) => n + text.length, 0) + Math.max(0, chosen.length - 1);
-  // Arbitrarily large required evidence cannot fit a finite field. Refuse instead of
-  // silently deleting decisions/diffs or handing GitHub an oversized description.
-  if (size > budget)
-    throw new Error(
-      'Required migration evidence exceeds the PR body budget; review the full report.json and narrow the migration before publishing.',
-    );
+  // Arbitrarily large required evidence cannot fit a finite field: nothing is silently cut.
+  if (size > budget) return undefined;
   const order = pieces
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.rank > 0)

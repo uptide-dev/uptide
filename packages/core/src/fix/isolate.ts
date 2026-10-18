@@ -336,8 +336,8 @@ function finish(
   const dir = storedRunDir(source, result.branch);
   mkdirSync(dir, { recursive: true });
   result.prBody = join(dir, 'pr-body.md');
-  writeFileSync(result.prBody, prBody(result));
   writeFileSync(join(dir, 'report.json'), JSON.stringify(result, null, 2));
+  writeFileSync(result.prBody, prBody(result));
   return result;
 }
 

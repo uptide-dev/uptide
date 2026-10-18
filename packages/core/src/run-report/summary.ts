@@ -87,8 +87,8 @@ export function renderSummary(report: RunReport): string {
       for (const u of sites) {
         const places = [...new Set(u.breaking.map((s) => `${s.file}:${s.line}`))];
         lines.push('', `**\`${u.package}\`** (${places.length})`, '');
-        for (const place of places.slice(0, 50)) lines.push(`- \`${cell(place)}\``);
-        if (places.length > 50) lines.push(`- and ${places.length - 50} more`);
+        // Every one: the PR description may name only the first few and point here.
+        for (const place of places) lines.push(`- \`${cell(place)}\``);
       }
     }
   }
