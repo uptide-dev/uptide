@@ -18,8 +18,9 @@ import {
   publicationFailureReason,
   ReportedError,
   registeredPacks,
+  SDK_SIZE,
   scaffoldPack,
-  sdkFallbackNote,
+  sdkRequired,
   sdkUnavailable,
   selectLlm,
   TIER_LEGEND,
@@ -872,11 +873,9 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
         '--pin-current-api',
         "stripe only: no upgrade; write the installed SDK's default apiVersion on every client that omits it",
       )
-      .option(
-        '--provider <name>',
-        'LLM provider: anthropic, openai or gemini (experimental) (also UPTIDE_PROVIDER)',
-      )
-      .option('--model <id>', 'LLM model ID (also UPTIDE_MODEL)')
+      // fix runs on Anthropic only; other providers are for Uptide's own tests (UPTIDE_INTERNAL=1).
+      .addOption(new Option('--provider <name>', 'LLM provider (also UPTIDE_PROVIDER)').hideHelp())
+      .option('--model <id>', 'Anthropic model ID (also UPTIDE_MODEL)')
       .option(
         '--allow-peer <package>',
         'explicitly allow a conflicting peer through a manifest override (repeatable)',
@@ -884,7 +883,8 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
         [],
       )
       .option('--llm', 'assisted fixes on, even when uptide.yml turns them off')
-      .option('--no-llm', 'rule-based fixes only: never send code to the LLM provider')
+      // Rule-based fixes only: Uptide's own tests, behind UPTIDE_INTERNAL=1.
+      .addOption(new Option('--no-llm', 'rule-based fixes only').hideHelp())
       .option(
         '--max-cost <usd>',
         'assisted-fix budget in USD (SDK may overshoot by one turn; default: maxCost in uptide.yml, else 1); an estimate above it stops before any agent call',
@@ -902,11 +902,9 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
       )
       // The flag's earlier name, still accepted.
       .addOption(new Option('--keep').hideHelp())
+      // The SDK is the only executor; `patch` is for Uptide's own tests, behind UPTIDE_INTERNAL=1.
       .addOption(
-        new Option(
-          '--agent <kind>',
-          'assisted-fix executor (default: sdk for Anthropic, patch otherwise)',
-        ).choices(['patch', 'sdk']),
+        new Option('--agent <kind>', 'assisted-fix executor').choices(['patch', 'sdk']).hideHelp(),
       )
       .option('--debug', 'keep the temporary clone and print every phase (--keep-temp --verbose)')
       .option(
@@ -928,7 +926,7 @@ ${EXIT_CODES('a plan was made', 'not used', ';\n     or a dependency failed to a
       )
       .option(
         '--yes',
-        'approve what was printed: the publication plan (--pr), the services (--with-services)',
+        'approve what was printed: the publication plan (--pr), the services (--with-services), and the one-time Agent SDK download',
       )
       .option('--verbose', 'one progress line per phase, with timings'),
   )
@@ -942,23 +940,27 @@ What it does:
   that commit, so the PR holds the migration and nothing else. Install, build and test commands run with
   lifecycle scripts and git hooks disabled.
   Runs check, creates branch uptide/<package>-<version>, bumps the version and lockfile,
-  applies rule-based fixes, then (with the selected provider's API key, unless --no-llm) assisted fixes
-  for the remaining sites, and verifies with your TypeScript and your test scripts.
+  applies rule-based fixes, then assisted fixes for the remaining sites with the Claude Agent SDK
+  and your ANTHROPIC_API_KEY, and verifies with your TypeScript and your test scripts.
   Nothing is pushed without --pr --yes.
+
+Agent SDK:
+  fix runs only with the Claude Agent SDK (${SDK_SIZE}). The first run downloads it once into
+  Uptide's cache, asking first on a terminal (--yes, or no terminal: downloaded without asking).
+  If it cannot be downloaded or loaded, fix stops with exit 2 before any clone or spending.
 
 Tiers:
   ${TIER_LEGEND}
   A generic package has no rules: every fix comes from the agent, under the same checks (an
   edit is kept only if the site's compiler error disappears and no new one appears) and the
-  same publish gate. It needs ANTHROPIC_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY; --max-cost
-  defaults to $1, and an estimate above it stops the run before any agent call.
+  same publish gate. --max-cost defaults to $1, and an estimate above it stops the run before
+  any agent call.
 
 Examples:
   $ ${INVOCATION} fix zod
   $ ${INVOCATION} fix express --max-cost 2    a generic package, with a budget for the agent
   $ ${INVOCATION} fix stripe --target 22.6.2
   $ ${INVOCATION} fix stripe --pin-current-api   the small PR: same SDK, apiVersion made explicit
-  $ ${INVOCATION} fix zod --no-llm        no code leaves this machine
 ${EXIT_CODES('migration verified: no new type errors, tests pass', 'verification failed or sites remain for manual work')}
 ${runnable(PRIVACY)}`,
     )
@@ -1000,6 +1002,16 @@ ${runnable(PRIVACY)}`,
               throw new CliError('--allow-candidate cannot be used with --pr or --yes');
             if (flags.allowCandidate && io.env.GITHUB_ACTIONS === 'true')
               throw new CliError('--allow-candidate is not available in the Uptide Action');
+            // fix runs only with the Agent SDK. Rule-only runs, the patch executor and other
+            // providers stay for Uptide's own tests, behind UPTIDE_INTERNAL=1.
+            const internal = io.env.UPTIDE_INTERNAL === '1';
+            const hidden =
+              flags.llm === false ? '--no-llm' : flags.agent === 'patch' ? '--agent patch' : '';
+            if (hidden && !internal)
+              throw new CliError(
+                `${hidden} is not available: uptide fix runs only with the Claude Agent SDK`,
+                { next: 'uptide fix --help' },
+              );
             const quiet = !flags.verbose && !flags.debug;
             const loaded = settings(cwd, flags.config);
             if (packageName && flags.only && packageName !== flags.only)
@@ -1040,6 +1052,27 @@ ${runnable(PRIVACY)}`,
               throw new CliError(`--max-cost ${flags.maxCost}: expected an amount in USD`, {
                 next: `uptide fix ${only} --max-cost 2`,
               });
+            // Why fix cannot start with the SDK, and how to change that.
+            const cannotStart: [string, string] | undefined =
+              internal || flags.pinCurrentApi
+                ? undefined
+                : !llmOn
+                  ? ['uptide.yml sets llm.enabled: false', 'remove llm.enabled from uptide.yml']
+                  : agent === 'patch'
+                    ? ['uptide.yml sets executor: patch', 'remove executor from uptide.yml']
+                    : selection.provider !== 'anthropic'
+                      ? [
+                          `the LLM provider is ${selection.provider}, and the SDK runs on Anthropic models only`,
+                          'set ANTHROPIC_API_KEY and drop the other provider (--provider, UPTIDE_PROVIDER, llm.provider in uptide.yml)',
+                        ]
+                      : !selection.available
+                        ? [
+                            'ANTHROPIC_API_KEY is not set',
+                            'set ANTHROPIC_API_KEY in your environment (your own key; assisted fixes send code to Anthropic with it)',
+                          ]
+                        : undefined;
+            if (cannotStart)
+              throw new UptideError('SDK_UNAVAILABLE', sdkRequired(cannotStart[0], cannotStart[1]));
             // No pack, so no rule: without the agent there is nothing this command can do,
             // and it says so before it touches anything.
             const hasPack = activePacks(flags.allowCandidate).some((pack) => pack.name === only);
@@ -1054,19 +1087,28 @@ ${runnable(PRIVACY)}`,
               });
             // `--only zod --target stripe@23.0.0` would upgrade zod to 23.0.0, or fail late.
             if (target) parseTargets([target], [only]);
-            // The Anthropic default is the SDK executor: fetched once into the cache if needed,
-            // and when it cannot run, that comes first.
-            const sdkMissing =
+            // The SDK executor, fetched once into the cache: asked first on a terminal, never a
+            // fallback. When it cannot run, the run stops here, before any clone or spending.
+            const sdk =
               llmOn &&
               !flags.pinCurrentApi &&
               selection.available &&
               selection.provider === 'anthropic' &&
-              agent !== 'patch'
-                ? await sdkUnavailable((text) => io.err(text))
-                : undefined;
-            if (sdkMissing && agent === undefined)
-              io.err(`warning: ${sdkFallbackNote(sdkMissing)}\n`);
-            const sdk = selection.provider === 'anthropic' && agent !== 'patch' && !sdkMissing;
+              agent !== 'patch';
+            const sdkMissing = sdk
+              ? await sdkUnavailable(
+                  (text) => io.err(text),
+                  async (dir) =>
+                    flags.yes || !io.inTty || !io.errTty || !io.ask
+                      ? true
+                      : !/^n(?:o)?$/i.test(
+                          (await io.ask(
+                            `uptide fix needs the Claude Agent SDK (${SDK_SIZE}, downloaded once to ${dir}). Download now? [Y/n] `,
+                          )) ?? 'n',
+                        ),
+                )
+              : undefined;
+            if (sdkMissing) throw new UptideError('SDK_UNAVAILABLE', sdkRequired(sdkMissing));
             if (flags.pr && !flags.yes)
               io.err('--pr without --yes: the publication plan is printed, nothing is pushed.\n');
             const repo = await progress.phase(

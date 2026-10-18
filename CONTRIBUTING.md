@@ -152,7 +152,7 @@ open a **Pack request** issue, and say you are writing it.
 7. **Smoke-test locally** without editing `verification.json`:
    ```sh
    pnpm uptide check <package> --allow-candidate --cwd /path/to/local-fixture
-   pnpm uptide fix <package> --allow-candidate --no-llm --cwd /path/to/local-fixture
+   UPTIDE_INTERNAL=1 pnpm uptide fix <package> --allow-candidate --no-llm --cwd /path/to/local-fixture
    ```
    Only registered packs with a recorded `candidate` status qualify. The output, stored
    report and PR body preview say **candidate pack, not verified**. The Action rejects this
@@ -201,8 +201,10 @@ one is not merged, whatever else it does.
 - `fix` and `verify` work in a temporary clone. The user's checkout, services, git config
   and hooks are never touched, and nothing outside Uptide's own temporary directory is
   deleted.
-- Code leaves the machine only for assisted fixes, with the user's own API key, and
-  `--no-llm` turns that off. Anonymous telemetry requires opt-in and the strict field allowlist in
+- Code leaves the machine only for assisted fixes, which `fix` runs only with the Claude Agent
+  SDK and the user's own API key. `--no-llm`, `--agent patch` and other providers exist for
+  Uptide's own tests, behind `UPTIDE_INTERNAL=1`, and are never documented for users.
+  Anonymous telemetry requires opt-in and the strict field allowlist in
   `docs/telemetry.md`; never add source, paths, repo/user names, or unproven package names.
   No account or Uptide server.
 - Nothing is pushed or published without an explicit flag from the user.

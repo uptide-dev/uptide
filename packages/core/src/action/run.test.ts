@@ -382,12 +382,8 @@ describe('the Uptide Action run', () => {
     expect(calls.filter((c) => c.args[0] === 'fix')).toHaveLength(1);
   });
 
-  it('fix: always assisted, with the key passed to fix alone; the patch executor without --agent', async () => {
-    for (const [settings, agent] of [
-      ['version: 1\n', true],
-      ['version: 1\nllm:\n  enabled: true\n', true],
-      ['version: 1\nexecutor: patch\n', false],
-    ] as const) {
+  it('fix: always assisted with the Agent SDK, with the key passed to fix alone', async () => {
+    for (const settings of ['version: 1\n', 'version: 1\nllm:\n  enabled: true\n']) {
       const { s, calls } = services({
         list: listReport([dep('zod', '3.25.76', '4.6.5')]),
         fix: () => fixRun(storefrontFix()),
@@ -397,10 +393,42 @@ describe('the Uptide Action run', () => {
       const fix = calls.find((c) => c.args[0] === 'fix');
       expect(fix?.args).toContain('--llm');
       expect(fix?.args).not.toContain('--no-llm');
-      expect(fix?.args.includes('--agent')).toBe(agent);
+      expect(fix?.args.join(' ')).toContain('--agent sdk');
       expect(fix?.apiKey).toBe('test-key');
       expect(calls.filter((c) => c.args[0] !== 'fix').every((c) => !c.apiKey)).toBe(true);
     }
+  });
+
+  it("fix: no patch executor; executor: patch stops before any fix, in the CLI's words", async () => {
+    const { s, calls } = services({
+      list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+      fix: () => fixRun(storefrontFix()),
+    });
+    const report = await runAction(inputs(workspace('version: 1\nexecutor: patch\n')), s);
+    expect(report.error).toBe(
+      'uptide fix runs only with the Claude Agent SDK and cannot start: uptide.yml sets executor: patch. To fix it, remove executor from uptide.yml',
+    );
+    expect(calls.some((c) => c.args[0] === 'fix')).toBe(false);
+  });
+
+  it('fix: an SDK that cannot run stops the whole run with its message, no fallback', async () => {
+    const message =
+      'uptide fix runs only with the Claude Agent SDK and cannot start: the Claude Code binary for linux-x64 is not installed. To fix it, …';
+    const { s, calls, published } = services({
+      list: listReport([dep('zod', '3.25.76', '4.6.5'), dep('stripe', '14.25.0', '14.26.0')]),
+      fix: () => ({
+        code: 2,
+        stdout: JSON.stringify({ error: { code: 'SDK_UNAVAILABLE', message } }),
+      }),
+    });
+    const report = await runAction(inputs(workspace('version: 1\n')), s);
+    expect(report.error).toBe(message);
+    expect(calls.filter((c) => c.args[0] === 'fix')).toHaveLength(1);
+    expect(published).toEqual([]);
+    expect(report.upgrades.map((u) => [u.package, u.status, u.error])).toEqual([
+      ['zod', 'failed', message],
+      ['stripe', 'available', undefined],
+    ]);
   });
 
   it('without a key, in every mode, stops before anything runs and says what to add', async () => {

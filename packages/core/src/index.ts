@@ -169,10 +169,12 @@ export {
 export { type ReverifyOptions, reverify } from './fix/reverify.js';
 export { type FixOptions, fix } from './fix/run.js';
 export {
+  SDK_DECLINED,
   SDK_REMEDY,
+  SDK_SIZE,
   SDK_VERSION,
   sdkCacheDir,
-  sdkFallbackNote,
+  sdkRequired,
   sdkUnavailable,
 } from './fix/sdk-agent.js';
 export { detectStyle } from './fix/style.js';

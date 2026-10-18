@@ -86,7 +86,7 @@ describe('open source files', () => {
     expect(security).toContain('## Isolation model');
     expect(security).toContain('temporary clone');
     expect(security).toContain('lifecycle scripts disabled');
-    expect(security).toContain('--no-llm');
+    expect(security).toContain('Claude Agent SDK');
     expect(security).toContain('## Reporting a vulnerability');
     expect(security).toContain('do not open a public issue');
   });

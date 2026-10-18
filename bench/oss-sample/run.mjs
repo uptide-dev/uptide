@@ -55,6 +55,8 @@ function cleanEnv(extra = {}) {
   return {
     ...env,
     UPTIDE_TELEMETRY: '0',
+    // `fix --no-llm` is internal: the public CLI runs only with the Agent SDK.
+    UPTIDE_INTERNAL: '1',
     CI: '1',
     GIT_TERMINAL_PROMPT: '0',
     npm_config_ignore_scripts: 'true',

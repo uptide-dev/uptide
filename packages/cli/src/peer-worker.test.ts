@@ -99,6 +99,7 @@ it.skipIf(!existsSync(bin)).each([
                 ? `${join(cwd, 'global/bin')}${delimiter}${process.env.PATH ?? ''}`
                 : process.env.PATH,
               UPTIDE_TELEMETRY: '0',
+              UPTIDE_INTERNAL: '1',
               UPTIDE_CACHE_DIR: join(cwd, 'cache'),
             },
           },

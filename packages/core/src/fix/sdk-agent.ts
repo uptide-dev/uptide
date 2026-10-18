@@ -758,12 +758,22 @@ let sdkEntry: string | undefined;
 const loadSdk = (): Promise<typeof import('@anthropic-ai/claude-agent-sdk')> =>
   sdkEntry ? import(pathToFileURL(sdkEntry).href) : import('@anthropic-ai/claude-agent-sdk');
 
-/** How to get the SDK executor, said wherever it is missing. */
-export const SDK_REMEDY = `let Uptide reach the npm registry once to install it into its cache, or install ${SDK}@${SDK_VERSION} next to Uptide`;
+/** About what `npm install` of SDK_VERSION puts on disk, binary included (295 MB on linux-x64). */
+// ponytail: measured once per SDK_VERSION; registry dist.unpackedSize if it drifts.
+export const SDK_SIZE = 'about 300 MB';
 
-/** The fallback, said first in the output and the PR body: which executor, why, how to change it. */
-export const sdkFallbackNote = (reason: string): string =>
-  `Assisted fixes use the patch executor, not the Agent SDK: ${reason}. For the SDK executor, ${SDK_REMEDY}; --agent patch chooses the patch executor and drops this note.`;
+/** How to get the SDK, said wherever it is missing. */
+export const SDK_REMEDY = `let Uptide reach the npm registry once to install it into its cache (npm's proxy and registry settings apply), or install ${SDK}@${SDK_VERSION} next to Uptide`;
+
+/** The answer to the download question was no. */
+export const SDK_DECLINED = 'the download was declined';
+
+/** `uptide fix` runs only with the Agent SDK: why it cannot start here, and how to change that. */
+export const sdkRequired = (
+  why: string,
+  remedy = why === SDK_DECLINED ? 'run again and answer Y, or pass --yes' : SDK_REMEDY,
+): string =>
+  `uptide fix runs only with the Claude Agent SDK and cannot start: ${why}. To fix it, ${remedy}`;
 
 /** Why the SDK at this entry cannot run: it fails to load, or has no Claude Code binary here. */
 async function sdkProblem(entry: string): Promise<string | undefined> {
@@ -846,9 +856,13 @@ let checked: Promise<string | undefined> | undefined;
 /**
  * Why the SDK executor cannot run here, or undefined when it can. An SDK next to Uptide (the
  * Action's install, or the user's) wins; then the one in Uptide's cache; else the pinned
- * version is installed there once, saying so through `log`. Checked once per process.
+ * version is installed there once, saying so through `log`, after `confirm` says yes (asked
+ * only when nothing usable is installed). Checked once per process.
  */
-export function sdkUnavailable(log?: (text: string) => void): Promise<string | undefined> {
+export function sdkUnavailable(
+  log?: (text: string) => void,
+  confirm?: (dir: string) => Promise<boolean>,
+): Promise<string | undefined> {
   checked ??= (async () => {
     const cached = join(sdkCacheDir(), 'node_modules', '.uptide');
     let reason = `${SDK} is not installed`;
@@ -861,6 +875,7 @@ export function sdkUnavailable(log?: (text: string) => void): Promise<string | u
       }
       reason = problem;
     }
+    if (confirm && !(await confirm(sdkCacheDir()))) return SDK_DECLINED;
     const failed = await installSdk(sdkCacheDir(), log);
     if (failed) return `${reason}, and ${failed}`;
     const entry = resolveFrom(cached);
@@ -884,9 +899,7 @@ const sdkRunner: TaskRunner = async ({
   try {
     sdk = await loadSdk();
   } catch {
-    throw new Error(
-      `--agent sdk: @anthropic-ai/claude-agent-sdk did not load; ${SDK_REMEDY}, or use --agent patch`,
-    );
+    throw new Error(sdkRequired(`${SDK} did not load`));
   }
   const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
   const server = sdk.createSdkMcpServer({

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CheckReport, PackageReport } from '../domain/report.js';
 import { isMajorUpgrade, NO_PACK_YET, noPackBlockers } from '../fix/no-pack.js';
+import { sdkRequired } from '../fix/sdk-agent.js';
 import type { FixReport } from '../fix/types.js';
 import type { ListedDependency, ListReport } from '../list/list.js';
 import { loadUptideConfig } from '../onboarding/node.js';
@@ -316,6 +317,11 @@ export async function runAction(
     return report();
   }
 
+  // fix runs only with the Agent SDK: the CLI refuses this setting with the same words.
+  if (config.executor === 'patch')
+    return report(
+      sdkRequired('uptide.yml sets executor: patch', 'remove executor from uptide.yml'),
+    );
   // fix: the token first. A run that cannot publish spends nothing on migrations.
   let open: string[];
   let author: CommitIdentity | undefined;
@@ -378,12 +384,19 @@ export async function runAction(
       '--max-cost',
       budget.toFixed(2),
       '--max-cost-from-config',
-      ...(config.executor === 'patch' ? [] : ['--agent', 'sdk']),
+      '--agent',
+      'sdk',
     ];
     services.log(`::group::uptide fix ${dep.name}`);
     const run = await services.engine(args, apiKey, author);
     services.log('::endgroup::');
-    const fixed = parseJson<FixReport>(run);
+    const fixed = parseJson<FixReport & { error?: { code?: string; message?: string } }>(run);
+    // No SDK, no fix for any package: the run stops with the CLI's own words.
+    if (fixed?.error?.code === 'SDK_UNAVAILABLE' && fixed.error.message) {
+      upgrades.push(skipped(row, 'failed', fixed.error.message, services.now() - started));
+      upgrades.push(...candidates.slice(candidates.indexOf(dep) + 1).map(fromListed));
+      return report(fixed.error.message);
+    }
     if (!fixed || run.code === 2) {
       upgrades.push(
         skipped(

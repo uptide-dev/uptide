@@ -18,7 +18,6 @@ import { noPackBlockers } from './no-pack.js';
 import { uniqueSites } from './paired.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import { agentDecisionLines, testOutput } from './review-evidence.js';
-import { sdkFallbackNote } from './sdk-agent.js';
 import { stripeChangelog } from './stripe-changelog.js';
 import { isTestFile } from './test-edits.js';
 import type { FixDiagnostic, FixPhase, FixReport, FixSite, ReviewSection } from './types.js';
@@ -853,8 +852,6 @@ export function renderMigration(
   // A build this upgrade broke comes before anything else a reviewer reads (UPT-110).
   const broken = brokenBuildBanner(report);
   if (broken) lines.push(broken, '');
-  // Never a silent switch: the executor that ran is said next when it is not the SDK.
-  if (report.llm.sdkMissing) lines.push(`> ⚠️ ${sdkFallbackNote(report.llm.sdkMissing)}`, '');
   // Why the mechanical path stopped and the agent led: the first thing a reviewer reads.
   if (report.agentFallback?.length)
     lines.push(
