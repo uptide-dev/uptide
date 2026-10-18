@@ -388,6 +388,48 @@ it('rejects source changes made by baseline tests before creating a migration br
   expect(git(root, 'branch', '--show-current')).not.toBe('uptide/zod-4.6.5');
 });
 
+it('keeps an untracked report the tests write out of every commit, and clears it between runs', async () => {
+  const { root, services } = fixture();
+  // A junit reporter: it writes test-report.xml, and fails here if the last run's file is left.
+  const write =
+    "const f=require('fs');if(f.existsSync('test-report.xml'))process.exit(1);f.writeFileSync('test-report.xml','<testsuites/>')";
+  const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  writeFileSync(
+    join(root, 'package.json'),
+    JSON.stringify({ ...manifest, scripts: { test: `node -e "${write}"` } }),
+  );
+  git(root, 'commit', '-qam', 'test script');
+  const result = await fix({ cwd: root, only: 'zod' }, services);
+  expect(result.testArtifacts).toEqual(['test-report.xml']);
+  expect(result.verification.baselineTests[0]?.status).toBe('passed');
+  expect(result.verification.tests[0]?.status).toBe('passed');
+  expect(result.verification.passed).toBe(true);
+  expect(result.verificationPending).toBeUndefined();
+  expect(result.changedFiles).not.toContain('test-report.xml');
+  expect(git(root, 'log', '--all', '--name-only', '--format=')).not.toContain('test-report.xml');
+  expect(git(root, 'status', '--porcelain', '--untracked-files=all')).not.toContain('test-report');
+  // A fresh clone for `uptide verify`: no report on disk, no exclude entry; the stored run has it.
+  rmSync(join(root, 'test-report.xml'));
+  writeFileSync(join(root, '.git/info/exclude'), '');
+  const again = await reverify({ cwd: root, tool: CLEAN_TOOL }, services);
+  expect(again.verification.tests[0]?.status).toBe('passed');
+  expect(again.verification.passed).toBe(true);
+  expect(again.verificationPending).toBeUndefined();
+}, 30000);
+
+it('still refuses a tracked file the baseline tests change, next to an untracked report', async () => {
+  const { root, services } = fixture();
+  services.tests = async () => {
+    writeFileSync(join(root, 'test-report.xml'), '<testsuites/>');
+    writeFileSync(join(root, 'index.ts'), 'changed by tests');
+    return [{ workspace: '.', status: 'passed', output: '' }];
+  };
+  await expect(fix({ cwd: root, only: 'zod' }, services)).rejects.toThrow(
+    'baseline tests modified',
+  );
+  expect(git(root, 'branch', '--show-current')).not.toBe('uptide/zod-4.6.5');
+});
+
 it('checks workspace source under its own resolution mode, not the importer bundler mode', () => {
   const { root } = fixture();
   for (const name of ['app', 'shared']) mkdirSync(join(root, name), { recursive: true });

@@ -267,6 +267,8 @@ export interface FixReport {
   baseHead?: string;
   changedFiles?: string[];
   verificationPending?: boolean;
+  /** Untracked files the baseline tests wrote (a junit report): kept out of every commit. */
+  testArtifacts?: string[];
   branch: string;
   sites: FixSite[];
   /** Generated code produced in the clone (a Prisma client), per workspace and phase. */

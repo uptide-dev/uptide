@@ -15,7 +15,9 @@ import { confirmServices } from './run.js';
 import { type Followed, settle } from './settle.js';
 import type { FixReport, LintResult, TestResult } from './types.js';
 import {
+  clearing,
   diagnostics,
+  excludeArtifacts,
   gitLineMoves,
   newDiagnostics,
   type TestOptions,
@@ -86,6 +88,10 @@ export async function reverify(
     .filter((line) => line.trim() !== '' && !line.slice(3).startsWith('.uptide/'));
   if (pending.length)
     throw new UptideError('DIRTY_WORKING_TREE', 'uptide verify requires a clean working tree');
+  // The run's test artifacts (a junit report) stay out of git and out of each test run here too.
+  const artifacts = report.testArtifacts ?? [];
+  excludeArtifacts(root, artifacts);
+  services = clearing(services, root, artifacts);
   const pack = options.pack ?? activePack(report.package);
   if (!pack) throw new Error(`no migration pack for ${report.package}`);
   const workspaces = workspacePackagesOf(root).filter((w) => {

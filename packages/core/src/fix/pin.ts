@@ -19,7 +19,15 @@ import type { FixOptions, FixServices } from './run.js';
 import { commit, safeFile, settle } from './settle.js';
 import { lintFiles } from './style.js';
 import type { FixReport, FixSite } from './types.js';
-import { gitLineMoves, markPreexisting, newDiagnostics, typeResolutionFailure } from './verify.js';
+import {
+  clearing,
+  gitLineMoves,
+  markPreexisting,
+  newDiagnostics,
+  testArtifacts,
+  typeResolutionFailure,
+  untrackedFiles,
+} from './verify.js';
 
 export const PIN_RULE = 'api-version-pin';
 
@@ -128,13 +136,14 @@ export async function pinCurrentApi(
       .filter((w) => w === '.' || file.startsWith(`${w}/`))
       .sort((a, b) => b.length - a.length)[0];
   const edited = workspaces.filter((w) => affected.some((f) => ownerOf(f) === w));
+  const untracked = untrackedFiles(root);
   const baselineTests = await verify(`tests (${names(edited)})`, () =>
     services.tests(root, edited, options.testTimeoutMs, affected, {
       withServices: options.withServices === true,
     }),
   );
-  if (git(root, 'status', '--porcelain', '--untracked-files=all'))
-    throw new Error('baseline tests modified the working tree; review their changes before fixing');
+  const artifacts = testArtifacts(root, untracked);
+  services = clearing(services, root, artifacts);
   const baselineLint = await (services.lint ?? lintFiles)(root, affected);
   const baseHead = git(root, 'rev-parse', 'HEAD');
   git(root, 'switch', '-c', branch);
@@ -200,6 +209,7 @@ export async function pinCurrentApi(
     target: installed,
     mode: 'pin',
     apiVersion,
+    ...(artifacts.length ? { testArtifacts: artifacts } : {}),
     ...(generated.length ? { generated } : {}),
     ...tool,
     verifiedAt: new Date().toISOString(),

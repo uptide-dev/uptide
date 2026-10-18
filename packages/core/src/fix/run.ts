@@ -76,15 +76,18 @@ import type {
   TestResult,
 } from './types.js';
 import {
+  clearing,
   describeServices,
   diagnostics,
   gitLineMoves,
   markPreexisting,
   newDiagnostics,
   type TestOptions,
+  testArtifacts,
   testWorkspaces,
   typeChecker,
   typeResolutionFailure,
+  untrackedFiles,
 } from './verify.js';
 import {
   assertInstalledVersions,
@@ -610,14 +613,15 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   // Evidence at a site the compiler rejected is confirmed evidence: the change is real there.
   if (packContext.evidence)
     packContext = { ...packContext, evidence: confirmedEvidence(packContext.evidence, selected) };
+  const untracked = untrackedFiles(root);
   const baselineTests = await verify(`tests (${names(workspaces)})`, () =>
     services.tests(root, workspaces, options.testTimeoutMs, affected, {
       withServices: options.withServices === true,
       fullSuite: true,
     }),
   );
-  if (git(root, 'status', '--porcelain', '--untracked-files=all'))
-    throw new Error('baseline tests modified the working tree; review their changes before fixing');
+  const artifacts = testArtifacts(root, untracked);
+  services = clearing(services, root, artifacts);
   // Lint of the same files before anything changes: a failure that is already there is not ours.
   const baselineLint = await (services.lint ?? lintFiles)(root, affected);
   lap('baseline');
@@ -1119,6 +1123,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ...(fallback.length ? { agentFallback: fallback } : {}),
     ...(cleanInstall ? { cleanInstall } : {}),
     ...(pending ? { verificationPending: true } : {}),
+    ...(artifacts.length ? { testArtifacts: artifacts } : {}),
     ...(lockfile ? { lockfile } : {}),
     ...(generated.length ? { generated } : {}),
     repo: root,
