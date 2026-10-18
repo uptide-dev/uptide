@@ -398,10 +398,11 @@ export async function runAction(
     budget -= (fixed.llm?.costUsd ?? 0) + (fixed.llm?.unreportedCostUsd ?? 0);
     let pr: { number: number; url: string } | null = null;
     let error: string | undefined;
-    // `uptide pr` refuses these too; asking it would only turn the reason into a failure.
+    // `uptide pr` refuses these too; asking it would only turn the reason into a failure. A
+    // build the upgrade broke, alone, opens like an agent-led run: a draft, its banner on top.
     if (
       !fixed.packWarning &&
-      fixed.verification.passed &&
+      (fixed.verification.passed || fixed.verification.buildBroken) &&
       !fixed.exportError &&
       !noPackBlockers(fixed).length
     ) {

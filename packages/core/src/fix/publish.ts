@@ -36,7 +36,8 @@ export function publicationBlockers(
               .join('; ')),
     );
   if (report.verificationPending) blockers.push('verification has not run');
-  else if (!fallback && !v.passed && !report.exportError) {
+  // A build the upgrade broke, and nothing else, publishes as a draft that says so (UPT-110).
+  else if (!fallback && !v.passed && !v.buildBroken && !report.exportError) {
     const failing = (v.tests ?? []).filter((t) => t.status === 'failed' || t.status === 'timeout');
     // What the upgrade introduced, apart from what was already broken (`fixVerdict`): on an
     // unhealthy baseline the pre-existing errors and failing runs are named, never blamed.
@@ -456,8 +457,8 @@ export async function publish(
   const branch = report.branch;
   if (!/^uptide\//.test(branch))
     throw new Error('publication branch does not match the verified migration');
-  if (report.verification.passed || report.agentFallback?.length)
-    assertVerifiedTree(cwd, report, io.git);
+  const draftOnly = !!report.agentFallback?.length || !!report.verification.buildBroken;
+  if (report.verification.passed || draftOnly) assertVerifiedTree(cwd, report, io.git);
   const blockers = publicationBlockers(report, { uptideDirty: false });
   if (blockers.length)
     throw new UptideError(
@@ -547,7 +548,7 @@ export async function publish(
       noted,
     );
   }
-  if (report.agentFallback?.length && onOrigin.open && !onOrigin.open.isDraft) {
+  if (draftOnly && onOrigin.open && !onOrigin.open.isDraft) {
     const draft = await io.command(cwd, 'gh', [
       'pr',
       'ready',
@@ -559,8 +560,8 @@ export async function publish(
     if (draft.code)
       throw new PublishError(
         'PUBLICATION_FAILED',
-        'could not make the fallback PR a draft',
-        'Nothing was pushed: the existing PR must be a draft before publishing fallback results.',
+        'could not make the open PR a draft',
+        'Nothing was pushed: the existing PR must be a draft before publishing a draft-only run.',
       );
   }
   const published = onOrigin.branch;
@@ -630,7 +631,7 @@ export async function publish(
       'create',
       '--repo',
       nameWithOwner,
-      ...(options.draft === false && !report.agentFallback?.length ? [] : ['--draft']),
+      ...(options.draft === false && !draftOnly ? [] : ['--draft']),
       '--base',
       base,
       ...(label ? ['--label', 'uptide'] : []),

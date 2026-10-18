@@ -36,7 +36,7 @@ import { resetSharedState } from '../shared-state.js';
 import { prepareWorkspace } from '../verify/prepare-workspace.js';
 import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
 import { assist } from './assisted.js';
-import { baselineHealth, testsOrBuildVouch } from './baseline.js';
+import { baselineHealth, testsOrBuildVouch, upgradeBrokeBuild } from './baseline.js';
 import { behaviorCheck } from './behavior.js';
 import { buildWorkspaces, configuredBuildScript } from './build.js';
 import {
@@ -647,17 +647,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       }
     }
   };
-  const runBuild = async (always = false): Promise<BuildResult[]> => {
-    if (!needsBuild && !always) return [];
+  const runBuild = async (always = false, only = workspaces): Promise<BuildResult[]> => {
+    if ((!needsBuild && !always) || !only.length) return [];
     return keepClean(async () => {
       try {
-        return await verify(`build (${names(workspaces)})`, () =>
-          timedBuild(
-            root,
-            workspaces,
-            undefined,
-            options.buildScript ?? configuredBuildScript(root),
-          ),
+        return await verify(`build (${names(only)})`, () =>
+          timedBuild(root, only, undefined, options.buildScript ?? configuredBuildScript(root)),
         );
       } catch (error) {
         return [
@@ -1050,6 +1045,44 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     );
     consumedAt = treeState();
   };
+  // The same clone at the parent commit, with the parent's own install and generated clients;
+  // the branch's are restored after. A parent that cannot be checked out, installed or built
+  // says why, never that it passed. ponytail: the build output left in the clone is the
+  // parent's; nothing after this reads it, and `verify` builds again.
+  const buildAtParent = async (): Promise<{ builds: BuildResult[] } | { unchecked: string }> => {
+    const generate = services.generate ?? generateClients;
+    const firstLine = (text: string): string =>
+      text
+        .split('\n')
+        .find((l) => l.trim())
+        ?.trim()
+        .slice(0, 160) ?? 'no output';
+    let step = 'checkout';
+    try {
+      git(root, 'switch', '-q', '--detach', baseHead);
+      step = 'install';
+      await services.install(root);
+      step = 'client generation';
+      await generate(root, workspaces);
+      const builds = await runBuild(true);
+      const stopped = builds.find((b) => b.cause === 'build could not run');
+      return stopped
+        ? { unchecked: `build could not run: ${firstLine(stopped.output)}` }
+        : { builds };
+    } catch (error) {
+      return {
+        unchecked: `${step} failed: ${firstLine(error instanceof Error ? error.message : String(error))}`,
+      };
+    } finally {
+      if (step !== 'checkout') {
+        git(root, 'checkout', '--', '.');
+        git(root, 'clean', '-fdq');
+        git(root, 'switch', '-q', branch);
+        await services.install(root);
+        await generate(root, workspaces);
+      }
+    }
+  };
   let build = await runBuild();
   await rebuildConsumed();
   let {
@@ -1217,9 +1250,28 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   }
   if (feedbackLimits.roundsUsed) lap('feedback', (nanos(llm.costUsd) - nanos(agentSpend)) / 1e9);
   // The repository's own build on the final head, reported where the pack does not gate on it:
-  // the PR names its result, never "not required" in its place (UPT-110).
-  const headBuild = needsBuild ? [] : await runBuild(true);
-  if (!needsBuild) lap('build');
+  // the PR names its result, never "not required" in its place (UPT-110). A workspace the
+  // consumed builds already built on this head is not built again.
+  let headBuild: BuildResult[] = [];
+  let parentBuild: BuildResult[] | undefined;
+  let parentUnchecked: string | undefined;
+  if (!needsBuild) {
+    await rebuildConsumed();
+    headBuild = await runBuild(
+      true,
+      workspaces.filter((w) => !consumed.some((c) => c.workspace === w)),
+    );
+    // Only a failing head is built again at the parent: already failing, or broken by the upgrade.
+    if (
+      [...consumed, ...headBuild].some((b) => b.status === 'failed' || b.status === 'timeout') &&
+      !git(root, 'status', '--porcelain', '--untracked-files=all')
+    ) {
+      const parent = await buildAtParent();
+      if ('builds' in parent) parentBuild = parent.builds;
+      else parentUnchecked = parent.unchecked;
+    }
+    lap('build');
+  }
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
   // An agent-led draft must still install from scratch, as the repository's CI would (UPT-102).
@@ -1235,6 +1287,19 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         affected: typed.reduce((n, p) => n + (p.typeCoverage?.affected ?? 0), 0),
       }
     : undefined;
+  const checksPassed =
+    !unverified &&
+    !fallback.some((reason) => /incomplete check|Unknown baseline|Planner refused/.test(reason)) &&
+    newErrors.length === 0 &&
+    cleanInstall?.passed !== false &&
+    !pending &&
+    tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
+    (!pack.requiresBuild || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
+    build.every((b) => b.status === 'passed' || b.status === 'missing') &&
+    testsOrBuildVouch(typeCoverage, tests, build) &&
+    lint.every((l) => l.status !== 'failed');
+  // A head build that fails where the parent's could not be checked fails the run too.
+  const broken = upgradeBrokeBuild(parentBuild) || !!parentUnchecked;
   const result: FixReport = {
     ...(pins.length ? { rootPins: pins } : {}),
     ...(fallback.length ? { agentFallback: fallback } : {}),
@@ -1288,19 +1353,11 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ...(formatted.length ? { formatted } : {}),
       ...(unverified ? { typesUnverified: unverified } : {}),
       baselineHealth: baselineHealth(baseline, baselineTests),
-      passed:
-        !unverified &&
-        !fallback.some((reason) =>
-          /incomplete check|Unknown baseline|Planner refused/.test(reason),
-        ) &&
-        newErrors.length === 0 &&
-        cleanInstall?.passed !== false &&
-        !pending &&
-        tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
-        (!pack.requiresBuild || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
-        build.every((b) => b.status === 'passed' || b.status === 'missing') &&
-        testsOrBuildVouch(typeCoverage, tests, build) &&
-        lint.every((l) => l.status !== 'failed'),
+      ...(parentBuild ? { parentBuild } : {}),
+      ...(parentUnchecked ? { parentUnchecked } : {}),
+      // A build the upgrade broke fails the run; alone, it still publishes, as a draft (UPT-110).
+      ...(broken && checksPassed ? { buildBroken: true as const } : {}),
+      passed: checksPassed && !broken,
     },
     llm: {
       ...llm,
