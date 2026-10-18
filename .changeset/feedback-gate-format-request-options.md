@@ -1,5 +1,0 @@
----
-"uptide": patch
----
-
-`fix` no longer rejects an agent patch for test files the parent commit already failed, whichever test scope ran them: when the test script builds first and the build failed on the error being fixed, the start had no test results to compare with, so a correct patch was reverted every round. The patch's tests also run with the pack's follow-ups in place (a test asserting the old Stripe API version), which `fix` still applies and reports after the agent. When a PR body cannot fit, the stored report.json the error points to is now written first. `check` and `fix` now also analyze files that reach a package's wrapper through a barrel (`import { getStripeClient } from '../stripe'` with `export * from './client'`). Edited files are formatted with oxfmt and dprint as well as biome and prettier, from the workspace that holds them, with its own configuration, else the root's. The stripe pack adds `request-options`: request options passed in the params slot (`subscriptions.cancel(id, { idempotencyKey })`), which SDK 22 rejects, move to the third argument. It runs assisted until a ground-truth repository exercises it.
