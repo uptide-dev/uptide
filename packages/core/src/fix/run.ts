@@ -63,7 +63,7 @@ import { describeRootPin, planRootPins, writeRootPins } from './root-pins.js';
 import { assistWithSdk, sdkInstalled, type TaskRunner } from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
-import { lintFiles } from './style.js';
+import { formatFiles, lintFiles } from './style.js';
 import { type ResolvedTarget, resolveTarget } from './target.js';
 import type {
   BuildResult,
@@ -71,6 +71,7 @@ import type {
   Fixer,
   FixPhase,
   FixReport,
+  FixRunKind,
   FixSite,
   LintResult,
   TestResult,
@@ -266,14 +267,37 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   // Each phase ends where the next begins, so together they are the run's wall time.
   const phases: FixPhase[] = [];
   let lapped = started;
+  let runs: NonNullable<FixPhase['runs']> = {};
   const lap = (name: FixPhase['name'], costUsd?: number): void => {
     const now = Date.now();
-    phases.push({ name, ms: now - lapped, ...(costUsd !== undefined ? { costUsd } : {}) });
+    phases.push({
+      name,
+      ms: now - lapped,
+      ...(costUsd !== undefined ? { costUsd } : {}),
+      ...(Object.keys(runs).length ? { runs } : {}),
+    });
     lapped = now;
+    runs = {};
   };
+  // The repository's commands each phase runs, counted where they are called.
+  const timed =
+    <A extends unknown[], R>(kind: FixRunKind, work: (...args: A) => R) =>
+    (...args: A): R => {
+      const start = Date.now();
+      const done = (): void => {
+        const entry = runs[kind] ?? { count: 0, ms: 0 };
+        entry.count++;
+        entry.ms += Date.now() - start;
+        runs[kind] = entry;
+      };
+      const result = work(...args);
+      if (result instanceof Promise) return result.finally(done) as R;
+      done();
+      return result;
+    };
   // Every build the run executes, preparation and verification, with its wall time.
   const buildRuns = { count: 0, ms: 0 };
-  const timedBuild: typeof buildWorkspaces = async (...args) => {
+  const timedBuild: typeof buildWorkspaces = timed('build', async (...args) => {
     const start = Date.now();
     try {
       const results = await (services.build ?? buildWorkspaces)(...args);
@@ -282,7 +306,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     } finally {
       buildRuns.ms += Date.now() - start;
     }
-  };
+  });
   const root = realpathSync(resolve(options.cwd));
   if (
     options.maxCostUsd !== undefined &&
@@ -383,6 +407,16 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const branch = `uptide/${pack.name}-${target}`;
   packageManager(root);
   if (services.install === install) await assertManagerAvailable(root);
+  const defaultDiagnostics = services.diagnostics === diagnostics;
+  services = {
+    ...services,
+    install: timed('install', services.install),
+    diagnostics: timed('types', services.diagnostics),
+    tests: timed('tests', services.tests),
+    lint: timed('lint', services.lint ?? lintFiles),
+    format: timed('format', services.format ?? formatFiles),
+    generate: timed('generate', services.generate ?? generateClients),
+  };
   // Generated clients and consumed workspace builds, before the planner compiles anything.
   const prepared = await prepareWorkspace(root, workspacePackagesOf(root), {
     build: timedBuild,
@@ -731,9 +765,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   generated.push(...rebuilt.generated.map((g) => ({ ...g, phase: 'bump' as const })));
   let consumed = rebuilt.builds;
   let consumedAt = treeState();
-  const targetChecker =
-    sdkAgent && services.diagnostics === diagnostics ? typeChecker(root, workspaces) : undefined;
-  const checkTarget = targetChecker?.check ?? (() => services.diagnostics(root, workspaces));
+  const targetChecker = sdkAgent && defaultDiagnostics ? typeChecker(root, workspaces) : undefined;
+  const checkTarget = targetChecker
+    ? timed('types', targetChecker.check)
+    : () => services.diagnostics(root, workspaces);
   const targetErrors = await verify(`types (${names(workspaces)})`, checkTarget);
   lap('install');
   const sites: FixSite[] = [];
@@ -1160,6 +1195,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const tests = markPreexisting(ran, baselineTests);
   // An agent-led draft must still install from scratch, as the repository's CI would (UPT-102).
   const cleanInstall = fallback.length ? await cleanInstallCheck(root, services) : undefined;
+  if (cleanInstall) lap('clean-install');
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
   const newErrors = newDiagnostics(baseline, after, gitLineMoves(root, baseHead));
   const behavior = pack.name === 'zod' ? behaviorCheck(root, originals, sites) : undefined;

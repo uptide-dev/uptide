@@ -203,11 +203,22 @@ export interface Fixer {
   fix(input: FixRequest, remainingUsd?: number): Promise<FixResponse>;
 }
 export interface FixPhase {
-  name: 'analyze' | 'baseline' | 'install' | 'rules' | 'agent' | 'verify' | 'feedback';
+  name:
+    | 'analyze'
+    | 'baseline'
+    | 'install'
+    | 'rules'
+    | 'agent'
+    | 'verify'
+    | 'feedback'
+    | 'clean-install';
   ms: number;
   /** Agent spend in this phase; only the agent and feedback phases call an LLM. */
   costUsd?: number;
+  /** The repository's own commands this phase ran: how many, and their summed wall time. */
+  runs?: Partial<Record<FixRunKind, { count: number; ms: number }>>;
 }
+export type FixRunKind = 'install' | 'generate' | 'build' | 'types' | 'tests' | 'lint' | 'format';
 export interface FixReport {
   rootPins?: RootPin[];
   /** Pack pipeline limitations: agent-led results can be published only as drafts. */

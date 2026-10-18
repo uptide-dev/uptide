@@ -305,6 +305,9 @@ describe('fix for a dependency without a pack', () => {
       'feedback',
     ]);
     expect(result.phases?.find((p) => p.name === 'agent')?.costUsd).toBe(0.6);
+    // The repository's commands each phase ran, counted where they ran.
+    expect(result.phases?.find((p) => p.name === 'baseline')?.runs?.types?.count).toBe(1);
+    expect(result.phases?.find((p) => p.name === 'baseline')?.runs?.tests?.count).toBe(1);
     const total = (result.phases ?? []).reduce((ms, p) => ms + p.ms, 0);
     expect(total).toBeLessThanOrEqual(result.timingMs);
     expect(prBody(result)).toMatch(/Phases: analyze \d+s · baseline \d+s · .* agent \d+s \$0\.60/);
