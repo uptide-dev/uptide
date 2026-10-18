@@ -18,7 +18,7 @@ import { published, version } from '../version.js';
 import { buildWorkspaces } from './build.js';
 import { git } from './process.js';
 import { publicationBlockers } from './publish.js';
-import { formatFix, prBody, summaryCells } from './report.js';
+import { formatFix, prBody, renderMigration, summaryCells } from './report.js';
 import { reverify } from './reverify.js';
 import { type FixOptions, fix } from './run.js';
 import * as sdkAgent from './sdk-agent.js';
@@ -106,24 +106,46 @@ describe('fix transaction', () => {
     key: string;
     sdk: boolean;
     installed?: boolean;
+    executor?: 'sdk' | 'patch';
+    refused?: boolean;
   }>([
-    { name: 'Anthropic defaults to SDK', options: {}, key: 'test-key', sdk: true },
+    {
+      name: 'Anthropic defaults to SDK',
+      options: {},
+      key: 'test-key',
+      sdk: true,
+      executor: 'sdk',
+    },
     {
       name: 'default without the SDK installed falls back to patch',
       options: {},
       key: 'test-key',
       sdk: false,
       installed: false,
+      executor: 'patch',
     },
     {
       name: 'explicit SDK without it installed',
       options: { agent: 'sdk' },
       key: 'test-key',
-      sdk: true,
+      sdk: false,
       installed: false,
+      refused: true,
     },
-    { name: 'explicit SDK', options: { agent: 'sdk' }, key: 'test-key', sdk: true },
-    { name: 'explicit patch', options: { agent: 'patch' }, key: 'test-key', sdk: false },
+    {
+      name: 'explicit SDK',
+      options: { agent: 'sdk' },
+      key: 'test-key',
+      sdk: true,
+      executor: 'sdk',
+    },
+    {
+      name: 'explicit patch',
+      options: { agent: 'patch' },
+      key: 'test-key',
+      sdk: false,
+      executor: 'patch',
+    },
     { name: 'no key', options: {}, key: '', sdk: false },
     {
       name: 'no LLM overrides SDK',
@@ -143,37 +165,56 @@ describe('fix transaction', () => {
       },
       key: 'test-key',
       sdk: false,
+      executor: 'patch',
     },
     { name: 'OpenAI', options: { provider: 'openai' }, key: 'test-key', sdk: false },
     { name: 'Gemini', options: { provider: 'gemini' }, key: 'test-key', sdk: false },
-  ])('$name selects the expected executor', async ({ options, key, sdk, installed = true }) => {
-    const { root, services } = fixture();
-    vi.stubEnv('ANTHROPIC_API_KEY', key);
-    const tests = vi.spyOn(services, 'tests');
-    const assist = vi.spyOn(sdkAgent, 'assistWithSdk').mockResolvedValue({
-      available: true,
-      inputTokens: 0,
-      outputTokens: 0,
-      costUsd: 0,
-      agent: 'sdk',
-    });
-    try {
-      const report = await fix(
-        { cwd: root, only: 'zod', provider: 'anthropic', ...options },
-        { ...services, sdkInstalled: async () => installed },
-      );
-      expect(assist).toHaveBeenCalledTimes(sdk ? 1 : 0);
-      expect(report.llm.agent).toBe(sdk ? 'sdk' : undefined);
-      const fellBack = !installed && !sdk;
-      expect(report.llm.sdkMissing).toBe(fellBack || undefined);
-      expect(formatFix(report).includes('@anthropic-ai/claude-agent-sdk')).toBe(fellBack);
-      expect(tests.mock.calls.length).toBeGreaterThanOrEqual(2);
-      expect(tests.mock.calls.every(([, , , , options]) => options?.fullSuite === true)).toBe(true);
-    } finally {
-      assist.mockRestore();
-      vi.unstubAllEnvs();
-    }
-  });
+  ])(
+    '$name selects the expected executor',
+    async ({ options, key, sdk, installed = true, executor, refused }) => {
+      const { root, services } = fixture();
+      vi.stubEnv('ANTHROPIC_API_KEY', key);
+      const tests = vi.spyOn(services, 'tests');
+      const assist = vi.spyOn(sdkAgent, 'assistWithSdk').mockResolvedValue({
+        available: true,
+        inputTokens: 0,
+        outputTokens: 0,
+        costUsd: 0,
+        agent: 'sdk',
+      });
+      try {
+        const run = fix(
+          { cwd: root, only: 'zod', provider: 'anthropic', ...options },
+          { ...services, sdkUnavailable: async () => (installed ? undefined : 'not installed') },
+        );
+        // Asked for by name, the SDK never falls back: the run stops before any clone.
+        if (refused) {
+          await expect(run).rejects.toThrow(/^--agent sdk cannot run: not installed; reinstall/);
+          expect(assist).not.toHaveBeenCalled();
+          return;
+        }
+        const report = await run;
+        expect(assist).toHaveBeenCalledTimes(sdk ? 1 : 0);
+        expect(report.llm.agent).toBe(sdk ? 'sdk' : undefined);
+        expect(report.llm.executor).toBe(executor);
+        const fellBack = !installed && !sdk;
+        expect(report.llm.sdkMissing).toBe(fellBack ? 'not installed' : undefined);
+        // The fallback is the first thing the summary and the PR body say after the title.
+        for (const text of [formatFix(report), renderMigration(report)])
+          expect(text.split('\n')[2]?.startsWith('> ⚠️ Assisted fixes use the patch executor')).toBe(
+            fellBack,
+          );
+        expect(renderMigration(report)).not.toContain('npx uptide with');
+        expect(tests.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(tests.mock.calls.every(([, , , , options]) => options?.fullSuite === true)).toBe(
+          true,
+        );
+      } finally {
+        assist.mockRestore();
+        vi.unstubAllEnvs();
+      }
+    },
+  );
 
   it('does not pass a run whose baseline cannot see a package the repository installs', async () => {
     const { root, services } = fixture();

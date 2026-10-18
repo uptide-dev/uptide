@@ -60,7 +60,7 @@ import { command, git, projectRoot } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { changeRule, editDiff, prBody } from './report.js';
 import { describeRootPin, planRootPins, writeRootPins } from './root-pins.js';
-import { assistWithSdk, sdkInstalled, type TaskRunner } from './sdk-agent.js';
+import { assistWithSdk, SDK_REMEDY, sdkUnavailable, type TaskRunner } from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
 import { formatFiles, lintFiles } from './style.js';
@@ -198,8 +198,8 @@ export interface FixServices {
   metadata?: PackageFetcher['metadata'];
   /** `--agent sdk` sessions; the Claude Agent SDK by default. */
   agentRunner?: TaskRunner;
-  /** Whether the optional SDK peer can be imported; decides the default executor. */
-  sdkInstalled?: () => Promise<boolean>;
+  /** Why the optional SDK cannot run, or undefined when it can; decides the default executor. */
+  sdkUnavailable?: () => Promise<string | undefined>;
   /** The publish step of a `--pr` run; `publishVerified` by default. */
   publish?(
     result: FixReport,
@@ -320,9 +320,11 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     options.fixer === undefined &&
     selection.provider === 'anthropic' &&
     selection.available;
-  // The SDK is an optional peer: the default uses it only when it is installed.
+  // The SDK is an optional dependency: the default uses it only when it can run, and says why not.
   const sdkMissing =
-    sdkDefault && !services.agentRunner && !(await (services.sdkInstalled ?? sdkInstalled)());
+    (sdkDefault || (options.agent === 'sdk' && options.fixer !== null)) && !services.agentRunner
+      ? await (services.sdkUnavailable ?? sdkUnavailable)()
+      : undefined;
   const sdkAgent =
     options.fixer !== null && (options.agent === 'sdk' || (sdkDefault && !sdkMissing));
   if (sdkAgent && selection.provider !== 'anthropic')
@@ -332,6 +334,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     );
   if (sdkAgent && !selection.available && !services.agentRunner)
     throw new UptideError('NO_FIXER', '--agent sdk needs ANTHROPIC_API_KEY');
+  // Asked for by name, it never falls back: it stops before any clone, with how to get it.
+  if (sdkAgent && sdkMissing)
+    throw new UptideError(
+      'NO_FIXER',
+      `--agent sdk cannot run: ${sdkMissing}; ${SDK_REMEDY}, or use --agent patch`,
+    );
   let pack =
     options.pack ?? activePack(options.only, options.allowCandidate) ?? genericPack(options.only);
   if (pack.name !== options.only) throw new Error(`no migration pack for ${options.only}`);
@@ -1290,7 +1298,11 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
         testsOrBuildVouch(typeCoverage, tests, build) &&
         lint.every((l) => l.status !== 'failed'),
     },
-    llm: sdkMissing ? { ...llm, sdkMissing: true } : llm,
+    llm: {
+      ...llm,
+      ...(sdkAgent ? { executor: 'sdk' } : fixer ? { executor: 'patch' } : {}),
+      ...(sdkMissing ? { sdkMissing } : {}),
+    },
     ...(behavior ? { behavior } : {}),
     timingMs: Date.now() - started,
     phases,

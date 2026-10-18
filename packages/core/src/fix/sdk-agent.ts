@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { ts } from 'ts-morph';
@@ -696,17 +697,40 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
   };
 }
 
-/** The Claude Agent SDK: an optional peer, external to the bundle, loaded only here. */
+/** The Claude Agent SDK: an optional dependency, external to the bundle, loaded only here. */
 const loadSdk = () => import('@anthropic-ai/claude-agent-sdk');
 
-/** Whether the default may use the SDK; without it the default is the patch agent. */
-export async function sdkInstalled(): Promise<boolean> {
+/** How to get the SDK executor, said wherever it is missing. */
+export const SDK_REMEDY =
+  'reinstall Uptide with its optional dependencies (no --omit=optional or --no-optional)';
+
+/** The fallback, said first in the output and the PR body: which executor, why, how to change it. */
+export const sdkFallbackNote = (reason: string): string =>
+  `Assisted fixes use the patch executor, not the Agent SDK: ${reason}. For the SDK executor, ${SDK_REMEDY}; --agent patch chooses the patch executor and drops this note.`;
+
+/**
+ * Why the SDK executor cannot run here, or undefined when it can: the SDK loads and finds the
+ * Claude Code binary for this platform, its own optional dependency, where the SDK looks for it.
+ */
+export async function sdkUnavailable(): Promise<string | undefined> {
   try {
     await loadSdk();
-    return true;
-  } catch {
-    return false;
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    return code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND'
+      ? '@anthropic-ai/claude-agent-sdk is not installed'
+      : `@anthropic-ai/claude-agent-sdk failed to load: ${String((error as Error)?.message ?? error).split('\n')[0]}`;
   }
+  const sdk = createRequire(
+    createRequire(import.meta.url).resolve('@anthropic-ai/claude-agent-sdk'),
+  );
+  const base = `@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}`;
+  const binary = process.platform === 'win32' ? 'claude.exe' : 'claude';
+  for (const name of [base, `${base}-musl`])
+    try {
+      if (existsSync(sdk.resolve(`${name}/${binary}`))) return undefined;
+    } catch {}
+  return `the Claude Code binary for ${process.platform}-${process.arch} (${base}) is not installed`;
 }
 
 const sdkRunner: TaskRunner = async ({
@@ -723,7 +747,7 @@ const sdkRunner: TaskRunner = async ({
     sdk = await loadSdk();
   } catch {
     throw new Error(
-      '--agent sdk needs @anthropic-ai/claude-agent-sdk installed next to uptide (npm install -g @anthropic-ai/claude-agent-sdk), or use --agent patch',
+      `--agent sdk: @anthropic-ai/claude-agent-sdk did not load; ${SDK_REMEDY}, or use --agent patch`,
     );
   }
   const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });

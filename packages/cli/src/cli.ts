@@ -19,6 +19,8 @@ import {
   ReportedError,
   registeredPacks,
   scaffoldPack,
+  sdkFallbackNote,
+  sdkUnavailable,
   selectLlm,
   TIER_LEGEND,
   testPack,
@@ -1052,6 +1054,17 @@ ${runnable(PRIVACY)}`,
               });
             // `--only zod --target stripe@23.0.0` would upgrade zod to 23.0.0, or fail late.
             if (target) parseTargets([target], [only]);
+            // The Anthropic default is the SDK executor; when it cannot run, that comes first.
+            const sdkMissing =
+              llmOn &&
+              !flags.pinCurrentApi &&
+              selection.available &&
+              selection.provider === 'anthropic' &&
+              agent === undefined
+                ? await sdkUnavailable()
+                : undefined;
+            if (sdkMissing) io.err(`warning: ${sdkFallbackNote(sdkMissing)}\n`);
+            const sdk = selection.provider === 'anthropic' && agent !== 'patch' && !sdkMissing;
             if (flags.pr && !flags.yes)
               io.err('--pr without --yes: the publication plan is printed, nothing is pushed.\n');
             const repo = await progress.phase(
@@ -1112,14 +1125,9 @@ ${runnable(PRIVACY)}`,
               );
             else if (selection.available) {
               io.err(
-                `LLM: ${selection.provider}${selection.provider === 'gemini' ? ' (experimental)' : ''} / ${selection.model} · budget $${maxCost.toFixed(2)}\n`,
+                `LLM: ${selection.provider}${selection.provider === 'gemini' ? ' (experimental)' : ''} / ${selection.model} · executor ${sdk ? 'sdk' : 'patch'} · budget $${maxCost.toFixed(2)}\n`,
               );
-              io.err(
-                assistedNote(
-                  selection.provider,
-                  selection.provider === 'anthropic' && agent !== 'patch',
-                ),
-              );
+              io.err(assistedNote(selection.provider, sdk));
               const price = priceFor(selection.provider, selection.model);
               if (price.fallback)
                 io.err(

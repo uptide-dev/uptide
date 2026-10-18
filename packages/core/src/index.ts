@@ -164,6 +164,7 @@ export {
 } from './fix/report.js';
 export { type ReverifyOptions, reverify } from './fix/reverify.js';
 export { type FixOptions, fix } from './fix/run.js';
+export { SDK_REMEDY, sdkFallbackNote, sdkUnavailable } from './fix/sdk-agent.js';
 export { detectStyle } from './fix/style.js';
 export type { Fixer, FixPhase, FixReport, FixRequest, FixResponse } from './fix/types.js';
 export { buildToolMajor } from './list/evidence.js';

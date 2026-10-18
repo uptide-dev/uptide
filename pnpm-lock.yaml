@@ -45,9 +45,6 @@ importers:
         specifier: ^2.9.1
         version: 2.9.1
     devDependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: 0.3.296
-        version: 0.3.296(@anthropic-ai/sdk@0.133.0(zod@4.6.6))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.6))(zod@4.6.6)
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.4
@@ -69,6 +66,10 @@ importers:
       vitest:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+    optionalDependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: 0.3.296
+        version: 0.3.296(@anthropic-ai/sdk@0.133.0(zod@4.6.6))(@modelcontextprotocol/sdk@1.32.1(zod@4.6.6))(zod@4.6.6)
 
   packages/core:
     dependencies:

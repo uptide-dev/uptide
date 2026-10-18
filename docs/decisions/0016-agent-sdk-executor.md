@@ -2,8 +2,9 @@
 
 Status: default for authenticated Anthropic fixes. `--agent patch` opts out; other providers
 and callers supplying a fixer retain the patch executor. Without a key, rule-based fixes
-remain available. `--no-llm` disables either executor. The SDK is an optional peer, never
-bundled: without it installed, the default is the patch executor.
+remain available. `--no-llm` disables either executor. The SDK is an optional dependency,
+installed with Uptide and never bundled: when it cannot load, the default is the patch
+executor, said first in the output and the PR body.
 
 ## Why
 
@@ -101,13 +102,40 @@ unchanged.
   throws", which forbid failing loudly on a missing period.
 - **Final verdict.** Unchanged, and the same for both agents: diagnostics against the
   pre-upgrade baseline through `gitLineMoves`.
-- **Report.** `report.json` has `llm.agent: 'sdk'` and, per task, `llm.tasks[]`: turns,
+- **Report.** `report.json` has `llm.executor` (`sdk` or `patch`), `llm.sdkMissing` when the
+  default fell back, `llm.agent: 'sdk'` and, per task, `llm.tasks[]`: turns,
   tokens, cost, wall time, tool calls by name, discarded files, gate verdict, rejection, and
   the summary.
 
 ## Dependency and terms
 
-### Optional peer, the default only where installed (2026-10-12)
+### Optional dependency, installed by default (2026-10-18)
+
+**Decision:** the SDK moves from optional peer to `optionalDependencies` of `uptide`, pinned to
+the version the tests run. npm, pnpm, yarn classic and yarn berry (`dlx`) install it with
+Uptide, binary included, and it still loads only through `import()`. When it cannot run (not
+installed, or no Claude Code binary for the platform), the default runs the patch executor
+and says so as the first line of the output and at the top of the PR body, with the reason and
+the remedy; `report.json` has `llm.executor` and `llm.sdkMissing`. `--agent sdk` without it
+stops before any clone. This supersedes the decision below.
+
+- **Why.** The UpgradeBench pilot (#169, round 3) ran `npx uptide@0.15.1 fix` as the README
+  says: no install brought the peer, so every run used the patch executor while the notice
+  and docs described the SDK, and no output said so. A default nobody gets is not a default.
+- **Why optional, not a regular dependency.** Both install the binary for everyone by
+  default. Only an optional dependency lets `--omit=optional` drop all of it (SDK, binary
+  and the SDK's peers) and still leave a working CLI, which falls back and says so. That is
+  the way out for library consumers of `uptide/onboarding` and `uptide/report`, and for
+  `--no-llm`, OpenAI and Gemini users who do not want the download.
+- **Size, measured** (node:22 on linux arm64, plain `npm install` of the packed tarball): the
+  tarball is unchanged (2.5 MB); `node_modules` grows from 13.6 MB and 3 packages to 323.6 MB
+  and 110 packages. The binary is 250 MB of it, the SDK 5.5 MB, its peers 36 MB
+  (`@anthropic-ai/sdk`, `zod`, `@modelcontextprotocol/sdk`).
+- **Terms.** Unchanged from below. Question 2 there ("Is an npm dependency 'preinstalling'
+  Claude Code in a product?") is now the live one: this decision ships it as one before an
+  answer.
+
+### Optional peer, the default only where installed (2026-10-12, superseded)
 
 **Decision:** the SDK stays an optional peer of `uptide`, never a dependency. The default
 uses it when it can be imported; otherwise `fix` runs the patch executor and says, in one

@@ -26,11 +26,10 @@ describe('published package', () => {
     // CommonJS build calls require("process"), which breaks consumers' ES module builds.
     expect(Object.keys(manifest.dependencies)).toEqual(['yaml']);
     expect(manifest.devDependencies?.yaml).toBeUndefined();
-    // The experimental `--agent sdk` loads the Claude Agent SDK only if the user installed it.
-    expect(manifest.peerDependencies).toEqual({ '@anthropic-ai/claude-agent-sdk': '>=0.3.296' });
-    expect(manifest.peerDependenciesMeta).toEqual({
-      '@anthropic-ai/claude-agent-sdk': { optional: true },
-    });
+    // The Anthropic default executor: installed with uptide by npm, pnpm and yarn, never bundled,
+    // and optional so an install without it still works (and says it fell back).
+    expect(manifest.optionalDependencies).toEqual({ '@anthropic-ai/claude-agent-sdk': '0.3.296' });
+    expect(manifest.peerDependencies).toBeUndefined();
     expect(manifest.engines.node).toBe('>=20');
     // Library entries besides the command, for the GitHub App and the Uptide app
     // (libs-export.test.ts): the pure onboarding generator, what reads it from disk, and the

@@ -18,6 +18,7 @@ import { noPackBlockers } from './no-pack.js';
 import { uniqueSites } from './paired.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import { agentDecisionLines, testOutput } from './review-evidence.js';
+import { sdkFallbackNote } from './sdk-agent.js';
 import { stripeChangelog } from './stripe-changelog.js';
 import { isTestFile } from './test-edits.js';
 import type { FixDiagnostic, FixPhase, FixReport, FixSite, ReviewSection } from './types.js';
@@ -834,6 +835,8 @@ export function renderMigration(
       ? `## Pin the Stripe API version to ${report.apiVersion}`
       : `## Upgrade ${report.package} ${from} → ${report.target}`;
   const lines: (string | Piece)[] = [title, ''];
+  // Never a silent switch: the executor that ran is the first thing said when it is not the SDK.
+  if (report.llm.sdkMissing) lines.push(`> ⚠️ ${sdkFallbackNote(report.llm.sdkMissing)}`, '');
   // Why the mechanical path stopped and the agent led: the first thing a reviewer reads.
   if (report.agentFallback?.length)
     lines.push(
@@ -994,11 +997,6 @@ export function renderMigration(
   if (report.tier === 'generic' && report.sites.some((s) => s.outcome === 'agent'))
     lines.push(`> ${GENERIC_NOTE(report.package)}`, '');
   if (report.llm.disabled) lines.push('Assisted fixes disabled (--no-llm).', '');
-  if (mode === 'compact' && report.llm.sdkMissing)
-    lines.push(
-      'Assisted fixes used the patch agent: install @anthropic-ai/claude-agent-sdk next to uptide for the SDK executor (--agent patch silences this).',
-      '',
-    );
   lines.push(...summaryRows(report), '');
   if (mode === 'full' && budget !== undefined && report.package === 'stripe') {
     for (const stored of report.reviewSections ?? []) {
