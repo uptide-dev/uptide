@@ -1,5 +1,0 @@
----
-"uptide": minor
----
-
-`uptide fix` runs only with the Claude Agent SDK; if it can't, it doesn't run. Before the first download, an interactive terminal asks once: `uptide fix needs the Claude Agent SDK (about 300 MB, downloaded once to <cache>). Download now? [Y/n]` (default yes). With `--yes`, or without a terminal, it downloads and says so in one line. Once cached, it never asks again. Answering `n`, an SDK that can't be fetched or loaded (offline, a proxy, no binary for the platform), a missing `ANTHROPIC_API_KEY`, another provider, or `llm.enabled: false` / `executor: patch` in `uptide.yml` all stop `fix` with exit 2 before any clone or spending. The run prints one message with the reason and the fix, and `--json` returns it as `error.code: "SDK_UNAVAILABLE"`. There is no fallback to the patch executor anywhere: the Uptide Action stops the run with the same message. `--no-llm`, `--agent` and `--provider` are gone from help and docs. `llm.sdkMissing` is gone from `report.json`, and `uptide init` no longer writes `executor`.
