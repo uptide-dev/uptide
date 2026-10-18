@@ -561,18 +561,28 @@ export function verifiedBy(report: FixReport): string {
         ? `⚠️ type-check is not proof: ${low}`
         : '✅ type-check';
   const failing = (s: string) => s === 'failed' || s === 'timeout';
-  // Name the result of each verification step, including pack-required builds.
-  const build = !v.build
-    ? report.tier === 'generic' || v.buildRequired
-      ? '⚠️ build not run'
+  // The build's result: passed, failed with its first error, or not run and why. Whether the
+  // pack gates on it sits beside the result, never in its place (UPT-110).
+  const gate =
+    report.tier === 'generic' || v.buildRequired || !pack.length
+      ? ''
       : report.packWarning
-        ? 'build not required by this candidate pack'
-        : 'build not required (pack-verified migration)'
-    : !v.build.length || v.build.some((b) => b.status === 'missing')
-      ? '⚠️ build not run: no build script'
-      : v.build.some((b) => failing(b.status))
-        ? `❌ build${buildCauseText(v.build)}`
-        : '✅ build';
+        ? ' (not required by this candidate pack)'
+        : ' (not required by the pack)';
+  const firstError = v.build
+    ?.filter((b) => failing(b.status))
+    .flatMap((b) => b.output?.split('\n') ?? [])
+    .find((line) => /\berror\b/i.test(line))
+    ?.trim();
+  const build = `${
+    !v.build
+      ? '⚠️ build not run'
+      : !v.build.length || v.build.some((b) => b.status === 'missing')
+        ? '⚠️ build not run: no build script'
+        : v.build.some((b) => failing(b.status))
+          ? `❌ build${firstError ? `: ${cell(firstError.slice(0, 160))}` : ''}${buildCauseText(v.build)}`
+          : '✅ build'
+  }${gate}`;
   const ran = v.tests.filter((t) => t.status !== 'missing');
   const tests = !ran.length
     ? '⚠️ tests not run: none ran'

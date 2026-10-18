@@ -1526,8 +1526,9 @@ it('records baseline builds and rebuilds affected output after the upgrade throu
     },
   );
   expect(upgraded).toBe(true);
-  // Baseline, right after the bump (the agent's declarations), and again on the final head.
-  expect(build).toHaveBeenCalledTimes(3);
+  // Baseline, right after the bump (the agent's declarations), again on the final head, and
+  // the repository's own build there, which the pack does not require (UPT-110).
+  expect(build).toHaveBeenCalledTimes(4);
   expect(build).toHaveBeenNthCalledWith(
     1,
     realpathSync(root),
@@ -1542,8 +1543,17 @@ it('records baseline builds and rebuilds affected output after the upgrade throu
     undefined,
     'build:ci',
   );
+  expect(build).toHaveBeenNthCalledWith(
+    4,
+    realpathSync(root),
+    ['.', 'packages/internal'],
+    undefined,
+    'build:ci',
+  );
   expect(result.verification.build).toMatchObject([
     { phase: 'baseline', workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
+    { workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
+    { workspace: '.', status: 'missing' },
     { workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
   ]);
   expect(prBody(result)).toContain(
@@ -1674,9 +1684,12 @@ describe('consumed workspace builds on the final head (UPT-104)', () => {
     expect(result.verification.build).toMatchObject([
       { phase: 'baseline', workspace: 'packages/internal', status: 'passed' },
       { workspace: 'packages/internal', status: 'passed' },
+      { workspace: '.', status: 'passed' },
+      { workspace: 'packages/internal', status: 'passed' },
     ]);
-    // Baseline, after the bump, and once on the edited head.
-    expect(result.buildRuns?.count).toBe(3);
+    // Baseline, after the bump, once on the edited head, then the repository's build there
+    // (root and `packages/internal`).
+    expect(result.buildRuns?.count).toBe(5);
     const body = prBody(result);
     expect(body).toContain(
       'Build after the bump in `packages/internal` (`build:ci` script): `node build.cjs` — passed',
@@ -1695,10 +1708,13 @@ describe('consumed workspace builds on the final head (UPT-104)', () => {
       { ...services, build },
     );
     expect(result.changedFiles).not.toContain('index.ts');
-    expect(build).toHaveBeenCalledTimes(2);
-    expect(result.buildRuns?.count).toBe(2);
+    // Preparation and after the bump; then only the repository's own build on the head.
+    expect(build).toHaveBeenCalledTimes(3);
+    expect(result.buildRuns?.count).toBe(4);
     expect(result.verification.build).toMatchObject([
       { phase: 'baseline', workspace: 'packages/internal', status: 'passed' },
+      { workspace: 'packages/internal', status: 'passed' },
+      { workspace: '.', status: 'passed' },
       { workspace: 'packages/internal', status: 'passed' },
     ]);
   });

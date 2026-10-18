@@ -639,8 +639,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       }
     }
   };
-  const runBuild = async (): Promise<BuildResult[]> => {
-    if (!needsBuild) return [];
+  const runBuild = async (always = false): Promise<BuildResult[]> => {
+    if (!needsBuild && !always) return [];
     return keepClean(async () => {
       try {
         return await verify(`build (${names(workspaces)})`, () =>
@@ -1208,6 +1208,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     );
   }
   if (feedbackLimits.roundsUsed) lap('feedback', (nanos(llm.costUsd) - nanos(agentSpend)) / 1e9);
+  // The repository's own build on the final head, reported where the pack does not gate on it:
+  // the PR names its result, never "not required" in its place (UPT-110).
+  const headBuild = needsBuild ? [] : await runBuild(true);
+  if (!needsBuild) lap('build');
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
   // An agent-led draft must still install from scratch, as the repository's CI would (UPT-102).
@@ -1265,9 +1269,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       newErrors,
       baselineTests,
       tests,
-      ...(needsBuild || workspaceBuilds.length || consumed.length
+      ...(needsBuild || workspaceBuilds.length || consumed.length || headBuild.length
         ? {
-            build: [...workspaceBuilds, ...consumed, ...build],
+            build: [...workspaceBuilds, ...consumed, ...build, ...headBuild],
             ...(needsBuild ? { baselineBuild } : {}),
           }
         : {}),
