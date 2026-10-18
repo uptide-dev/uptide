@@ -32,6 +32,13 @@ export npm_config_ignore_scripts=true YARN_ENABLE_SCRIPTS=0
 # A developer's checkout is installed; Uptide refuses one that is not. Untimed, both arms.
 bash -c "$(sel .checks.install)" >"$dir/setup.log" 2>&1
 
+uptide=${UPTIDE_VERSION:-0.15.1}
+case $arm in
+claude) version=$(claude --version | cut -d' ' -f1) ;;
+uptide) version=$(npx -y "uptide@$uptide" --version) ;;
+*) version= ;;
+esac
+
 start=$(date +%s) status=0 cost=0
 case $arm in
 claude)
@@ -54,7 +61,8 @@ claude)
   jq -r '.result // ""' "$dir/agent.json" >"$dir/summary.md" 2>/dev/null || : >"$dir/summary.md"
   ;;
 uptide)
-  UPTIDE_MODEL=$model node "$here/../packages/cli/dist/index.js" fix "$pkg" --target "$to" \
+  # The published CLI as a user runs it, not this checkout's build.
+  UPTIDE_MODEL=$model npx -y "uptide@$uptide" fix "$pkg" --target "$to" \
     --json >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
   branch=$(git for-each-ref --format='%(refname:short)' "refs/heads/uptide/$pkg-*" | head -1)
   [ -n "$branch" ] && git checkout -q "$branch"
@@ -72,6 +80,10 @@ wall=$(($(date +%s) - start)) cost=${cost:-0}
 dirty=$(git status --porcelain --untracked-files=no -- . ':!.uptide' | wc -l | tr -d ' ')
 jq -n --arg id "$id" --arg head "$(git rev-parse HEAD)" --argjson status "$status" \
   --argjson cost "$cost" --argjson wall "$wall" --argjson dirty "$dirty" \
-  '{id: $id, head: $head, exit: $status, costUsd: $cost, wallSeconds: $wall, uncommittedFiles: $dirty}' \
+  --arg arm "$arm" --arg version "$version" \
+  --arg executor "$([ "$arm" = uptide ] && jq -r '.llm.agent // "patch"' "$dir/agent.json" 2>/dev/null)" \
+  '{id: $id, head: $head, exit: $status, costUsd: $cost, wallSeconds: $wall, uncommittedFiles: $dirty}
+    + if $version == "" then {} else {version: {($arm): $version}} end
+    + if $executor == "" then {} else {executor: $executor} end' \
   >"$dir/meta.json"
 echo "$run $(cat "$dir/meta.json")"

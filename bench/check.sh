@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The final type-check, lint and tests of one run, from a clean worktree of its head: a fresh
+# The final type-check, lint, tests and build of one run, from a clean worktree of its head: a fresh
 # install with lifecycle scripts off, then the repository's own commands from selection.json.
 #
 #   BENCH_OUT=<dir> bench/check.sh <run>
@@ -14,7 +14,7 @@ git -C "$dir/repo" worktree prune
 git -C "$dir/repo" worktree add -q --detach "$dir/check" "$head"
 cd "$dir/check"
 result='{}'
-for step in install typecheck lint test; do
+for step in install typecheck lint test build; do
   cmd=$(jq -r --arg id "$id" --arg s "$step" '.repos[] | select(.id == $id) | .checks[$s] // ""' "$here/selection.json")
   [ -z "$cmd" ] && continue
   code=0
