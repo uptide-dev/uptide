@@ -132,7 +132,7 @@ jobs:
           [ "$PACKS" = success ]
       - uses: actions/checkout@v7
         if: always() && needs.scope.outputs.run == 'true'
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         if: always() && needs.scope.outputs.run == 'true'
         with:
           pattern: pack-test-*
