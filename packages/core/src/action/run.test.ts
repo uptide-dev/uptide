@@ -383,7 +383,13 @@ describe('the Uptide Action run', () => {
   });
 
   it('fix: always assisted with the Agent SDK, with the key passed to fix alone', async () => {
-    for (const settings of ['version: 1\n', 'version: 1\nllm:\n  enabled: true\n']) {
+    // 0.15.x onboarding wrote `executor: auto`; `sdk` is the explicit form. Both run the SDK.
+    for (const settings of [
+      'version: 1\n',
+      'version: 1\nllm:\n  enabled: true\n',
+      'version: 1\nexecutor: auto\n',
+      'version: 1\nexecutor: sdk\n',
+    ]) {
       const { s, calls } = services({
         list: listReport([dep('zod', '3.25.76', '4.6.5')]),
         fix: () => fixRun(storefrontFix()),
@@ -394,6 +400,7 @@ describe('the Uptide Action run', () => {
       expect(fix?.args).toContain('--llm');
       expect(fix?.args).not.toContain('--no-llm');
       expect(fix?.args.join(' ')).toContain('--agent sdk');
+      expect(report.error).toBeUndefined();
       expect(fix?.apiKey).toBe('test-key');
       expect(calls.filter((c) => c.args[0] !== 'fix').every((c) => !c.apiKey)).toBe(true);
     }

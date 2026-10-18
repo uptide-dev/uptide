@@ -133,6 +133,36 @@ describe('fix runs only with the Agent SDK', () => {
     expect(engine.calls).toHaveLength(0);
   });
 
+  // uptide.yml as `uptide init` 0.15.x wrote it (onboarding golden at v0.15.1), with each executor.
+  const onboarded = (executor: string) =>
+    "version: 1\npackages:\n  allow: []\n  deny: []\nschedule: '56 6 * * 1'\nmaxOpenPrs: 3\nllm:\n  provider: anthropic\nmaxCost: 1\n" +
+    `executor: ${executor}\n`;
+
+  it.each(['auto', 'sdk'])(
+    'executor: %s from a 0.15.x uptide.yml is the SDK executor, with no warning',
+    async (executor) => {
+      sdk.cached = true;
+      const engine = fakeEngine();
+      const io = memoryIo({ cwd: pnpmGitRepo({ 'uptide.yml': onboarded(executor) }), env: KEY });
+      expect(await run(['fix', 'zod'], io, engine)).toBe(0);
+      expect(engine.calls).toHaveLength(1);
+      expect(engine.calls[0]).not.toMatchObject({ agent: 'patch' });
+      expect(io.stderr()).toContain('executor sdk');
+      expect(io.stderr()).not.toMatch(/warning|cannot start|patch/i);
+    },
+  );
+
+  it('executor: patch from a 0.15.x uptide.yml stops with exit 2', async () => {
+    sdk.cached = true;
+    const engine = fakeEngine();
+    const io = memoryIo({ cwd: pnpmGitRepo({ 'uptide.yml': onboarded('patch') }), env: KEY });
+    expect(await run(['fix', 'zod'], io, engine)).toBe(2);
+    expect(io.stderr()).toContain(
+      'uptide fix runs only with the Claude Agent SDK and cannot start: uptide.yml sets executor: patch. To fix it, remove executor from uptide.yml',
+    );
+    expect(engine.calls).toHaveLength(0);
+  });
+
   it.each([['--no-llm'], ['--agent', 'patch']])(
     '%s is rejected without UPTIDE_INTERNAL=1, accepted with it',
     async (...flags) => {
