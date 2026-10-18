@@ -273,3 +273,37 @@ it('falls back to a minimal body when even the compact sections do not fit', () 
   expect(body).toContain('report.json');
   expect(body).not.toContain('Owner decision');
 });
+
+it('names the files an agent decision changed, not the task scope (UPT-106)', () => {
+  const report = manySitesReport();
+  const scope = Array.from({ length: 317 }, (_, i) => `src/module-${i}.ts`);
+  report.llm.tasks = [
+    {
+      id: 'verification-1',
+      rule: 'verification',
+      files: scope,
+      sites: 0,
+      fixed: 0,
+      turns: 3,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      durationMs: 0,
+      toolCalls: {},
+      gate: 'accepted',
+      diffs: { 'src/module-7.ts': '+x' },
+      summary: {
+        changed: [],
+        decisions: ['Kept the ref nullable'],
+        assumptions: [],
+        couldNotDo: [],
+        newFiles: [],
+      },
+    },
+  ];
+  expect(prBody(report)).toContain(
+    '- `src/module-7.ts`: Kept the ref nullable. Confirm or change.',
+  );
+  delete (report.llm.tasks[0] as { diffs?: unknown }).diffs;
+  expect(prBody(report)).toContain('`src/module-4.ts` and 312 more files: Kept the ref nullable.');
+});

@@ -1,5 +1,7 @@
 import type { FixReport } from './types.js';
 
+/** How many files a decision line names before it counts the rest. */
+const NAMED = 5;
 /**
  * Accepted agent choices belong beside the pack's owner decisions, not buried in logs. One
  * bullet per rule and resource (UPT-70): a choice the pack already puts to the owner for that
@@ -57,23 +59,30 @@ export function agentDecisionLines(report: FixReport): string[] {
         ...new Set(sites.map((site) => site.finding.change.path.split('#')[0])),
       ].sort();
       const key = rules.length > 0 ? `${rules.join(',')}|${resources.join(',')}` : `#${index}`;
+      // The files the task changed: its scope can be the whole repository (verification feedback).
+      const changed = Object.keys(task.diffs ?? {});
+      const files = changed.length ? changed : task.files;
       const first = said.get(key);
       if (first) {
-        first.files.push(...task.files.filter((file) => !first.files.includes(file)));
+        first.files.push(...files.filter((file) => !first.files.includes(file)));
         return [];
       }
-      const entry = { files: [...task.files], decisions };
+      const entry = { files: [...files], decisions };
       said.set(key, entry);
       return [entry];
     });
-  return lines.flatMap((line) =>
-    typeof line === 'string'
-      ? [line]
-      : line.decisions.map(
-          (decision) =>
-            `- ${line.files.map((file) => `\`${file}\``).join(', ')}: ${decision.trim()}${/[.!?]$/.test(decision.trim()) ? '' : '.'} Confirm or change.`,
-        ),
-  );
+  return lines.flatMap((line) => {
+    if (typeof line === 'string') return [line];
+    const more = line.files.length - NAMED;
+    const files = `${line.files
+      .slice(0, NAMED)
+      .map((file) => `\`${file}\``)
+      .join(', ')}${more > 0 ? ` and ${more} more files` : ''}`;
+    return line.decisions.map(
+      (decision) =>
+        `- ${files}: ${decision.trim()}${/[.!?]$/.test(decision.trim()) ? '' : '.'} Confirm or change.`,
+    );
+  });
 }
 
 /** First failing suite's error, bounded, plus counts; repeated noise is printed once. */
