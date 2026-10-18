@@ -11,13 +11,16 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 const tag = process.argv[2] ?? '22';
 // Fail before building or packing, both for a missing executable and an unavailable daemon.
 // A daemon busy after a long job on the same runner can be slow to answer, so retry.
+// The env overrides exist for smoke.test.ts, which must not wait the real delays.
+const timeout = Number(process.env.SMOKE_DOCKER_INFO_TIMEOUT_MS ?? 30_000);
+const wait = Number(process.env.SMOKE_DOCKER_INFO_WAIT_MS ?? 5_000);
 let reason;
 for (let attempt = 1; attempt <= 3; attempt++) {
-  if (attempt > 1) await sleep(5_000);
+  if (attempt > 1) await sleep(wait);
   const docker = spawnSync('docker', ['info'], {
     stdio: ['ignore', 'ignore', 'pipe'],
     encoding: 'utf8',
-    timeout: 30_000,
+    timeout,
   });
   if (!docker.error && docker.status === 0) {
     reason = undefined;
@@ -25,7 +28,7 @@ for (let attempt = 1; attempt <= 3; attempt++) {
   }
   reason = docker.error
     ? docker.error.code === 'ETIMEDOUT'
-      ? `timed out after 30 s (${docker.signal ?? 'no signal'})`
+      ? `timed out after ${timeout} ms (${docker.signal ?? 'no signal'})`
       : docker.error.message
     : docker.signal
       ? `killed by ${docker.signal}`
@@ -34,7 +37,7 @@ for (let attempt = 1; attempt <= 3; attempt++) {
   console.error(`smoke: docker info attempt ${attempt}/3 failed: ${reason}`);
 }
 if (reason) {
-  console.error(`Docker is required for pnpm smoke; docker info failed 3 times, last: ${reason}`);
+  console.error(`Docker is required for pnpm smoke: ${reason}`);
   process.exit(1);
 }
 

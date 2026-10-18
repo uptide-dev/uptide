@@ -28,27 +28,39 @@ function runner(root: string) {
       PATH: root,
       TMPDIR: root,
       GITHUB_STEP_SUMMARY: join(root, 'summary.md'),
+      SMOKE_DOCKER_INFO_TIMEOUT_MS: '500',
+      SMOKE_DOCKER_INFO_WAIT_MS: '0',
     },
   });
 }
 
-it.each(['missing executable', 'unavailable daemon'])(
-  'explains Docker is required (%s)',
-  (mode) => {
-    const root = temp();
-    if (mode === 'unavailable daemon') executable(root, 'docker', 'process.exit(1);');
-    executable(
-      root,
-      'pnpm',
-      `require('node:fs').writeFileSync(${JSON.stringify(join(root, 'built'))}, 'unexpected');`,
-    );
-    const result = runner(root);
-    expect(result.status).toBe(1);
-    expect(result.stderr.trim()).toBe('Docker is required for pnpm smoke');
-    expect(result.stdout).toBe('');
-    expect(() => readFileSync(join(root, 'built'))).toThrow();
-  },
-);
+it.each([
+  ['missing executable', undefined, 'spawnSync docker ENOENT'],
+  [
+    'unavailable daemon',
+    "process.stderr.write('Cannot connect to the Docker daemon\\n'); process.exit(1);",
+    'exit status 1\nCannot connect to the Docker daemon',
+  ],
+  ['unresponsive daemon', 'setTimeout(() => {}, 10_000);', 'timed out after 500 ms (SIGTERM)'],
+])('retries, then explains Docker is required (%s)', (_mode, docker, reason) => {
+  const root = temp();
+  if (docker) executable(root, 'docker', docker);
+  executable(
+    root,
+    'pnpm',
+    `require('node:fs').writeFileSync(${JSON.stringify(join(root, 'built'))}, 'unexpected');`,
+  );
+  const result = runner(root);
+  expect(result.status).toBe(1);
+  expect(result.stderr.trim()).toBe(
+    [
+      ...[1, 2, 3].map((attempt) => `smoke: docker info attempt ${attempt}/3 failed: ${reason}`),
+      `Docker is required for pnpm smoke: ${reason}`,
+    ].join('\n'),
+  );
+  expect(result.stdout).toBe('');
+  expect(() => readFileSync(join(root, 'built'))).toThrow();
+});
 
 it.each([0, 1])('preserves container assertions in the CI summary (exit %i)', (code) => {
   const root = temp();
