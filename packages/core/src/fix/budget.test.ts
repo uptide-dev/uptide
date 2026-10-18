@@ -27,7 +27,7 @@ it('keeps rank 0, then lower ranks first, and never cuts inside a block', () => 
   const out = fitPieces(
     [...pieces, { kind: 'text', text: 'low priority '.repeat(100), rank: 9 }],
     172,
-  );
+  ) as string;
   expect(out.length).toBeLessThanOrEqual(172);
   expect(out).toContain('# Title');
   expect(out).toContain('long diff');
@@ -52,12 +52,10 @@ it('falls back to one line per piece when almost nothing fits', () => {
 });
 
 it('keeps a complete document unchanged when it fits, even if omission notices are longer', () => {
-  const body = fitPieces(pieces);
+  const body = fitPieces(pieces) as string;
   expect(fitPieces(pieces, body.length)).toBe(body);
 });
 
-it('refuses oversized required evidence instead of silently dropping it', () => {
-  expect(() => fitPieces([must('required'.repeat(20))], 100)).toThrow(
-    'Required migration evidence',
-  );
+it('returns nothing for oversized required evidence instead of silently dropping it', () => {
+  expect(fitPieces([must('required'.repeat(20))], 100)).toBeUndefined();
 });

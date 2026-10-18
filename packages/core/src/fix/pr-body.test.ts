@@ -87,15 +87,14 @@ it('applies the same budget to a stored many-site preview and the submitted body
   expect(readFileSync(m.run, 'utf8')).toBe(JSON.stringify(m.report));
 });
 
-it('refuses oversized required evidence before editing a PR and leaves the stored run intact', async () => {
+it('sends a shortened description for oversized required evidence and leaves the stored run intact', async () => {
   const m = mock();
   m.report.decisions = ['- Owner decision. '.repeat(PR_BODY_BUDGET)];
   writeFileSync(m.run, JSON.stringify(m.report));
-  await expect(updatePrBody({ cwd: temp, pr: '82', run: m.run }, m.io)).rejects.toThrow(
-    'Required migration evidence',
-  );
-  expect(m.sent()).toBe('');
-  expect(m.calls.flat()).not.toContain('edit');
+  const updated = await updatePrBody({ cwd: temp, pr: '82', run: m.run }, m.io);
+  expect(updated.body.length).toBeLessThanOrEqual(PR_BODY_BUDGET);
+  expect(updated.body).toContain('**Shortened description.**');
+  expect(m.sent()).toBe(updated.body);
   expect(readFileSync(m.run, 'utf8')).toBe(JSON.stringify(m.report));
 });
 it('falls back to the REST endpoint when gh pr edit trips over retired classic projects', async () => {

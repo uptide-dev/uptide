@@ -196,3 +196,80 @@ it('keeps the Action report and PR body portable without an npm invocation', asy
     vi.unstubAllEnvs();
   }
 });
+
+/** ~300 manual sites and ~100 churned lockfile entries: required lists far past the limit (UPT-106). */
+function overflowingReport(): FixReport {
+  const report = manySitesReport();
+  report.sites = report.sites.slice(0, 300).map((s, i) => ({
+    ...s,
+    outcome: 'manual' as const,
+    rule: `rule-${i % 3}`,
+    reason: `Needs a person: ${'the call site passes options the rule cannot rewrite safely; '.repeat(3)}${i}`,
+  }));
+  const churn = (prefix: string) =>
+    Array.from({ length: 100 }, (_, i) => ({
+      name: `${prefix}-${i}`,
+      ...(i % 4 === 0 ? {} : { from: '1.0.0' }),
+      ...(i % 4 === 1 ? {} : { to: i % 4 === 2 ? '1.0.0' : '1.1.0' }),
+    }));
+  report.lockfile = {
+    manager: 'npm',
+    file: 'package-lock.json',
+    added: [],
+    removed: [],
+    changed: [],
+    allowed: [],
+    outOfScope: churn('outside'),
+    parentChurn: churn('parent'),
+  };
+  return report;
+}
+
+it('renders 300 manual sites and 100 churned lockfile entries under the limit, every section represented', () => {
+  const report = overflowingReport();
+  report.runUrl = 'https://github.com/acme/app/actions/runs/42';
+  expect(migrationBody(report).length).toBeGreaterThan(PR_BODY_BUDGET);
+  const body = prBody(report);
+  expect(body.length).toBeLessThanOrEqual(PR_BODY_BUDGET);
+  for (const section of [
+    '### Lockfile changes outside the upgrade: review',
+    '### Lockfile churn the parent commit already has',
+    '| **Risk** |',
+    '### What changed',
+    '### Worth a look',
+    '### Decisions for you',
+    'Verification details',
+    'Run details',
+  ])
+    expect(body).toContain(section);
+  // Manual sites: by rule, with counts and the first locations.
+  expect(body).toContain('- Manual: 300 sites to change by hand');
+  expect(body).toContain('- `rule-0` (100): `src/billing-0.ts:1`, `src/billing-3.ts:4`');
+  expect(body).toContain('and 95 more');
+  expect(body).toContain('[job summary](https://github.com/acme/app/actions/runs/42)');
+  expect(body).toContain('- parent-99 1.0.0 → 1.1.0');
+  balanced(body);
+  // Tighter still, lockfile churn keeps its counts per kind of change and the first packages.
+  const tight = renderMigration(report, 'full', 8_000);
+  expect(tight.length).toBeLessThanOrEqual(8_000);
+  expect(tight).toContain('### Lockfile churn the parent commit already has');
+  expect(tight).toContain(
+    '100 entries: 25 added, 25 removed, 25 re-resolved at the same version, 25 version changed',
+  );
+  expect(tight).toContain('- parent-9 ');
+  expect(tight).not.toContain('- parent-10 ');
+  expect(tight).toContain('- Manual: 300 sites to change by hand');
+  balanced(tight);
+});
+
+it('falls back to a minimal body when even the compact sections do not fit', () => {
+  const report = overflowingReport();
+  report.decisions = ['- Owner decision. '.repeat(PR_BODY_BUDGET / 4)];
+  const body = prBody(report);
+  expect(body.length).toBeLessThanOrEqual(PR_BODY_BUDGET);
+  expect(body).toMatch(/^## Upgrade example-sdk [^\n]+\n\n> ⚠️ \*\*Shortened description\.\*\*/);
+  expect(body).toContain('Verification: PASS.');
+  expect(body).toContain('300 manual');
+  expect(body).toContain('report.json');
+  expect(body).not.toContain('Owner decision');
+});

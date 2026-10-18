@@ -6,7 +6,7 @@ import { compareVersions } from '../check/version.js';
 import type { PackageFetcher } from '../domain/io.js';
 import { type ProgressListener, progress } from '../domain/progress.js';
 import type { CheckReport, Finding } from '../domain/report.js';
-import { ReportedError, SafetyRefusal, UptideError } from '../errors.js';
+import { SafetyRefusal, UptideError } from '../errors.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
@@ -1214,19 +1214,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (decided.length) result.decidedRules = decided;
   const remote = originOf(root);
   if (remote) result.remote = remote;
+  const { GITHUB_SERVER_URL: server, GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: run } = process.env;
+  if (server && repo && run) result.runUrl = `${server}/${repo}/actions/runs/${run}`;
   mkdirSync(dirname(result.prBody), { recursive: true });
   const storedRun = join(root, '.uptide/report.json');
-  // First: a body that cannot fit refuses, and points at this report.
   writeFileSync(storedRun, JSON.stringify(result, null, 2));
-  try {
-    writeFileSync(result.prBody, prBody(result));
-  } catch (error) {
-    throw new ReportedError(
-      'PR_BODY_TOO_LARGE',
-      error instanceof Error ? error.message : String(error),
-      result,
-    );
-  }
+  writeFileSync(result.prBody, prBody(result));
   if (options.pr) {
     await publishVerified(result, { tool, ...(options.yes ? { yes: true } : {}) });
     writeFileSync(result.prBody, prBody(result));
