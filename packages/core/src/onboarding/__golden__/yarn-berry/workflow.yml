@@ -54,7 +54,7 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable --mode=skip-build
       # Reads uptide.yml, runs Uptide, opens draft pull requests and uploads the results JSON.
-      - uses: uptide-dev/uptide@00ab1728b35b48e29f5b2a963f96858792e0a734 # v0.14.3
+      - uses: uptide-dev/uptide@63b7c9b88838312a8b3965c87cbdc55702306d98 # v0.16.0
         with:
           config: uptide.yml
           mode: ${{ inputs.mode || 'fix' }}
