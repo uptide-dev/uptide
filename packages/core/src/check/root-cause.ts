@@ -1,8 +1,80 @@
+import { posix } from 'node:path';
 import type { DownstreamSite, Finding, PackageReport, SharedRoot } from '../domain/report.js';
+import type { SitePosition } from '../domain/usage.js';
 import { describeCluster } from './unattributed.js';
 import { parseVersion } from './version.js';
 
 const rootKey = (r: SharedRoot): string => `${r.file}:${r.line}:${r.name}`;
+
+/**
+ * A compile error the compiler traces to another new error's expression (`origin`, set by
+ * `flowOrigin`, UPT-99) is a consequence of that site: it folds into the breaking finding
+ * there as one of its `downstream` errors and is no longer a site. The root is the innermost
+ * breaking finding (not a cause cluster) whose span holds the origin. A consequence of a
+ * consequence goes to the first one's root. With no breaking finding at the origin, or a
+ * trace that loops, the error stays as it was. `prefix` makes workspace-relative files
+ * repository-relative, as `downstream` is.
+ */
+export function foldConsequences(findings: Finding[], prefix = ''): Finding[] {
+  if (!findings.some((f) => f.origin)) return findings;
+  const before = (aLine: number, aCol: number, bLine: number, bCol: number): boolean =>
+    aLine < bLine || (aLine === bLine && aCol <= bCol);
+  const holds = (f: Finding, at: SitePosition): boolean =>
+    f.usage.file === at.file &&
+    before(f.usage.line, f.usage.column, at.line, at.column) &&
+    before(at.line, at.column, f.usage.endLine, f.usage.endColumn);
+  const span = (f: Finding): number =>
+    (f.usage.endLine - f.usage.line) * 1e6 + f.usage.endColumn - f.usage.column;
+  const rootAt = (at: SitePosition): Finding | undefined =>
+    findings
+      .filter((r) => r.severity === 'breaking' && r.change.kind !== 'cause' && holds(r, at))
+      .sort((a, b) => span(a) - span(b))[0];
+  const rootOf = (f: Finding): Finding | undefined => {
+    const seen = new Set([f]);
+    let current = f;
+    while (current.origin) {
+      const next = rootAt(current.origin);
+      if (!next) break;
+      if (seen.has(next)) return undefined;
+      seen.add(next);
+      current = next;
+    }
+    return current === f ? undefined : current;
+  };
+  const into = new Map<Finding, Finding[]>();
+  for (const f of findings) {
+    const root = f.origin && rootOf(f);
+    if (root) into.set(root, [...(into.get(root) ?? []), f]);
+  }
+  const folded = new Set([...into.values()].flat());
+  return findings.flatMap((f) => {
+    if (folded.has(f)) return [];
+    const { origin: _, ...rest } = f;
+    const under = into.get(f);
+    if (!under) return [rest];
+    const downstream: DownstreamSite[] = under.map((c) => ({
+      file: posix.normalize(`${prefix}${c.usage.file}`),
+      line: c.usage.line,
+      column: c.usage.column,
+      snippet: c.usage.snippet,
+      code: c.usage.compileCode ?? Number(/^TS(\d+)$/.exec(c.change.path)?.[1] ?? 0),
+      message: (c.usage.compileError ?? c.reason).split('\n')[0] ?? c.reason,
+    }));
+    const n = downstream.length;
+    return [
+      {
+        ...rest,
+        downstream: [...(f.downstream ?? []), ...downstream].sort(
+          (a, b) => a.file.localeCompare(b.file) || a.line - b.line,
+        ),
+        details: [
+          ...(f.details ?? []),
+          `+${n} downstream error${n === 1 ? '' : 's'}: the compiler traces ${n === 1 ? 'its value' : 'their values'} to this site, and the edit here resolves ${n === 1 ? 'it' : 'them'}`,
+        ],
+      },
+    ];
+  });
+}
 
 /** `3 call sites in 2 workspaces`: the line under a shared root's reason. */
 export function callSitesLine(sites: readonly DownstreamSite[]): string {

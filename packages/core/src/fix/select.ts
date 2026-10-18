@@ -23,9 +23,10 @@ export function selectedFindings(
         continue;
       // A cluster's sites are its downstream errors, unless the anchor is the one site to edit.
       if (finding.change.kind === 'cause' && !finding.anchorOnly) {
-        for (const d of finding.downstream ?? [])
+        const { downstream, ...cluster } = finding;
+        for (const d of downstream ?? [])
           selected.push({
-            ...finding,
+            ...cluster,
             change: { ...finding.change, kind: 'type', path: `TS${d.code}` },
             usage: {
               ...finding.usage,

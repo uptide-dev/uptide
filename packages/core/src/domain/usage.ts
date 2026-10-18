@@ -115,6 +115,19 @@ export interface CompileDiagnostic {
    * workspaces that trace to the same declaration fold into one finding at it (check/root-cause.ts).
    */
   root?: DiagnosticCause;
+  /**
+   * The other new diagnostic whose expression the compiler traces this one's value to
+   * (`flowOrigin`, UPT-99), workspace-relative like `file`. `check` folds this one into the
+   * breaking finding at that place as a downstream error (check/root-cause.ts).
+   */
+  origin?: SitePosition;
+}
+
+/** A position in a file, 1-based. */
+export interface SitePosition {
+  file: string;
+  line: number;
+  column: number;
 }
 
 export interface DiagnosticCause {

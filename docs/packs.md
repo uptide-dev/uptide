@@ -328,6 +328,15 @@ An expected site has the severity of the rule or note it is expected under: a ru
 A missed site counts against breaking recall only when its severity is breaking: a missed
 `deprecated` note ("needs a look") or a decision is not a missed break.
 
+Downstream errors are not plan sites (see [one root cause, one
+finding](concepts.md#one-root-cause-one-finding)). `check` folds a compile error into the
+breaking finding whose expression the compiler traces its value to, for example every
+`errors.map(e => e.message)` under a `result.error.errors` that zod 4 no longer types. The
+root stays a site, and the folded errors are its `downstream`, so `pack test` scores neither
+a hit nor a false positive for them. A ground-truth site that `check` folds is a miss.
+Ground truth leaves these consequences out, as it always has, and the folding is an engine
+rule that applies to every user's `check`, not a scoring exception.
+
 It prints precision and recall for each, `n/a` where there was nothing to measure (nothing
 predicted, or nothing expected), every false positive as `repo  file:line  rule (severity)`,
 every false negative the same way with the severity it was expected at, and sites found under

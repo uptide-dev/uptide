@@ -1,7 +1,13 @@
 import type { ErrorCode } from '../errors.js';
 import type { Change, Severity } from './change.js';
 import type { RuntimeChange, RuntimeLoad } from './runtime.js';
-import type { CompileCoverage, CompileDiagnostic, Unanalyzed, Usage } from './usage.js';
+import type {
+  CompileCoverage,
+  CompileDiagnostic,
+  SitePosition,
+  Unanalyzed,
+  Usage,
+} from './usage.js';
 
 /** `none`: an additive finding, nothing to change; it counts in callSitesChecked only. */
 export type Fixability = 'mechanical' | 'assisted' | 'manual' | 'unknown' | 'none';
@@ -49,6 +55,11 @@ export interface Finding {
    * declaration (`anchorOnly`, the sites as `downstream`), which carries `root` too.
    */
   root?: SharedRoot;
+  /**
+   * Internal: the new diagnostic this compile error is a consequence of (UPT-99). Folded into
+   * the breaking finding there as one of its `downstream` errors, then removed.
+   */
+  origin?: SitePosition;
   /**
    * For a `module-format` finding: every `require()` site of the package in this file, the
    * finding's own first. Switching a file to `import()` is one unit of work however many
@@ -106,6 +117,8 @@ export interface PlanGroup {
   sites: number;
   /** Edits expected: fewer than `sites` when one edit resolves several errors. */
   fixes: number;
+  /** Compile errors folded into these sites as their consequences (UPT-99): not sites, not edits. */
+  downstream?: number;
   /** Repository-relative, in file and line order. */
   locations: { file: string; line: number }[];
   /** For deprecations: the deprecated names as written (`.email`) and their call counts. */

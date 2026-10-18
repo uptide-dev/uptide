@@ -21,7 +21,7 @@ import type {
 import { satisfies } from '../../fetch/range.js';
 import { missingGeneratorStep } from '../../fix/generate.js';
 import { onReset } from '../../shared-state.js';
-import { augmentationCause, findCause, parameterCause } from './cause.js';
+import { augmentationCause, findCause, flowOrigin, parameterCause } from './cause.js';
 import {
   type Compiler,
   consumerCompilerDir,
@@ -1129,6 +1129,9 @@ async function compileProject(
     }
     const shared = new Map<string, number>();
     for (const key of parameterOf.values()) shared.set(key, (shared.get(key) ?? 0) + 1);
+    const freshByFile = new Map<string, ts.Diagnostic[]>();
+    for (const { d, overlaid } of fresh)
+      freshByFile.set(overlaid.fileName, [...(freshByFile.get(overlaid.fileName) ?? []), d]);
     const diagnostics: CompileDiagnostic[] = fresh.map(({ d, overlaid }) => {
       const diagnostic = toDiagnostic(d, overlaid, repo.dir);
       const parameter = parameterOf.get(d);
@@ -1154,6 +1157,15 @@ async function compileProject(
       const root =
         augmentation ?? (parameter !== undefined ? byParameter.get(parameter) : undefined);
       if (root) diagnostic.root = root;
+      // A value the compiler traces to another new error's expression is that error's
+      // consequence (UPT-99); an anchor that is the one edit (an option, a parameter) keeps it.
+      if (!cause?.config && !cause?.anchorOnly) {
+        const from = flowOrigin(programs, d, overlaid, repo.dir, freshByFile);
+        if (from?.file) {
+          const at = toDiagnostic(from, from.file, repo.dir);
+          diagnostic.origin = { file: at.file, line: at.line, column: at.column };
+        }
+      }
       return diagnostic;
     });
     return {

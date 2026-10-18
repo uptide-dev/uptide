@@ -68,7 +68,7 @@ See the [pack compatibility matrix](docs/compatibility.md) and the [migration pa
 | `stripe` | 14+ → latest, API version pinning | 6 | 100% | 92% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
 | `typescript` | 5 → 6 | 12 | 100% | 99% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
 | `vitest` | 4 → 5 | 6 | 100% | 97% | 97% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
-| `zod` | 3 → 4 | 11 | 100% | 93% | 22% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
+| `zod` | 3 → 4 | 11 | 100% | 87% | 47% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
 
 4 more in validation: see the [compatibility matrix](docs/compatibility.md).
 <!-- packs:end -->

@@ -313,3 +313,80 @@ describe('a member declared in a repository augmentation the target no longer re
     });
   });
 });
+
+describe('downstream consequences (UPT-99)', () => {
+  /** `issues` 1 → 2 drops `Failure.errors` and `legacy`. */
+  function issuesConsumer(files: Record<string, string>): string {
+    const dir = consumerWith('placeholder.ts', 'export {};\n');
+    const tsconfig = JSON.parse(readFileSync(join(dir, 'tsconfig.json'), 'utf8'));
+    tsconfig.compilerOptions.paths.issues = [join(DEPS, 'issues-v1/index.d.ts')];
+    writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify(tsconfig));
+    for (const [name, source] of Object.entries(files))
+      writeFileSync(join(dir, 'src', name), source);
+    return dir;
+  }
+
+  it('traces a value to the removed member it was read from, not an unrelated error beside it', async () => {
+    const dir = issuesConsumer({
+      'action.ts': [
+        "import { parse } from 'issues';",
+        'export function save(input: unknown) {',
+        '  const result = parse(input);',
+        '  if (!result.success) return { errors: result.error.errors };',
+        '  return { saved: result.data };',
+        '}',
+        '',
+      ].join('\n'),
+      'form.ts': [
+        "import { legacy } from 'issues';",
+        "import { save } from './action';",
+        'export function submit(input: unknown): string {',
+        '  const { saved, errors } = save(input);',
+        "  if (errors) return errors.map((e) => e.message).join('. ');",
+        '  return saved.toUpperCase();',
+        '}',
+        'export const n = legacy();',
+        '',
+      ].join('\n'),
+    });
+    const signal = await compileAgainstTarget({ dir }, 'issues', join(DEPS, 'issues-v2'));
+    const at = (file: string, code: number) =>
+      signal.diagnostics.find((d) => d.file === `src/${file}` && d.code === code);
+    const root = at('action.ts', 2339);
+    expect(root).toMatchObject({ line: 4 });
+    expect(root?.origin).toBeUndefined();
+    const where = { file: 'src/action.ts', line: 4, column: root?.column };
+    // `e` is implicitly `any` because `errors` is: folded.
+    expect(at('form.ts', 7006)?.origin).toEqual(where);
+    // `saved` is no longer narrowed by `errors`: the return type changed only at the root.
+    expect(at('form.ts', 18048)?.origin).toEqual(where);
+    // The removed `legacy` import is its own break.
+    expect(at('form.ts', 2305)?.origin).toBeUndefined();
+  });
+
+  it('does not follow a call whose return also changed somewhere it cannot trace', async () => {
+    const dir = issuesConsumer({
+      'action.ts': [
+        "import { parse, legacy } from 'issues';",
+        'export function save(input: unknown) {',
+        '  const result = parse(input);',
+        '  if (!result.success) return { errors: result.error.errors };',
+        '  return { saved: result.data, count: legacy() };',
+        '}',
+        '',
+      ].join('\n'),
+      'form.ts': [
+        "import { save } from './action';",
+        'export function submit(input: unknown): string {',
+        '  const { errors } = save(input);',
+        "  return errors ? errors.map((e) => e.message).join('. ') : '';",
+        '}',
+        '',
+      ].join('\n'),
+    });
+    const signal = await compileAgainstTarget({ dir }, 'issues', join(DEPS, 'issues-v2'));
+    const implicitAny = signal.diagnostics.find((d) => d.file === 'src/form.ts' && d.code === 7006);
+    expect(implicitAny).toBeDefined();
+    expect(implicitAny?.origin).toBeUndefined();
+  });
+});
