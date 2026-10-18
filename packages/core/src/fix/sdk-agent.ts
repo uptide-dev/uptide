@@ -764,8 +764,13 @@ const diskSize = (path: string): number => {
 
 /** The pinned SDK, binary included, into `dir`: a complete install or nothing there. */
 async function installSdk(dir: string, log?: (text: string) => void): Promise<string | undefined> {
-  mkdirSync(dirname(dir), { recursive: true });
-  const temp = mkdtempSync(`${dir}.tmp-`);
+  let temp: string;
+  try {
+    mkdirSync(dirname(dir), { recursive: true });
+    temp = mkdtempSync(`${dir}.tmp-`);
+  } catch (error) {
+    return `installing ${SDK}@${SDK_VERSION} into ${dir} failed (${(error as Error).message})`;
+  }
   log?.(`Agent SDK ${SDK_VERSION} is not installed: installing it once into ${dir} … `);
   // Optional dependencies are the binary: included even where the user's npm config omits them.
   const npm = await command(
