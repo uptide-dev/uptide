@@ -1495,7 +1495,8 @@ it('records baseline builds and rebuilds affected output after the upgrade throu
     },
   );
   expect(upgraded).toBe(true);
-  expect(build).toHaveBeenCalledTimes(2);
+  // Baseline, right after the bump (the agent's declarations), and again on the final head.
+  expect(build).toHaveBeenCalledTimes(3);
   expect(build).toHaveBeenNthCalledWith(
     1,
     realpathSync(root),
@@ -1563,6 +1564,83 @@ it('reports a workspace build that fails instead of throwing', async () => {
       expect.objectContaining({ workspace: 'packages/internal', status: 'failed' }),
     ]),
   );
+});
+
+it('judges workspace builds on the final head, not right after the bump (UPT-104)', async () => {
+  const { root, services } = fixture();
+  const internal = join(root, 'packages/internal');
+  cpSync(
+    resolve(import.meta.dirname, '../../../../fixtures/workspaces/build-types/packages/internal'),
+    internal,
+    { recursive: true },
+  );
+  const internalManifest = join(internal, 'package.json');
+  writeFileSync(
+    internalManifest,
+    JSON.stringify({
+      ...JSON.parse(readFileSync(internalManifest, 'utf8')),
+      dependencies: { zod: '*' },
+      scripts: { 'build:ci': 'node build.cjs' },
+    }),
+  );
+  const file = join(root, 'package.json');
+  const pkg = JSON.parse(readFileSync(file, 'utf8'));
+  writeFileSync(
+    file,
+    JSON.stringify({
+      ...pkg,
+      workspaces: ['packages/*'],
+      dependencies: { ...pkg.dependencies, internal: 'workspace:*' },
+    }),
+  );
+  writeFileSync(join(root, '.gitignore'), 'node_modules\ndist\n');
+  git(root, 'add', '.');
+  git(root, 'commit', '-m', 'workspace build fixture');
+  let upgraded = false;
+  // Fails while the bumped tree still has the old call, as a consumer's build would.
+  const build: typeof buildWorkspaces = async (...args) =>
+    upgraded && readFileSync(join(args[0], 'index.ts'), 'utf8').includes('required_error')
+      ? [
+          {
+            workspace: 'packages/internal',
+            status: 'failed',
+            command: 'node build.cjs',
+            script: 'build:ci',
+            output: "index.ts(2,30): error TS2353: 'required_error' does not exist",
+          },
+        ]
+      : buildWorkspaces(...args);
+  const fixer = {
+    id: 'test',
+    fix: vi.fn(async () => {
+      throw new Error('no agent work expected');
+    }),
+  };
+  const result = await fix(
+    { cwd: root, only: 'zod', pack: zodPack, buildScript: 'build:ci', fixer },
+    {
+      ...services,
+      build,
+      install: async (...args) => {
+        await services.install(...args);
+        upgraded = true;
+      },
+    },
+  );
+  expect(readFileSync(join(result.repo, 'index.ts'), 'utf8')).not.toContain('required_error');
+  expect(result.agentFallback).toBeUndefined();
+  expect(result.llm.feedback?.roundsUsed).toBe(0);
+  expect(fixer.fix).not.toHaveBeenCalled();
+  expect(result.verification.build).toMatchObject([
+    { phase: 'baseline', workspace: 'packages/internal', status: 'passed' },
+    { workspace: 'packages/internal', status: 'passed' },
+  ]);
+  const body = prBody(result);
+  expect(body).toContain(
+    'Build after the bump in `packages/internal` (`build:ci` script): `node build.cjs` — passed',
+  );
+  expect(body).not.toContain('Agent-led draft');
+  expect(body).not.toMatch(/build failed/i);
 });
 
 it.each([{ updatePins: true }, { pr: true }, { forPublication: true }])(
