@@ -76,3 +76,47 @@ it('tells a failure the migration introduced from one that was already there', a
   const [known] = await lintFiles(root, ['src/a.ts'], failed ? [failed] : []);
   expect(known?.status).toBe('pre-existing');
 });
+
+it("runs a workspace's own formatter from the workspace, on its edited files only", async () => {
+  // dms-saas: oxfmt configured at the root and again in the workspace, binary at the root.
+  const stand =
+    'echo "$PWD $@" >> "$CALLS"; [ "$1" = --check ] || for f in "$@"; do echo ok >> "$f"; done';
+  const root = repo(
+    {
+      'package.json': '{}',
+      'oxfmt.config.mts': 'export default {};',
+      'packages/app/package.json': '{}',
+      'packages/app/oxfmt.config.mts': 'export default {};',
+      'packages/app/src/a.ts': 'a',
+      'packages/app/src/untouched.ts': 'u',
+      'scripts/b.ts': 'b',
+    },
+    { oxfmt: stand },
+  );
+  const calls = join(root, 'calls.txt');
+  process.env.CALLS = calls;
+  try {
+    expect(detectStyle(root, 'packages/app').map((t) => t.name)).toEqual(['oxfmt']);
+    expect(await formatFiles(root, ['packages/app/src/a.ts', 'scripts/b.ts'])).toEqual(['oxfmt']);
+    expect(readFileSync(join(root, 'packages/app/src/a.ts'), 'utf8')).toBe('aok\n');
+    expect(readFileSync(join(root, 'scripts/b.ts'), 'utf8')).toBe('bok\n');
+    expect(readFileSync(join(root, 'packages/app/src/untouched.ts'), 'utf8')).toBe('u');
+    const lint = await lintFiles(root, ['packages/app/src/a.ts']);
+    expect(lint).toEqual([
+      {
+        tool: 'oxfmt',
+        status: 'passed',
+        command: 'cd packages/app && oxfmt --check src/a.ts',
+        files: 1,
+        output: '',
+      },
+    ]);
+    expect(readFileSync(calls, 'utf8').split('\n').filter(Boolean)).toEqual([
+      `${join(root, 'packages/app')} src/a.ts`,
+      `${root} scripts/b.ts`,
+      `${join(root, 'packages/app')} --check src/a.ts`,
+    ]);
+  } finally {
+    delete process.env.CALLS;
+  }
+});

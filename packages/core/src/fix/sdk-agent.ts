@@ -465,9 +465,11 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     const failedLint = (await lint(changed)).filter((l) => l.status === 'failed');
     if (failedLint.length) return `lint fails: ${failedLint.map((l) => l.tool).join(', ')}`;
     const related = [...new Set([...files, ...changed])];
-    let tests = await runTests(start, related);
+    // A failure the parent already had is not the batch's, as final verification decides; the
+    // start alone cannot say so when a build in the test script fails on the error being fixed.
+    let tests = markPreexisting(await runTests(start, related), input.baselineTests);
     // A failure the batch did not cause was there at its start: run the same tests there, once.
-    if (tests.some((t) => t.status === 'failed' || t.status === 'timeout'))
+    if (tests.some((t) => (t.status === 'failed' || t.status === 'timeout') && !t.preexisting))
       tests = markPreexisting(tests, await testsAt(start, related));
     const failing = tests.filter(
       (t) => t.status !== 'passed' && t.status !== 'missing' && !t.preexisting,

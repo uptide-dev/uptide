@@ -115,6 +115,7 @@ async function task(input: {
   tests?: TestResult[];
   /** The tests when the task starts: after the upgrade, before the agent. */
   startTests?: TestResult[];
+  baselineTests?: TestResult[];
 }) {
   const root = repo({ 'src/a.ts': ORIGINAL, 'src/other.ts': 'export const x = 1;\n' });
   const siteError = diag('src/a.ts', 2, 2339, "Property 'current_period_end' does not exist");
@@ -156,7 +157,7 @@ async function task(input: {
       for (const f of files) formatted.add(f);
       return ['prettier'];
     },
-    baselineTests: [{ workspace: '.', status: 'passed', output: '' }],
+    baselineTests: input.baselineTests ?? [{ workspace: '.', status: 'passed', output: '' }],
     baselineLint: [],
     affected: ['src/a.ts'],
     runner: async ({ root }) => ran(input.agent(root)),
@@ -304,6 +305,26 @@ describe('end-of-task gate', () => {
       tests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
     });
     expect(old.record?.gate).toBe('accepted');
+    // The parent failed the same files; at the start a build in the test script failed on the
+    // error being fixed, so no test ran there (UPT-101).
+    const parent = await task({
+      agent: doing(migrate),
+      after: [],
+      baselineTests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
+      startTests: [{ workspace: '.', status: 'failed', output: 'error TS2353' }],
+      tests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
+    });
+    expect(parent.record?.gate).toBe('accepted');
+    const fresh = await task({
+      agent: doing(migrate),
+      after: [],
+      baselineTests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
+      startTests: [{ workspace: '.', status: 'failed', output: 'error TS2353' }],
+      tests: [
+        { workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts\nFAIL src/new.test.ts' },
+      ],
+    });
+    expect(fresh.record?.rejection).toMatch(/tests fail/);
   });
   it("keeps the site manual, in the agent's own words, when it changes nothing", async () => {
     const { sites, record } = await task({

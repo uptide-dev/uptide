@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { ts } from 'ts-morph';
 import { readInstalled } from '../adapters/typescript/repo.js';
 import { workspaceSourceMap } from '../adapters/typescript/workspace-source.js';
-import { importersOf } from './importers.js';
+import { importersOf, isBarrel } from './importers.js';
 
 const MB = 1024 ** 2;
 /** Available physical memory, including reclaimable cache where the OS exposes it. */
@@ -173,8 +173,8 @@ export function scopedMemoryEstimate(
 export const IMPORTER_GROWTH = 0.2;
 
 /**
- * The files importing `roots` (one level, `importersOf`) whose imports from them depend on
- * `packages`, cheapest first, while the estimated heap stays within `growth` of the roots'
+ * The files importing `roots` (one level, `importersOf`, plus the importers of a barrel among
+ * them) whose imports from them depend on `packages`, cheapest first, while the estimated heap stays within `growth` of the roots'
  * own. Each importer brings its own imports along, which the compiler follows: one that
  * pulls in a large SDK can cost more than the roots together. `dropped` are those the cap
  * left out, for the report to name.
@@ -190,7 +190,17 @@ export function scopedImporters(
 ): { taken: string[]; dropped: string[] } {
   const graph = scopedGraph(dir);
   if (!graph.fileNames || roots.length === 0) return { taken: [], dropped: [] };
-  const candidates = importersOf(graph.fileNames, roots, graph.options, packages);
+  const direct = importersOf(graph.fileNames, roots, graph.options, packages);
+  // A barrel among them (`export * from './client'`) is how its own importers reach the roots:
+  // one more hop through it, as the compiler resolves `from '../stripe'`.
+  // ponytail: one hop; a barrel of a barrel stays out, recurse if a repository needs it.
+  const barrels = direct.filter((file) => isBarrel(file, graph.options));
+  const candidates = [
+    ...new Set([
+      ...direct,
+      ...(barrels.length ? importersOf(graph.fileNames, barrels, graph.options, packages) : []),
+    ]),
+  ].filter((file) => !roots.includes(file));
   if (candidates.length === 0) return { taken: [], dropped: [] };
   const seen = new Set<string>();
   const total = graph.walk([...roots, ...graph.base], seen);

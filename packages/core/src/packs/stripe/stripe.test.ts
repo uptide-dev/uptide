@@ -1,10 +1,13 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ts } from 'ts-morph';
 import { expect, it } from 'vitest';
 import type { Finding } from '../../domain/report.js';
 import type { Usage } from '../../domain/usage.js';
+import { ruleFor } from '../contract.js';
+import { fixtureFinding, parseMarkers, runFixtures } from '../tooling/fixtures.js';
 import { between, parseChangelog, type StripeCatalog } from './changelog.js';
 import catalog from './changelog.v1.json' with { type: 'json' };
 import {
@@ -1181,4 +1184,45 @@ it('finds what a client calls by its type, whatever the variable is named', () =
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+it('moves request options out of the params slot, and only a literal of request options alone', () => {
+  const dir = fileURLToPath(new URL('.', import.meta.url));
+  const fixtures = runFixtures(stripePack, dir);
+  expect(fixtures.rewriteFailures).toEqual([]);
+  expect(fixtures.rules['request-options']).toEqual({
+    truePositives: 2,
+    falsePositives: 0,
+    falseNegatives: 0,
+  });
+  // `fix` reaches the rule through `transform`, from a compiler-only finding with no rule set.
+  const file = 'fixtures/request-options/before.ts';
+  const text = readFileSync(join(dir, file), 'utf8');
+  const sites = parseMarkers(text, 'request-options', file);
+  for (const site of sites) {
+    const finding = fixtureFinding(stripePack, site, text);
+    delete finding.rule;
+    expect(ruleFor(stripePack.rules, finding)?.id).toBe('request-options');
+    expect(
+      stripePack.transform(text, finding, {
+        from: '18.5.0',
+        to: '22.6.2',
+        includeDeprecated: false,
+      }).applied,
+    ).toBe(!site.keep);
+  }
+  // A params type rejecting a params key is not this rule.
+  const [first] = sites;
+  if (!first) throw new Error('no marked site');
+  const other = fixtureFinding(
+    stripePack,
+    {
+      ...first,
+      message:
+        "Object literal may only specify known properties, and 'iterations' does not exist in type 'Phase'.",
+    },
+    text,
+  );
+  delete other.rule;
+  expect(ruleFor(stripePack.rules, other)?.id).toBe('sdk-surface');
 });

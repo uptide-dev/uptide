@@ -251,7 +251,8 @@ export function importersOf(
   const exportsOf = (root: string): Set<string> => {
     let found = dependent.get(root);
     if (!found) {
-      found = packageExports(root, new Set(packages));
+      // Through the root's own re-exports too: a barrel root hands on its modules' exports.
+      found = localExports(root, new Set(packages), options, new Map());
       dependent.set(root, found);
     }
     return found;
@@ -305,6 +306,18 @@ export function importersOf(
     if (hits.size === 0) return false;
     return packages === undefined || takesDependent(file, hits);
   });
+}
+
+/** Whether `file` hands on another repository module's exports (`export * from './client'`). */
+export function isBarrel(file: string, options: ts.CompilerOptions): boolean {
+  return (parseFile(file)?.statements ?? []).some(
+    (s) =>
+      ts.isExportDeclaration(s) &&
+      !s.isTypeOnly &&
+      s.moduleSpecifier !== undefined &&
+      ts.isStringLiteral(s.moduleSpecifier) &&
+      localModule(s.moduleSpecifier.text, file, options) !== undefined,
+  );
 }
 
 /** The repository file a specifier names, the way the compiler resolves it; never a package. */
