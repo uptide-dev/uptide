@@ -32,9 +32,6 @@
   "dependencies": {
     "yaml": "^2.9.1"
   },
-  "optionalDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.296"
-  },
   "engines": {
     "node": ">=20"
   },
@@ -65,6 +62,7 @@
     "postpack": "node scripts/prepack.mjs --clean"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.296",
     "@types/node": "^22.0.0",
     "@uptide/core": "workspace:*",
     "commander": "^15.0.0",
@@ -72,5 +70,13 @@
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^5.0.3"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": ">=0.3.296"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    }
   }
 }

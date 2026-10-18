@@ -2,9 +2,9 @@
 
 Status: default for authenticated Anthropic fixes. `--agent patch` opts out; other providers
 and callers supplying a fixer retain the patch executor. Without a key, rule-based fixes
-remain available. `--no-llm` disables either executor. The SDK is an optional dependency,
-installed with Uptide and never bundled: when it cannot load, the default is the patch
-executor, said first in the output and the PR body.
+remain available. `--no-llm` disables either executor. The SDK is an optional peer, never
+bundled: without one next to Uptide, the first fix installs it into Uptide's cache, and when it
+cannot run, the default is the patch executor, said first in the output and the PR body.
 
 ## Why
 
@@ -109,31 +109,32 @@ unchanged.
 
 ## Dependency and terms
 
-### Optional dependency, installed by default (2026-10-18)
+### Fetched on the first fix, into Uptide's cache (2026-10-18)
 
-**Decision:** the SDK moves from optional peer to `optionalDependencies` of `uptide`, pinned to
-the version the tests run. npm, pnpm, yarn classic and yarn berry (`dlx`) install it with
-Uptide, binary included, and it still loads only through `import()`. When it cannot run (not
-installed, or no Claude Code binary for the platform), the default runs the patch executor
-and says so as the first line of the output and at the top of the PR body, with the reason and
-the remedy; `report.json` has `llm.executor` and `llm.sdkMissing`. `--agent sdk` without it
+**Decision:** the SDK stays out of the `uptide` package (still an optional peer, still
+external to both builds). An SDK resolvable next to Uptide wins, so the Action's install path
+is unchanged. Otherwise the first `fix` that would use it installs the pinned `SDK_VERSION`
+(the version the tests run) with `npm install` into `<cache>/agent-sdk/<version>`, says so in
+one line with its size, and loads it from there; later runs reuse it. When that install fails
+(offline, a proxy) or the SDK cannot run, the default runs the patch executor and says so as
+the first line of the output and at the top of the PR body, with the reason and the remedy;
+`report.json` has `llm.executor` and `llm.sdkMissing`. `--agent sdk` without a usable SDK
 stops before any clone. This supersedes the decision below.
 
 - **Why.** The UpgradeBench pilot (#169, round 3) ran `npx uptide@0.15.1 fix` as the README
-  says: no install brought the peer, so every run used the patch executor while the notice
-  and docs described the SDK, and no output said so. A default nobody gets is not a default.
-- **Why optional, not a regular dependency.** Both install the binary for everyone by
-  default. Only an optional dependency lets `--omit=optional` drop all of it (SDK, binary
-  and the SDK's peers) and still leave a working CLI, which falls back and says so. That is
-  the way out for library consumers of `uptide/onboarding` and `uptide/report`, and for
-  `--no-llm`, OpenAI and Gemini users who do not want the download.
-- **Size, measured** (node:22 on linux arm64, plain `npm install` of the packed tarball): the
-  tarball is unchanged (2.5 MB); `node_modules` grows from 13.6 MB and 3 packages to 323.6 MB
-  and 110 packages. The binary is 250 MB of it, the SDK 5.5 MB, its peers 36 MB
-  (`@anthropic-ai/sdk`, `zod`, `@modelcontextprotocol/sdk`).
+  says: nothing installed the peer, so every run used the patch executor while the notice and
+  docs described the SDK, and no output said so. A default nobody gets is not a default.
+- **Why not a dependency.** Tried first (UPT-108): as an optional dependency, a plain
+  `npm install` of the packed tarball grows from 13.6 MB and 3 packages to 323.6 MB and 110
+  packages (node:22, linux arm64: binary 250 MB, SDK 5.5 MB, its peers 36 MB). Every `npx
+  uptide check` and every consumer of `uptide/onboarding` or `uptide/report` would pay that for
+  an executor only `fix` uses. Fetched on demand, they pay nothing; the first fix pays once.
+- **Install.** `npm install --prefix <temp> --no-save --include=optional`, with lifecycle
+  scripts off and secrets stripped from the environment like every other install Uptide runs,
+  then a rename into place, so the cache holds a complete install or none.
 - **Terms.** Unchanged from below. Question 2 there ("Is an npm dependency 'preinstalling'
-  Claude Code in a product?") is now the live one: this decision ships it as one before an
-  answer.
+  Claude Code in a product?") becomes: is installing the published package on first use?
+  Still open.
 
 ### Optional peer, the default only where installed (2026-10-12, superseded)
 

@@ -189,7 +189,9 @@ describe('fix transaction', () => {
         );
         // Asked for by name, the SDK never falls back: the run stops before any clone.
         if (refused) {
-          await expect(run).rejects.toThrow(/^--agent sdk cannot run: not installed; reinstall/);
+          await expect(run).rejects.toThrow(
+            /^--agent sdk cannot run: not installed; let Uptide reach the npm registry/,
+          );
           expect(assist).not.toHaveBeenCalled();
           return;
         }

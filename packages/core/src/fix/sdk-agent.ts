@@ -1,14 +1,27 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { ts } from 'ts-morph';
+import { defaultCacheDir } from '../cache/paths.js';
 import type { ProgressListener } from '../domain/progress.js';
 import { modelCapabilities } from '../llm/capabilities.js';
 import { packDecisions } from '../packs/decisions.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
-import { git } from './process.js';
+import { command, git } from './process.js';
 import { commit, followedText, safeFile } from './settle.js';
 import { formatFiles, lintFiles } from './style.js';
 import { isTestFile, testEditObjection } from './test-edits.js';
@@ -697,40 +710,125 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
   };
 }
 
-/** The Claude Agent SDK: an optional dependency, external to the bundle, loaded only here. */
-const loadSdk = () => import('@anthropic-ai/claude-agent-sdk');
+const SDK = '@anthropic-ai/claude-agent-sdk';
+/** The SDK version Uptide is tested with (core's devDependency), fetched when none is installed. */
+export const SDK_VERSION = '0.3.296';
+/** Where the first fix that needs the SDK installs it, outside the uptide package. */
+export const sdkCacheDir = (env: NodeJS.ProcessEnv = process.env): string =>
+  join(defaultCacheDir(env), 'agent-sdk', SDK_VERSION);
+/** The SDK entry that passed `sdkUnavailable`; the bare specifier before any check. */
+let sdkEntry: string | undefined;
+
+/** The Claude Agent SDK: external to the bundle, never a dependency, loaded only here. */
+const loadSdk = (): Promise<typeof import('@anthropic-ai/claude-agent-sdk')> =>
+  sdkEntry ? import(pathToFileURL(sdkEntry).href) : import('@anthropic-ai/claude-agent-sdk');
 
 /** How to get the SDK executor, said wherever it is missing. */
-export const SDK_REMEDY =
-  'reinstall Uptide with its optional dependencies (no --omit=optional or --no-optional)';
+export const SDK_REMEDY = `let Uptide reach the npm registry once to install it into its cache, or install ${SDK}@${SDK_VERSION} next to Uptide`;
 
 /** The fallback, said first in the output and the PR body: which executor, why, how to change it. */
 export const sdkFallbackNote = (reason: string): string =>
   `Assisted fixes use the patch executor, not the Agent SDK: ${reason}. For the SDK executor, ${SDK_REMEDY}; --agent patch chooses the patch executor and drops this note.`;
 
-/**
- * Why the SDK executor cannot run here, or undefined when it can: the SDK loads and finds the
- * Claude Code binary for this platform, its own optional dependency, where the SDK looks for it.
- */
-export async function sdkUnavailable(): Promise<string | undefined> {
+/** Why the SDK at this entry cannot run: it fails to load, or has no Claude Code binary here. */
+async function sdkProblem(entry: string): Promise<string | undefined> {
   try {
-    await loadSdk();
+    await import(pathToFileURL(entry).href);
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    return code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND'
-      ? '@anthropic-ai/claude-agent-sdk is not installed'
-      : `@anthropic-ai/claude-agent-sdk failed to load: ${String((error as Error)?.message ?? error).split('\n')[0]}`;
+    return `${SDK} failed to load: ${String((error as Error)?.message ?? error).split('\n')[0]}`;
   }
-  const sdk = createRequire(
-    createRequire(import.meta.url).resolve('@anthropic-ai/claude-agent-sdk'),
-  );
-  const base = `@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}`;
+  const sdk = createRequire(entry);
+  const base = `${SDK}-${process.platform}-${process.arch}`;
   const binary = process.platform === 'win32' ? 'claude.exe' : 'claude';
   for (const name of [base, `${base}-musl`])
     try {
       if (existsSync(sdk.resolve(`${name}/${binary}`))) return undefined;
     } catch {}
   return `the Claude Code binary for ${process.platform}-${process.arch} (${base}) is not installed`;
+}
+
+const resolveFrom = (from: string): string | undefined => {
+  try {
+    return createRequire(from).resolve(SDK);
+  } catch {
+    return undefined;
+  }
+};
+
+const diskSize = (path: string): number => {
+  const stat = lstatSync(path);
+  return stat.isDirectory()
+    ? readdirSync(path).reduce((sum, entry) => sum + diskSize(join(path, entry)), 0)
+    : stat.size;
+};
+
+/** The pinned SDK, binary included, into `dir`: a complete install or nothing there. */
+async function installSdk(dir: string, log?: (text: string) => void): Promise<string | undefined> {
+  mkdirSync(dirname(dir), { recursive: true });
+  const temp = mkdtempSync(`${dir}.tmp-`);
+  log?.(`Agent SDK ${SDK_VERSION} is not installed: installing it once into ${dir} … `);
+  // Optional dependencies are the binary: included even where the user's npm config omits them.
+  const npm = await command(
+    temp,
+    process.platform === 'win32' ? 'npm.cmd' : 'npm',
+    [
+      'install',
+      '--prefix',
+      temp,
+      '--no-save',
+      '--no-package-lock',
+      '--no-audit',
+      '--no-fund',
+      '--include=optional',
+      '--loglevel=error',
+      `${SDK}@${SDK_VERSION}`,
+    ],
+    600_000,
+  );
+  if (npm.code !== 0) {
+    rmSync(temp, { recursive: true, force: true });
+    log?.('failed\n');
+    const line = npm.output.split('\n').find((l) => /ERR!|error/i.test(l)) ?? npm.output.trim();
+    return `installing ${SDK}@${SDK_VERSION} into ${dir} failed (${npm.timeout ? 'timed out' : line.trim().slice(0, 200) || `exit ${npm.code}`})`;
+  }
+  rmSync(dir, { recursive: true, force: true });
+  try {
+    renameSync(temp, dir);
+  } catch {
+    // Another run installed it first: theirs is as good.
+    rmSync(temp, { recursive: true, force: true });
+  }
+  log?.(`${Math.round(diskSize(dir) / 1e6)} MB, reused by later runs\n`);
+  return undefined;
+}
+
+let checked: Promise<string | undefined> | undefined;
+/**
+ * Why the SDK executor cannot run here, or undefined when it can. An SDK next to Uptide (the
+ * Action's install, or the user's) wins; then the one in Uptide's cache; else the pinned
+ * version is installed there once, saying so through `log`. Checked once per process.
+ */
+export function sdkUnavailable(log?: (text: string) => void): Promise<string | undefined> {
+  checked ??= (async () => {
+    const cached = join(sdkCacheDir(), 'node_modules', '.uptide');
+    let reason = `${SDK} is not installed`;
+    for (const entry of [resolveFrom(import.meta.url), resolveFrom(cached)]) {
+      if (!entry) continue;
+      const problem = await sdkProblem(entry);
+      if (!problem) {
+        sdkEntry = entry;
+        return undefined;
+      }
+      reason = problem;
+    }
+    const failed = await installSdk(sdkCacheDir(), log);
+    if (failed) return `${reason}, and ${failed}`;
+    const entry = resolveFrom(cached);
+    const problem = entry ? await sdkProblem(entry) : `${SDK} is not in ${sdkCacheDir()}`;
+    if (!problem) sdkEntry = entry;
+    return problem;
+  })();
+  return checked;
 }
 
 const sdkRunner: TaskRunner = async ({

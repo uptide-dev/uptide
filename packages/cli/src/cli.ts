@@ -1054,16 +1054,18 @@ ${runnable(PRIVACY)}`,
               });
             // `--only zod --target stripe@23.0.0` would upgrade zod to 23.0.0, or fail late.
             if (target) parseTargets([target], [only]);
-            // The Anthropic default is the SDK executor; when it cannot run, that comes first.
+            // The Anthropic default is the SDK executor: fetched once into the cache if needed,
+            // and when it cannot run, that comes first.
             const sdkMissing =
               llmOn &&
               !flags.pinCurrentApi &&
               selection.available &&
               selection.provider === 'anthropic' &&
-              agent === undefined
-                ? await sdkUnavailable()
+              agent !== 'patch'
+                ? await sdkUnavailable((text) => io.err(text))
                 : undefined;
-            if (sdkMissing) io.err(`warning: ${sdkFallbackNote(sdkMissing)}\n`);
+            if (sdkMissing && agent === undefined)
+              io.err(`warning: ${sdkFallbackNote(sdkMissing)}\n`);
             const sdk = selection.provider === 'anthropic' && agent !== 'patch' && !sdkMissing;
             if (flags.pr && !flags.yes)
               io.err('--pr without --yes: the publication plan is printed, nothing is pushed.\n');

@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SDK_VERSION } from '@uptide/core';
 import { describe, expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -26,10 +27,15 @@ describe('published package', () => {
     // CommonJS build calls require("process"), which breaks consumers' ES module builds.
     expect(Object.keys(manifest.dependencies)).toEqual(['yaml']);
     expect(manifest.devDependencies?.yaml).toBeUndefined();
-    // The Anthropic default executor: installed with uptide by npm, pnpm and yarn, never bundled,
-    // and optional so an install without it still works (and says it fell back).
-    expect(manifest.optionalDependencies).toEqual({ '@anthropic-ai/claude-agent-sdk': '0.3.296' });
-    expect(manifest.peerDependencies).toBeUndefined();
+    // Never installed with uptide: an SDK next to it wins, else the first fix that needs it
+    // installs SDK_VERSION, the version the tests run, into Uptide's cache.
+    expect(manifest.peerDependencies).toEqual({
+      '@anthropic-ai/claude-agent-sdk': `>=${SDK_VERSION}`,
+    });
+    expect(manifest.devDependencies['@anthropic-ai/claude-agent-sdk']).toBe(SDK_VERSION);
+    expect(manifest.peerDependenciesMeta).toEqual({
+      '@anthropic-ai/claude-agent-sdk': { optional: true },
+    });
     expect(manifest.engines.node).toBe('>=20');
     // Library entries besides the command, for the GitHub App and the Uptide app
     // (libs-export.test.ts): the pure onboarding generator, what reads it from disk, and the
