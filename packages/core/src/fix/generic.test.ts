@@ -390,12 +390,21 @@ describe('fix for a dependency without a pack', () => {
       'ends by running the runner',
       'pnpm run build && pnpm run test:unit',
       ['full', 'check', 'gate', 'full'],
+      false,
     ],
     // The check is the gate's own run, whose result the gate reuses on the same tree.
-    ['is the runner', 'vitest run', ['full', 'gate', 'full']],
+    ['is the runner', 'vitest run', ['full', 'gate', 'full'], false],
+    // Agent-led: the forced feedback round's check and its after-round run are the full
+    // suite, and the branch must still install from scratch (UPT-102).
+    [
+      'ends by running the runner, agent-led',
+      'pnpm run build && pnpm run test:unit',
+      ['full', 'check', 'gate', 'full', 'full', 'full'],
+      true,
+    ],
   ])(
     "narrows only the agent's own check, where the test script %s; the gate and the final verification run as before",
-    async (_, test, expected) => {
+    async (_, test, expected, agentLed) => {
       const { root, services, fixer } = paintFixture();
       const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
       writeFileSync(
@@ -412,7 +421,13 @@ describe('fix for a dependency without a pack', () => {
         fullSuite?: boolean;
       }[] = [];
       const result = await fix(
-        { cwd: root, only: 'paint', fixer: fixer(0.01), agent: 'sdk' },
+        {
+          cwd: root,
+          only: 'paint',
+          fixer: fixer(0.01),
+          agent: 'sdk',
+          ...(agentLed ? { agentLed: ['a peer blocker the agent continues past'] } : {}),
+        },
         {
           ...services,
           tests: async (_root, _workspaces, _timeout, files = [], options = {}) => {
@@ -456,6 +471,9 @@ describe('fix for a dependency without a pack', () => {
       expect(verify?.runs?.build?.count).toBe(1);
       expect(verify?.runs?.types?.count).toBe(1);
       expect(verify?.runs?.tests?.count).toBe(1);
+      const clean = result.phases?.find((p) => p.name === 'clean-install');
+      expect(clean?.runs?.install?.count).toBe(agentLed ? 1 : undefined);
+      expect(result.cleanInstall?.passed).toBe(agentLed ? true : undefined);
     },
     30000,
   );
