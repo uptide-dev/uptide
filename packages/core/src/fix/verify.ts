@@ -1,8 +1,16 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { builtinModules } from 'node:module';
-import { basename, dirname, isAbsolute, join, relative } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { ts } from 'ts-morph';
 import { bundledLib } from '../adapters/typescript/compile.js';
 import { resolveCompiler } from '../adapters/typescript/compiler.js';
@@ -968,6 +976,62 @@ function noTestsRan(result: { code: number; timeout: boolean }, output: string):
     !testSummary(output)
   );
 }
+/** Untracked, not ignored files, repository-relative. */
+export function untrackedFiles(root: string): string[] {
+  return git(root, 'ls-files', '-z', '--others', '--exclude-standard').split('\0').filter(Boolean);
+}
+
+/**
+ * What the baseline tests left: a changed tracked file refuses the run; new untracked files
+ * (a junit test-report.xml) are test artifacts. They go in the clone's info/exclude, so no
+ * status, diff, `git add` or agent listing sees them, and are removed now; `clearing` removes
+ * them again before each later test run.
+ */
+export function testArtifacts(root: string, before: string[]): string[] {
+  const known = new Set(before);
+  const created = untrackedFiles(root).filter((f) => !known.has(f));
+  if (git(root, 'status', '--porcelain', '--untracked-files=no'))
+    throw new Error('baseline tests modified the working tree; review their changes before fixing');
+  excludeArtifacts(root, created);
+  return created;
+}
+
+/** Hides recorded test artifacts from git in this clone and removes them. */
+export function excludeArtifacts(root: string, files: string[]): void {
+  if (!files.length) return;
+  // ponytail: the private clone's info/exclude (fix and verify always run in one); restore it if either ever runs in place.
+  const exclude = resolve(root, git(root, 'rev-parse', '--git-path', 'info/exclude'));
+  // Patterns there are anchored at the repository top, not at a project in a subdirectory.
+  const prefix = git(root, 'rev-parse', '--show-prefix');
+  mkdirSync(dirname(exclude), { recursive: true });
+  appendFileSync(
+    exclude,
+    files.map((f) => `/${`${prefix}${f}`.replace(/[\\*?[\]!# ]/g, '\\$&')}\n`).join(''),
+  );
+  clearArtifacts(root, files);
+}
+
+function clearArtifacts(root: string, files: string[]): void {
+  for (const file of files) rmSync(join(root, file), { force: true });
+}
+
+/** The same services, with the test artifacts removed before each test run. */
+export function clearing<S extends { tests: (...args: never[]) => unknown }>(
+  services: S,
+  root: string,
+  artifacts: string[],
+): S {
+  if (!artifacts.length) return services;
+  const tests = services.tests as (...args: unknown[]) => unknown;
+  return {
+    ...services,
+    tests: (...args: unknown[]) => {
+      clearArtifacts(root, artifacts);
+      return tests(...args);
+    },
+  };
+}
+
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, 'g');
 export async function testWorkspaces(
   root: string,

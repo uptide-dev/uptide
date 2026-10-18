@@ -2,14 +2,17 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
+import { git } from './process.js';
 import { isolatedPnpmWorkspace } from './test-fixture.js';
 import {
   diagnostics,
+  excludeArtifacts,
   lineMoves,
   moved,
   newDiagnostics,
   typeChecker,
   typeResolutionFailure,
+  untrackedFiles,
 } from './verify.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-verify-tests-'));
@@ -191,4 +194,18 @@ it('finds an explicit lib newer than the target with a TS 7-style install (UPT-1
     writeFileSync(join(root, file), text);
   }
   expect(diagnostics(root, ['.'])).toEqual([]);
+});
+
+it('hides test artifacts of a project in a subdirectory, names with pattern characters included', () => {
+  const top = realpathSync(mkdtempSync(join(scratch, 'artifacts-')));
+  git(top, 'init', '-q');
+  const root = join(top, 'app');
+  mkdirSync(join(root, 'reports'), { recursive: true });
+  const files = ['test report[1].xml', 'reports/#junit!.xml'];
+  for (const file of files) writeFileSync(join(root, file), '<testsuites/>');
+  expect(untrackedFiles(root).sort()).toEqual([...files].sort());
+  excludeArtifacts(root, files);
+  for (const file of files) writeFileSync(join(root, file), '<testsuites/>');
+  writeFileSync(join(root, 'test report1.xml'), 'not an artifact');
+  expect(untrackedFiles(root)).toEqual(['test report1.xml']);
 });
