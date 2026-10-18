@@ -32,6 +32,17 @@ export interface Followed {
   after: string;
 }
 
+/** One file's follow-up edits applied, or undefined when a line no longer reads as expected. */
+export function followedText(text: string, edits: FollowUp[]): string | undefined {
+  const lines = text.split('\n');
+  // Bottom-up, so an inserted import does not move the lines still to be edited.
+  const changes = edits
+    .flatMap((e) => [{ line: e.line, before: e.before, after: e.after }, ...(e.also ?? [])])
+    .sort((x, y) => y.line - x.line);
+  if (changes.some((c) => lines[c.line - 1] !== c.before)) return undefined;
+  for (const c of changes) lines[c.line - 1] = c.after;
+  return lines.join('\n');
+}
 /** Applies a pack's follow-up edits per file, bottom-up, one commit per file; returns how many. */
 export function applyFollowUps(input: {
   root: string;
@@ -51,14 +62,9 @@ export function applyFollowUps(input: {
   for (const edit of input.edits) byFile.set(edit.file, [...(byFile.get(edit.file) ?? []), edit]);
   for (const [name, group] of byFile) {
     const file = safeFile(root, name);
-    const lines = readFileSync(file, 'utf8').split('\n');
-    // Bottom-up, so an inserted import does not move the lines still to be edited.
-    const changes = group
-      .flatMap((e) => [{ line: e.line, before: e.before, after: e.after }, ...(e.also ?? [])])
-      .sort((x, y) => y.line - x.line);
-    if (changes.some((c) => lines[c.line - 1] !== c.before)) continue;
-    for (const c of changes) lines[c.line - 1] = c.after;
-    writeFileSync(file, lines.join('\n'));
+    const text = followedText(readFileSync(file, 'utf8'), group);
+    if (text === undefined) continue;
+    writeFileSync(file, text);
     commit(root, `fix(${input.pack}): follow ${input.origin} in ${name}`, [file]);
     if (!input.affected.includes(name)) input.affected.push(name);
     for (const edit of group) {

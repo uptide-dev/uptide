@@ -305,26 +305,37 @@ describe('end-of-task gate', () => {
       tests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
     });
     expect(old.record?.gate).toBe('accepted');
-    // The parent failed the same files; at the start a build in the test script failed on the
-    // error being fixed, so no test ran there (UPT-101).
+    // The parent failed the same files in its full suite; the gate runs the related tests, and
+    // at the start a build in the test script failed on the error being fixed (UPT-101).
+    const full = { workspace: '.', command: 'pnpm test' };
+    const related = { workspace: '.', command: 'vitest related src/a.ts' };
     const parent = await task({
       agent: doing(migrate),
       after: [],
-      baselineTests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
-      startTests: [{ workspace: '.', status: 'failed', output: 'error TS2353' }],
-      tests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
+      baselineTests: [{ ...full, status: 'failed', output: 'FAIL src/old.test.ts' }],
+      startTests: [{ ...related, status: 'failed', output: 'error TS2353' }],
+      tests: [{ ...related, status: 'failed', output: 'FAIL src/old.test.ts' }],
     });
     expect(parent.record?.gate).toBe('accepted');
     const fresh = await task({
       agent: doing(migrate),
       after: [],
-      baselineTests: [{ workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts' }],
-      startTests: [{ workspace: '.', status: 'failed', output: 'error TS2353' }],
+      baselineTests: [{ ...full, status: 'failed', output: 'FAIL src/old.test.ts' }],
+      startTests: [{ ...related, status: 'failed', output: 'error TS2353' }],
       tests: [
-        { workspace: '.', status: 'failed', output: 'FAIL src/old.test.ts\nFAIL src/new.test.ts' },
+        { ...related, status: 'failed', output: 'FAIL src/old.test.ts\nFAIL src/new.test.ts' },
       ],
     });
     expect(fresh.record?.rejection).toMatch(/tests fail/);
+    // A run that names no test file is no match for another command's failures.
+    const unnamed = await task({
+      agent: doing(migrate),
+      after: [],
+      baselineTests: [{ ...full, status: 'failed', output: 'FAIL src/old.test.ts' }],
+      startTests: [{ ...related, status: 'passed', output: '' }],
+      tests: [{ ...related, status: 'failed', output: 'build failed' }],
+    });
+    expect(unnamed.record?.rejection).toMatch(/tests fail/);
   });
   it("keeps the site manual, in the agent's own words, when it changes nothing", async () => {
     const { sites, record } = await task({
@@ -334,6 +345,59 @@ describe('end-of-task gate', () => {
     expect(record?.gate).toBe('no-change');
     expect(sites[0]?.reason).toMatch(/made no change; agent: the period needs a product decision/);
   });
+});
+
+it("tests the batch with the pack's follow-ups in place, and leaves them to fix", async () => {
+  // stripe: the agent moves the pin; a test asserting the old pin is a follow-up of the site.
+  const root = repo({
+    'src/a.ts': ORIGINAL,
+    'test/pin.test.ts': "expect(VERSION).toBe('old');\n",
+  });
+  const siteError = diag('src/a.ts', 2, 2339, "Property 'current_period_end' does not exist");
+  const followPack = {
+    ...pack,
+    followUps: () => [
+      {
+        file: 'test/pin.test.ts',
+        line: 1,
+        before: "expect(VERSION).toBe('old');",
+        after: "expect(VERSION).toBe('new');",
+        reason: 'the assertion follows the constant',
+      },
+    ],
+  } as unknown as MigrationPack;
+  const ranWith: string[] = [];
+  const llm = await assistWithSdk({
+    root,
+    workspaces: ['.'],
+    sites: [site('src/a.ts', 2, siteError)],
+    pack: followPack,
+    context: { from: '17.7.0', to: '23.0.0', includeDeprecated: false },
+    model: 'claude-sonnet-5-5',
+    maxCostUsd: 1,
+    diagnostics: () => [],
+    // Fails while the test still asserts the old value, as the repository's suite would.
+    tests: async (files) => {
+      ranWith.push(...files);
+      const old = readFileSync(join(root, 'test/pin.test.ts'), 'utf8').includes("'old'");
+      return [
+        old
+          ? { workspace: '.', status: 'failed', output: 'FAIL test/pin.test.ts' }
+          : { workspace: '.', status: 'passed', output: '' },
+      ];
+    },
+    baselineTests: [{ workspace: '.', status: 'passed', output: '' }],
+    baselineLint: [],
+    affected: ['src/a.ts'],
+    runner: async ({ root }) => ran(doing(migrate)(root)),
+  });
+  expect(llm.tasks?.[0]?.gate).toBe('accepted');
+  expect(ranWith).toContain('test/pin.test.ts');
+  // Put back: fix applies the follow-up itself, as its own commit and site.
+  expect(readFileSync(join(root, 'test/pin.test.ts'), 'utf8')).toBe(
+    "expect(VERSION).toBe('old');\n",
+  );
+  expect(git(root, 'status', '--porcelain')).toBe('');
 });
 
 describe('batched gate', () => {

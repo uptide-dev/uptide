@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { ts } from 'ts-morph';
@@ -8,7 +8,7 @@ import { modelCapabilities } from '../llm/capabilities.js';
 import { packDecisions } from '../packs/decisions.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { git } from './process.js';
-import { commit, safeFile } from './settle.js';
+import { commit, followedText, safeFile } from './settle.js';
 import { formatFiles, lintFiles } from './style.js';
 import { isTestFile, testEditObjection } from './test-edits.js';
 import type {
@@ -447,12 +447,39 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       git(root, 'checkout', '--quiet', 'HEAD', '--', '.');
     }
   };
+  /**
+   * The tests with the pack's follow-ups for `sites` in place (a test asserting the constant a
+   * site changed), put back afterwards: `fix` applies and reports them itself, after the agent.
+   */
+  const withFollowUps = async <T>(sites: FixSite[], work: (files: string[]) => Promise<T>) => {
+    const edits = sites.flatMap(
+      (s) => pack.followUps?.({ root, workspaces, finding: s.finding, context }) ?? [],
+    );
+    const saved = new Map<string, string>();
+    for (const name of new Set(edits.map((e) => e.file))) {
+      const file = safeFile(root, name);
+      const text = readFileSync(file, 'utf8');
+      const followed = followedText(
+        text,
+        edits.filter((e) => e.file === name),
+      );
+      if (followed === undefined) continue;
+      saved.set(file, text);
+      writeFileSync(file, followed);
+    }
+    try {
+      return await work(edits.map((e) => e.file));
+    } finally {
+      for (const [file, text] of saved) writeFileSync(file, text);
+    }
+  };
   /** Why the work since `start` cannot stay, or undefined. Only what it can affect runs. */
   const judge = async (
     start: string,
     before: FixDiagnostic[],
     after: FixDiagnostic[],
     files: string[],
+    sites: FixSite[],
   ) => {
     // An error a line move explains is the old one (`gitLineMoves`): lines the batch edited stay put.
     const fresh = newDiagnostics(before, after, gitLineMoves(root, start));
@@ -465,9 +492,13 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     const failedLint = (await lint(changed)).filter((l) => l.status === 'failed');
     if (failedLint.length) return `lint fails: ${failedLint.map((l) => l.tool).join(', ')}`;
     const related = [...new Set([...files, ...changed])];
-    // A failure the parent already had is not the batch's, as final verification decides; the
+    // A test file the parent already failed is not the batch's, whatever scope ran it here; the
     // start alone cannot say so when a build in the test script fails on the error being fixed.
-    let tests = markPreexisting(await runTests(start, related), input.baselineTests);
+    let tests = markPreexisting(
+      await withFollowUps(sites, (followed) => runTests(start, [...related, ...followed])),
+      input.baselineTests,
+      { anyCommand: true },
+    );
     // A failure the batch did not cause was there at its start: run the same tests there, once.
     if (tests.some((t) => (t.status === 'failed' || t.status === 'timeout') && !t.preexisting))
       tests = markPreexisting(tests, await testsAt(start, related));
@@ -631,9 +662,13 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       after: current,
       touched,
     };
-    const verdict = await judge(taskStart, before, current, [
-      ...new Set([...task.files, ...touched]),
-    ]);
+    const verdict = await judge(
+      taskStart,
+      before,
+      current,
+      [...new Set([...task.files, ...touched])],
+      task.sites,
+    );
     if (verdict) {
       reset(taskStart);
       current = before;
