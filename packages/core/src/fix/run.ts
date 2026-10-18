@@ -1046,33 +1046,41 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     consumedAt = treeState();
   };
   // The same clone at the parent commit, with the parent's own install and generated clients;
-  // the branch's are restored after. A parent that cannot be built gives no failure to point at,
-  // so the head's failure counts as the upgrade's. ponytail: the build output left in the clone
-  // is the parent's; nothing after this reads it, and `verify` builds again.
-  const buildAtParent = async (): Promise<BuildResult[]> => {
+  // the branch's are restored after. A parent that cannot be checked out, installed or built
+  // says why, never that it passed. ponytail: the build output left in the clone is the
+  // parent's; nothing after this reads it, and `verify` builds again.
+  const buildAtParent = async (): Promise<{ builds: BuildResult[] } | { unchecked: string }> => {
     const generate = services.generate ?? generateClients;
-    const reset = (): void => {
-      git(root, 'checkout', '--', '.');
-      git(root, 'clean', '-fdq');
-    };
+    const firstLine = (text: string): string =>
+      text
+        .split('\n')
+        .find((l) => l.trim())
+        ?.trim()
+        .slice(0, 160) ?? 'no output';
+    let step = 'checkout';
     try {
       git(root, 'switch', '-q', '--detach', baseHead);
+      step = 'install';
       await services.install(root);
+      step = 'client generation';
       await generate(root, workspaces);
-      return await runBuild(true);
+      const builds = await runBuild(true);
+      const stopped = builds.find((b) => b.cause === 'build could not run');
+      return stopped
+        ? { unchecked: `build could not run: ${firstLine(stopped.output)}` }
+        : { builds };
     } catch (error) {
-      return [
-        {
-          workspace: '.',
-          status: 'missing',
-          output: `the parent commit could not be built: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ];
+      return {
+        unchecked: `${step} failed: ${firstLine(error instanceof Error ? error.message : String(error))}`,
+      };
     } finally {
-      reset();
-      git(root, 'switch', '-q', branch);
-      await services.install(root);
-      await generate(root, workspaces);
+      if (step !== 'checkout') {
+        git(root, 'checkout', '--', '.');
+        git(root, 'clean', '-fdq');
+        git(root, 'switch', '-q', branch);
+        await services.install(root);
+        await generate(root, workspaces);
+      }
     }
   };
   let build = await runBuild();
@@ -1246,6 +1254,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   // consumed builds already built on this head is not built again.
   let headBuild: BuildResult[] = [];
   let parentBuild: BuildResult[] | undefined;
+  let parentUnchecked: string | undefined;
   if (!needsBuild) {
     await rebuildConsumed();
     headBuild = await runBuild(
@@ -1256,8 +1265,11 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     if (
       [...consumed, ...headBuild].some((b) => b.status === 'failed' || b.status === 'timeout') &&
       !git(root, 'status', '--porcelain', '--untracked-files=all')
-    )
-      parentBuild = await buildAtParent();
+    ) {
+      const parent = await buildAtParent();
+      if ('builds' in parent) parentBuild = parent.builds;
+      else parentUnchecked = parent.unchecked;
+    }
     lap('build');
   }
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
@@ -1286,7 +1298,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     build.every((b) => b.status === 'passed' || b.status === 'missing') &&
     testsOrBuildVouch(typeCoverage, tests, build) &&
     lint.every((l) => l.status !== 'failed');
-  const broken = upgradeBrokeBuild(parentBuild);
+  // A head build that fails where the parent's could not be checked fails the run too.
+  const broken = upgradeBrokeBuild(parentBuild) || !!parentUnchecked;
   const result: FixReport = {
     ...(pins.length ? { rootPins: pins } : {}),
     ...(fallback.length ? { agentFallback: fallback } : {}),
@@ -1341,6 +1354,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ...(unverified ? { typesUnverified: unverified } : {}),
       baselineHealth: baselineHealth(baseline, baselineTests),
       ...(parentBuild ? { parentBuild } : {}),
+      ...(parentUnchecked ? { parentUnchecked } : {}),
       // A build the upgrade broke fails the run; alone, it still publishes, as a draft (UPT-110).
       ...(broken && checksPassed ? { buildBroken: true as const } : {}),
       passed: checksPassed && !broken,

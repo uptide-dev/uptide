@@ -572,11 +572,13 @@ export function verifiedBy(report: FixReport): string {
         : ' (not required by the pack)';
   const firstError = firstBuildError(v.build);
   // Built again at the parent only when it failed here: whose failure it is (UPT-110).
-  const parent = !v.parentBuild
-    ? ''
-    : upgradeBrokeBuild(v.parentBuild)
-      ? ' — broken by this upgrade'
-      : ' — already failing before this upgrade';
+  const parent = v.parentUnchecked
+    ? ' — the parent build could not be checked'
+    : !v.parentBuild
+      ? ''
+      : upgradeBrokeBuild(v.parentBuild)
+        ? ' — broken by this upgrade'
+        : ' — already failing before this upgrade';
   const build = `${
     !v.build
       ? '⚠️ build not run'
@@ -789,7 +791,7 @@ function minimalBody(report: FixReport, title: string): string {
     '',
     `> ⚠️ **Shortened description.** This run's evidence does not fit GitHub's size limit even in compact form, so this is its summary. Every section is in ${fullLists(report)}.`,
     '',
-    ...(upgradeBrokeBuild(report.verification.parentBuild) ? [brokenBuildBanner(report), ''] : []),
+    ...(brokenBuildBanner(report) ? [brokenBuildBanner(report), ''] : []),
     ...(report.agentFallback?.length
       ? [
           '> ⚠️ **Agent-led draft.** The mechanical path stopped; the reasons are in report.json.',
@@ -849,7 +851,8 @@ export function renderMigration(
       : `## Upgrade ${report.package} ${from} → ${report.target}`;
   const lines: (string | Piece)[] = [title, ''];
   // A build this upgrade broke comes before anything else a reviewer reads (UPT-110).
-  if (upgradeBrokeBuild(report.verification.parentBuild)) lines.push(brokenBuildBanner(report), '');
+  const broken = brokenBuildBanner(report);
+  if (broken) lines.push(broken, '');
   // Never a silent switch: the executor that ran is said next when it is not the SDK.
   if (report.llm.sdkMissing) lines.push(`> ⚠️ ${sdkFallbackNote(report.llm.sdkMissing)}`, '');
   // Why the mechanical path stopped and the agent led: the first thing a reviewer reads.
@@ -1368,10 +1371,18 @@ export function renderMigration(
   );
   return body ?? minimalBody(report, title);
 }
-/** The line a PR opens with when the build passed at the parent commit and fails here. */
-function brokenBuildBanner(report: FixReport): string {
-  const error = firstBuildError(report.verification.build);
-  return `> ❌ **Build broken by this upgrade.** The repository's build passed at the parent commit and fails on this branch${error ? `: ${error.slice(0, 160)}` : '.'}`;
+/**
+ * The line a PR opens with when the build fails here and passed at the parent commit, or the
+ * parent could not be checked: never a parent pass that was not seen.
+ */
+function brokenBuildBanner(report: FixReport): string | undefined {
+  const v = report.verification;
+  const error = firstBuildError(v.build)?.slice(0, 160);
+  if (v.parentUnchecked)
+    return `> ❌ **Build fails on this upgrade; the parent build could not be checked (${v.parentUnchecked}).**${error ? ` First error: ${error}` : ''}`;
+  if (upgradeBrokeBuild(v.parentBuild))
+    return `> ❌ **Build broken by this upgrade.** The repository's build passed at the parent commit and fails on this branch${error ? `: ${error}` : '.'}`;
+  return undefined;
 }
 /** The first line of a failing build's output that names an error. */
 function firstBuildError(build: FixReport['verification']['build']): string | undefined {

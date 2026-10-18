@@ -601,6 +601,26 @@ describe('the Uptide Action run', () => {
     expect(report.upgrades[0]?.status).toBe('available');
   });
 
+  it('fix: a run whose upgrade broke the build, and nothing else, opens like an agent-led run (UPT-110)', async () => {
+    const broken = (): FixReport => {
+      const run = storefrontFix();
+      return { ...run, verification: { ...run.verification, passed: false, buildBroken: true } };
+    };
+    const { s, published } = services({
+      list: listReport([dep('zod', '3.25.76', '4.6.5')]),
+      fix: () => fixRun(broken()),
+    });
+    const report = await runAction(inputs(workspace('version: 1\n')), s);
+    expect(published.map((p) => p.branch)).toEqual([broken().branch]);
+    // The verdict still fails: the row links the draft and says why.
+    expect(report.upgrades[0]).toMatchObject({
+      status: 'failed',
+      pr: { number: 9 },
+      error: 'verification failed: build broken by this upgrade',
+    });
+    expect(reportProblems(report)).toEqual([]);
+  });
+
   it('fix: a verified migration whose PR cannot be opened is failed, with a reason that quotes nothing', async () => {
     const { s } = services({
       list: listReport([dep('zod', '3.25.76', '4.6.5')]),

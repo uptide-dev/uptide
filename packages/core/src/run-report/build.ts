@@ -142,7 +142,14 @@ export function verificationFailure(report: FixReport): string | undefined {
     ...(v.typesUnverified ? ['types could not be verified'] : []),
     ...(v.newErrors?.length ? [`${v.newErrors.length} new type error(s)`] : []),
     ...(v.lint ?? []).filter((l) => l.status === 'failed').map(() => 'lint fails on edited files'),
-    ...(v.build ?? [])
+    ...(v.buildBroken
+      ? [
+          v.parentUnchecked
+            ? 'the build fails and the parent build could not be checked'
+            : 'build broken by this upgrade',
+        ]
+      : []),
+    ...(v.buildBroken ? [] : (v.build ?? []))
       .filter((b) => b.status === 'failed' || b.status === 'timeout')
       .map(
         (b) =>

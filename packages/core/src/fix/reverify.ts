@@ -171,13 +171,14 @@ export async function reverify(
   // The parent commit is the run's own: its build stands for as long as this head's fails (UPT-110).
   const {
     parentBuild: storedParent,
+    parentUnchecked: storedUnchecked,
     buildBroken: _broken,
     ...storedVerification
   } = report.verification;
-  const parentBuild = build.some((b) => b.status === 'failed' || b.status === 'timeout')
-    ? storedParent
-    : undefined;
-  const broken = upgradeBrokeBuild(parentBuild);
+  const headFails = build.some((b) => b.status === 'failed' || b.status === 'timeout');
+  const parentBuild = headFails ? storedParent : undefined;
+  const parentUnchecked = headFails ? storedUnchecked : undefined;
+  const broken = upgradeBrokeBuild(parentBuild) || !!parentUnchecked;
   const checksPassed =
     !unverified &&
     newErrors.length === 0 &&
@@ -214,6 +215,7 @@ export async function reverify(
       ...(formatted.length ? { formatted } : {}),
       ...(unverified ? { typesUnverified: unverified } : {}),
       ...(parentBuild ? { parentBuild } : {}),
+      ...(parentUnchecked ? { parentUnchecked } : {}),
       ...(broken && checksPassed ? { buildBroken: true as const } : {}),
       passed: checksPassed && !broken,
     },

@@ -121,7 +121,12 @@ export function fixVerdict(report: FixReport): {
         }
       : { text: 'no new errors', tone: 'compared' };
   if (v.buildBroken)
-    return { text: 'verification failed: build broken by this upgrade', tone: 'failed' };
+    return {
+      text: v.parentUnchecked
+        ? 'verification failed: build fails on this upgrade; the parent build could not be checked'
+        : 'verification failed: build broken by this upgrade',
+      tone: 'failed',
+    };
   if (low && !v.typesUnverified && !v.newErrors.length)
     return { text: `verification failed: ${low} and no test or build passed`, tone: 'failed' };
   if (v.typesUnverified || !v.newErrors.length)

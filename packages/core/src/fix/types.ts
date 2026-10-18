@@ -308,7 +308,12 @@ export interface FixReport {
      * (UPT-110): it tells a build the upgrade broke from one that was already failing.
      */
     parentBuild?: BuildResult[];
-    /** The upgrade broke the build and every other check passed: a failed run, published only as a draft. */
+    /** Why the parent build could not be checked (`install failed: …`), when it could not. */
+    parentUnchecked?: string;
+    /**
+     * The final-head build fails, the parent's passed or could not be checked, and every other
+     * check passed: a failed run, published only as a draft.
+     */
     buildBroken?: true;
     /** Lint of the edited files with the repository's own tools; a new failure fails verification. */
     lint?: LintResult[];

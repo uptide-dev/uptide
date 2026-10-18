@@ -182,3 +182,38 @@ it('fails a run whose upgrade broke the repo build, and publishes it only as a d
   expect(fixed.verification.parentBuild).toBeUndefined();
   expect(fixed.verification.buildBroken).toBeUndefined();
 });
+
+it('fails a run whose parent could not be checked, and never says the parent passed (UPT-110)', async () => {
+  const { root, services } = zodFixture(scratch);
+  const { build, builtAt } = failingHead(root, 'passed');
+  const install: typeof services.install = async (dir, upgrade) => {
+    if (!upgrade && !git(root, 'branch', '--show-current'))
+      throw new Error('ERR_PNPM_FETCH_404 registry unreachable\nmore output');
+    return services.install(dir, upgrade);
+  };
+  const result = await fix(
+    { cwd: root, only: 'zod', pack: zodPack, fixer: null },
+    { ...services, build, install },
+  );
+  // Never built at the parent, and back on the branch.
+  expect(builtAt).toEqual(['branch']);
+  expect(git(root, 'branch', '--show-current')).toBe(result.branch);
+  expect(result.verification).toMatchObject({
+    passed: false,
+    buildBroken: true,
+    parentUnchecked: 'install failed: ERR_PNPM_FETCH_404 registry unreachable',
+  });
+  expect(result.verification.parentBuild).toBeUndefined();
+  expect(fixVerdict(result).text).toBe(
+    'verification failed: build fails on this upgrade; the parent build could not be checked',
+  );
+  const body = prBody(result);
+  expect(body).toMatch(
+    /^## Upgrade zod [^\n]+\n\n> ❌ \*\*Build fails on this upgrade; the parent build could not be checked \(install failed: ERR_PNPM_FETCH_404 registry unreachable\)\.\*\* First error: src\/db\.ts/,
+  );
+  expect(body).toContain('— the parent build could not be checked (not required by the pack)');
+  expect(body).not.toMatch(/passed at the parent|broken by this upgrade/);
+  expect(publicationBlockers({ ...result, uptideDirty: false }, { uptideDirty: false })).toEqual(
+    [],
+  );
+});
