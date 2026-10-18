@@ -1,4 +1,14 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
@@ -68,6 +78,34 @@ it('installs in a detached worktree, promotes lockfile bytes unchanged and clean
   expect(readFileSync(join(root, 'node_modules/target'), 'utf8')).toBe('new');
   expect(existsSync(temporary)).toBe(false);
   expect(git(root, 'worktree', 'list')).not.toContain('uptide-install-');
+});
+it('moves the installed tree out of the worktree, links pointing into it relocated', async () => {
+  const root = fixture();
+  let installed = 0;
+  await isolatedUpgrade(root, upgrade, async (dir) => {
+    mkdirSync(join(dir, 'node_modules/.bin'), { recursive: true });
+    writeFileSync(join(dir, 'node_modules/target'), 'new');
+    installed = statSync(join(dir, 'node_modules/target')).ino;
+    symlinkSync('../target', join(dir, 'node_modules/.bin/relative'));
+    symlinkSync(join(dir, 'node_modules/target'), join(dir, 'node_modules/.bin/absolute'));
+    writeFileSync(join(dir, 'package-lock.json'), '{"lockfileVersion":3,"packages":{}}\n');
+    return {
+      file: 'package-lock.json',
+      manager: 'npm',
+      added: ['target'],
+      removed: [],
+      changed: [],
+      allowed: ['target'],
+    };
+  });
+  // The same file the install wrote, not a copy of it.
+  expect(statSync(join(root, 'node_modules/target')).ino).toBe(installed);
+  expect(existsSync(join(root, 'node_modules/baseline'))).toBe(false);
+  expect(readlinkSync(join(root, 'node_modules/.bin/relative'))).toBe('../target');
+  expect(readlinkSync(join(root, 'node_modules/.bin/absolute'))).toBe(
+    join(root, 'node_modules/target'),
+  );
+  expect(readFileSync(join(root, 'node_modules/.bin/absolute'), 'utf8')).toBe('new');
 });
 it('failed/out-of-scope installs never replace the branch lockfile or dependencies', async () => {
   const root = fixture(),

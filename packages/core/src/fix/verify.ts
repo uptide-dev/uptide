@@ -637,6 +637,12 @@ export interface TestOptions {
    * Final verification runs the full selection.
    */
   related?: boolean;
+  /**
+   * With `related`, for the agent's own `run_tests` only, never a gate or verification: a
+   * `test` script that ends by running a script that is just the runner
+   * (`pnpm run build && pnpm run test:unit`) runs that runner's related tests alone.
+   */
+  agentCheck?: boolean;
   /** Run every test in the selected workspaces, including detected runner configurations. */
   fullSuite?: boolean;
 }
@@ -719,6 +725,7 @@ function relatedScript(
   workspace: string,
   script: string | undefined,
   files: string[],
+  via?: string,
 ): TestPlan | undefined {
   const runner = /^\s*(?:(?:npx|pnpm exec|yarn)\s+)?(vitest(?:\s+run)?|jest)\s*$/.exec(
     script ?? '',
@@ -740,7 +747,7 @@ function relatedScript(
     covers: [workspace],
     cwd: dir,
     command: [bin, ...args.map(quote)].join(' '),
-    scope: `${bin} tests related to ${paths.length} changed file${paths.length === 1 ? '' : 's'} (its \`test\` script is the runner)`,
+    scope: `${bin} tests related to ${paths.length} changed file${paths.length === 1 ? '' : 's'} (${via ? `its \`test\` script ends with \`${via}\`, the runner; the steps before it did not run` : 'its `test` script is the runner'})`,
   };
 }
 
@@ -783,8 +790,21 @@ export function planTests(
   const selected = options.related ? relatedWorkspaces(root, workspaces, files) : workspaces;
   for (const workspace of selected) {
     const script = manifest(join(root, workspace))?.scripts?.test;
+    // The script a `test` chain ends by running: `… && pnpm run test:unit`.
+    const last = /(?:^|&&)\s*(?:pnpm|npm|yarn)\s+(?:run\s+)?([\w:.-]+)\s*$/.exec(script ?? '')?.[1];
     const scoped =
-      options.related && files.length ? relatedScript(root, workspace, script, files) : undefined;
+      options.related && files.length
+        ? (relatedScript(root, workspace, script, files) ??
+          (options.agentCheck && last && last !== 'test'
+            ? relatedScript(
+                root,
+                workspace,
+                manifest(join(root, workspace))?.scripts?.[last],
+                files,
+                last,
+              )
+            : undefined))
+        : undefined;
     if (scoped) {
       plans.push(scoped);
       continue;

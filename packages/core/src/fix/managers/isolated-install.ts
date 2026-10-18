@@ -31,6 +31,19 @@ function relocateLinks(dir: string, from: string, to: string): void {
     }
   }
 }
+/**
+ * The installed tree moves out of the worktree, which is removed anyway, rather than being
+ * copied: a copy of a large node_modules cost seconds (enki: 7.5 s) and gave the same tree.
+ * Across filesystems it is copied as before.
+ */
+function moveTree(source: string, target: string): void {
+  try {
+    renameSync(source, target);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EXDEV') throw error;
+    cpSync(source, target, { recursive: true, verbatimSymlinks: true });
+  }
+}
 /** Promote only a validated lockfile and its already-installed dependencies. No install runs on the branch. */
 export async function isolatedUpgrade(
   root: string,
@@ -71,7 +84,7 @@ export async function isolatedUpgrade(
       if (!existsSync(source) && !existsSync(target)) continue;
       const staged = existsSync(source) ? join(staging, `new-${i}`) : undefined;
       if (staged) {
-        cpSync(source, staged, { recursive: true, verbatimSymlinks: true });
+        moveTree(source, staged);
         relocateLinks(staged, checkout, root);
       }
       modules.push({

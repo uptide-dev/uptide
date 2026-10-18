@@ -965,6 +965,37 @@ describe('test detection', () => {
     ]);
   });
 
+  it("scopes only the agent's own check to the runner a test script chain ends with", () => {
+    const root = mkdtempSync(join(scratch, 'chain-'));
+    const write = (file: string, text: string, mode?: number) => {
+      mkdirSync(join(root, file, '..'), { recursive: true });
+      writeFileSync(join(root, file), text, mode ? { mode } : {});
+    };
+    write('node_modules/.bin/vitest', '#!/bin/sh\n', 0o755);
+    const test = 'pnpm run build && pnpm run test:unit';
+    write(
+      'package.json',
+      JSON.stringify({ name: 'app', scripts: { build: 'tsc', test, 'test:unit': 'vitest run' } }),
+    );
+    write('src/a.ts', '');
+    const files = ['src/a.ts'];
+    expect(planTests(root, ['.'], files, { related: true, agentCheck: true })).toEqual([
+      {
+        workspace: '.',
+        covers: ['.'],
+        cwd: root,
+        command: 'vitest related --run --passWithNoTests src/a.ts',
+        scope:
+          'vitest tests related to 1 changed file (its `test` script ends with `test:unit`, the runner; the steps before it did not run)',
+      },
+    ]);
+    // The gate and verification run the whole script, build first, as before.
+    expect(planTests(root, ['.'], files, { related: true }).map((p) => p.command)).toEqual([test]);
+    expect(planTests(root, ['.'], files, { fullSuite: true }).map((p) => p.command)).toEqual([
+      test,
+    ]);
+  });
+
   it('knows jest, prefers a workspace script, then the root script, and says when nothing covers a workspace', () => {
     const jest = monorepo('jest');
     expect(

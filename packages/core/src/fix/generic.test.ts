@@ -305,6 +305,9 @@ describe('fix for a dependency without a pack', () => {
       'feedback',
     ]);
     expect(result.phases?.find((p) => p.name === 'agent')?.costUsd).toBe(0.6);
+    // The repository's commands each phase ran, counted where they ran.
+    expect(result.phases?.find((p) => p.name === 'baseline')?.runs?.types?.count).toBe(1);
+    expect(result.phases?.find((p) => p.name === 'baseline')?.runs?.tests?.count).toBe(1);
     const total = (result.phases ?? []).reduce((ms, p) => ms + p.ms, 0);
     expect(total).toBeLessThanOrEqual(result.timingMs);
     expect(prBody(result)).toMatch(/Phases: analyze \d+s · baseline \d+s · .* agent \d+s \$0\.60/);
@@ -381,6 +384,99 @@ describe('fix for a dependency without a pack', () => {
       '3 sites not completed. Raise `maxCost` in uptide.yml to 0.20 to finish.',
     );
   }, 60000);
+
+  it.each([
+    [
+      'ends by running the runner',
+      'pnpm run build && pnpm run test:unit',
+      ['full', 'check', 'gate', 'full'],
+      false,
+    ],
+    // The check is the gate's own run, whose result the gate reuses on the same tree.
+    ['is the runner', 'vitest run', ['full', 'gate', 'full'], false],
+    // Agent-led: the forced feedback round's check and its after-round run are the full
+    // suite, and the branch must still install from scratch (UPT-102).
+    [
+      'ends by running the runner, agent-led',
+      'pnpm run build && pnpm run test:unit',
+      ['full', 'check', 'gate', 'full', 'full', 'full'],
+      true,
+    ],
+  ])(
+    "narrows only the agent's own check, where the test script %s; the gate and the final verification run as before",
+    async (_, test, expected, agentLed) => {
+      const { root, services, fixer } = paintFixture();
+      const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+      writeFileSync(
+        join(root, 'package.json'),
+        JSON.stringify({ ...manifest, scripts: { build: 'tsc', test, 'test:unit': 'vitest run' } }),
+      );
+      mkdirSync(join(root, 'node_modules/.bin'), { recursive: true });
+      writeFileSync(join(root, 'node_modules/.bin/vitest'), '#!/bin/sh\n', { mode: 0o755 });
+      git(root, 'commit', '-qam', 'test scripts');
+      const calls: {
+        files: string[];
+        related?: boolean;
+        agentCheck?: boolean;
+        fullSuite?: boolean;
+      }[] = [];
+      const result = await fix(
+        {
+          cwd: root,
+          only: 'paint',
+          fixer: fixer(0.01),
+          agent: 'sdk',
+          ...(agentLed ? { agentLed: ['a peer blocker the agent continues past'] } : {}),
+        },
+        {
+          ...services,
+          tests: async (_root, _workspaces, _timeout, files = [], options = {}) => {
+            calls.push({ files, ...options });
+            return [{ workspace: '.', status: 'passed', output: '' }];
+          },
+          agentRunner: async ({ root, checks }) => {
+            writeFileSync(
+              join(root, 'wall1.ts'),
+              "import { fill } from 'paint';\nfill({ name: 'red' });\n",
+            );
+            await checks.tests();
+            return {
+              turns: 2,
+              inputTokens: 1,
+              outputTokens: 1,
+              costUsd: 0.01,
+              durationMs: 1,
+              toolCalls: {},
+              summary: {
+                changed: [],
+                newFiles: [],
+                decisions: [],
+                assumptions: [],
+                couldNotDo: [],
+              },
+            };
+          },
+        },
+      );
+      expect(result.verification.passed).toBe(true);
+      expect(result.sites.map((s) => s.outcome)).toEqual(['agent']);
+      const kind = (c: (typeof calls)[number]) =>
+        c.agentCheck ? 'check' : c.fullSuite ? 'full' : c.related ? 'gate' : 'other';
+      // Baseline in full; the agent's check; its gate as before; then the full suite.
+      expect(calls.map(kind)).toEqual(expected);
+      expect(calls.at(-1)).toMatchObject({ fullSuite: true });
+      expect(calls.at(-1)?.related).toBeUndefined();
+      // The final verification still builds, type-checks and tests the head the agent left.
+      const verify = result.phases?.find((p) => p.name === 'verify');
+      expect(verify?.runs?.build?.count).toBe(1);
+      expect(verify?.runs?.types?.count).toBe(1);
+      expect(verify?.runs?.tests?.count).toBe(1);
+      const clean = result.phases?.find((p) => p.name === 'clean-install');
+      expect(clean?.runs?.install?.count).toBe(agentLed ? 1 : undefined);
+      expect(result.cleanInstall?.passed).toBe(agentLed ? true : undefined);
+    },
+    30000,
+  );
 
   it('stops before any agent call when the estimate exceeds the limit', async () => {
     for (const [costSetting, raise] of [

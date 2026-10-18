@@ -75,6 +75,8 @@ export interface SdkAssistInput {
   diagnostics: () => FixDiagnostic[];
   /** Tests on these repository-relative files, as the run's `services.tests`. */
   tests: (files: string[]) => Promise<TestResult[]>;
+  /** The agent's own `run_tests`, when it may run less than the gate; the gate runs `tests`. */
+  checkTests?: (files: string[]) => Promise<TestResult[]>;
   lint?: (files: string[], baseline?: LintResult[]) => Promise<LintResult[]>;
   /** The repository's formatter, run on the edited files before lint, as `settle` does. */
   format?: (files: string[]) => Promise<string[]>;
@@ -419,10 +421,11 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     git(root, 'clean', '-fd', '--quiet');
   };
   const testCache = new Map<string, TestResult[]>();
-  const runTests = async (start: string, files: string[]) => {
+  const runTests = async (start: string, files: string[], check = false) => {
+    const run = (check && input.checkTests) || input.tests;
     const key = () => {
       const hash = createHash('sha256')
-        .update(JSON.stringify([start, [...new Set(files)].sort()]))
+        .update(JSON.stringify([start, [...new Set(files)].sort(), run === input.tests]))
         .update(git(root, 'diff', '--binary', start));
       for (const file of list('ls-files', '--others', '--exclude-standard').sort())
         hash.update(JSON.stringify([file, readFileSync(join(root, file)).toString('base64')]));
@@ -431,7 +434,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     const before = key();
     const cached = testCache.get(before);
     if (cached) return cached;
-    const results = await input.tests(files);
+    const results = await run(files);
     // Test commands can generate or rewrite files; only reuse a result for an unchanged tree.
     if (key() === before) testCache.set(before, results);
     return results;
@@ -574,9 +577,11 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         return results.map((r) => `${r.tool}: ${r.status}\n${tail(r.output, 2000)}`).join('\n');
       },
       tests: async () => {
-        const results = await runTests(taskStart, [
-          ...new Set([...task.files, ...since(taskStart)]),
-        ]);
+        const results = await runTests(
+          taskStart,
+          [...new Set([...task.files, ...since(taskStart)])],
+          true,
+        );
         if (!results.length) return 'no tests relate to these files';
         return [
           "Tests related to the task's files. A failure may predate the task: the gate compares with the start.",
