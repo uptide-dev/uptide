@@ -385,6 +385,81 @@ describe('fix for a dependency without a pack', () => {
     );
   }, 60000);
 
+  it.each([
+    [
+      'ends by running the runner',
+      'pnpm run build && pnpm run test:unit',
+      ['full', 'check', 'gate', 'full'],
+    ],
+    // The check is the gate's own run, whose result the gate reuses on the same tree.
+    ['is the runner', 'vitest run', ['full', 'gate', 'full']],
+  ])(
+    "narrows only the agent's own check, where the test script %s; the gate and the final verification run as before",
+    async (_, test, expected) => {
+      const { root, services, fixer } = paintFixture();
+      const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+      writeFileSync(
+        join(root, 'package.json'),
+        JSON.stringify({ ...manifest, scripts: { build: 'tsc', test, 'test:unit': 'vitest run' } }),
+      );
+      mkdirSync(join(root, 'node_modules/.bin'), { recursive: true });
+      writeFileSync(join(root, 'node_modules/.bin/vitest'), '#!/bin/sh\n', { mode: 0o755 });
+      git(root, 'commit', '-qam', 'test scripts');
+      const calls: {
+        files: string[];
+        related?: boolean;
+        agentCheck?: boolean;
+        fullSuite?: boolean;
+      }[] = [];
+      const result = await fix(
+        { cwd: root, only: 'paint', fixer: fixer(0.01), agent: 'sdk' },
+        {
+          ...services,
+          tests: async (_root, _workspaces, _timeout, files = [], options = {}) => {
+            calls.push({ files, ...options });
+            return [{ workspace: '.', status: 'passed', output: '' }];
+          },
+          agentRunner: async ({ root, checks }) => {
+            writeFileSync(
+              join(root, 'wall1.ts'),
+              "import { fill } from 'paint';\nfill({ name: 'red' });\n",
+            );
+            await checks.tests();
+            return {
+              turns: 2,
+              inputTokens: 1,
+              outputTokens: 1,
+              costUsd: 0.01,
+              durationMs: 1,
+              toolCalls: {},
+              summary: {
+                changed: [],
+                newFiles: [],
+                decisions: [],
+                assumptions: [],
+                couldNotDo: [],
+              },
+            };
+          },
+        },
+      );
+      expect(result.verification.passed).toBe(true);
+      expect(result.sites.map((s) => s.outcome)).toEqual(['agent']);
+      const kind = (c: (typeof calls)[number]) =>
+        c.agentCheck ? 'check' : c.fullSuite ? 'full' : c.related ? 'gate' : 'other';
+      // Baseline in full; the agent's check; its gate as before; then the full suite.
+      expect(calls.map(kind)).toEqual(expected);
+      expect(calls.at(-1)).toMatchObject({ fullSuite: true });
+      expect(calls.at(-1)?.related).toBeUndefined();
+      // The final verification still builds, type-checks and tests the head the agent left.
+      const verify = result.phases?.find((p) => p.name === 'verify');
+      expect(verify?.runs?.build?.count).toBe(1);
+      expect(verify?.runs?.types?.count).toBe(1);
+      expect(verify?.runs?.tests?.count).toBe(1);
+    },
+    30000,
+  );
+
   it('stops before any agent call when the estimate exceeds the limit', async () => {
     for (const [costSetting, raise] of [
       [undefined, 'Run again with --max-cost 0.18.'],

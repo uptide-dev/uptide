@@ -468,6 +468,47 @@ describe('batched gate', () => {
     },
   );
 
+  it("runs the agent's own run_tests with checkTests, and gates with tests, never sharing results", async () => {
+    const root = repo({ 'src/a.ts': 'old a\n' });
+    const calls: string[] = [];
+    const llm = await assistWithSdk({
+      root,
+      workspaces: ['.'],
+      sites: [{ ...site('src/a.ts', 1, diag('src/a.ts', 1, 2339, 'old')), rule: 'a' }],
+      pack,
+      context: { from: '1.0.0', to: '2.0.0', includeDeprecated: false },
+      model: 'claude-sonnet-5-5',
+      maxCostUsd: 1,
+      diagnostics: () =>
+        readFileSync(join(root, 'src/a.ts'), 'utf8').includes('old')
+          ? [diag('src/a.ts', 1, 2339, 'old')]
+          : [],
+      tests: async () => {
+        calls.push('gate');
+        return [{ workspace: '.', status: 'passed', output: '' }];
+      },
+      checkTests: async () => {
+        calls.push('check');
+        return [{ workspace: '.', status: 'passed', output: 'related only' }];
+      },
+      lint: async () => [],
+      format: async () => [],
+      baselineTests: [{ workspace: '.', status: 'passed', output: '' }],
+      baselineLint: [],
+      affected: ['src/a.ts'],
+      runner: async ({ root, checks }) => {
+        writeFileSync(join(root, 'src/a.ts'), 'new a\n');
+        expect(await checks.tests()).toContain('related only');
+        // Repeated on the same tree, the check reuses its own result.
+        await checks.tests();
+        return ran(summary());
+      },
+    });
+    expect(llm.tasks?.[0]?.gate).toBe('accepted');
+    // The gate runs its own tests on the same tree: a check's narrower result never stands in.
+    expect(calls).toEqual(['check', 'gate']);
+  });
+
   it('runs the start-of-task tests only to explain a failure, and restores the tree after', async () => {
     const { root, record } = await task({
       agent: doing(migrate),

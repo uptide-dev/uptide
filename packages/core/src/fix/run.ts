@@ -83,6 +83,7 @@ import {
   gitLineMoves,
   markPreexisting,
   newDiagnostics,
+  planTests,
   type TestOptions,
   testArtifacts,
   testWorkspaces,
@@ -937,6 +938,21 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       warning: true,
       detail: `Agent ${describeEstimate(estimate)} (${estimate.setting === 'maxCost' ? 'maxCost in uptide.yml' : '--max-cost'})`,
     });
+  // The agent's own run_tests, where a test script runs more than its runner's related tests
+  // (`pnpm run build && pnpm run test:unit`): those tests alone. Its gate, and the final
+  // verification after it, run what they always ran. Elsewhere the check is the gate's run,
+  // whose result the gate reuses on the same tree.
+  const testOptions = { withServices: options.withServices === true, related: true };
+  const commands = (o: TestOptions) =>
+    planTests(root, workspaces, affected, o)
+      .map((p) => p.command)
+      .join('\n');
+  const narrowCheck = commands({ ...testOptions, agentCheck: true }) !== commands(testOptions);
+  const agentCheckTests = (files: string[]) =>
+    services.tests(root, workspaces, options.testTimeoutMs, files, {
+      ...testOptions,
+      agentCheck: true,
+    });
   const llm = await progress(options.onProgress, { phase: 'assist', package: pack.name }, () =>
     sdkAgent
       ? assistWithSdk({
@@ -954,6 +970,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
               withServices: options.withServices === true,
               related: true,
             }),
+          ...(narrowCheck ? { checkTests: agentCheckTests } : {}),
           ...(services.lint
             ? {
                 lint: (files: string[], b?: LintResult[]) =>
