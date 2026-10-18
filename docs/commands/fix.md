@@ -239,8 +239,9 @@ repository, and there:
    tests related to the migrated files. By default only tests that need no database, cache or queue
    run, and the report counts the integration tests it left out (`--with-services --yes`
    includes them after printing what they connect to). It formats the files it edited, and
-   only those, with your formatter and runs your lint (biome, prettier, eslint) on them,
-   where a new lint failure fails verification; for zod, compares v3 and v4 behavior of
+   only those, with your formatter and runs your lint (biome, prettier, oxfmt, dprint,
+   eslint) on them, from the workspace that holds each file (its own configuration, else the
+   root's), where a new lint failure fails verification; for zod, compares v3 and v4 behavior of
    your schemas on generated inputs.
 
 The exit code is 0 only if no new type error remains, the tests pass, and the exported branch

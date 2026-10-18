@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
-import { estimateScopedHeapMb, memoryPolicy } from './memory.js';
+import { estimateScopedHeapMb, memoryPolicy, scopedImporters } from './memory.js';
 
 it('bounds concurrency by memory, CPU and explicit maximum, allowing native overhead', () => {
   const GB = 1024 ** 3;
@@ -39,6 +39,34 @@ it('estimates reachable imports rather than all source and installed declaration
     expect(estimateScopedHeapMb(dir, [root])).toBe(initial);
     writeFileSync(root, "import './unrelated';");
     expect(estimateScopedHeapMb(dir, [root])).toBeGreaterThan(initial);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it('takes the importers of a barrel that re-exports a root, when what they import depends on it', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'uptide-memory-'));
+  try {
+    const files: Record<string, string> = {
+      'package.json': '{}',
+      'tsconfig.json': JSON.stringify({ compilerOptions: { types: [] } }),
+      'stripe/client.ts':
+        "import Stripe from 'stripe';\nexport const getStripeClient = () => new Stripe('k');\n",
+      'stripe/labels.ts': "export const label = 'x';\n",
+      'stripe/index.ts': "export * from './client';\nexport * from './labels';\n",
+      // `from '../stripe'` reaches client.ts only through the barrel (UPT-101).
+      'routes/admin.ts': "import { getStripeClient } from '../stripe';\ngetStripeClient();\n",
+      'routes/label.ts': "import { label } from '../stripe';\nlabel;\n",
+    };
+    for (const [file, text] of Object.entries(files)) {
+      mkdirSync(join(dir, file, '..'), { recursive: true });
+      writeFileSync(join(dir, file), text);
+    }
+    const { taken } = scopedImporters(dir, [join(dir, 'stripe/client.ts')], ['stripe'], 10);
+    expect(taken.map((f) => f.slice(dir.length + 1))).toEqual([
+      'routes/admin.ts',
+      'stripe/index.ts',
+    ]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

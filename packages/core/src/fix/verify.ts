@@ -1099,21 +1099,28 @@ export function describeServices(root: string, workspaces: string[]): string[] {
 /**
  * Failures the migration did not cause: a workspace whose run failed before the change with
  * the same test files (or, when the runner names none, failed at all). They are marked, not
- * counted against verification; a new failing file is still a failure.
+ * counted against verification; a new failing file is still a failure. With `anyCommand`, a
+ * run of another scope (related tests against the parent's full suite) is compared by the test
+ * files it names only: a run that names none never matches.
  */
-export function markPreexisting(tests: TestResult[], baseline: TestResult[]): TestResult[] {
+export function markPreexisting(
+  tests: TestResult[],
+  baseline: TestResult[],
+  options: { anyCommand?: boolean } = {},
+): TestResult[] {
   return tests.map((t) => {
     if (t.status !== 'failed' && t.status !== 'timeout') return t;
     const before = baseline.find(
       (b) =>
         b.workspace === t.workspace &&
-        b.command === t.command &&
+        (options.anyCommand || b.command === t.command) &&
         (b.status === 'failed' || b.status === 'timeout'),
     );
     if (!before) return t;
     const now = failedTestFiles(t.output);
     const then = new Set(failedTestFiles(before.output));
-    if (now.length === 0 && then.size === 0) return { ...t, preexisting: ['*'] };
+    if (now.length === 0 && then.size === 0 && !options.anyCommand)
+      return { ...t, preexisting: ['*'] };
     if (now.length > 0 && now.every((f) => then.has(f))) return { ...t, preexisting: now };
     return t;
   });

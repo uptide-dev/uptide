@@ -22,13 +22,17 @@
   "breakingFound": 23,
   "breakingScored": 25,
   "behaviorSites": 0,
-  "unexercised": ["fixture-cast"],
+  "unexercised": ["fixture-cast", "request-options"],
   "mechanical": {
     "api-version-unpinned": {
       "truePositives": 5,
       "falsePositives": 0
     },
     "fixture-cast": {
+      "truePositives": 0,
+      "falsePositives": 0
+    },
+    "request-options": {
       "truePositives": 0,
       "falsePositives": 0
     }

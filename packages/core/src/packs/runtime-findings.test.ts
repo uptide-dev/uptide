@@ -38,6 +38,8 @@ describe.each(['alone', 'as a companion'] as const)(
             : `fixtures/${name}/before.ts`;
           const text = readFileSync(join(packDir, 'fixtures', name, 'before.ts'), 'utf8');
           const detected = detectIn(pack, file, text).map((f) => `${f.rule}:${f.line}`);
+          // Rewrite-only fixtures (stripe's request-options) detect nothing for the hook to drop.
+          if (detected.length === 0) return;
           const root = mkdtempSync(join(tmpdir(), 'uptide-runtime-'));
           try {
             mkdirSync(dirname(join(root, file)), { recursive: true });

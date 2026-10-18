@@ -1210,9 +1210,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const remote = originOf(root);
   if (remote) result.remote = remote;
   mkdirSync(dirname(result.prBody), { recursive: true });
-  writeFileSync(result.prBody, prBody(result));
   const storedRun = join(root, '.uptide/report.json');
+  // First: a body that cannot fit refuses, and points at this report.
   writeFileSync(storedRun, JSON.stringify(result, null, 2));
+  writeFileSync(result.prBody, prBody(result));
   if (options.pr) {
     await publishVerified(result, { tool, ...(options.yes ? { yes: true } : {}) });
     writeFileSync(result.prBody, prBody(result));

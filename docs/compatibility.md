@@ -43,7 +43,7 @@ already run as assisted ([verification gate](packs.md)).
 | `@sentry/browser` | 10 → 11 | 16 | 100% | 82% | 82% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
 | `@sentry/nextjs` | 10 → 11 | 24 | 100% | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
 | `@sentry/react` | 10 → 11 | 16 | 88% | — | — | 29 | owine/youth-activity-scheduler, successible/cleanslate, Seklfreak/flimm, daler91/Hyrox-Companion, jey3dayo/ultra-rss-reader, jirikrucek/ricochet-app, louisclarencepeter/destinationparadise, poporonnet/kaniwriter, preijm/milk-me-not, CandeeGenerations/central-flock, DougZeThug/717rec, CandeeGenerations/attendance-public, cucumber/cucumber-reports, Simple-With-Us/BotFleet | candidate |
-| `stripe` | 14+ → latest, API version pinning | 5 | 100% | 92% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
+| `stripe` | 14+ → latest, API version pinning | 6 | 100% | 92% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
 | `typescript` | 5 → 6 | 12 | 100% | 99% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
 | `vitest` | 4 → 5 | 6 | 100% | 97% | 97% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
 | `zod` | 3 → 4 | 11 | 100% | 93% | 22% | 219 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core | verified |
@@ -99,6 +99,7 @@ already run as assisted ([verification gate](packs.md)).
 | `@sentry/react` | `streamed-span-wrapper` | n/a | 0 | 0 | unexercised: runs assisted |
 | `stripe` | `api-version-unpinned` | 100% | 5 | 0 |  |
 | `stripe` | `fixture-cast` | n/a | 0 | 0 | unexercised: runs assisted |
+| `stripe` | `request-options` | n/a | 0 | 0 | unexercised: runs assisted |
 | `typescript` | `downlevel-iteration` | n/a | 0 | 0 | unexercised: runs assisted |
 | `typescript` | `import-assertions` | n/a | 0 | 0 | unexercised: runs assisted |
 | `typescript` | `module-keyword` | n/a | 0 | 0 | unexercised: runs assisted |

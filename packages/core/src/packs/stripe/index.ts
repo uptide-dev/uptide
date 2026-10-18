@@ -136,6 +136,60 @@ export function widenFixtureCast(
     reason: `the test already cast this partial fixture to ${type.getText()}; the same cast now goes through unknown, which the compiler requires once the types stop overlapping`,
   };
 }
+/** `RequestOptions` keys from SDK 18 to 22: never a request parameter of any method. */
+const REQUEST_OPTION_KEYS =
+  'apiKey|idempotencyKey|stripeAccount|stripeContext|apiVersion|maxNetworkRetries|timeout|host|authenticator|headers|streaming';
+const REQUEST_OPTIONS_REJECTED = new RegExp(
+  `'(?:${REQUEST_OPTION_KEYS})' does not exist in type '\\w*Params'`,
+);
+/**
+ * SDK 22 drops the `(id, options)` and `(options)` overloads of every method: request options
+ * in the params slot (`subscriptions.cancel(id, { idempotencyKey })`) now type-check as params
+ * (TS2353). The `(id, params?, options?)` form exists in every release since 18, so passing
+ * `undefined` as params moves the same options to the same request. Only a literal of request
+ * options alone, as the last argument of a method call, at the reported key.
+ */
+export function requestOptionsArgument(
+  text: string,
+  finding: Finding,
+): { text: string; applied: true; rule: string; reason: string } | undefined {
+  if (!REQUEST_OPTIONS_REJECTED.test(finding.usage.compileError ?? '')) return undefined;
+  const ast = new Project({ useInMemoryFileSystem: true }).createSourceFile('code.ts', text);
+  const keys = new RegExp(`^(?:${REQUEST_OPTION_KEYS})$`);
+  const literal = ast.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression).find((o) => {
+    const call = o.getParent();
+    const properties = o.getProperties();
+    return (
+      Node.isCallExpression(call) &&
+      Node.isPropertyAccessExpression(call.getExpression()) &&
+      call.getArguments().at(-1) === o &&
+      call.getArguments().length <= 2 &&
+      properties.length > 0 &&
+      properties.every(
+        (p) =>
+          (Node.isPropertyAssignment(p) || Node.isShorthandPropertyAssignment(p)) &&
+          keys.test(p.getName()),
+      ) &&
+      properties.some(
+        (p) =>
+          p.getStartLineNumber() === finding.usage.line &&
+          p.getStart() - p.getStartLinePos() + 1 === finding.usage.column,
+      )
+    );
+  });
+  if (!literal) return undefined;
+  const at = literal.getStart();
+  const before = text.slice(literal.getStartLinePos(), at);
+  // On a line of its own, `undefined,` gets one too, at the same indent.
+  const insert = /^\s*$/.test(before) ? `undefined,\n${before}` : 'undefined, ';
+  return {
+    text: `${text.slice(0, at)}${insert}${text.slice(at)}`,
+    applied: true,
+    rule: 'request-options',
+    reason:
+      'request options move to the third argument, params undefined: SDK 22 no longer reads them from the params slot',
+  };
+}
 /**
  * The replacement for the removed subscription-level period: the item that ends last, start
  * and end from that same item, so the two are always coherent. Same values as before for a
@@ -273,6 +327,23 @@ export const stripePack: Pack = {
         'This client sets no apiVersion, so the SDK bump changes the API version it speaks at runtime. Either pin the version the installed SDK defaulted to (no behaviour change) or adopt the new default and migrate every field the changelog entries touch. The owner decides; do not pick for them.',
     },
     {
+      id: 'request-options',
+      summary:
+        'request options (idempotencyKey, stripeAccount) passed where SDK 22 reads params; moved to the third argument',
+      severity: 'breaking',
+      kinds: ['type'],
+      symbols: /^TS2353$/,
+      message: REQUEST_OPTIONS_REJECTED,
+      guide:
+        'SDK 22 has no (id, options) or (options) overloads. Pass undefined as params and the same request options as the next argument; never merge them into params.',
+      rewrite: (text, finding) =>
+        requestOptionsArgument(text, finding) ?? {
+          text,
+          applied: false,
+          reason: 'not a literal of request options alone in the params slot: assisted',
+        },
+    },
+    {
       id: 'sdk-surface',
       summary: 'any other SDK type or method the target changed; migrated by the agent',
       severity: 'breaking',
@@ -326,7 +397,7 @@ export const stripePack: Pack = {
     },
   ],
   instructions: SDK_GUIDE,
-  // `transform` pins an unpinned client and widens a fixture cast; no rule has a `rewrite`.
+  // `transform` pins an unpinned client, widens a fixture cast and moves request options.
   mechanical: ['api-version-unpinned', 'fixture-cast'],
   transform: (text, finding, context) => {
     // A client without apiVersion says the version the target SDK's types describe: with the
@@ -343,6 +414,8 @@ export const stripePack: Pack = {
     }
     const widened = widenFixtureCast(text, finding);
     if (widened) return widened;
+    const moved = requestOptionsArgument(text, finding);
+    if (moved) return moved;
     return {
       text,
       applied: false,
@@ -355,8 +428,12 @@ export const stripePack: Pack = {
   },
   guide: (f, context) => {
     const general =
-      stripePack.rules.find((r) => r.kinds.includes(f.change.kind) && r.symbols.test(f.change.path))
-        ?.guide ?? 'Review the Stripe API upgrade before editing this usage.';
+      stripePack.rules.find(
+        (r) =>
+          r.kinds.includes(f.change.kind) &&
+          r.symbols.test(f.change.path) &&
+          (!r.message || r.message.test(f.usage.compileError ?? '')),
+      )?.guide ?? 'Review the Stripe API upgrade before editing this usage.';
     const isPin =
       pin.test(f.change.path) || /apiVersion|LatestApiVersion/.test(f.usage.compileError ?? '');
     const entries = context?.apiVersions
