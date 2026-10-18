@@ -235,6 +235,12 @@ repository, and there:
    Anthropic defaults to one SDK session for the package's manual sites, with repository
    read/edit tools and Uptide's checks. Its edits are accepted together only if they add no
    type errors, lint failures or related-test failures compared with the session's start.
+   Before a test failure rejects them, the failing test files run once more, alone; a file
+   that passes then is named as flaky in `report.json` (`llm.tasks[].flaky`) and the PR body
+   and does not reject the edits, and one that fails twice does. Final verification still
+   runs the flaky files in its full run, where a failure fails it. A verification feedback
+   session is not started when what is left of `--max-cost` is below the mean cost of the
+   run's sessions so far; the PR's feedback line says so.
    OpenAI, Gemini and `--agent patch` use snippet patches judged per attempt, including
    the pack's validator. Rejected edits are reverted and left manual. `--no-llm` turns
    assistance off. Which provider and what it costs: [models](../models.md).

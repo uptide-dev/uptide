@@ -22,7 +22,7 @@ import { sdkFallbackNote } from './sdk-agent.js';
 import { stripeChangelog } from './stripe-changelog.js';
 import { isTestFile } from './test-edits.js';
 import type { FixDiagnostic, FixPhase, FixReport, FixSite, ReviewSection } from './types.js';
-import { missingPackages, newDiagnostics } from './verify.js';
+import { failedTestFiles, missingPackages, newDiagnostics } from './verify.js';
 
 export function fixCounts(report: FixReport) {
   report = { ...report, sites: uniqueSites(report.sites) };
@@ -1192,10 +1192,10 @@ export function renderMigration(
       '',
     );
   if (report.llm.feedback) {
-    const { roundsUsed, maxRounds, maxCostUsd } = report.llm.feedback;
+    const { roundsUsed, maxRounds, maxCostUsd, stopped } = report.llm.feedback;
     lines.push(
       '',
-      `Feedback rounds: ${roundsUsed}/${maxRounds}. Spend: $${report.llm.costUsd.toFixed(2)} / $${maxCostUsd.toFixed(2)} cap${report.llm.unreportedCostUsd ? `; $${report.llm.unreportedCostUsd.toFixed(2)} additionally reserved (usage unknown)` : ''}.`,
+      `Feedback rounds: ${roundsUsed}/${maxRounds}. Spend: $${report.llm.costUsd.toFixed(2)} / $${maxCostUsd.toFixed(2)} cap${report.llm.unreportedCostUsd ? `; $${report.llm.unreportedCostUsd.toFixed(2)} additionally reserved (usage unknown)` : ''}.${stopped ? ` No further round: $${stopped.remainingUsd.toFixed(2)} left, below a session's typical $${stopped.typicalUsd.toFixed(2)}.` : ''}`,
     );
   }
   const changedTests = (report.changedFiles ?? []).filter(isTestFile);
@@ -1265,6 +1265,17 @@ export function renderMigration(
         ? `- Tests in \`${basename(t.workspace)}\` were failing before this change (${t.preexisting[0] === '*' ? 'the whole run' : t.preexisting.map((f) => `\`${basename(f)}\``).join(', ')}); not caused here, but a green suite would verify more.`
         : `- Tests in \`${basename(t.workspace)}\` ${t.status}; fix or rerun before merging.`,
     );
+  // Kept edits rest on these files' second run; verification judged them in its full gate.
+  const flaky = [...new Set((report.llm.tasks ?? []).flatMap((t) => t.flaky ?? []))].sort();
+  if (flaky.length) {
+    const failing = report.verification.tests
+      .filter((t) => t.status === 'failed')
+      .flatMap((t) => failedTestFiles(t.output));
+    const still = flaky.filter((f) => failing.some((g) => f.endsWith(g)));
+    review.push(
+      `- Flaky: ${flaky.map((f) => `\`${f}\``).join(', ')} failed in an agent session's tests and passed when run again alone, so the session's edits were kept. ${still.length ? `Verification's full run failed ${still.map((f) => `\`${basename(f)}\``).join(', ')} again: rerun before merging.` : `Verification ran ${flaky.length === 1 ? 'it' : 'them'} in its full run.`}`,
+    );
+  }
   for (const t of report.verification.tests.filter((t) => t.notRun && t.notRun.files > 0))
     review.push(
       `- ${count(t.notRun?.files ?? 0, 'integration test file')} not run (need ${t.notRun?.needs.join('/')}). Run with \`--with-services\` to include them.`,
