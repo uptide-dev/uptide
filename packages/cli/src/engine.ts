@@ -20,6 +20,7 @@ import {
   type ProgressListener,
   type PublishTarget,
   publishTarget,
+  ReportedError,
   removeOnInterrupt,
   removeRun,
   typescriptAdapter,
@@ -124,6 +125,7 @@ export function inWorker<T>(
                   peerConflicts?: PeerBlockerGroup[];
                   next?: string;
                   blocked?: InstallBlockedError['blocked'];
+                  report?: object;
                 },
           ) => {
             if ('type' in reply) {
@@ -145,7 +147,9 @@ export function inWorker<T>(
                   ? new PeerPreflightError(reply.peerConflicts, reply.next, reply.message)
                   : reply.blocked
                     ? new InstallBlockedError(reply.blocked)
-                    : new UptideError(reply.code, reply.message),
+                    : reply.report
+                      ? new ReportedError(reply.code, reply.message, reply.report)
+                      : new UptideError(reply.code, reply.message),
               );
           },
         );

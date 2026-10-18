@@ -98,6 +98,7 @@ export {
   NoTypesError,
   PackageNotFoundError,
   RegistryAuthError,
+  ReportedError,
   UptideError,
   VersionNotFoundError,
 } from './errors.js';

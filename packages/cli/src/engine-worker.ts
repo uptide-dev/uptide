@@ -3,6 +3,7 @@ import {
   errorCode,
   InstallBlockedError,
   PeerPreflightError,
+  ReportedError,
   watchInterruptibleClones,
 } from '@uptide/core';
 import { explain } from './errors.js';
@@ -28,5 +29,6 @@ runJob(workerData as Job, (event) => parentPort?.postMessage({ type: 'progress',
         ? { peerConflicts: err.peerConflicts, next: err.next }
         : {}),
       ...(err instanceof InstallBlockedError ? { blocked: err.blocked } : {}),
+      ...(err instanceof ReportedError ? { report: err.report } : {}),
     }),
 );

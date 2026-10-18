@@ -6,6 +6,7 @@ import {
   InstallBlockedError,
   PeerPreflightError,
   PublishError,
+  ReportedError,
   UptideError,
 } from '@uptide/core';
 import { describe, expect, it } from 'vitest';
@@ -522,6 +523,14 @@ describe('uptide fix', () => {
       },
     ],
     ['any other failure', new UptideError('INSTALL_FAILED', 'npm ci failed'), {}],
+    [
+      'a run whose report exists',
+      new ReportedError('PR_BODY_TOO_LARGE', 'body too large', {
+        branch: 'uptide/zod-4',
+        llm: { costUsd: 0.42 },
+      }),
+      { branch: 'uptide/zod-4', llm: { costUsd: 0.42 } },
+    ],
   ])('writes the JSON report on exit 2 too: %s', async (_case, error, extra) => {
     const engine = fakeEngine({
       fix: async () => {

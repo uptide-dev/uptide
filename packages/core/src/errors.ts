@@ -94,6 +94,7 @@ export type ErrorCode =
   | 'TYPESCRIPT_UNAVAILABLE'
   | 'INSTALL_FAILED'
   | 'INSTALL_BLOCKED'
+  | 'PR_BODY_TOO_LARGE'
   | 'INCONSISTENT_UPGRADE'
   | 'PACKAGE_MANAGER_UNAVAILABLE'
   | 'PACKAGE_MANAGER_VERSION'
@@ -130,6 +131,19 @@ export class UptideError extends Error {
     options?: ErrorOptions,
   ) {
     super(message, options);
+  }
+}
+/**
+ * A failure after the run wrote its report (`report.json`): `fix --json` prints that report
+ * with the error, so a failed exit still says what ran and what it cost (UPT-107).
+ */
+export class ReportedError extends UptideError {
+  constructor(
+    code: ErrorCode,
+    message: string,
+    readonly report: object,
+  ) {
+    super(code, message);
   }
 }
 /**

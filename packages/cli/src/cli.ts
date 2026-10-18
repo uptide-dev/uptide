@@ -16,6 +16,7 @@ import {
   packLeading,
   priceFor,
   publicationFailureReason,
+  ReportedError,
   registeredPacks,
   scaffoldPack,
   selectLlm,
@@ -218,6 +219,7 @@ export async function run(
         // `fix --json` answers on every exit, a failure included (UPT-107).
         if (flags.json && options.jsonErrors)
           emit({
+            ...(err instanceof ReportedError ? err.report : {}),
             error: { code: errorCode(err), message: explain(err) },
             ...(err instanceof InstallBlockedError ? { blocked: err.blocked } : {}),
           });
