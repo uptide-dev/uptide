@@ -398,6 +398,16 @@ it.each([false, true])(
   },
 );
 
+it('publishes a run whose upgrade broke the build only as a draft (UPT-110)', async () => {
+  const broken: FixReport = {
+    ...report,
+    verification: { ...report.verification, passed: false, buildBroken: true },
+  };
+  const m = mock();
+  expect(await publish(broken, true, m.io, { draft: false })).toContain('/pull/1');
+  expect(m.calls.find((c) => c[1] === 'pr' && c[2] === 'create')).toContain('--draft');
+});
+
 it('publishes an agent-led fallback only as a draft, preserving tree and provenance checks', async () => {
   const fallback: FixReport = {
     ...report,

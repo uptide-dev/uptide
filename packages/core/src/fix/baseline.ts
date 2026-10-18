@@ -94,6 +94,14 @@ export function baselineHeadline(health: BaselineHealth): string | undefined {
 }
 
 /**
+ * The final-head build failed and nothing failed at the parent commit: the upgrade broke it
+ * (UPT-110). Without a parent build there is nothing to compare.
+ */
+export function upgradeBrokeBuild(parentBuild: BuildResult[] | undefined): boolean {
+  return !!parentBuild && !parentBuild.some((b) => b.status === 'failed' || b.status === 'timeout');
+}
+
+/**
  * The verdict of a run. A healthy baseline keeps the strict gate's words; an unhealthy one
  * that gained nothing says `no new errors`, since that is all a comparison can show; a
  * failure separates what the upgrade introduced from what was already there.
@@ -112,6 +120,8 @@ export function fixVerdict(report: FixReport): {
           tone: 'passed',
         }
       : { text: 'no new errors', tone: 'compared' };
+  if (v.buildBroken)
+    return { text: 'verification failed: build broken by this upgrade', tone: 'failed' };
   if (low && !v.typesUnverified && !v.newErrors.length)
     return { text: `verification failed: ${low} and no test or build passed`, tone: 'failed' };
   if (v.typesUnverified || !v.newErrors.length)

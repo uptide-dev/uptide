@@ -5,7 +5,7 @@ import { BY } from '../domain/wording.js';
 import { costStopMessage } from '../llm/fixer.js';
 import { GENERIC_NOTE } from '../packs/generic.js';
 import { UPTIDE_COMMAND } from '../version.js';
-import { baselineHeadline, baselineHealthOf } from './baseline.js';
+import { baselineHeadline, baselineHealthOf, upgradeBrokeBuild } from './baseline.js';
 import type { BehaviorResult } from './behavior.js';
 import { fitPieces, must, type Piece } from './budget.js';
 import {
@@ -570,18 +570,20 @@ export function verifiedBy(report: FixReport): string {
       : report.packWarning
         ? ' (not required by this candidate pack)'
         : ' (not required by the pack)';
-  const firstError = v.build
-    ?.filter((b) => failing(b.status))
-    .flatMap((b) => b.output?.split('\n') ?? [])
-    .find((line) => /\berror\b/i.test(line))
-    ?.trim();
+  const firstError = firstBuildError(v.build);
+  // Built again at the parent only when it failed here: whose failure it is (UPT-110).
+  const parent = !v.parentBuild
+    ? ''
+    : upgradeBrokeBuild(v.parentBuild)
+      ? ' — broken by this upgrade'
+      : ' — already failing before this upgrade';
   const build = `${
     !v.build
       ? '⚠️ build not run'
       : !v.build.length || v.build.some((b) => b.status === 'missing')
         ? '⚠️ build not run: no build script'
         : v.build.some((b) => failing(b.status))
-          ? `❌ build${firstError ? `: ${cell(firstError.slice(0, 160))}` : ''}${buildCauseText(v.build)}`
+          ? `❌ build${firstError ? `: ${cell(firstError.slice(0, 160))}` : ''}${buildCauseText(v.build)}${parent}`
           : '✅ build'
   }${gate}`;
   const ran = v.tests.filter((t) => t.status !== 'missing');
@@ -787,6 +789,7 @@ function minimalBody(report: FixReport, title: string): string {
     '',
     `> ⚠️ **Shortened description.** This run's evidence does not fit GitHub's size limit even in compact form, so this is its summary. Every section is in ${fullLists(report)}.`,
     '',
+    ...(upgradeBrokeBuild(report.verification.parentBuild) ? [brokenBuildBanner(report), ''] : []),
     ...(report.agentFallback?.length
       ? [
           '> ⚠️ **Agent-led draft.** The mechanical path stopped; the reasons are in report.json.',
@@ -845,7 +848,9 @@ export function renderMigration(
       ? `## Pin the Stripe API version to ${report.apiVersion}`
       : `## Upgrade ${report.package} ${from} → ${report.target}`;
   const lines: (string | Piece)[] = [title, ''];
-  // Never a silent switch: the executor that ran is the first thing said when it is not the SDK.
+  // A build this upgrade broke comes before anything else a reviewer reads (UPT-110).
+  if (upgradeBrokeBuild(report.verification.parentBuild)) lines.push(brokenBuildBanner(report), '');
+  // Never a silent switch: the executor that ran is said next when it is not the SDK.
   if (report.llm.sdkMissing) lines.push(`> ⚠️ ${sdkFallbackNote(report.llm.sdkMissing)}`, '');
   // Why the mechanical path stopped and the agent led: the first thing a reviewer reads.
   if (report.agentFallback?.length)
@@ -1362,6 +1367,19 @@ export function renderMigration(
     budget,
   );
   return body ?? minimalBody(report, title);
+}
+/** The line a PR opens with when the build passed at the parent commit and fails here. */
+function brokenBuildBanner(report: FixReport): string {
+  const error = firstBuildError(report.verification.build);
+  return `> ❌ **Build broken by this upgrade.** The repository's build passed at the parent commit and fails on this branch${error ? `: ${error.slice(0, 160)}` : '.'}`;
+}
+/** The first line of a failing build's output that names an error. */
+function firstBuildError(build: FixReport['verification']['build']): string | undefined {
+  return build
+    ?.filter((b) => b.status === 'failed' || b.status === 'timeout')
+    .flatMap((b) => b.output?.split('\n') ?? [])
+    .find((line) => /\berror\b/i.test(line))
+    ?.trim();
 }
 /** ` (needs DATABASE_URL; set verify.build)` when every failed build stopped before the framework's build. */
 function buildCauseText(build: NonNullable<FixReport['verification']['build']>): string {

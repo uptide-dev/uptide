@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, it, vi } from 'vitest';
 import { zodPack } from '../packs/zod/index.js';
+import { fixVerdict } from './baseline.js';
 import { git } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { prBody } from './report.js';
@@ -89,27 +90,95 @@ it('reruns the required build when re-verifying and cannot publish a stale pass'
   expect(publicationBlockers(again).join('; ')).toContain('build required');
 });
 
-it('reports the repo build a pack does not require: a failure reads failed, not "not required" (UPT-110)', async () => {
+const failedBuild = {
+  workspace: '.',
+  status: 'failed' as const,
+  command: 'tsc -b',
+  output: "> tsc -b\nsrc/db.ts(3,8): error TS2307: Cannot find module 'pg'.\nFound 1 error.",
+};
+
+/** A repo build that fails on the branch, and at the parent too when `atParent` says so. */
+function failingHead(root: string, atParent: 'failed' | 'passed') {
+  const builtAt: string[] = [];
+  const build = vi.fn(async () => {
+    // Detached HEAD: the parent commit, checked out in the same clone.
+    const where = git(root, 'branch', '--show-current') ? 'branch' : 'parent';
+    builtAt.push(where);
+    return [
+      where === 'branch' || atParent === 'failed'
+        ? failedBuild
+        : { workspace: '.', status: 'passed' as const, command: 'tsc -b', output: '' },
+    ];
+  });
+  return { build, builtAt };
+}
+
+it('reports the repo build a pack does not require, already failing at the parent: named, not blocking (UPT-110)', async () => {
   const { root, services } = zodFixture(scratch);
-  const build = vi.fn(async () => [
-    {
-      workspace: '.',
-      status: 'failed' as const,
-      command: 'tsc -b',
-      output: "> tsc -b\nsrc/db.ts(3,8): error TS2307: Cannot find module 'pg'.\nFound 1 error.",
-    },
-  ]);
+  const { build, builtAt } = failingHead(root, 'failed');
+  const install = vi.fn(services.install);
+  const result = await fix(
+    { cwd: root, only: 'zod', pack: zodPack, fixer: null },
+    { ...services, build, install },
+  );
+  // The final head, then the parent, with its own install and the branch's put back.
+  expect(builtAt).toEqual(['branch', 'parent']);
+  expect(install.mock.calls.filter((c) => c[1] === undefined)).toHaveLength(2);
+  expect(git(root, 'branch', '--show-current')).toBe(result.branch);
+  expect(git(root, 'rev-parse', 'HEAD')).toBe(result.head);
+  const body = prBody(result);
+  expect(body).toContain(
+    "❌ build: src/db.ts(3,8): error TS2307: Cannot find module 'pg'. — already failing before this upgrade (not required by the pack)",
+  );
+  expect(body).not.toContain('build not required');
+  expect(body).not.toContain('Build broken by this upgrade');
+  // A failure the parent already has is reported, not a blocker.
+  expect(result.verification.passed).toBe(true);
+  expect(result.verification.buildBroken).toBeUndefined();
+  expect(publicationBlockers({ ...result, uptideDirty: false }, { uptideDirty: false })).toEqual(
+    [],
+  );
+});
+
+it('fails a run whose upgrade broke the repo build, and publishes it only as a draft that says so (UPT-110)', async () => {
+  const { root, services } = zodFixture(scratch);
+  const { build, builtAt } = failingHead(root, 'passed');
   const result = await fix(
     { cwd: root, only: 'zod', pack: zodPack, fixer: null },
     { ...services, build },
   );
-  expect(build).toHaveBeenCalledOnce();
+  expect(builtAt).toEqual(['branch', 'parent']);
+  expect(result.verification.passed).toBe(false);
+  expect(result.verification.buildBroken).toBe(true);
+  expect(fixVerdict(result)).toEqual({
+    text: 'verification failed: build broken by this upgrade',
+    tone: 'failed',
+  });
   const body = prBody(result);
-  expect(body).toContain(
-    "❌ build: src/db.ts(3,8): error TS2307: Cannot find module 'pg'. (not required by the pack)",
+  expect(body).toMatch(
+    /^## Upgrade zod [^\n]+\n\n> ❌ \*\*Build broken by this upgrade\.\*\* The repository's build passed at the parent commit and fails on this branch: src\/db\.ts\(3,8\): error TS2307/,
   );
-  expect(body).not.toContain('build not required');
-  // The pack's gate is unchanged: a build it does not require is reported, not a blocker.
-  expect(result.verification.passed).toBe(true);
-  expect(publicationBlockers(result).filter((b) => b.startsWith('build'))).toEqual([]);
+  expect(body).toContain('— broken by this upgrade (not required by the pack)');
+  expect(body).not.toContain('Ready for review');
+  // Nothing else failed: it publishes, and `publish` makes it a draft. Without that, refused.
+  expect(publicationBlockers({ ...result, uptideDirty: false }, { uptideDirty: false })).toEqual(
+    [],
+  );
+  const { buildBroken: _, ...otherwise } = result.verification;
+  expect(
+    publicationBlockers(
+      { ...result, uptideDirty: false, verification: otherwise },
+      { uptideDirty: false },
+    ),
+  ).not.toEqual([]);
+  // `verify` keeps the parent's result while this head still fails, and drops it once fixed.
+  const still = await reverify({ cwd: root, pack: zodPack }, { ...services, build });
+  expect(still.verification).toMatchObject({ passed: false, buildBroken: true });
+  const fixed = await reverify(
+    { cwd: root, pack: zodPack },
+    { ...services, build: async () => [{ workspace: '.', status: 'passed', output: '' }] },
+  );
+  expect(fixed.verification.passed).toBe(true);
+  expect(fixed.verification.parentBuild).toBeUndefined();
+  expect(fixed.verification.buildBroken).toBeUndefined();
 });

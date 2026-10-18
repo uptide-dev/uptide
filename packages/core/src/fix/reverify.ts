@@ -7,7 +7,7 @@ import { decidedRules, packDecisions } from '../packs/decisions.js';
 import { activePack } from '../packs/index.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { uptideVersionInfo } from '../version.js';
-import { testsOrBuildVouch } from './baseline.js';
+import { testsOrBuildVouch, upgradeBrokeBuild } from './baseline.js';
 import { buildWorkspaces, configuredBuildScript } from './build.js';
 import { git } from './process.js';
 import { prBody } from './report.js';
@@ -168,6 +168,24 @@ export async function reverify(
     ...new Set([...(report.decidedRules ?? []), ...decidedRules(pack, context, rules, followed)]),
   ];
   const { headline: _stored, ...kept } = report;
+  // The parent commit is the run's own: its build stands for as long as this head's fails (UPT-110).
+  const {
+    parentBuild: storedParent,
+    buildBroken: _broken,
+    ...storedVerification
+  } = report.verification;
+  const parentBuild = build.some((b) => b.status === 'failed' || b.status === 'timeout')
+    ? storedParent
+    : undefined;
+  const broken = upgradeBrokeBuild(parentBuild);
+  const checksPassed =
+    !unverified &&
+    newErrors.length === 0 &&
+    left.length === 0 &&
+    (!buildRequired || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
+    tests.every((t) => t.status === 'passed' || t.status === 'missing') &&
+    testsOrBuildVouch(report.typeCoverage, tests, build) &&
+    lint.every((l) => l.status !== 'failed');
   const result: FixReport = {
     ...kept,
     ...(headline ? { headline } : {}),
@@ -186,7 +204,7 @@ export async function reverify(
       : {}),
     sites,
     verification: {
-      ...report.verification,
+      ...storedVerification,
       after,
       newErrors,
       tests,
@@ -195,14 +213,9 @@ export async function reverify(
       ...(lint.length ? { lint } : {}),
       ...(formatted.length ? { formatted } : {}),
       ...(unverified ? { typesUnverified: unverified } : {}),
-      passed:
-        !unverified &&
-        newErrors.length === 0 &&
-        left.length === 0 &&
-        (!buildRequired || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
-        tests.every((t) => t.status === 'passed' || t.status === 'missing') &&
-        testsOrBuildVouch(report.typeCoverage, tests, build) &&
-        lint.every((l) => l.status !== 'failed'),
+      ...(parentBuild ? { parentBuild } : {}),
+      ...(broken && checksPassed ? { buildBroken: true as const } : {}),
+      passed: checksPassed && !broken,
     },
     ...(decisions.length ? { decisions } : {}),
     ...(decided.length ? { decidedRules: decided } : {}),

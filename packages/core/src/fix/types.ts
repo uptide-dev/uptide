@@ -303,6 +303,13 @@ export interface FixReport {
     /** Workspace preparation and builds required by a pack or the generic path. */
     build?: BuildResult[];
     baselineBuild?: BuildResult[];
+    /**
+     * The repository's build at the parent commit, run only when the final-head build failed
+     * (UPT-110): it tells a build the upgrade broke from one that was already failing.
+     */
+    parentBuild?: BuildResult[];
+    /** The upgrade broke the build and every other check passed: a failed run, published only as a draft. */
+    buildBroken?: true;
     /** Lint of the edited files with the repository's own tools; a new failure fails verification. */
     lint?: LintResult[];
     /** Formatters run on the edited files (`biome`, `prettier`), when any changed them. */

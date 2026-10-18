@@ -1570,7 +1570,8 @@ it('records baseline builds and rebuilds affected output after the upgrade throu
   );
   expect(upgraded).toBe(true);
   // Baseline, right after the bump (the agent's declarations), again on the final head, and
-  // the repository's own build there, which the pack does not require (UPT-110).
+  // the repository's own build there, which the pack does not require (UPT-110): only the root,
+  // since `packages/internal` was just built on that head.
   expect(build).toHaveBeenCalledTimes(4);
   expect(build).toHaveBeenNthCalledWith(
     1,
@@ -1586,18 +1587,11 @@ it('records baseline builds and rebuilds affected output after the upgrade throu
     undefined,
     'build:ci',
   );
-  expect(build).toHaveBeenNthCalledWith(
-    4,
-    realpathSync(root),
-    ['.', 'packages/internal'],
-    undefined,
-    'build:ci',
-  );
+  expect(build).toHaveBeenNthCalledWith(4, realpathSync(root), ['.'], undefined, 'build:ci');
   expect(result.verification.build).toMatchObject([
     { phase: 'baseline', workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
     { workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
     { workspace: '.', status: 'missing' },
-    { workspace: 'packages/internal', script: 'build:ci', status: 'passed' },
   ]);
   expect(prBody(result)).toContain(
     'Build before the baseline in `packages/internal` (`build:ci` script)',
@@ -1728,11 +1722,10 @@ describe('consumed workspace builds on the final head (UPT-104)', () => {
       { phase: 'baseline', workspace: 'packages/internal', status: 'passed' },
       { workspace: 'packages/internal', status: 'passed' },
       { workspace: '.', status: 'passed' },
-      { workspace: 'packages/internal', status: 'passed' },
     ]);
-    // Baseline, after the bump, once on the edited head, then the repository's build there
-    // (root and `packages/internal`).
-    expect(result.buildRuns?.count).toBe(5);
+    // Baseline, after the bump, once on the edited head, as before UPT-110; then the repository's
+    // build there for the root alone: `packages/internal` reuses the consumed build.
+    expect(result.buildRuns?.count).toBe(4);
     const body = prBody(result);
     expect(body).toContain(
       'Build after the bump in `packages/internal` (`build:ci` script): `node build.cjs` — passed',
@@ -1751,14 +1744,15 @@ describe('consumed workspace builds on the final head (UPT-104)', () => {
       { ...services, build },
     );
     expect(result.changedFiles).not.toContain('index.ts');
-    // Preparation and after the bump; then only the repository's own build on the head.
+    // Preparation and after the bump, as before UPT-110; then the repository's own build on the
+    // head for the root alone, since the after-bump build of `packages/internal` is still current.
     expect(build).toHaveBeenCalledTimes(3);
-    expect(result.buildRuns?.count).toBe(4);
+    expect(build).toHaveBeenLastCalledWith(realpathSync(root), ['.'], undefined, 'build:ci');
+    expect(result.buildRuns?.count).toBe(3);
     expect(result.verification.build).toMatchObject([
       { phase: 'baseline', workspace: 'packages/internal', status: 'passed' },
       { workspace: 'packages/internal', status: 'passed' },
       { workspace: '.', status: 'passed' },
-      { workspace: 'packages/internal', status: 'passed' },
     ]);
   });
 
