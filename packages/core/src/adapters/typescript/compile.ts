@@ -373,7 +373,7 @@ onReset(() => {
   bundledLibs = undefined;
 });
 
-function bundledLib(fileName: string): string | undefined {
+export function bundledLib(fileName: string): string | undefined {
   if (!/^lib(?:\..+)?\.d\.ts$/.test(basename(fileName))) return undefined;
   bundledLibs ??= new Project({ useInMemoryFileSystem: true });
   return bundledLibs.addSourceFileAtPathIfExists(fileName)?.getFullText();

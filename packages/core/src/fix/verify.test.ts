@@ -168,3 +168,27 @@ it('matches a pre-existing error that an added line moved down, never one on an 
   expect(newDiagnostics([at(2)], [at(3)], moves)).toEqual([at(3)]);
   expect(moved(at(2), moves)).toEqual(at(2));
 });
+
+it('finds an explicit lib newer than the target with a TS 7-style install (UPT-100)', () => {
+  // TypeScript 7 ships no compiler API and no lib files, so the bundled compiler serves the
+  // standard library; `lib: ["ES2023"]` under `target: "ES2022"` names a lib the target's
+  // default does not load.
+  const root = realpathSync(mkdtempSync(join(scratch, 'ts7-lib-')));
+  const files = {
+    'package.json': JSON.stringify({ name: 'app', devDependencies: { typescript: '7.0.2' } }),
+    'node_modules/typescript/package.json': JSON.stringify({
+      name: 'typescript',
+      version: '7.0.2',
+    }),
+    'tsconfig.json': JSON.stringify({
+      compilerOptions: { target: 'ES2022', lib: ['ES2023'], strict: true, types: [] },
+      include: ['src'],
+    }),
+    'src/index.ts': 'export const owns = Object.hasOwn({ value: 1 }, "value");\n',
+  };
+  for (const [file, text] of Object.entries(files)) {
+    mkdirSync(join(root, file, '..'), { recursive: true });
+    writeFileSync(join(root, file), text);
+  }
+  expect(diagnostics(root, ['.'])).toEqual([]);
+});
