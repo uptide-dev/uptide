@@ -22,7 +22,6 @@ maxOpenPrs: 3
 llm:
   provider: anthropic
 maxCost: 1
-executor: auto
 # minReleaseAgeDays: 7   # optional; see Release age
 # verify:
 #   build: build-ci      # optional; see Required builds
@@ -37,9 +36,9 @@ Only `version` is required. Every other field has the default shown in the table
 | `packages.deny` | list of globs | `[]` | Never these, even when `allow` matches them. |
 | `schedule` | cron (UTC) or `manual` | `17 6 * * 1` | When the workflow runs. See [Schedule](#schedule). |
 | `maxOpenPrs` | 1 to 50 | `3` | No new pull request is opened while this many Uptide pull requests are open. |
-| `llm.provider` | `anthropic`, `openai`, `gemini` | `anthropic` | Who receives the code around call sites no rule fixes, with the repository's own API key. The Uptide Action takes `anthropic` only. |
+| `llm.provider` | `anthropic` | `anthropic` | Who receives the code around call sites no rule fixes, with the repository's own API key. `fix` and the Uptide Action run on Anthropic only; another value stops them. |
 | `maxCost` | USD, more than 0, at most 100 | `1` | LLM budget; the SDK may overshoot by one turn. An estimate above it stops `fix` before any agent call ([models](models.md#--max-cost)). |
-| `executor` | `auto`, `patch`, `sdk` | `auto` | With `auto`, SDK for Anthropic when it is installed, patch otherwise. `patch` or `sdk` explicitly selects the executor. |
+| `executor` | `auto`, `sdk` | `auto` | Kept for older files: assisted fixes always use the Claude Agent SDK. `patch` stops `fix` and the Action with exit 2. |
 | `minReleaseAgeDays` | days, 0 to 365 | none | Uptide never targets a release younger than this, when the repository sets no release-age policy of its own. Days, unlike pnpm's minutes. See [Release age](#release-age). |
 | `updatePins` | boolean | PR runs: enabled; local runs: explicit consent | Set `false` to disable automatic root pin updates in draft PRs. `--update-pins` explicitly approves them even when this setting is false. |
 | `verify.build` | a package.json script name | none | The script a migration pack's required build runs. Unset: `build:ci`, then `build-ci`, then `build`. See [Required builds](#required-builds). |
@@ -190,7 +189,7 @@ it from outside the repository (`npx uptide list --cwd path/to/repo`).
     run with an error.
   - `maxCost`: the limit of each `fix` run.
   - `maxOpenPrs`: no new pull request while that many Uptide pull requests are open.
-  - `executor`: `patch` for the patch agent; otherwise the Agent SDK.
+  - `executor`: `patch` stops the run; otherwise the Agent SDK, the only executor.
   It does not read `schedule`: see below.
 - **`uptide fix`** reads `llm.provider`, `maxCost` and `executor`.
 - **`uptide list`**, **`uptide check`**, **`uptide fix`**, **`uptide plan`** and the Action
@@ -212,9 +211,7 @@ A flag on the command line overrides the file, and the file overrides the defaul
 
 | Setting | Flag | Also |
 | --- | --- | --- |
-| `llm.provider` | `--provider` | `UPTIDE_PROVIDER` ranks above the file |
 | `maxCost` | `--max-cost` | |
-| `executor` | `--agent patch`, `--agent sdk` | |
 | `packages` | naming a package | |
 
 `uptide.config.json` (`provider`, `model`, `advisories`) is still read. If both files set a

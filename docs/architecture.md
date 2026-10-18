@@ -533,13 +533,15 @@ repository and the elapsed time, one row per dependency, one line per rule, and 
 block with the exact commands for the repository. `--details` keeps the full listing
 (`format-check-details.ts`).
 
-### Assisted fixes: SDK and patch executors
+### Assisted fixes: the Agent SDK executor
 
-With `--agent patch` or a non-Anthropic provider, sites a rule leaves manual go to
-the patch agent (`src/fix/assisted.ts`):
-one site at a time, a snippet and a guide in, one unified diff out, applied and judged per
-attempt by exact diagnostic position. Authenticated Anthropic runs default to `--agent sdk` when the SDK can load (next to Uptide, or fetched once into its cache), replacing
-that step with `assistWithSdk` (`src/fix/sdk-agent.ts`). It runs one Claude Agent SDK session
+`fix` runs assisted fixes only with `assistWithSdk` (`src/fix/sdk-agent.ts`): the SDK loads
+from next to Uptide, or is fetched once into its cache (asked first on a terminal). When it
+cannot run, the CLI and `fix()` stop with `SDK_UNAVAILABLE` before any clone; there is no
+fallback. The patch agent (`src/fix/assisted.ts`: one site at a time, a snippet and a guide
+in, one unified diff out, judged per attempt by exact diagnostic position) remains for
+Uptide's own tests and evaluations, behind `UPTIDE_INTERNAL=1` with `--agent patch` or
+another provider. It runs one Claude Agent SDK session
 for the package's manual sites and their rule knowledge, in the clone, with read and edit tools, Uptide's own checks
 as in-process tools and no shell. One gate runs at the end of each task, matching diagnostics
 across line moves (`gitLineMoves`). Everything around the step is unchanged. See
@@ -1058,7 +1060,7 @@ diagnostics and no failing or timed-out target test run.
 No `--pr` means no push. Opening a PR and updating one's description go through the same
 gate (`publicationBlockers` in `src/fix/publish.ts`): a failed or pending verification, or
 a run produced by an Uptide checkout with uncommitted changes, never reaches GitHub,
-whatever `--yes` or `--no-llm` say; `fix --pr` refuses a dirty Uptide checkout before
+whatever `--yes` says; `fix --pr` refuses a dirty Uptide checkout before
 doing any work. The report keeps why and the CLI prints it. The build stamps its commit and
 whether the tree was clean, and git state is not something turbo can hash, so `build` is
 never served from turbo's cache: a cached bundle would carry the stamp of whenever it was

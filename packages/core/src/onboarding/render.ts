@@ -165,11 +165,7 @@ llm:
   provider: ${config.llm.provider}
 
 # LLM budget in USD; the SDK may overshoot by one turn.
-maxCost: ${config.maxCost}
-
-# How assisted fixes are applied: auto (SDK for Anthropic when installed, patch otherwise), patch (one edit per call site),
-# or sdk (a Claude Agent SDK session).
-executor: ${config.executor}${
+maxCost: ${config.maxCost}${
     config.updatePins === undefined
       ? ''
       : `
@@ -276,11 +272,9 @@ export const TRUST_URL = 'https://uptide-app.vercel.app/trust';
 
 /**
  * What goes to an LLM from the runner, as the Action actually does it: Anthropic only (the
- * generator refuses another provider), and the Agent SDK unless \`executor: patch\`.
+ * generator refuses another provider), through the Agent SDK.
  */
 function llmLine(config: UptideConfig): string {
   const budget = `Spending stops at $${config.maxCost} per run (\`maxCost\` in uptide.yml).`;
-  return config.executor === 'patch'
-    ? `**Code sent to Anthropic, with this repository's own API key**, for call sites no rule can fix: the code around each one. ${budget}`
-    : `**Code sent to Anthropic, with this repository's own API key**, for call sites no rule can fix. The assisted fixer (the Claude Agent SDK) can read any file in the checkout to work out a fix, and what it reads goes to Anthropic with its requests. ${budget}`;
+  return `**Code sent to Anthropic, with this repository's own API key**, for call sites no rule can fix. The assisted fixer (the Claude Agent SDK) can read any file in the checkout to work out a fix, and what it reads goes to Anthropic with its requests. ${budget}`;
 }

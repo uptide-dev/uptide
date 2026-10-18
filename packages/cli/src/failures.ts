@@ -249,10 +249,9 @@ export const assistedNote = (provider: string, sdk: boolean): string =>
     `  are sent to ${provider} with your key.`,
     ...(sdk
       ? [
-          '  The Anthropic SDK executor can also send files throughout the temporary clone',
-          '  and the output of type-checks, lint and tests. Use --agent patch to opt out.',
+          '  The Agent SDK can also send files throughout the temporary clone',
+          '  and the output of type-checks, lint and tests.',
         ]
       : []),
-    '  Pass --no-llm to keep code on this machine.',
     '',
   ].join('\n');

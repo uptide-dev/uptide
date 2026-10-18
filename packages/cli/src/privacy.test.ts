@@ -42,10 +42,10 @@ describe('privacy statement', () => {
 });
 
 describe('fix --no-llm', () => {
-  it('is documented and reaches the engine as llm: false', async () => {
+  it('is hidden, and internally reaches the engine as llm: false', async () => {
     const help = memoryIo();
     await run(['fix', '--help'], help, fakeEngine());
-    expect(help.stdout()).toContain('--no-llm');
+    expect(help.stdout()).not.toMatch(/--no-llm|--agent|--provider/);
 
     const engine = fakeEngine();
     const io = memoryIo({ cwd: pnpmGitRepo(), env: { ANTHROPIC_API_KEY: 'test-key' } });
@@ -63,8 +63,7 @@ describe('fix --no-llm', () => {
     expect(io.stderr()).toContain('note: assisted fixes are on.');
     expect(io.stderr()).toContain('compiler-linked repository declarations');
     expect(io.stderr()).toContain('files throughout the temporary clone');
-    expect(io.stderr()).toContain('Use --agent patch to opt out.');
-    expect(io.stderr()).toContain('Pass --no-llm to keep code on this machine.');
+    expect(io.stderr()).not.toMatch(/--agent patch|--no-llm/);
   });
 
   it.each([

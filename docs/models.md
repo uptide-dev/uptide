@@ -1,49 +1,45 @@
 ---
 title: Models
-description: Which LLM provider and model assisted fixes use, how to choose one, what the budget flag reserves, and custom OpenAI-compatible endpoints.
+description: Which Anthropic model assisted fixes use, how to choose one, and what the budget flag limits.
 ---
 
 # Models
 
-For someone running `uptide fix` with an API key who wants to choose the provider, the
-model and the budget, or point at their own endpoint. Measured results per provider are in
-the [provider evaluation](provider-evaluation.md); rates in [model pricing](model-pricing.md).
+For someone running `uptide fix` who wants to choose the model and the budget. Measured
+results are in the [provider evaluation](provider-evaluation.md); rates in
+[model pricing](model-pricing.md).
 
-## Choosing a provider and model
+## Choosing a model
 
-Assisted fixes support Anthropic, OpenAI and Gemini (experimental), with the same final
-diagnostic comparison and publish gate. Anthropic uses the SDK executor by default when it is installed; OpenAI and Gemini
-use the patch executor. Set the chosen provider's key in your environment:
-`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY`. Never put keys in repository
-config or command arguments.
+`fix` runs assisted fixes only with the Claude Agent SDK, on Anthropic models, with your own
+`ANTHROPIC_API_KEY` from the environment. Never put keys in repository config or command
+arguments. Without the key or the SDK, `fix` stops before any clone
+([`fix`](commands/fix.md#the-claude-agent-sdk)).
 
 ```sh
-npx uptide fix zod --provider openai --model gpt-6.1-sol
-UPTIDE_PROVIDER=gemini UPTIDE_MODEL=gemini-3.8-flash uptide fix stripe
+npx uptide fix zod --model claude-sonnet-5-5
+UPTIDE_MODEL=claude-sonnet-5-5 uptide fix stripe
 npx uptide fix zod --max-cost 1
-npx uptide fix zod --no-llm
 ```
 
-For each setting, precedence is flag → `UPTIDE_PROVIDER` / `UPTIDE_MODEL` → nearest
-`uptide.config.json` up to the Git root. Without a provider setting, detection checks
-`ANTHROPIC_API_KEY`, then `OPENAI_API_KEY`, then `GEMINI_API_KEY`; Anthropic remains the
-overall default. An explicitly selected provider never falls back to another provider. The
-selected provider/model prints before the fix starts, and spend prints at the end.
+For the model, precedence is `--model` → `UPTIDE_MODEL` → nearest `uptide.config.json` up to
+the Git root. The model prints before the fix starts, and spend prints at the end.
 
 The optional config accepts **only** `provider` and `model` strings:
 
 ```json
-{ "provider": "openai", "model": "gpt-6.1-sol" }
+{ "provider": "anthropic", "model": "claude-sonnet-5-5" }
 ```
 
 Unknown fields, nested settings and key-like values are rejected, including when flags would
-override them. Keys are read only from the environment. No key: a generic fix exits before
-cloning, installing or creating a branch; migration packs still apply rule-based fixes and
-leave assisted sites manual. `--no-llm` disables all model calls.
+override them. Keys are read only from the environment. Another provider (`openai`,
+`gemini`), from the config, `UPTIDE_PROVIDER` or a lone `OPENAI_API_KEY` / `GEMINI_API_KEY`,
+makes `fix` stop with exit 2: the SDK runs on Anthropic models only.
 
 ## Defaults
 
-Checked against official documentation on 2026-10-04:
+Checked against official documentation on 2026-10-04. OpenAI and Gemini remain for Uptide's
+own evaluations (`UPTIDE_INTERNAL=1`, with the patch executor); `fix` does not run them.
 
 | Provider | Default | Reference |
 | --- | --- | --- |
@@ -67,16 +63,8 @@ times, exact echoed IDs and the Sonnet 4.6/high/medium comparison are in the
 [provider evaluation](provider-evaluation.md). These single fixture trials are not a general
 model ranking.
 
-The following protocol describes the patch executor (`--agent patch`), which remains the
-default for OpenAI and Gemini. Anthropic defaults to [Agent SDK sessions](commands/fix.md#assisted-fix-executor);
-the [executor evaluation](agent-sdk-evaluation.md) compares them on three public repositories.
-
-Tool choice follows each model's capabilities. Sonnet 5.5 uses `auto` with a strict
-`submit_patch` schema and a tool-only system instruction; Sonnet 4.6, OpenAI and Gemini use
-forced tool calls. Missing or invalid calls consume an attempt and their reported cost, then
-receive the feedback "respond only by calling submit_patch". HTTP 429 is reported as rate
-limiting, waits for `Retry-After` (60 seconds when absent), and retries only when another
-reservation fits the budget.
+The [executor evaluation](agent-sdk-evaluation.md) compares the SDK with the earlier patch
+executor on three public repositories.
 
 ## `--max-cost`
 
@@ -108,28 +96,13 @@ it can overshoot by one turn.
 The summary's `Phases` row and the PR's run details give wall time per phase (analyze,
 baseline, install, rules, agent, verify, feedback) and the agent's spend in each.
 
-With the patch executor, before every call and retry, Uptide reserves its worst-case input
-and maximum output cost. A call that would exceed
-the remaining budget is never sent. Actual returned usage replaces the reservation; failures
-without valid usage keep the full reservation, shown separately as unknown spend. Rejected
-patches still consume budget. Unfinished sites remain manual; final verification decides
-whether the result can be published. Unknown models use the provider's highest listed rates with a warning. See
+Unknown models use Anthropic's highest listed rates with a warning. See
 [model pricing](model-pricing.md) for rates, token estimation and the scope of accounting.
-
-## `OPENAI_BASE_URL`
-
-`OPENAI_BASE_URL` selects an OpenAI **Chat Completions-compatible, not verified** endpoint.
-Uptide appends `/chat/completions` to the supplied API base URL and uses Bearer
-authentication, strict functions and forced `submit_patch`. The official OpenAI endpoint uses
-Responses when this override is absent. HTTPS is required, except HTTP localhost for local
-servers. Custom deployments must support this protocol and the supplied model ID;
-Azure-specific authentication and routing are not inferred. Custom endpoint prices may
-differ from the built-in OpenAI table.
 
 ## Privacy
 
-The patch executor sends the finding, enclosing code snippet and compiler error to the provider
-you chose (or your `OPENAI_BASE_URL`). Your provider's data policy applies. `--no-llm` keeps
-assisted fixes off. SDK sessions can also read and send files throughout the temporary clone
-and the output of type-checks, lint and tests to Anthropic. Anonymous telemetry, when enabled,
-adds only the provider and a public model ID; private/custom model IDs become `custom`. The full model: [privacy](privacy.md).
+SDK sessions send the finding, enclosing code and compiler error, and can also read and send
+files throughout the temporary clone and the output of type-checks, lint and tests, to
+Anthropic. Anthropic's data policy applies. Anonymous telemetry, when enabled, adds only the
+provider and a public model ID; private/custom model IDs become `custom`. The full model:
+[privacy](privacy.md).

@@ -19,9 +19,9 @@ schedule in your own GitHub Actions.
 
 `list`, `check` and `plan` send nothing of yours: package names and versions go to your npm
 registry, and `list` names public packages to npm's advisory endpoint. Code leaves the
-machine only for assisted fixes in `fix`, with your own API key, one site at a time (the
-finding, the enclosing function or declaration, the compiler error), and `--no-llm` turns
-that off. There is no account and no Uptide server. The full model: [privacy](privacy.md).
+machine only for assisted fixes in `fix`, which runs them with the Claude Agent SDK and your
+own `ANTHROPIC_API_KEY`: the findings, the code around them, files the session reads in the
+temporary clone and the output of its checks. There is no account and no Uptide server. The full model: [privacy](privacy.md).
 
 ## What if no pack exists for my dependency?
 

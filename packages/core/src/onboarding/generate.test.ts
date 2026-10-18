@@ -297,15 +297,20 @@ describe('the pull request', () => {
     expect(body).not.toContain('Nothing else leaves the runner');
   });
 
-  it('says what goes to an LLM as the Action does it: the SDK reads any file, patch only the site', () => {
+  it('says what goes to an LLM as the Action does it: the SDK reads any file', () => {
     const body = (config: Omit<UptideConfigInput, 'version'> = {}) =>
       generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
         config: { version: 1, ...config },
       }).prBody;
-    // The default executor is the Agent SDK, which can read the whole checkout.
-    expect(body()).toContain('can read any file in the checkout');
-    expect(body({ executor: 'patch' })).toContain('the code around each one');
-    expect(body({ executor: 'patch' })).not.toContain('can read any file');
+    // The Agent SDK is the only executor, and it can read the whole checkout. An older
+    // `executor: patch` is not carried into the generated uptide.yml.
+    for (const config of [{}, { executor: 'patch' as const }]) {
+      const o = generateOnboarding(repoFacts(CASES.npm as RepoSnapshot), {
+        config: { version: 1, ...config },
+      });
+      expect(o.prBody).toContain('can read any file in the checkout');
+      expect(o.files.find((f) => f.path === 'uptide.yml')?.content).not.toContain('executor');
+    }
     // The workflow passes only an Anthropic key: the generator refuses another provider.
     expect(() => body({ llm: { provider: 'openai' } })).toThrow(/passes only an Anthropic key/);
   });

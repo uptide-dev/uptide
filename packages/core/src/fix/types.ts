@@ -349,8 +349,6 @@ export interface FixReport {
     agent?: 'sdk';
     /** The executor assisted fixes use in this run; absent when they are off or have no key. */
     executor?: 'sdk' | 'patch';
-    /** Why the SDK, the Anthropic default, could not run, so the patch executor did. */
-    sdkMissing?: string;
     tasks?: AgentTaskRecord[];
     feedback?: {
       roundsUsed: number;

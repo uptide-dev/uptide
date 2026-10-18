@@ -607,8 +607,20 @@ describe('uptide fix', () => {
         'Next: npx uptide check lodash --details',
       ],
     ] as const) {
-      const engine = fakeEngine();
-      const io = memoryIo({ cwd: pnpmGitRepo(), env });
+      // A repository that declares and installs lodash: the repository check comes first.
+      const engine = fakeEngine({
+        declared: async () => new Map([['lodash', '^4.0.0']]),
+        installed: async () => new Map([['lodash', '4.17.21']]),
+      });
+      const cwd = pnpmGitRepo({
+        'package.json': JSON.stringify({
+          name: 'shop',
+          packageManager: 'pnpm@10.17.1',
+          dependencies: { lodash: '^4.0.0' },
+        }),
+        'node_modules/lodash/package.json': '{"name":"lodash","version":"4.17.21"}',
+      });
+      const io = memoryIo({ cwd, env });
       expect(await run([...argv], io, engine)).toBe(2);
       expect(io.stderr()).toContain(
         `error: lodash has no migration pack, so every fix would come from the agent, and ${why}`,

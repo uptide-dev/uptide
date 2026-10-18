@@ -33,9 +33,10 @@ rates end on 2026-12-31; from 2027-01-01 the table automatically uses 1.50 input
 
 ## Agent SDK budget
 
-Anthropic defaults to the Agent SDK executor. Its reported session cost comes from the SDK;
+`fix` runs only with the Agent SDK executor. Its reported session cost comes from the SDK;
 the package's session receives its budget, and enforcement after each turn can overshoot
-by one turn. The reservation model below applies to `--agent patch`, OpenAI and Gemini.
+by one turn. The reservation model below applies to the patch executor and the OpenAI and
+Gemini rates, which remain for Uptide's own evaluations (`UPTIDE_INTERNAL=1`).
 
 ## Reservation and actual spend
 

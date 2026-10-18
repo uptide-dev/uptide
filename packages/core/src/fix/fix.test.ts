@@ -117,12 +117,12 @@ describe('fix transaction', () => {
       executor: 'sdk',
     },
     {
-      name: 'default without the SDK installed falls back to patch',
+      name: 'default without the SDK installed stops, never patch',
       options: {},
       key: 'test-key',
       sdk: false,
       installed: false,
-      executor: 'patch',
+      refused: true,
     },
     {
       name: 'explicit SDK without it installed',
@@ -187,11 +187,14 @@ describe('fix transaction', () => {
           { cwd: root, only: 'zod', provider: 'anthropic', ...options },
           { ...services, sdkUnavailable: async () => (installed ? undefined : 'not installed') },
         );
-        // Asked for by name, the SDK never falls back: the run stops before any clone.
+        // The SDK never falls back to the patch executor: the run stops before any clone.
         if (refused) {
-          await expect(run).rejects.toThrow(
-            /^--agent sdk cannot run: not installed; let Uptide reach the npm registry/,
-          );
+          await expect(run).rejects.toMatchObject({
+            code: 'SDK_UNAVAILABLE',
+            message: expect.stringMatching(
+              /^uptide fix runs only with the Claude Agent SDK and cannot start: not installed\. To fix it, let Uptide reach the npm registry/,
+            ),
+          });
           expect(assist).not.toHaveBeenCalled();
           return;
         }
@@ -199,13 +202,8 @@ describe('fix transaction', () => {
         expect(assist).toHaveBeenCalledTimes(sdk ? 1 : 0);
         expect(report.llm.agent).toBe(sdk ? 'sdk' : undefined);
         expect(report.llm.executor).toBe(executor);
-        const fellBack = !installed && !sdk;
-        expect(report.llm.sdkMissing).toBe(fellBack ? 'not installed' : undefined);
-        // The fallback is the first thing the summary and the PR body say after the title.
         for (const text of [formatFix(report), renderMigration(report)])
-          expect(text.split('\n')[2]?.startsWith('> ⚠️ Assisted fixes use the patch executor')).toBe(
-            fellBack,
-          );
+          expect(text).not.toContain('patch executor');
         expect(renderMigration(report)).not.toContain('npx uptide with');
         expect(tests.mock.calls.length).toBeGreaterThanOrEqual(2);
         expect(tests.mock.calls.every(([, , , , options]) => options?.fullSuite === true)).toBe(

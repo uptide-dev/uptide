@@ -23,8 +23,9 @@ node --test bench/oss-sample/
 
 ## Rules the runner enforces
 
-- No LLM calls: `fix` always gets `--no-llm`, and provider API keys and GitHub tokens are removed
-  from the environment of every child process.
+- No LLM calls: `fix` always gets `--no-llm` (internal, so every child runs with
+  `UPTIDE_INTERNAL=1`), and provider API keys and GitHub tokens are removed from the
+  environment of every child process.
 - No pushes, no comments: `fix` never gets `--pr`; the runner only reads from GitHub.
 - Scripts off: installs use `--ignore-scripts` (`--mode=skip-build` on Yarn Berry), and the
   environment sets `npm_config_ignore_scripts` and `YARN_ENABLE_SCRIPTS=0`.

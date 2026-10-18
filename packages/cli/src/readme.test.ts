@@ -84,7 +84,7 @@ describe('README', () => {
         (l) => l !== '' && !l.startsWith('|') && !l.startsWith('#') && !l.startsWith('The full'),
       );
     expect(prose).toHaveLength(4);
-    for (const fact of ['--no-llm', 'off by default', 'No LLM call', 'no Uptide server'])
+    for (const fact of ['Claude Agent SDK', 'off by default', 'No LLM call', 'no Uptide server'])
       expect(privacy).toContain(fact);
     expect(readme).toContain('[Apache-2.0](LICENSE)');
     expect(readme).toContain('Releases up to and including 0.3.0 were published under the MIT');

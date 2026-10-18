@@ -1,10 +1,10 @@
 # 0016: Agent SDK executor (`--agent sdk`)
 
-Status: default for authenticated Anthropic fixes. `--agent patch` opts out; other providers
-and callers supplying a fixer retain the patch executor. Without a key, rule-based fixes
-remain available. `--no-llm` disables either executor. The SDK is an optional peer, never
-bundled: without one next to Uptide, the first fix installs it into Uptide's cache, and when it
-cannot run, the default is the patch executor, said first in the output and the PR body.
+Status: the only executor of `fix` (2026-10-18). `fix` runs with the Agent SDK on Anthropic
+models or does not run: no fallback to the patch executor, in the CLI, the Action or the App.
+The SDK is an optional peer, never bundled: without one next to Uptide, the first fix
+downloads it into Uptide's cache, asking first on a terminal. `--agent patch`, `--no-llm` and
+other providers remain for Uptide's own tests, behind `UPTIDE_INTERNAL=1`.
 
 ## Why
 
@@ -108,6 +108,26 @@ unchanged.
   the summary.
 
 ## Dependency and terms
+
+### Required, no fallback (2026-10-18, later the same day)
+
+**Decision:** `fix` runs only with the SDK executor. If it cannot, it does not run: exit 2
+before any clone, install or model call, with one message (`SDK_UNAVAILABLE`) giving the
+reason and how to fix it. That covers a declined download, a failed fetch or load, no
+Claude Code binary for the platform, no `ANTHROPIC_API_KEY`, another provider, and
+`llm.enabled: false` or `executor: patch` in `uptide.yml`. The first download asks once on an
+interactive terminal ("Download now? [Y/n]", default yes); with `--yes` or without a terminal
+it downloads and says so in one line. The Action stops the whole run with the CLI's message.
+`--agent patch`, `--no-llm` and `--provider` are hidden and refused unless `UPTIDE_INTERNAL=1`.
+`report.json` loses `llm.sdkMissing`; a stopped run stores none. This supersedes the patch
+fallback in the decision below.
+
+- **Why.** A fallback means two products behind one command: the SDK run the docs describe,
+  and a weaker one nobody chose. Quietly or loudly, a patch run is not what people asked for.
+  Stopping says what is wrong and costs nothing.
+- **Keyless and rule-only runs.** Also gone from the public CLI: without the agent, `fix`
+  leaves every site a rule cannot migrate, and a generic package has no rules at all.
+  `--pin-current-api` (stripe, rule-only by design, no model call) is unchanged.
 
 ### Fetched on the first fix, into Uptide's cache (2026-10-18)
 

@@ -14,19 +14,23 @@ export interface MemoryIo extends Io {
   stderr(): string;
 }
 
-/** An Io that records. Not a terminal unless asked, like a CI log. */
+/**
+ * An Io that records. Not a terminal unless asked, like a CI log. UPTIDE_INTERNAL=1 unless the
+ * env says otherwise: most tests run fix rule-only (`--no-llm`, no key); tests of the public
+ * SDK-only gate pass `UPTIDE_INTERNAL: undefined`.
+ */
 export function memoryIo(overrides: Partial<Io> = {}): MemoryIo {
   const out: string[] = [];
   const err: string[] = [];
   return {
     out: (text) => void out.push(text),
     err: (text) => void err.push(text),
-    env: {},
     cwd: process.cwd(),
     outTty: false,
     errTty: false,
     now: () => Date.now(),
     ...overrides,
+    env: { UPTIDE_INTERNAL: '1', ...overrides.env },
     stdout: () => out.join(''),
     stderr: () => err.join(''),
   };

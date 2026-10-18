@@ -66,28 +66,39 @@ one declaration are attempted together. Every edit still has to remove those err
 without introducing an error anywhere in the program; otherwise all files are restored.
 Declarations outside the repository or in `node_modules` are never editable.
 
-## Assisted-fix executor
+## The Claude Agent SDK
 
-With `ANTHROPIC_API_KEY` set and Anthropic selected, assisted fixes use the Claude Agent SDK
-by default, `npx uptide fix <package>` included. `@anthropic-ai/claude-agent-sdk` is not
-installed with Uptide: it brings the Claude Code binary for your platform (about 310 MB), which
-`check`, `list`, `--no-llm`, OpenAI and Gemini runs never need. An SDK installed next to Uptide
-is used as it is (the Uptide GitHub Action installs one). Otherwise the first `fix` that needs
-it installs the version Uptide is tested with into Uptide's cache
-(`~/.cache/uptide/agent-sdk/<version>`, or under `UPTIDE_CACHE_DIR` / `XDG_CACHE_HOME`), says so
-in one line with its size, and later runs reuse it.
+`fix` runs only with the Claude Agent SDK, on Anthropic models, with your own
+`ANTHROPIC_API_KEY`. If it cannot use the SDK, it does not run.
+`@anthropic-ai/claude-agent-sdk` is not installed with Uptide: it brings the Claude Code binary
+for your platform (about 300 MB), which `check` and `list` never need. An SDK installed next to
+Uptide is used as it is (the Uptide GitHub Action installs one). Otherwise the first `fix`
+downloads the version Uptide is tested with into Uptide's cache
+(`~/.cache/uptide/agent-sdk/<version>`, or under `UPTIDE_CACHE_DIR` / `XDG_CACHE_HOME`), and
+later runs reuse it without asking:
 
-If that install fails (offline, a proxy) or the SDK cannot run, `fix` uses the patch executor
-and says so first: as the first line of its output, and at the top of the PR body, with the
-reason and how to get the SDK executor. `report.json` records the executor in `llm.executor`
-and the reason in `llm.sdkMissing`.
+```
+uptide fix needs the Claude Agent SDK (about 300 MB, downloaded once to ~/.cache/uptide/agent-sdk/0.3.296). Download now? [Y/n]
+```
 
-Use `--agent patch` for the snippet-and-diff executor. OpenAI and Gemini keep that executor;
-`--agent sdk` requires Anthropic and stops before any work when the SDK cannot load. The SDK
-is installed from npm, never bundled with Uptide.
-Without a key, rule-based packs still work; `--no-llm` disables both executors.
-SDK sessions can read files throughout the temporary clone and send their contents and check
-output to Anthropic; see [privacy](../privacy.md#agent-sdk-executor).
+Enter or `y` downloads it. With `--yes`, or without an interactive terminal (CI, a pipe), it
+downloads without asking and says so in one line with the size.
+
+`fix` stops with exit 2, before any clone, install or model call, when:
+
+- you answer `n`;
+- the SDK cannot be downloaded (offline, a proxy) or loaded, or has no Claude Code binary for
+  your platform;
+- `ANTHROPIC_API_KEY` is not set, or another provider is selected;
+- `uptide.yml` sets `llm.enabled: false` or `executor: patch`.
+
+It prints one message with the reason and how to fix it; with `--json`, the answer is
+`{"error": {"code": "SDK_UNAVAILABLE", "message": "…"}}`. Nothing ran, so no `report.json` is
+stored. There is no fallback executor, in the CLI or in the Uptide Action, which stops the
+run with the same message. Rule-based packs still apply their rules first; the agent
+handles the sites no rule covers. SDK sessions can read files throughout the temporary clone
+and send their contents and check output to Anthropic; see
+[privacy](../privacy.md#agent-sdk-executor).
 
 ## Peer planning and the baseline lockfile
 
@@ -96,7 +107,7 @@ upgrade and its lockstep companions, using the same conflict rule as `check`. Fo
 conflict it looks for the **lowest newer stable release** declaring a compatible peer range.
 It reports all conflicts together, including already allowed peers, and looks ahead through
 proposed peer upgrades and their lockstep companions. It ends with one full command containing
-all proposed extras, required `--allow-peer` flags, the resolved target and `--no-llm` when set.
+all proposed extras, required `--allow-peer` flags and the resolved target.
 Every package the list says to add appears in that command, even when another extra would
 already bring it along as a companion. Each package has one row listing all rejected peers.
 With `--json`, both a blocked preflight and the completed fix report expose `peerConflicts`
@@ -110,7 +121,7 @@ esbuild 0.25.11`), and its `peerConflicts` entry carries that path in `via`.
 It never adds an unrequested peer upgrade silently:
 
 ```sh
-npx uptide fix react some-react-plugin --no-llm
+npx uptide fix react some-react-plugin
 ```
 
 The extra names must be peer upgrades suggested by the plan. They move in the same install
@@ -121,7 +132,7 @@ creating a branch or calling the LLM. If there is no compatible release, explici
 that package's compatibility risk with repeatable `--allow-peer`:
 
 ```sh
-npx uptide fix react --no-llm --allow-peer @emoji-mart/react
+npx uptide fix react --allow-peer @emoji-mart/react
 npx uptide fix react --allow-peer plugin-a --allow-peer plugin-b
 ```
 
@@ -132,7 +143,7 @@ The PR's **Peer risks** lists every conflict, the original peer range and whethe
 it. An override permits dependency resolution; it does not establish runtime compatibility.
 Uptide never adds `--legacy-peer-deps` or `--force`.
 
-With an assisting agent (an API key, LLM on), these preflight refusals do not exit 2: the run
+Because `fix` always runs with the agent, these preflight refusals do not exit 2: the run
 continues as an **agent-led draft**. A peer blocker runs as the suggested command above, and
 the reason names each blocker's first release that accepts the target, or says that no release
 does and an override keeps it; root pins without `--update-pins` consent are updated
@@ -143,8 +154,8 @@ install changed outside the upgrade's subtree are kept for review instead of ref
 reason heads the PR body and the terminal summary, with feedback rounds and spend, and the PR
 opens as a draft. Before it is delivered, a draft must pass the repository's clean install
 (`npm ci`, `pnpm install --frozen-lockfile`, `yarn install --immutable`) in the fix clone; if it
-does not, the PR body says so right under the reason and the run does not pass. With
-`--no-llm`, without an agent, or on a downgrade, `fix` refuses as described here.
+does not, the PR body says so right under the reason and the run does not pass. On a
+downgrade, `fix` refuses as described here.
 
 For pnpm and Yarn, conflicts are reported but do not stop planning. Their own settings may
 still reject the install (for example strict peer checking). `--allow-peer` writes the native
@@ -230,26 +241,22 @@ repository, and there:
 4. **Rule-based fixes.** Deterministic rewrites for the changes it has rules for, only at
    the sites `check` reported, such as zod's `required_error` / `invalid_type_error` (add
    `--include-deprecated` for `z.string().email()`-style chains). One commit.
-5. **Assisted fixes (optional; all there is for a generic package).** With the selected
-   provider's API key set, sites the rules cannot migrate go to the chosen executor.
-   Anthropic defaults to one SDK session for the package's manual sites, with repository
-   read/edit tools and Uptide's checks. Its edits are accepted together only if they add no
-   type errors, lint failures or related-test failures compared with the session's start.
-   Before a test failure rejects them, the failing test files run once more, alone; a file
-   that passes then is named as flaky in `report.json` (`llm.tasks[].flaky`) and the PR body
-   and does not reject the edits, and one that fails twice does. Final verification still
-   runs the flaky files in its full run, where a failure fails it. A verification feedback
-   session is not started when what is left of `--max-cost` is below the mean cost of the
-   run's sessions so far; the PR's feedback line says so.
-   OpenAI, Gemini and `--agent patch` use snippet patches judged per attempt, including
-   the pack's validator. Rejected edits are reverted and left manual. `--no-llm` turns
-   assistance off. Which provider and what it costs: [models](../models.md).
+5. **Assisted fixes (all there is for a generic package).** Sites the rules cannot migrate go
+   to one Claude Agent SDK session for the package, with repository read/edit tools and
+   Uptide's checks. Its edits are accepted together only if they add no type errors, lint
+   failures or related-test failures compared with the session's start. Before a test failure
+   rejects them, the failing test files run once more, alone; a file that passes then is named
+   as flaky in `report.json` (`llm.tasks[].flaky`) and the PR body and does not reject the
+   edits, and one that fails twice does. Final verification still runs the flaky files in its
+   full run, where a failure fails it. A verification feedback session is not started when
+   what is left of `--max-cost` is below the mean cost of the run's sessions so far; the PR's
+   feedback line says so. Rejected edits are reverted and left manual. Which model and what it
+   costs: [models](../models.md).
 6. **Verifies.** Type-checks with *your* TypeScript (or the bundled compiler when absent)
    before and after and subtracts the errors you already had; runs the tests of the affected
    workspaces (each workspace's `test` script, else the vitest or jest configuration that
-   covers it, else the root `test` script) and reports what ran. SDK runs use the full
-   selected suite before and after migration; patch runs can scope detected runners to
-   tests related to the migrated files. By default only tests that need no database, cache or queue
+   covers it, else the root `test` script) and reports what ran, using the full selected
+   suite before and after migration. By default only tests that need no database, cache or queue
    run, and the report counts the integration tests it left out (`--with-services --yes`
    includes them after printing what they connect to). It formats the files it edited, and
    only those, with your formatter and runs your lint (biome, prettier, oxfmt, dprint,
@@ -276,19 +283,16 @@ small PR: same SDK, `apiVersion` made explicit on every client that omits it.
 ## A dependency without a pack
 
 `uptide fix <any dependency>` works without a pack: there are no rules, so every site with
-evidence goes to the selected executor. The SDK groups the sites in one session; the patch
-executor handles them one at a time. Sites count as fixed when their compiler errors disappear,
+evidence goes to the agent, which groups the sites in one SDK session. Sites count as fixed when their compiler errors disappear,
 and the gate rejects new errors. Final verification works as it does for a verified dependency.
 
-- It needs the selected provider's environment API key ([models](../models.md)). Without
-  one, or with `--no-llm`, it says what it cannot do and exits before creating a clone, a
-  branch or an install. The same holds when a pack exists but does not cover the installed
-  version (typescript 5 → 7 with a 5 → 6 pack).
+- Like every `fix`, it needs `ANTHROPIC_API_KEY` and the Agent SDK
+  ([above](#the-claude-agent-sdk)), and stops before creating a clone, a branch or an install
+  without them. The same holds when a pack exists but does not cover the installed version
+  (typescript 5 → 7 with a 5 → 6 pack).
 - `--max-cost <usd>` (default 1) sets the SDK session budget for each package; enforcement
   after each turn can overshoot by one turn. A preflight estimate above it stops the run
-  before any agent call, with exit 2 ([models](../models.md#--max-cost)). With `--agent patch`, it reserves the
-  worst-case cost before every call, including
-  retries. Sites not completed stay manual, the summary and the pull request say how many,
+  before any agent call, with exit 2 ([models](../models.md#--max-cost)). Sites not completed stay manual, the summary and the pull request say how many,
   and final verification decides whether the result can be published.
 - Nothing analyzed what the upgrade changes, so a clean type-check proves little: Next 15 → 16
   type-checks and still breaks its build configuration. A **major** upgrade without a pack is

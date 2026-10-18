@@ -62,10 +62,11 @@ repository already had are subtracted, never blamed on the upgrade.
 
 ## Assisted fixes
 
-Sites no rule covers go to an LLM, one at a time, with your own API key
-(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY`). Without a key, or with
-`--no-llm`, those sites are listed for you instead. Which provider and model, and what it
-costs: [models](models.md). What is sent: [privacy](privacy.md).
+Sites no rule covers go to the Claude Agent SDK, with your own `ANTHROPIC_API_KEY`. `fix`
+runs only with the SDK: the first run downloads it once (about 300 MB, asking first in a
+terminal), and without the key or the SDK it stops before any clone
+([`fix`](commands/fix.md#the-claude-agent-sdk)). Which model, and what it costs:
+[models](models.md). What is sent: [privacy](privacy.md).
 
 ## What gets installed
 

@@ -42,8 +42,8 @@ Draft PR runs update conflicting root Yarn resolutions and npm/pnpm overrides an
   appears, and a report that says what was verified and what was not. Accepted agent edits
   include a representative diff and affected files; choices from migration guides appear
   under **Decisions for you** with their reasoning and alternatives. Large PR descriptions [trim changelog detail before review evidence](docs/commands/pr.md#uptide-pr-body).
-- Runs locally, no account. Code leaves your machine only for assisted fixes, with your own
-  API key, and `--no-llm` turns that off.
+- Runs locally, no account. Code leaves your machine only for assisted fixes in `fix`, which
+  runs them with the Claude Agent SDK and your own Anthropic API key.
 
 ## Verified packs
 
@@ -130,8 +130,8 @@ The stripe run from the same fixture, and what each step of `fix` does, are in
 ## Privacy
 
 Analysis runs locally, with no account and no Uptide server. Code leaves your machine only
-for assisted fixes in `npx uptide fix`, with your own API key; `--no-llm`
-turns that off. `check` loads your installed `typescript` to compile with and runs none of
+for assisted fixes in `npx uptide fix`, which runs them with the Claude Agent SDK and your
+own `ANTHROPIC_API_KEY`. `check` loads your installed `typescript` to compile with and runs none of
 your scripts. Anonymous telemetry is off by default and collects no IP, code, paths or repo names.
 
 | | Where it runs | What leaves your machine |
@@ -139,7 +139,7 @@ your scripts. Anonymous telemetry is off by default and collects no IP, code, pa
 | `list`, `plan` | locally | package names/versions requested from your npm registry, and `list` sends public packages' names and installed versions to npm's advisory endpoint; metadata only, no source code |
 | `check` | locally | nothing of yours; it downloads package tarballs from your npm registry. No LLM call. It loads your installed `typescript` package to compile with, and runs no script or other code of yours. |
 | `fix`, rules and verification | locally, in a temporary clone | nothing of yours |
-| `fix`, assisted fixes | Your chosen provider's API, with **your** environment API key | patch executor: findings, enclosing code, compiler-linked declarations and errors; Anthropic SDK default: also files read throughout the clone and output from its checks |
+| `fix`, assisted fixes | Anthropic's API, with **your** `ANTHROPIC_API_KEY`, through the Claude Agent SDK | findings, enclosing code, compiler-linked declarations and errors, files read throughout the clone and output from its checks |
 | `pr`, `fix --pr` | GitHub, through your own `gh` | the branch and the pull request, when you say so |
 
 The full statement and the isolation model: [privacy](docs/privacy.md) and [SECURITY.md](SECURITY.md).

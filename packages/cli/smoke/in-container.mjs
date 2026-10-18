@@ -21,9 +21,17 @@ const STRIPE = '22.6.2';
 const BUDGET_MS = 60_000;
 
 const sh = (cwd, bin, ...args) => execFileSync(bin, args, { cwd, encoding: 'utf8', stdio: 'pipe' });
+// `fix --no-llm` is internal (the public CLI runs only with the Agent SDK): set unless `env` says otherwise.
 function uptide(cwd, ...args) {
+  return uptideWith({ UPTIDE_INTERNAL: '1' }, cwd, ...args);
+}
+function uptideWith(env, cwd, ...args) {
   const started = Date.now();
-  const run = spawnSync('uptide', args, { cwd, encoding: 'utf8', env: { ...process.env, CI: '' } });
+  const run = spawnSync('uptide', args, {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, CI: '', ...env },
+  });
   return { code: run.status, out: run.stdout, err: run.stderr, ms: Date.now() - started };
 }
 
@@ -212,6 +220,41 @@ for (const fixture of ['npm', 'npm-workspaces', 'pnpm', 'yarn', 'yarn-berry']) {
     head: sh(repo, 'git', 'rev-parse', 'HEAD').trim(),
     hooks: readdirSync(join(repo, '.git/hooks')).sort().join(','),
   };
+  // The public CLI runs fix only with the Agent SDK: the internal flag is refused, and without
+  // a key it stops before the SDK or a clone. The checks below see the checkout untouched.
+  const publicEnv = { UPTIDE_INTERNAL: '', ANTHROPIC_API_KEY: '' };
+  const hidden = uptideWith(publicEnv, repo, 'fix', 'zod', '--no-llm', '--ci');
+  expect(`${fixture} public fix --no-llm: exit ${hidden.code}, wanted 2`, hidden.code === 2);
+  has(`${fixture} public fix --no-llm`, hidden.err, '--no-llm is not available');
+  const keyless = uptideWith(publicEnv, repo, 'fix', 'zod', '--json', '--ci');
+  expect(`${fixture} public fix without a key: exit ${keyless.code}, wanted 2`, keyless.code === 2);
+  has(`${fixture} public fix without a key`, keyless.out, '"code": "SDK_UNAVAILABLE"');
+  has(`${fixture} public fix without a key`, keyless.err, 'ANTHROPIC_API_KEY is not set');
+  // The SDK is not installed with uptide; a fetch that fails (no registry here) stops fix with
+  // exit 2 before any clone, never the patch executor.
+  const offline = uptideWith(
+    {
+      ...publicEnv,
+      ANTHROPIC_API_KEY: 'smoke-key',
+      UPTIDE_CACHE_DIR: mkdtempSync(join(tmpdir(), 'uptide-sdk-cache-')),
+      npm_config_registry: 'http://127.0.0.1:9/',
+      npm_config_fetch_retries: '0',
+    },
+    repo,
+    'fix',
+    'zod',
+    '--json',
+    '--ci',
+  );
+  expect(`${fixture} fix, SDK fetch fails: exit ${offline.code}, wanted 2`, offline.code === 2);
+  has(`${fixture} fix, SDK fetch fails`, offline.out, '"code": "SDK_UNAVAILABLE"');
+  has(`${fixture} fix, SDK fetch fails`, offline.err, 'installing it once into');
+  has(`${fixture} fix, SDK fetch fails`, offline.err, 'cannot start: ');
+  expect(
+    `${fixture} fix, SDK fetch fails: no patch executor`,
+    !/patch/.test(offline.err),
+    offline.err,
+  );
   const fix = uptide(repo, 'fix', 'zod', '--target', `zod@${ZOD}`, '--no-llm', '--ci');
   const zodBranch = `uptide/zod-${ZOD}`;
   // The run happened in a temporary clone: the checkout is where and how it was.
