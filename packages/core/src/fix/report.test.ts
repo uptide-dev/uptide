@@ -970,6 +970,25 @@ it('lists npm peer re-resolutions and their pre-existing ranges in the report an
   }
 });
 
+it('says in the PR body which imported packages the repo does not declare (UPT-109)', () => {
+  const report = fixture('storefront-zod');
+  report.lockfile = {
+    manager: 'npm',
+    file: 'package-lock.json',
+    added: [],
+    removed: [],
+    changed: [],
+    allowed: [],
+    undeclared: [{ name: 'picker-types', version: '1.0.0', kept: true }],
+  };
+  for (const body of [prBody(report), migrationBody(report)]) {
+    expect(body).toContain('### Imported but not declared');
+    expect(body).toContain(
+      '- picker-types 1.0.0 is imported by the repo but not declared in package.json. The re-resolve would have dropped it; it was kept at 1.0.0. Add it to package.json.',
+    );
+  }
+});
+
 it('renders scoped declarative behavior decisions in the PR body', async () => {
   const { nextPack } = await import('../packs/next/index.js');
   const { packDecisions } = await import('../packs/decisions.js');

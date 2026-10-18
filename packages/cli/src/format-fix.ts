@@ -7,6 +7,7 @@ import {
   describeOutOfScope,
   describePhases,
   describeTransitive,
+  describeUndeclared,
   type FixReport,
   fixVerdict,
   groupPeerBlockers,
@@ -128,6 +129,11 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
       `  ${describeEresolveRetry(report.lockfile.eresolveRetry)}`,
       '',
     );
+  }
+  if (report.lockfile?.undeclared?.length) {
+    lines.push(colors.bold('Imported but not declared'));
+    for (const u of report.lockfile.undeclared) lines.push(`  ${describeUndeclared(u)}`);
+    lines.push('');
   }
   if (report.lockfile?.peerReresolved?.length) {
     lines.push(colors.bold('Re-resolved because a peer changed'));

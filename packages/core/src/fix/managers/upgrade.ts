@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { parseNpm, parsePnpm, parseYarn } from '../../adapters/typescript/lockfile.js';
 import { UptideError } from '../../errors.js';
 import { satisfies } from '../../fetch/range.js';
@@ -40,7 +40,17 @@ export interface InstallReport extends LockDiff {
   file: string;
   /** npm's lock-only install ERESOLVEd from the old lockfile; the smaller retry that resolved (UPT-107). */
   eresolveRetry?: EresolveRetry;
+  /** Packages the repo imports without declaring them that the new lockfile would drop (UPT-109). */
+  undeclared?: Undeclared[];
 }
+export interface Undeclared {
+  name: string;
+  /** The version the new lockfile keeps, or the one the old lockfile had when it is gone. */
+  version: string;
+  kept: boolean;
+}
+export const describeUndeclared = (u: Undeclared): string =>
+  `${u.name} ${u.version} is imported by the repo but not declared in package.json. ${u.kept ? `The re-resolve would have dropped it; it was kept at ${u.version}.` : 'The new lockfile no longer has it, so those imports fail.'} Add it to package.json.`;
 type RetryStep = 'moved entries' | 'whole lockfile';
 export interface EresolveRetry {
   step: RetryStep;
@@ -81,15 +91,21 @@ const isEresolve = (error: unknown) =>
  * The old lockfile without the entries of `names` and everything installed below them, or
  * without every installed entry (undefined): npm resolves those afresh. Links stay.
  */
-function dropEntries(text: string, names?: Set<string>): string {
+function dropEntries(text: string, names?: Set<string>, keep = new Set<string>()): string {
   const json = JSON.parse(text);
   for (const [key, entry] of Object.entries<{ link?: boolean }>(json.packages ?? {})) {
     const installed = key.split('node_modules/').slice(1);
     if (!installed.length || entry.link) continue;
-    if (!names || installed.some((n) => names.has(n.replace(/\/$/, '')))) delete json.packages[key];
+    const dropped = (n: string) => {
+      const name = n.replace(/\/$/, '');
+      return !keep.has(name) && (!names || names.has(name));
+    };
+    if (installed.some(dropped)) delete json.packages[key];
   }
   return `${JSON.stringify(json, null, 2)}\n`;
 }
+const installedName = (key: string) =>
+  key.slice(key.lastIndexOf('node_modules/') + 'node_modules/'.length);
 /** The moved packages and every locked package that declares one of them as a peer. */
 function peerHolders(text: string, moved: string[]): Set<string> {
   const names = new Set(moved);
@@ -98,12 +114,59 @@ function peerHolders(text: string, moved: string[]): Set<string> {
     packages,
   ))
     if (key.includes('node_modules/') && moved.some((m) => entry.peerDependencies?.[m]))
-      names.add(key.slice(key.lastIndexOf('node_modules/') + 'node_modules/'.length));
+      names.add(installedName(key));
   return names;
+}
+/** `names` and every locked package that depends on one of them, transitively. */
+function requirers(text: string, names: string[]): Set<string> {
+  const found = new Set(names);
+  const entries = Object.entries<Record<string, Record<string, string> | undefined>>(
+    JSON.parse(text).packages ?? {},
+  ).filter(([key]) => key.includes('node_modules/'));
+  for (let size = 0; size !== found.size; ) {
+    size = found.size;
+    for (const [key, entry] of entries)
+      if (
+        [entry.dependencies, entry.optionalDependencies, entry.peerDependencies].some((edges) =>
+          [...found].some((n) => edges?.[n]),
+        )
+      )
+        found.add(installedName(key));
+  }
+  return found;
+}
+/** What a bare import reaches in an npm lockfile: the root's and each workspace's top level. */
+function topLevel(text: string): Map<string, string> {
+  return new Map(
+    Object.entries<{ version?: string }>(JSON.parse(text).packages ?? {}).flatMap(([key, e]) => {
+      const installed = key.split('node_modules/').slice(1);
+      return installed.length === 1 && e.version ? [[installed[0] as string, e.version]] : [];
+    }),
+  );
+}
+const IMPORT =
+  /\b(?:from|import|require)\s*\(?\s*['"]((?:@[\w.-]+\/)?[\w-][\w.-]*)(?:\/[^'"]*)?['"]/g;
+/** Packages `afterText` no longer has at the top level that tracked source imports by name. */
+function droppedImports(root: string, beforeText: string, afterText: string): string[] {
+  const after = topLevel(afterText);
+  const gone = new Set([...topLevel(beforeText).keys()].filter((name) => !after.has(name)));
+  const imported = new Set<string>();
+  if (gone.size)
+    for (const file of git(root, 'ls-files', '-z').split('\0'))
+      if (
+        /\.[cm]?[jt]sx?$/.test(file) &&
+        !file.split('/').includes('node_modules') &&
+        existsSync(join(root, file))
+      )
+        for (const [, name] of readFileSync(join(root, file), 'utf8').matchAll(IMPORT))
+          if (gone.has(name as string)) imported.add(name as string);
+  return [...imported].sort();
 }
 /**
  * `attempt` from the old lockfile, then (npm ERESOLVE only) from smaller ones, smallest
  * re-resolve first (UPT-107). Returns the lockfile the successful attempt started from.
+ * A retry that drops a package the repo imports undeclared runs again keeping that package and
+ * every locked package that requires it; if that ERESOLVEs, the first retry stands (UPT-109).
  */
 async function resolving(
   pm: PackageManager,
@@ -111,7 +174,7 @@ async function resolving(
   beforeText: string,
   moved: string[],
   attempt: () => Promise<void>,
-): Promise<{ start: string; retry?: EresolveRetry }> {
+): Promise<{ start: string; retry?: EresolveRetry; imports?: string[] }> {
   let failure: unknown;
   try {
     await attempt();
@@ -131,10 +194,27 @@ async function resolving(
     writeFileSync(lockfile, start);
     try {
       await attempt();
-      return { start, retry: { step, dropped: names ? [...names].sort() : [], conflicts } };
     } catch (error) {
       if (!isEresolve(error)) throw error;
       failure = error;
+      continue;
+    }
+    const retry = { step, dropped: names ? [...names].sort() : [], conflicts };
+    const resolved = readFileSync(lockfile, 'utf8');
+    const imports = droppedImports(dirname(lockfile), beforeText, resolved);
+    if (!imports.length) return { start, retry };
+    const keep = requirers(beforeText, imports);
+    for (const name of moved) keep.delete(name);
+    const kept = dropEntries(beforeText, names, keep);
+    writeFileSync(lockfile, kept);
+    try {
+      await attempt();
+      const dropped = retry.dropped.filter((name) => !keep.has(name));
+      return { start: kept, retry: { ...retry, dropped }, imports };
+    } catch (error) {
+      if (!isEresolve(error)) throw error;
+      writeFileSync(lockfile, resolved);
+      return { start, retry, imports };
     }
   }
   throw new InstallBlockedError({
@@ -296,7 +376,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       return [file, readFileSync(join(root, file), 'utf8')];
     }),
   );
-  const { start, retry } = await resolving(pm, lockfile, beforeText, names, async () => {
+  const { start, retry, imports } = await resolving(pm, lockfile, beforeText, names, async () => {
     await installPinned(root, pm, upgrade.workspaces, names, (_, name) => version.get(name));
     if (pm.kind === 'yarn-berry') {
       // Restoring a broad range drops Yarn's temporary resolution; pin its descriptor in the
@@ -405,10 +485,25 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       'LOCKFILE_OUT_OF_SCOPE',
       'Verification install changed the validated lockfile',
     );
+  // Never declared on the repo's behalf: kept in the lockfile where it can be, reported always.
+  const undeclared: Undeclared[] = [];
+  if (pm.kind === 'npm') {
+    const [was, now] = [topLevel(beforeText), topLevel(afterText)];
+    const lost = droppedImports(root, beforeText, afterText);
+    for (const name of [...new Set([...(imports ?? []), ...lost])].sort()) {
+      const version = now.get(name);
+      undeclared.push(
+        version
+          ? { name, version, kept: true }
+          : { name, version: was.get(name) as string, kept: false },
+      );
+    }
+  }
   return {
     ...diff,
     manager: pm.kind,
     file: pm.lockfile,
     ...(retry ? { eresolveRetry: retry } : {}),
+    ...(undeclared.length ? { undeclared } : {}),
   };
 }

@@ -171,6 +171,29 @@ it('says which ERESOLVE retry resolved the lockfile', () => {
   );
 });
 
+it('names an imported undeclared package the re-resolve kept or dropped (UPT-109)', () => {
+  const report = fixReport(true);
+  report.lockfile = {
+    manager: 'npm',
+    file: 'package-lock.json',
+    added: [],
+    removed: [],
+    changed: [],
+    allowed: [],
+    undeclared: [
+      { name: 'picker-types', version: '1.0.0', kept: true },
+      { name: 'old-types', version: '2.1.0', kept: false },
+    ],
+  };
+  const out = formatFixSummary(report, { color: false });
+  expect(out).toContain(
+    'Imported but not declared\n  picker-types 1.0.0 is imported by the repo but not declared in package.json. The re-resolve would have dropped it; it was kept at 1.0.0. Add it to package.json.\n',
+  );
+  expect(out).toContain(
+    'old-types 2.1.0 is imported by the repo but not declared in package.json. The new lockfile no longer has it, so those imports fail. Add it to package.json.',
+  );
+});
+
 it('lists transitive changes under the package that moved them, two at a time', () => {
   const report = fixReport(true);
   report.lockfile = {

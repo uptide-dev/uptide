@@ -13,7 +13,7 @@ import {
   describeTransitive,
   type OutOfScopeChange,
 } from './managers/lock-guard.js';
-import { describeEresolveRetry } from './managers/upgrade.js';
+import { describeEresolveRetry, describeUndeclared } from './managers/upgrade.js';
 import { noPackBlockers } from './no-pack.js';
 import { uniqueSites } from './paired.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
@@ -1034,6 +1034,13 @@ export function renderMigration(
       '### Lockfile re-resolved',
       '',
       `${describeEresolveRetry(report.lockfile.eresolveRetry)}.`,
+    );
+  if (report.lockfile?.undeclared?.length)
+    lines.push(
+      '',
+      '### Imported but not declared',
+      '',
+      ...report.lockfile.undeclared.map((u) => `- ${cell(describeUndeclared(u))}`),
     );
   if (report.lockfile?.peerReresolved?.length) {
     lines.push(

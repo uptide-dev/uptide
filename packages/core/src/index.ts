@@ -136,7 +136,11 @@ export {
   type OutOfScopeChange,
   type TransitiveChange,
 } from './fix/managers/lock-guard.js';
-export { describeEresolveRetry, InstallBlockedError } from './fix/managers/upgrade.js';
+export {
+  describeEresolveRetry,
+  describeUndeclared,
+  InstallBlockedError,
+} from './fix/managers/upgrade.js';
 export {
   groupPeerBlockers,
   type PeerBlockerGroup,

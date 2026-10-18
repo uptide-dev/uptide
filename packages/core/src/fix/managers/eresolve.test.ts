@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -14,7 +14,11 @@ const eresolve = readFileSync(
   resolve(import.meta.dirname, '../../../../../fixtures/lockfiles/eresolve/npm-11.txt'),
   'utf8',
 );
-type Entry = { version: string; peerDependencies?: Record<string, string> };
+type Entry = {
+  version: string;
+  dependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+};
 type Lock = { packages: Record<string, Entry> };
 const registry: Record<string, Entry[]> = {
   ui: [{ version: '1.0.0' }, { version: '2.0.0' }],
@@ -27,6 +31,16 @@ const registry: Record<string, Entry[]> = {
     { version: '1.1.0', peerDependencies: { ui: '^1.0.0 || ^2.0.0' } },
   ],
   unrelated: [{ version: '1.0.0' }, { version: '1.2.0' }],
+  // UPT-109: picker 1.1.0 no longer depends on picker-types, which the repo imports undeclared.
+  picker: [
+    {
+      version: '1.0.0',
+      dependencies: { 'picker-types': '^1.0.0' },
+      peerDependencies: { ui: '^1.0.0 || ^2.0.0' },
+    },
+    { version: '1.1.0', peerDependencies: { ui: '^1.0.0 || ^2.0.0' } },
+  ],
+  'picker-types': [{ version: '1.0.0' }],
 };
 const lockOf = (deps: Record<string, string>, entries: Record<string, Entry>) => ({
   name: 'app',
@@ -46,13 +60,16 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-function repo(conflict: (lock: Lock) => boolean) {
+function repo(conflict: (lock: Lock) => boolean, declared: Record<string, string> = ranges) {
   root = mkdtempSync(join(tmpdir(), 'uptide-eresolve-'));
   const manifest = (deps: Record<string, string>) =>
     writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'app', dependencies: deps }));
-  manifest(ranges);
-  const before = Object.fromEntries(Object.keys(ranges).map((n) => [n, first(n)]));
-  writeFileSync(join(root, 'package-lock.json'), JSON.stringify(lockOf(ranges, before)));
+  manifest(declared);
+  const before = Object.fromEntries(Object.keys(declared).map((n) => [n, first(n)]));
+  if (declared.picker) before['picker-types'] = first('picker-types');
+  writeFileSync(join(root, 'package-lock.json'), JSON.stringify(lockOf(declared, before)));
+  mkdirSync(join(root, 'src'));
+  writeFileSync(join(root, 'src/date.ts'), "import type { Range } from 'picker-types/range';\n");
   for (const args of [
     ['init', '-q'],
     ['add', '.'],
@@ -60,7 +77,7 @@ function repo(conflict: (lock: Lock) => boolean) {
   ])
     execFileSync('git', args, { cwd: root });
   // What the plan writes: the lead and its companion bumped.
-  manifest({ ...ranges, ui: '^2.0.0', 'ui-dom': '^2.0.0' });
+  manifest({ ...declared, ui: '^2.0.0', 'ui-dom': '^2.0.0' });
   const installs: { args: string[]; lock: Lock }[] = [];
   vi.spyOn(process, 'command').mockImplementation(async (_root, _bin, args) => {
     if (args[0] === '--version') return { code: 0, output: '11.6.2', timeout: false };
@@ -71,8 +88,11 @@ function repo(conflict: (lock: Lock) => boolean) {
     const deps: Record<string, string> = JSON.parse(
       readFileSync(join(root, 'package.json'), 'utf8'),
     ).dependencies;
+    // Hoisted and flat: every dependency at the top level; unrequired entries are pruned.
     const entries: Record<string, Entry> = {};
-    for (const [name, range] of Object.entries(deps)) {
+    const wanted = Object.entries(deps);
+    for (const [name, range] of wanted) {
+      if (entries[name]) continue;
       const locked = lock.packages[`node_modules/${name}`];
       const versions = (registry[name] ?? []).map((e) => e.version);
       const version =
@@ -80,6 +100,7 @@ function repo(conflict: (lock: Lock) => boolean) {
           ? locked.version
           : (maxSatisfying(versions, range) as string);
       entries[name] = registry[name]?.find((e) => e.version === version) as Entry;
+      wanted.push(...Object.entries(entries[name].dependencies ?? {}));
     }
     writeFileSync(join(root, 'package-lock.json'), JSON.stringify(lockOf(deps, entries)));
     return { code: 0, output: '', timeout: false };
@@ -158,5 +179,50 @@ it('ends blocked, naming the packages npm reported, when every step fails', asyn
   expect(blocked.message).toContain('Conflicting peer dependency: ui@2.0.0');
   expect(blocked.message).toContain('--legacy-peer-deps');
   expect(installs).toHaveLength(3);
+  neverForced(installs);
+});
+
+// UPT-109: picker re-resolves to 1.1.0, which no longer brings picker-types; src/date.ts imports it.
+const withPicker = { ...ranges, picker: '^1.0.0' };
+
+it('keeps an undeclared package the repo imports when the re-resolve would drop it', async () => {
+  const installs = repo(
+    (lock) => lock.packages['node_modules/toggle']?.version === '1.0.0',
+    withPicker,
+  );
+  const report = await upgradeInstall(root, upgrade);
+  expect(report.eresolveRetry).toMatchObject({
+    step: 'moved entries',
+    dropped: ['toggle', 'ui', 'ui-dom'],
+  });
+  // The first retry dropped picker (it peers on ui), so npm pruned picker-types; the next one
+  // started with picker locked too, after the 1 + 3 installs of the failed and the first retry.
+  expect(locked(installs[1]?.lock)).toEqual(['unrelated', 'picker-types']);
+  expect(locked(installs[4]?.lock)).toEqual(['unrelated', 'picker', 'picker-types']);
+  const lock = JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8'));
+  expect(lock.packages['node_modules/picker-types'].version).toBe('1.0.0');
+  expect(lock.packages['node_modules/picker'].version).toBe('1.0.0');
+  expect(report.undeclared).toEqual([{ name: 'picker-types', version: '1.0.0', kept: true }]);
+  // Never declared on the repo's behalf.
+  expect(
+    JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies,
+  ).not.toHaveProperty('picker-types');
+  neverForced(installs);
+});
+
+it('reports an imported undeclared package it cannot keep', async () => {
+  // picker 1.0.0 conflicts too: keeping it ERESOLVEs, so the retry without it stands.
+  const installs = repo(
+    (lock) =>
+      lock.packages['node_modules/toggle']?.version === '1.0.0' ||
+      lock.packages['node_modules/picker']?.version === '1.0.0',
+    withPicker,
+  );
+  const report = await upgradeInstall(root, upgrade);
+  expect(report.eresolveRetry?.step).toBe('moved entries');
+  const lock = JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8'));
+  expect(lock.packages['node_modules/picker'].version).toBe('1.1.0');
+  expect(lock.packages['node_modules/picker-types']).toBeUndefined();
+  expect(report.undeclared).toEqual([{ name: 'picker-types', version: '1.0.0', kept: false }]);
   neverForced(installs);
 });
