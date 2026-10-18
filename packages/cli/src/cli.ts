@@ -1052,31 +1052,6 @@ ${runnable(PRIVACY)}`,
               throw new CliError(`--max-cost ${flags.maxCost}: expected an amount in USD`, {
                 next: `uptide fix ${only} --max-cost 2`,
               });
-            // Why fix cannot start with the SDK, and how to change that.
-            const cannotStart: [string, string] | undefined =
-              internal || flags.pinCurrentApi
-                ? undefined
-                : !llmOn
-                  ? ['uptide.yml sets llm.enabled: false', 'remove llm.enabled from uptide.yml']
-                  : agent === 'patch'
-                    ? ['uptide.yml sets executor: patch', 'remove executor from uptide.yml']
-                    : selection.provider !== 'anthropic'
-                      ? [
-                          `the LLM provider is ${selection.provider}, and the SDK runs on Anthropic models only`,
-                          'set ANTHROPIC_API_KEY and drop the other provider (--provider, UPTIDE_PROVIDER, llm.provider in uptide.yml)',
-                        ]
-                      : !selection.available
-                        ? [
-                            'ANTHROPIC_API_KEY is not set',
-                            'set ANTHROPIC_API_KEY in your environment (your own key; assisted fixes send code to Anthropic with it)',
-                          ]
-                        : undefined;
-            if (cannotStart)
-              throw new UptideError('SDK_UNAVAILABLE', sdkRequired(cannotStart[0], cannotStart[1]));
-            // No pack, so no rule: without the agent there is nothing this command can do,
-            // and it says so before it touches anything.
-            const hasPack = activePacks(flags.allowCandidate).some((pack) => pack.name === only);
-            if (!hasPack && (!llmOn || !selection.available)) throw noAgentForGeneric(only, !llmOn);
             if (flags.pinCurrentApi && only !== 'stripe')
               throw new CliError('--pin-current-api applies to stripe only', {
                 next: 'uptide fix stripe --pin-current-api',
@@ -1087,28 +1062,6 @@ ${runnable(PRIVACY)}`,
               });
             // `--only zod --target stripe@23.0.0` would upgrade zod to 23.0.0, or fail late.
             if (target) parseTargets([target], [only]);
-            // The SDK executor, fetched once into the cache: asked first on a terminal, never a
-            // fallback. When it cannot run, the run stops here, before any clone or spending.
-            const sdk =
-              llmOn &&
-              !flags.pinCurrentApi &&
-              selection.available &&
-              selection.provider === 'anthropic' &&
-              agent !== 'patch';
-            const sdkMissing = sdk
-              ? await sdkUnavailable(
-                  (text) => io.err(text),
-                  async (dir) =>
-                    flags.yes || !io.inTty || !io.errTty || !io.ask
-                      ? true
-                      : !/^n(?:o)?$/i.test(
-                          (await io.ask(
-                            `uptide fix needs the Claude Agent SDK (${SDK_SIZE}, downloaded once to ${dir}). Download now? [Y/n] `,
-                          )) ?? 'n',
-                        ),
-                )
-              : undefined;
-            if (sdkMissing) throw new UptideError('SDK_UNAVAILABLE', sdkRequired(sdkMissing));
             if (flags.pr && !flags.yes)
               io.err('--pr without --yes: the publication plan is printed, nothing is pushed.\n');
             const repo = await progress.phase(
@@ -1135,6 +1088,54 @@ ${runnable(PRIVACY)}`,
             // Without a terminal there is no live line: say what started, then how long it took.
             if (quiet && !ui.interactive)
               io.err(`uptide fix · ${only} · ${repoLine(headerOf(repo, 0))}\n`);
+            // Once the repository can be fixed at all: why fix cannot start with the SDK, and how
+            // to change that. Nothing is cloned, fetched or spent before this.
+            const cannotStart: [string, string] | undefined =
+              internal || flags.pinCurrentApi
+                ? undefined
+                : !llmOn
+                  ? ['uptide.yml sets llm.enabled: false', 'remove llm.enabled from uptide.yml']
+                  : agent === 'patch'
+                    ? ['uptide.yml sets executor: patch', 'remove executor from uptide.yml']
+                    : selection.provider !== 'anthropic'
+                      ? [
+                          `the LLM provider is ${selection.provider}, and the SDK runs on Anthropic models only`,
+                          'set ANTHROPIC_API_KEY and drop the other provider (--provider, UPTIDE_PROVIDER, llm.provider in uptide.yml)',
+                        ]
+                      : !selection.available
+                        ? [
+                            'ANTHROPIC_API_KEY is not set',
+                            'set ANTHROPIC_API_KEY in your environment (your own key; assisted fixes send code to Anthropic with it)',
+                          ]
+                        : undefined;
+            if (cannotStart)
+              throw new UptideError('SDK_UNAVAILABLE', sdkRequired(cannotStart[0], cannotStart[1]));
+            // No pack, so no rule: without the agent there is nothing this command can do,
+            // and it says so before it touches anything.
+            const hasPack = activePacks(flags.allowCandidate).some((pack) => pack.name === only);
+            if (!hasPack && (!llmOn || !selection.available)) throw noAgentForGeneric(only, !llmOn);
+            // The SDK executor, fetched once into the cache: asked first on a terminal, never a
+            // fallback. When it cannot run, the run stops here, before any clone or spending.
+            const sdk =
+              llmOn &&
+              !flags.pinCurrentApi &&
+              selection.available &&
+              selection.provider === 'anthropic' &&
+              agent !== 'patch';
+            const sdkMissing = sdk
+              ? await sdkUnavailable(
+                  (text) => io.err(text),
+                  async (dir) =>
+                    flags.yes || !io.inTty || !io.errTty || !io.ask
+                      ? true
+                      : !/^n(?:o)?$/i.test(
+                          (await io.ask(
+                            `uptide fix needs the Claude Agent SDK (${SDK_SIZE}, downloaded once to ${dir}). Download now? [Y/n] `,
+                          )) ?? 'n',
+                        ),
+                )
+              : undefined;
+            if (sdkMissing) throw new UptideError('SDK_UNAVAILABLE', sdkRequired(sdkMissing));
             // Local commits the remote lacks, uncommitted files: said, or refused, before any work.
             const preflightShown = engine.preflight !== undefined;
             if (engine.preflight) {
