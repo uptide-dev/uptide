@@ -7,6 +7,7 @@ import {
   type ErrorCode,
   type FixReport,
   fixPreflight,
+  InstallBlockedError,
   type ListOptions,
   type ListReport,
   listDependencies,
@@ -122,6 +123,7 @@ export function inWorker<T>(
                   code: ErrorCode;
                   peerConflicts?: PeerBlockerGroup[];
                   next?: string;
+                  blocked?: InstallBlockedError['blocked'];
                 },
           ) => {
             if ('type' in reply) {
@@ -141,7 +143,9 @@ export function inWorker<T>(
               reject(
                 reply.peerConflicts && reply.next
                   ? new PeerPreflightError(reply.peerConflicts, reply.next, reply.message)
-                  : new UptideError(reply.code, reply.message),
+                  : reply.blocked
+                    ? new InstallBlockedError(reply.blocked)
+                    : new UptideError(reply.code, reply.message),
               );
           },
         );

@@ -1,5 +1,10 @@
 import { parentPort, workerData } from 'node:worker_threads';
-import { errorCode, PeerPreflightError, watchInterruptibleClones } from '@uptide/core';
+import {
+  errorCode,
+  InstallBlockedError,
+  PeerPreflightError,
+  watchInterruptibleClones,
+} from '@uptide/core';
 import { explain } from './errors.js';
 import { type Job, runJob } from './jobs.js';
 
@@ -22,5 +27,6 @@ runJob(workerData as Job, (event) => parentPort?.postMessage({ type: 'progress',
       ...(err instanceof PeerPreflightError
         ? { peerConflicts: err.peerConflicts, next: err.next }
         : {}),
+      ...(err instanceof InstallBlockedError ? { blocked: err.blocked } : {}),
     }),
 );

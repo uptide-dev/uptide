@@ -9,6 +9,7 @@ import { baselineHeadline, baselineHealthOf } from './baseline.js';
 import type { BehaviorResult } from './behavior.js';
 import { fitPieces, must, type Piece } from './budget.js';
 import { describeOutOfScope, describeTransitive } from './managers/lock-guard.js';
+import { describeEresolveRetry } from './managers/upgrade.js';
 import { noPackBlockers } from './no-pack.js';
 import { uniqueSites } from './paired.js';
 import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
@@ -904,6 +905,13 @@ export function renderMigration(
     }
   }
 
+  if (report.lockfile?.eresolveRetry)
+    lines.push(
+      '',
+      '### Lockfile re-resolved',
+      '',
+      `${describeEresolveRetry(report.lockfile.eresolveRetry)}.`,
+    );
   if (report.lockfile?.peerReresolved?.length) {
     lines.push(
       '',

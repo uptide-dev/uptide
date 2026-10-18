@@ -1,7 +1,13 @@
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type FixReport, PeerPreflightError, PublishError, UptideError } from '@uptide/core';
+import {
+  type FixReport,
+  InstallBlockedError,
+  PeerPreflightError,
+  PublishError,
+  UptideError,
+} from '@uptide/core';
 import { describe, expect, it } from 'vitest';
 import { run } from './cli.js';
 import {
@@ -499,6 +505,39 @@ describe('uptide fix', () => {
       expect(plain.stderr()).not.toMatch(/✖|error:|LLM spend:/);
     }
     expect(io.stderr()).not.toMatch(/✖|LLM spend:/);
+  });
+
+  it.each([
+    [
+      'blocked install',
+      new InstallBlockedError({
+        attempts: ['lock-only', 'moved entries', 'whole lockfile'],
+        conflicts: ['Found: toggle@1.0.0', 'Conflicting peer dependency: ui@2.0.0'],
+      }),
+      {
+        blocked: {
+          attempts: ['lock-only', 'moved entries', 'whole lockfile'],
+          conflicts: ['Found: toggle@1.0.0', 'Conflicting peer dependency: ui@2.0.0'],
+        },
+      },
+    ],
+    ['any other failure', new UptideError('INSTALL_FAILED', 'npm ci failed'), {}],
+  ])('writes the JSON report on exit 2 too: %s', async (_case, error, extra) => {
+    const engine = fakeEngine({
+      fix: async () => {
+        throw error;
+      },
+    });
+    const io = memoryIo({ cwd: pnpmGitRepo() });
+    expect(await run(['fix', 'zod', '--no-llm', '--json'], io, engine)).toBe(2);
+    expect(JSON.parse(io.stdout())).toEqual({
+      error: { code: error.code, message: error.message },
+      ...extra,
+    });
+    // Text names the same packages.
+    const plain = memoryIo({ cwd: pnpmGitRepo() });
+    expect(await run(['fix', 'zod', '--no-llm'], plain, engine)).toBe(2);
+    expect(plain.stderr()).toContain(error.message);
   });
 
   it.each([false, true])(

@@ -5,6 +5,7 @@ import {
   activePacks,
   errorCode,
   formatFix,
+  InstallBlockedError,
   isFailure,
   leadName,
   leadNames,
@@ -187,7 +188,7 @@ export async function run(
   const act = async (
     flags: Shared,
     body: (ctx: { ui: Ui; progress: Progress; cwd: string }) => Promise<number>,
-    options: { quiet?: boolean } = {},
+    options: { quiet?: boolean; jsonErrors?: boolean } = {},
   ): Promise<void> => {
     const ui = uiOf(io, flags);
     if (['list', 'check'].includes(argv[0] ?? '') && (!io.outTty || !ui.color)) {
@@ -214,6 +215,12 @@ export async function run(
       } else {
         if (err instanceof CliError && err.options.next)
           err.options.next = suggest(err.options.next);
+        // `fix --json` answers on every exit, a failure included (UPT-107).
+        if (flags.json && options.jsonErrors)
+          emit({
+            error: { code: errorCode(err), message: explain(err) },
+            ...(err instanceof InstallBlockedError ? { blocked: err.blocked } : {}),
+          });
         io.err(renderError(err, ui.color));
       }
       code =
@@ -1207,7 +1214,7 @@ ${runnable(PRIVACY)}`,
             }
             return report.verification.passed ? EXIT.ok : EXIT.breaking;
           },
-          { quiet: !flags.verbose && !flags.debug },
+          { quiet: !flags.verbose && !flags.debug, jsonErrors: true },
         ),
     );
 
