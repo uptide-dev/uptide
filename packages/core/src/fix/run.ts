@@ -271,6 +271,18 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     phases.push({ name, ms: now - lapped, ...(costUsd !== undefined ? { costUsd } : {}) });
     lapped = now;
   };
+  // Every build the run executes, preparation and verification, with its wall time.
+  const buildRuns = { count: 0, ms: 0 };
+  const timedBuild: typeof buildWorkspaces = async (...args) => {
+    const start = Date.now();
+    try {
+      const results = await (services.build ?? buildWorkspaces)(...args);
+      buildRuns.count += results.filter((b) => b.command).length;
+      return results;
+    } finally {
+      buildRuns.ms += Date.now() - start;
+    }
+  };
   const root = realpathSync(resolve(options.cwd));
   if (
     options.maxCostUsd !== undefined &&
@@ -373,7 +385,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (services.install === install) await assertManagerAvailable(root);
   // Generated clients and consumed workspace builds, before the planner compiles anything.
   const prepared = await prepareWorkspace(root, workspacePackagesOf(root), {
-    build: services.build ?? buildWorkspaces,
+    build: timedBuild,
     generate: services.generate ?? generateClients,
     buildScript: options.buildScript,
     onProgress: options.onProgress,
@@ -572,6 +584,14 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     list.map((w) => (w === '.' ? 'root' : (w.split('/').pop() ?? w))).join(', ');
   lap('analyze');
   const needsBuild = generic || pack.requiresBuild === true;
+  // ponytail: what a build sees, as HEAD's tree plus the diff and untracked names over it; an
+  // untracked file edited in place goes unseen.
+  const treeState = (): string =>
+    [
+      git(root, 'rev-parse', 'HEAD^{tree}'),
+      git(root, 'diff', 'HEAD'),
+      git(root, 'status', '--porcelain', '--untracked-files=all'),
+    ].join('\0');
   // A build leaves a clean tree as it found it.
   const keepClean = async <T>(work: () => Promise<T>): Promise<T> => {
     const clean = !git(root, 'status', '--porcelain', '--untracked-files=all');
@@ -589,7 +609,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     return keepClean(async () => {
       try {
         return await verify(`build (${names(workspaces)})`, () =>
-          (services.build ?? buildWorkspaces)(
+          timedBuild(
             root,
             workspaces,
             undefined,
@@ -699,7 +719,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   );
   // The install replaced node_modules, and what was generated into it with them.
   const consumedBuilds = {
-    build: services.build ?? buildWorkspaces,
+    build: timedBuild,
     moved: [pack.name, ...companions.map((c) => c.name), ...removals.map((r) => r.name)],
     buildScript: options.buildScript,
     onProgress: options.onProgress,
@@ -709,6 +729,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     generate: services.generate ?? generateClients,
   });
   generated.push(...rebuilt.generated.map((g) => ({ ...g, phase: 'bump' as const })));
+  let consumed = rebuilt.builds;
+  let consumedAt = treeState();
   const targetChecker =
     sdkAgent && services.diagnostics === diagnostics ? typeChecker(root, workspaces) : undefined;
   const checkTarget = targetChecker?.check ?? (() => services.diagnostics(root, workspaces));
@@ -957,14 +979,19 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   }
   // Release cached programs before final verification builds independent ones.
   targetChecker?.clear();
-  // The consumed builds ran right after the bump, before any edit: what is reported, and what
-  // feedback and the fallback decide on, is the head they were edited into (UPT-104).
-  const rebuildConsumed = async (): Promise<BuildResult[]> =>
-    rebuilt.builds.length
-      ? keepClean(async () => (await prepareWorkspace(root, workspaces, consumedBuilds)).builds)
-      : [];
+  // The consumed builds ran right after the bump: what is reported, and what feedback and the
+  // fallback decide on, is the head the edits left (UPT-104). They run again only when the tree
+  // changed since, and never beside a verification build that built the same workspaces.
+  const rebuildConsumed = async (): Promise<void> => {
+    if (consumed.every((c) => build.some((b) => b.workspace === c.workspace))) consumed = [];
+    if (!consumed.length || treeState() === consumedAt) return;
+    consumed = await keepClean(
+      async () => (await prepareWorkspace(root, workspaces, consumedBuilds)).builds,
+    );
+    consumedAt = treeState();
+  };
   let build = await runBuild();
-  let consumed = await rebuildConsumed();
+  await rebuildConsumed();
   let {
     tests: ran,
     after,
@@ -1117,7 +1144,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       for (const file of Object.keys(task.diffs ?? {}))
         if (!affected.includes(file)) affected.push(file);
     build = await runBuild();
-    consumed = await rebuildConsumed();
+    await rebuildConsumed();
     buildFallback();
     lint = await (services.lint ?? lintFiles)(root, affected, baselineLint);
     after = await verify('types after feedback', () => services.diagnostics(root, workspaces));
@@ -1214,6 +1241,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ...(behavior ? { behavior } : {}),
     timingMs: Date.now() - started,
     phases,
+    buildRuns,
     prBody: join(root, '.uptide/pr-body.md'),
     notes: [
       ...pins.map((pin) => describeRootPin(pin).replace('it will be updated', 'updated')),

@@ -1566,7 +1566,8 @@ it('reports a workspace build that fails instead of throwing', async () => {
   );
 });
 
-it('judges workspace builds on the final head, not right after the bump (UPT-104)', async () => {
+/** The zod fixture, whose root consumes `packages/internal`'s built declarations. */
+function consumedWorkspace(index?: string) {
   const { root, services } = fixture();
   const internal = join(root, 'packages/internal');
   cpSync(
@@ -1591,56 +1592,105 @@ it('judges workspace builds on the final head, not right after the bump (UPT-104
       ...pkg,
       workspaces: ['packages/*'],
       dependencies: { ...pkg.dependencies, internal: 'workspace:*' },
+      scripts: { 'build:ci': 'node -e 0' },
     }),
   );
+  if (index) writeFileSync(join(root, 'index.ts'), index);
   writeFileSync(join(root, '.gitignore'), 'node_modules\ndist\n');
   git(root, 'add', '.');
   git(root, 'commit', '-m', 'workspace build fixture');
-  let upgraded = false;
-  // Fails while the bumped tree still has the old call, as a consumer's build would.
-  const build: typeof buildWorkspaces = async (...args) =>
-    upgraded && readFileSync(join(args[0], 'index.ts'), 'utf8').includes('required_error')
-      ? [
-          {
-            workspace: 'packages/internal',
-            status: 'failed',
-            command: 'node build.cjs',
-            script: 'build:ci',
-            output: "index.ts(2,30): error TS2353: 'required_error' does not exist",
-          },
-        ]
-      : buildWorkspaces(...args);
   const fixer = {
     id: 'test',
     fix: vi.fn(async () => {
       throw new Error('no agent work expected');
     }),
   };
-  const result = await fix(
-    { cwd: root, only: 'zod', pack: zodPack, buildScript: 'build:ci', fixer },
-    {
-      ...services,
-      build,
-      install: async (...args) => {
-        await services.install(...args);
-        upgraded = true;
+  return { root, services, fixer };
+}
+
+describe('consumed workspace builds on the final head (UPT-104)', () => {
+  it('judges a build that failed after the bump by the head the edits left', async () => {
+    const { root, services, fixer } = consumedWorkspace();
+    let upgraded = false;
+    // Fails while the bumped tree still has the old call, as a consumer's build would.
+    const build: typeof buildWorkspaces = async (...args) =>
+      upgraded && readFileSync(join(args[0], 'index.ts'), 'utf8').includes('required_error')
+        ? [
+            {
+              workspace: 'packages/internal',
+              status: 'failed',
+              command: 'node build.cjs',
+              script: 'build:ci',
+              output: "index.ts(2,30): error TS2353: 'required_error' does not exist",
+            },
+          ]
+        : buildWorkspaces(...args);
+    const result = await fix(
+      { cwd: root, only: 'zod', pack: zodPack, buildScript: 'build:ci', fixer },
+      {
+        ...services,
+        build,
+        install: async (...args) => {
+          await services.install(...args);
+          upgraded = true;
+        },
       },
-    },
-  );
-  expect(readFileSync(join(result.repo, 'index.ts'), 'utf8')).not.toContain('required_error');
-  expect(result.agentFallback).toBeUndefined();
-  expect(result.llm.feedback?.roundsUsed).toBe(0);
-  expect(fixer.fix).not.toHaveBeenCalled();
-  expect(result.verification.build).toMatchObject([
-    { phase: 'baseline', workspace: 'packages/internal', status: 'passed' },
-    { workspace: 'packages/internal', status: 'passed' },
-  ]);
-  const body = prBody(result);
-  expect(body).toContain(
-    'Build after the bump in `packages/internal` (`build:ci` script): `node build.cjs` — passed',
-  );
-  expect(body).not.toContain('Agent-led draft');
-  expect(body).not.toMatch(/build failed/i);
+    );
+    expect(readFileSync(join(result.repo, 'index.ts'), 'utf8')).not.toContain('required_error');
+    expect(result.agentFallback).toBeUndefined();
+    expect(result.llm.feedback?.roundsUsed).toBe(0);
+    expect(fixer.fix).not.toHaveBeenCalled();
+    expect(result.verification.build).toMatchObject([
+      { phase: 'baseline', workspace: 'packages/internal', status: 'passed' },
+      { workspace: 'packages/internal', status: 'passed' },
+    ]);
+    // Baseline, after the bump, and once on the edited head.
+    expect(result.buildRuns?.count).toBe(3);
+    const body = prBody(result);
+    expect(body).toContain(
+      'Build after the bump in `packages/internal` (`build:ci` script): `node build.cjs` — passed',
+    );
+    expect(body).not.toContain('Agent-led draft');
+    expect(body).not.toMatch(/build failed/i);
+  });
+
+  it('does not build again when nothing changed after a passing after-bump build', async () => {
+    const { root, services, fixer } = consumedWorkspace(
+      "import { z } from 'zod';\nexport const schema = z.string();\n",
+    );
+    const build = vi.fn(buildWorkspaces);
+    const result = await fix(
+      { cwd: root, only: 'zod', pack: zodPack, buildScript: 'build:ci', fixer },
+      { ...services, build },
+    );
+    expect(result.changedFiles).not.toContain('index.ts');
+    expect(build).toHaveBeenCalledTimes(2);
+    expect(result.buildRuns?.count).toBe(2);
+    expect(result.verification.build).toMatchObject([
+      { phase: 'baseline', workspace: 'packages/internal', status: 'passed' },
+      { workspace: 'packages/internal', status: 'passed' },
+    ]);
+  });
+
+  it('reuses the verification build when it builds the consumed workspace on the head', async () => {
+    const { root, services, fixer } = consumedWorkspace();
+    const build = vi.fn(buildWorkspaces);
+    const result = await fix(
+      {
+        cwd: root,
+        only: 'zod',
+        pack: { ...zodPack, requiresBuild: true },
+        buildScript: 'build:ci',
+        fixer,
+      },
+      { ...services, build },
+    );
+    // Preparation before the baseline, the baseline build, after the bump, the final build.
+    expect(build).toHaveBeenCalledTimes(4);
+    const after = result.verification.build?.filter((b) => b.phase !== 'baseline') ?? [];
+    expect(after.filter((b) => b.workspace === 'packages/internal')).toHaveLength(1);
+    expect(after.every((b) => b.status === 'passed')).toBe(true);
+  });
 });
 
 it.each([{ updatePins: true }, { pr: true }, { forPublication: true }])(
