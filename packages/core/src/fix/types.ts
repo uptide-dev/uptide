@@ -211,6 +211,7 @@ export interface FixPhase {
     | 'agent'
     | 'verify'
     | 'feedback'
+    | 'build'
     | 'clean-install';
   ms: number;
   /** Agent spend in this phase; only the agent and feedback phases call an LLM. */

@@ -7,7 +7,7 @@ exports[`groups and caps a large Stripe changelog, linking the omitted range 1`]
 
 | | |
 |---|---|
-| **Verified by** | ✅ type-check · build not required (pack-verified migration) · ✅ tests (1 run) |
+| **Verified by** | ✅ type-check · ⚠️ build not run · ✅ tests (1 run) |
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
@@ -319,7 +319,7 @@ exports[`keeps every evidenced Stripe entry above details and uncapped under bud
 
 | | |
 |---|---|
-| **Verified by** | ✅ type-check · build not required (pack-verified migration) · ✅ tests (1 run) |
+| **Verified by** | ✅ type-check · ⚠️ build not run · ✅ tests (1 run) |
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
@@ -518,7 +518,7 @@ exports[`keeps the under-budget output byte-for-byte unchanged 1`] = `
 
 | | |
 |---|---|
-| **Verified by** | ✅ the zod migration pack · ✅ type-check · build not required (pack-verified migration) · ✅ tests (2 runs) |
+| **Verified by** | ✅ the zod migration pack · ✅ type-check · ⚠️ build not run (not required by the pack) · ✅ tests (2 runs) |
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ the upgrade broke 28 · Uptide left 0 (1 pre-existing, not counted) |
@@ -770,7 +770,7 @@ exports[`trims low-priority material before verification and retains diffs with 
 
 | | |
 |---|---|
-| **Verified by** | ✅ type-check · build not required (pack-verified migration) · ✅ tests (1 run) |
+| **Verified by** | ✅ type-check · ⚠️ build not run · ✅ tests (1 run) |
 | **Risk** | Medium: agent edits; sensitive paths; no tests |
 | **Changes** | 500 sites in 500 files · 0 auto-fixed · 500 fixed by the agent (LLM) |
 | **Types** | ✅ the upgrade broke 4 · Uptide left 0 |

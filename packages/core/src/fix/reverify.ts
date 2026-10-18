@@ -135,14 +135,13 @@ export async function reverify(
     ...(options.testTimeoutMs ? { testTimeoutMs: options.testTimeoutMs } : {}),
   });
   const buildRequired = report.verification.buildRequired || pack.requiresBuild === true;
-  const build = buildRequired
-    ? await (services.build ?? buildWorkspaces)(
-        root,
-        workspaces,
-        undefined,
-        options.buildScript ?? configuredBuildScript(root),
-      )
-    : report.verification.build;
+  // Rebuilt on this head even when the pack does not require it: a stored result is stale.
+  const build = await (services.build ?? buildWorkspaces)(
+    root,
+    workspaces,
+    undefined,
+    options.buildScript ?? configuredBuildScript(root),
+  );
   assertInstalledVersions(root, moves);
   const left = git(root, 'status', '--porcelain', '--untracked-files=all')
     .split('\n')
@@ -191,7 +190,8 @@ export async function reverify(
       after,
       newErrors,
       tests,
-      ...(buildRequired ? { buildRequired: true, build } : {}),
+      ...(buildRequired ? { buildRequired: true } : {}),
+      build,
       ...(lint.length ? { lint } : {}),
       ...(formatted.length ? { formatted } : {}),
       ...(unverified ? { typesUnverified: unverified } : {}),
@@ -199,7 +199,7 @@ export async function reverify(
         !unverified &&
         newErrors.length === 0 &&
         left.length === 0 &&
-        (!buildRequired || (!!build?.length && build.every((b) => b.status === 'passed'))) &&
+        (!buildRequired || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
         tests.every((t) => t.status === 'passed' || t.status === 'missing') &&
         testsOrBuildVouch(report.typeCoverage, tests, build) &&
         lint.every((l) => l.status !== 'failed'),

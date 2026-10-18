@@ -89,13 +89,27 @@ it('reruns the required build when re-verifying and cannot publish a stale pass'
   expect(publicationBlockers(again).join('; ')).toContain('build required');
 });
 
-it('leaves packs without requiresBuild unchanged', async () => {
+it('reports the repo build a pack does not require: a failure reads failed, not "not required" (UPT-110)', async () => {
   const { root, services } = zodFixture(scratch);
-  const build = vi.fn(async () => []);
+  const build = vi.fn(async () => [
+    {
+      workspace: '.',
+      status: 'failed' as const,
+      command: 'tsc -b',
+      output: "> tsc -b\nsrc/db.ts(3,8): error TS2307: Cannot find module 'pg'.\nFound 1 error.",
+    },
+  ]);
   const result = await fix(
     { cwd: root, only: 'zod', pack: zodPack, fixer: null },
     { ...services, build },
   );
-  expect(build).not.toHaveBeenCalled();
-  expect(result.verification.build).toBeUndefined();
+  expect(build).toHaveBeenCalledOnce();
+  const body = prBody(result);
+  expect(body).toContain(
+    "❌ build: src/db.ts(3,8): error TS2307: Cannot find module 'pg'. (not required by the pack)",
+  );
+  expect(body).not.toContain('build not required');
+  // The pack's gate is unchanged: a build it does not require is reported, not a blocker.
+  expect(result.verification.passed).toBe(true);
+  expect(publicationBlockers(result).filter((b) => b.startsWith('build'))).toEqual([]);
 });

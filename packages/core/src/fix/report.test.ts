@@ -48,9 +48,9 @@ for (const name of ['storefront-zod', 'stripe'])
         body = prBody(report),
         top = visible(body);
       expect(top.match(/^\| \*\*/gm)).toHaveLength(6);
-      // A pack analyzed the upgrade: the build is not owed, so it is not a warning.
+      // A build that did not run says so; the pack's gate sits beside it, never in its place.
       expect(top).toMatch(
-        /^\| \*\*Verified by\*\* \|.* · build not required \(pack-verified migration\) · /m,
+        /^\| \*\*Verified by\*\* \|.* · ⚠️ build not run(?: \(not required by the pack\))? · /m,
       );
       // Decisions and concrete changelog evidence name the code they concern.
       expect(
@@ -1026,7 +1026,7 @@ it('says why a required build failed when it stopped before the framework build'
     },
   ];
   expect(visible(prBody(report))).toContain(
-    '❌ build (build needs DATABASE_URL; set verify.build)',
+    '❌ build: error: Environment variable not found: DATABASE_URL. (build needs DATABASE_URL; set verify.build)',
   );
   expect(prBody(report)).toContain(
     'the build needs DATABASE_URL before the framework build started. Set `verify.build` in uptide.yml',

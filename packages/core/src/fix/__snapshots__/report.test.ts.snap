@@ -9,7 +9,7 @@ exports[`storefront-zod > snapshots the full PR description and compact terminal
 
 | | |
 |---|---|
-| **Verified by** | ✅ the zod migration pack · ✅ type-check · build not required (pack-verified migration) · ✅ tests (2 runs) |
+| **Verified by** | ✅ the zod migration pack · ✅ type-check · ⚠️ build not run (not required by the pack) · ✅ tests (2 runs) |
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ the upgrade broke 28 · Uptide left 0 (1 pre-existing, not counted) |
@@ -259,7 +259,7 @@ exports[`storefront-zod > snapshots the full PR description and compact terminal
 
 | | |
 |---|---|
-| **Verified by** | ✅ the zod migration pack · ✅ type-check · build not required (pack-verified migration) · ✅ tests (2 runs) |
+| **Verified by** | ✅ the zod migration pack · ✅ type-check · ⚠️ build not run (not required by the pack) · ✅ tests (2 runs) |
 | **Risk** | Medium: request validation in webhooks |
 | **Changes** | 29 sites in 8 files · 25 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ the upgrade broke 28 · Uptide left 0 (1 pre-existing, not counted) |
@@ -282,7 +282,7 @@ exports[`stripe > snapshots the full PR description and compact terminal/comment
 
 | | |
 |---|---|
-| **Verified by** | ✅ type-check · build not required (pack-verified migration) · ⚠️ tests not run: none ran |
+| **Verified by** | ✅ type-check · ⚠️ build not run · ⚠️ tests not run: none ran |
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
@@ -499,7 +499,7 @@ exports[`stripe > snapshots the full PR description and compact terminal/comment
 
 | | |
 |---|---|
-| **Verified by** | ✅ type-check · build not required (pack-verified migration) · ⚠️ tests not run: none ran |
+| **Verified by** | ✅ type-check · ⚠️ build not run · ⚠️ tests not run: none ran |
 | **Risk** | High: behavior changes |
 | **Changes** | 4 sites in 1 file · 0 auto-fixed · 4 fixed by the agent (LLM) |
 | **Types** | ✅ the upgrade broke 4 · Uptide left 0 |
