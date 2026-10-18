@@ -40,7 +40,7 @@
     "@changesets/cli": "^3.0.3",
     "@types/node": "^22.0.0",
     "@uptide/core": "workspace:*",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "tsx": "^4.20.3",
     "turbo": "^2.11.7",
     "typescript": "^5.9.3",
