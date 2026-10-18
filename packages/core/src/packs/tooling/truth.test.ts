@@ -55,7 +55,7 @@ describe('generators (UPT-95)', () => {
   let cacheDir: string | undefined;
   afterEach(() => cacheDir && rmSync(cacheDir, { recursive: true, force: true }));
 
-  it('runs them once on a cached install, and reports one that fails', async () => {
+  it('runs them on a cached install, again while one fails, and reports it', async () => {
     const pinned = { repo: 'example/prisma', commit: 'b'.repeat(40) };
     cacheDir = mkdtempSync(join(tmpdir(), 'uptide-truth-'));
     const dir = cachedRepoDir(pinned, cacheDir);
@@ -75,7 +75,8 @@ describe('generators (UPT-95)', () => {
 
     await expect(ensureRepo(pinned, { cacheDir, offline: true })).resolves.toBe(dir);
     await ensureRepo(pinned, { cacheDir, offline: true });
-    expect(readFileSync(join(dir, 'runs'), 'utf8')).toBe('run\n');
+    // A failure is not final: a missing engine is fetched on the next run, so it runs again.
+    expect(readFileSync(join(dir, 'runs'), 'utf8')).toBe('run\nrun\n');
     expect(generatorFailures(pinned, cacheDir)).toEqual([
       'generator failed: prisma generate --schema prisma/schema.prisma (schema invalid)',
     ]);

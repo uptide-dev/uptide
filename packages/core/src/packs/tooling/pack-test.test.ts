@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +17,7 @@ import {
   type RepoScore,
   testPack,
 } from './pack-test.js';
+import { cachedRepoDir } from './truth.js';
 
 const root = fileURLToPath(new URL('../../../../../', import.meta.url));
 const verification = JSON.parse(
@@ -363,4 +364,64 @@ it('writes a record as the formatter would: a short list inline, a long one a li
     const file = join(root, 'packages/core/src/packs', entry.dir, 'verification.json');
     expect(`${formatRecord(entry.verification)}\n`, entry.dir).toBe(readFileSync(file, 'utf8'));
   }
+});
+
+it('fails a repository whose generated code is missing, unless the ground truth says why (UPT-95)', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'uptide-generated-'));
+  const cacheDir = join(tmp, 'cache');
+  const repo = { repo: 'example/prisma-app', commit: 'c'.repeat(40) };
+  const truth = (withoutGenerated?: string) => {
+    mkdirSync(join(tmp, 'packages/core/src/packs/demo'), { recursive: true });
+    writeFileSync(
+      join(tmp, 'packages/core/src/packs/demo/ground-truth.json'),
+      JSON.stringify({
+        package: 'demo',
+        repos: [
+          { ...repo, from: '1.0.0', to: '2.0.0', why: 'synthetic', findings: [], withoutGenerated },
+        ],
+      }),
+    );
+  };
+  // Installed and cached; its Prisma generator fails the way a missing engine does.
+  const dir = cachedRepoDir(repo, cacheDir);
+  mkdirSync(join(dir, 'prisma'), { recursive: true });
+  mkdirSync(join(dir, 'node_modules/.bin'), { recursive: true });
+  writeFileSync(join(dir, 'package.json'), '{"name":"app"}');
+  writeFileSync(join(dir, 'prisma/schema.prisma'), 'generator client { provider = "x" }');
+  const bin = join(dir, 'node_modules/.bin/prisma');
+  writeFileSync(
+    bin,
+    '#!/bin/sh\necho "Error: request to http://127.0.0.1:9/ failed" >&2\nexit 1\n',
+  );
+  chmodSync(bin, 0o755);
+  writeFileSync(
+    join(dir, '.uptide-ground-truth.json'),
+    JSON.stringify({ ...repo, installed: ['.'] }),
+  );
+  const pack = {
+    ...aiPack,
+    name: 'demo',
+    rules: [],
+    behavior: [],
+    companions: undefined,
+    releaseGroup: undefined,
+    meta: { ...aiPack.meta, minBreakingSites: undefined },
+  };
+  const run = () =>
+    testPack({ dir: 'demo', pack, verification }, { root: tmp, cacheDir, offline: true });
+
+  truth();
+  const incomplete = await run();
+  expect(incomplete.repos[0]?.error).toMatch(
+    /^incomplete, generated code missing: generator failed: prisma generate/,
+  );
+  expect(incomplete.gate.reasons).toContain('example/prisma-app@cccccccccccc could not be scored');
+  expect(incomplete.passed).toBe(false);
+
+  truth('its prisma.config.ts needs a live DATABASE_URL');
+  const declared = await run();
+  expect(declared.repos[0]?.error ?? '').not.toMatch(/^incomplete/);
+  expect(declared.repos[0]?.generatorFailed?.[0]).toMatch(
+    /; scored without it: its prisma.config.ts needs a live DATABASE_URL$/,
+  );
 });

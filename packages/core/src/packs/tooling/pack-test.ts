@@ -68,7 +68,10 @@ export interface RepoScore {
   error?: string;
   /** What the lockfile says is installed, when it is not the ground truth's `from`. */
   installedMismatch?: string;
-  /** Code generators that did not run or failed: the repository is scored without their code. */
+  /**
+   * Code generators that did not run or failed. Scored without their code only when the ground
+   * truth declares it (`withoutGenerated`); otherwise `error` says the repository is incomplete.
+   */
   generatorFailed?: string[];
   /** What `check` moves with the package there, at versions that agree (`fix` installs them together). */
   companions?: Companion[];
@@ -355,7 +358,14 @@ async function scoreRepo(
       start = performance.now();
       dir = await ensureRepo(pinned, options);
       const failed = generatorFailures(pinned, options.cacheDir);
-      if (failed.length) base.generatorFailed = failed;
+      if (failed.length)
+        base.generatorFailed = entry.withoutGenerated
+          ? failed.map((f) => `${f}; scored without it: ${entry.withoutGenerated}`)
+          : failed;
+      // Scored without the generated code only where the ground truth says why: otherwise the
+      // repository is incomplete, and never scored as if it were not.
+      if (failed.length && !entry.withoutGenerated)
+        throw new Error(`incomplete, generated code missing: ${failed.join('; ')}`);
     }
     timing.installMs = since(start);
     const project = entry.directory ? join(dir, entry.directory) : dir;

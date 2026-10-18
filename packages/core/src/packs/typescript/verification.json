@@ -1,6 +1,6 @@
 {
   "status": "verified",
-  "truth": "sha256-b463fcdce83820c229ab46ab51a2afb62c3da5f4f5e6a2b53fee63f302755e68",
+  "truth": "sha256-74dcdbebdc3dde9432ece913a25ed78e6f7ff2236fa689d9ec592e21e9ebfc43",
   "repos": 7,
   "breaking": {
     "precision": 1,

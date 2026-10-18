@@ -7,6 +7,7 @@ import { packageManager } from '../../fix/managers/manager.js';
 import { command, git } from '../../fix/process.js';
 import { workspacePackagesOrRoot } from '../../workspaces.js';
 import type { GroundTruth, GroundTruthRepo } from '../contract.js';
+import { prismaEngineEnv } from './prisma-engines.js';
 
 /**
  * Ground-truth repositories are fetched once and kept: a shallow fetch of the one pinned
@@ -49,6 +50,8 @@ export function truthProblems(truth: GroundTruth, packageName: string): string[]
     if (r.directory && (r.directory.startsWith('/') || /(^|\/)\.\.(\/|$)/.test(r.directory)))
       problems.push(`${where}: directory is relative and inside the repository`);
     if (!r.from || !r.to) problems.push(`${where}: from and to are exact versions`);
+    if (r.withoutGenerated !== undefined && !r.withoutGenerated.trim())
+      problems.push(`${where}: withoutGenerated says why the generators cannot run`);
     for (const f of r.findings ?? [])
       if (!f.file || !Number.isInteger(f.line) || f.line < 1 || !f.rule)
         problems.push(`${where}: every finding has a file, a line and a rule`);
@@ -147,9 +150,11 @@ interface Marker {
 const MARKER = '.uptide-ground-truth.json';
 
 /**
- * Prisma 5 and 6 download their engine binaries on first use when the install script did not
- * run: a mirror nothing listens on keeps that off the network (UPT-95), so the generator fails
- * and is reported instead. Prisma 7's client generator needs no engine.
+ * Prisma downloads its engine binaries on first use when the install script did not run (5
+ * and 6 the schema engine and query library, 7 the schema engine): repository code stays off
+ * the network behind a mirror nothing listens on (UPT-95). The engines it needs are fetched
+ * before it runs, by uptide (`prisma-engines.ts`); one that is still missing fails the
+ * generator, and `pack test` fails the repository.
  */
 const NO_DOWNLOADS = { PRISMA_ENGINES_MIRROR: 'http://127.0.0.1:9' };
 
@@ -188,8 +193,10 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
   const install = options.install ?? true;
   const at = entry.directory ?? '.';
   const marker = readMarker(dir);
-  // A cache from before UPT-95 is installed but not generated: generating needs no fetch.
-  if (marker && (!install || (marker.installed.includes(at) && marker.generated?.[at]))) return dir;
+  // A cache from before UPT-95 is installed but not generated, or a generator failed there
+  // (an engine missing then): generating again needs no fetch and no install.
+  const generatedAll = marker?.generated?.[at]?.every((g) => g.status === 'generated');
+  if (marker && (!install || (marker.installed.includes(at) && generatedAll))) return dir;
   if (options.offline && !marker?.installed.includes(at))
     throw new UptideError(
       'GROUND_TRUTH_NOT_CACHED',
@@ -258,7 +265,14 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
         `installed with ${result.manager}${result.frozen ? '' : ', lockfile not frozen'}`,
       );
     }
-    generated[at] = await generateClients(project, workspacePackagesOrRoot(project), NO_DOWNLOADS);
+    const workspaces = workspacePackagesOrRoot(project);
+    const engines = await prismaEngineEnv(
+      workspaces.map((w) => join(project, w)),
+      join(cacheDir, 'prisma-engines'),
+      options.log,
+      options.offline ? () => Promise.reject(new Error('offline')) : fetch,
+    );
+    generated[at] = await generateClients(project, workspaces, { ...NO_DOWNLOADS, ...engines });
     for (const g of generated[at])
       options.log?.(`${g.status}: ${g.command}${g.workspace === '.' ? '' : ` in ${g.workspace}`}`);
   }
