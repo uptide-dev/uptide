@@ -1,0 +1,22 @@
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: app@1.0.0
+npm error Found: toggle@1.0.0
+npm error node_modules/toggle
+npm error   toggle@"^1.0.0" from the root project
+npm error
+npm error Could not resolve dependency:
+npm error toggle@"^1.0.0" from the root project
+npm error
+npm error Conflicting peer dependency: ui@2.0.0
+npm error node_modules/ui
+npm error   peer ui@"^1.0.0" from toggle@1.0.0
+npm error   node_modules/toggle
+npm error     toggle@"^1.0.0" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry this command with --force or --legacy-peer-deps to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/user/.npm/_logs/2026-01-01T00_00_00_000Z-eresolve-report.txt

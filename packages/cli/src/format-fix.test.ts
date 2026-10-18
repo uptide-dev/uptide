@@ -155,6 +155,22 @@ it('lists packages re-resolved because a peer changed', () => {
   expect(out).toContain('plugin 1.1.0 → 1.2.0 · peers react');
 });
 
+it('says which ERESOLVE retry resolved the lockfile', () => {
+  const report = fixReport(true);
+  report.lockfile = {
+    manager: 'npm',
+    file: 'package-lock.json',
+    added: [],
+    removed: [],
+    changed: [],
+    allowed: [],
+    eresolveRetry: { step: 'moved entries', dropped: ['toggle', 'ui'], conflicts: [] },
+  };
+  expect(formatFixSummary(report, { color: false })).toContain(
+    "Lockfile re-resolved\n  npm's lock-only install hit ERESOLVE from the old lockfile; it resolved without the lockfile entries of toggle, ui\n",
+  );
+});
+
 it('lists transitive changes under the package that moved them, two at a time', () => {
   const report = fixReport(true);
   report.lockfile = {

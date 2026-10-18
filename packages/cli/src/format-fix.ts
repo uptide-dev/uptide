@@ -3,6 +3,7 @@ import {
   baselineHeadline,
   baselineHealthOf,
   costStopMessage,
+  describeEresolveRetry,
   describeOutOfScope,
   describePhases,
   describeTransitive,
@@ -120,6 +121,13 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
     lines.push(colors.bold('Lockfile churn the parent commit already has (not from the upgrade)'));
     for (const c of report.lockfile.parentChurn) lines.push(`  ${describeOutOfScope(c)}`);
     lines.push('');
+  }
+  if (report.lockfile?.eresolveRetry) {
+    lines.push(
+      colors.bold('Lockfile re-resolved'),
+      `  ${describeEresolveRetry(report.lockfile.eresolveRetry)}`,
+      '',
+    );
   }
   if (report.lockfile?.peerReresolved?.length) {
     lines.push(colors.bold('Re-resolved because a peer changed'));

@@ -38,6 +38,109 @@ const INSTALLED = ['dependencies', 'devDependencies', 'optionalDependencies'] as
 export interface InstallReport extends LockDiff {
   manager: string;
   file: string;
+  /** npm's lock-only install ERESOLVEd from the old lockfile; the smaller retry that resolved (UPT-107). */
+  eresolveRetry?: EresolveRetry;
+}
+type RetryStep = 'moved entries' | 'whole lockfile';
+export interface EresolveRetry {
+  step: RetryStep;
+  /** Packages whose lockfile entries were dropped; empty for the whole lockfile. */
+  dropped: string[];
+  /** What npm reported on the first attempt. */
+  conflicts: string[];
+}
+export const describeEresolveRetry = (r: EresolveRetry): string =>
+  `npm's lock-only install hit ERESOLVE from the old lockfile; it resolved ${r.step === 'whole lockfile' ? 'with the whole lockfile re-resolved' : `without the lockfile entries of ${r.dropped.join(', ')}`}`;
+/** Every retry ERESOLVEd too; nothing was forced (`--legacy-peer-deps`, `--force`). */
+export class InstallBlockedError extends UptideError {
+  constructor(readonly blocked: { attempts: string[]; conflicts: string[] }) {
+    super(
+      'INSTALL_BLOCKED',
+      `npm could not resolve the upgrade (ERESOLVE): lock-only from the old lockfile, again without the lockfile entries of the moved packages and the packages whose peers they satisfy, and again with the whole lockfile re-resolved. npm reported:\n${blocked.conflicts.map((c) => `  ${c}`).join('\n')}\nUptide never retries with --legacy-peer-deps or --force. Nothing was changed.`,
+    );
+  }
+}
+/** The lines of npm's ERESOLVE report that name packages, in its own words. */
+export function eresolveConflicts(output: string): string[] {
+  const lines = output.split('\n').map((l) => l.replace(/^npm (?:error|ERR!) ?/, '').trim());
+  const named = lines.flatMap((line, i) =>
+    /^(While resolving|Found|Conflicting peer dependency): /.test(line) ||
+    /^peer \S+ from /.test(line)
+      ? [line]
+      : line === 'Could not resolve dependency:' && lines[i + 1]
+        ? [`${line} ${lines[i + 1]}`]
+        : [],
+  );
+  return [...new Set(named)];
+}
+const isEresolve = (error: unknown) =>
+  error instanceof UptideError &&
+  error.code === 'INSTALL_FAILED' &&
+  /\bERESOLVE\b/.test(error.message);
+/**
+ * The old lockfile without the entries of `names` and everything installed below them, or
+ * without every installed entry (undefined): npm resolves those afresh. Links stay.
+ */
+function dropEntries(text: string, names?: Set<string>): string {
+  const json = JSON.parse(text);
+  for (const [key, entry] of Object.entries<{ link?: boolean }>(json.packages ?? {})) {
+    const installed = key.split('node_modules/').slice(1);
+    if (!installed.length || entry.link) continue;
+    if (!names || installed.some((n) => names.has(n.replace(/\/$/, '')))) delete json.packages[key];
+  }
+  return `${JSON.stringify(json, null, 2)}\n`;
+}
+/** The moved packages and every locked package that declares one of them as a peer. */
+function peerHolders(text: string, moved: string[]): Set<string> {
+  const names = new Set(moved);
+  const packages = JSON.parse(text).packages ?? {};
+  for (const [key, entry] of Object.entries<{ peerDependencies?: Record<string, string> }>(
+    packages,
+  ))
+    if (key.includes('node_modules/') && moved.some((m) => entry.peerDependencies?.[m]))
+      names.add(key.slice(key.lastIndexOf('node_modules/') + 'node_modules/'.length));
+  return names;
+}
+/**
+ * `attempt` from the old lockfile, then (npm ERESOLVE only) from smaller ones, smallest
+ * re-resolve first (UPT-107). Returns the lockfile the successful attempt started from.
+ */
+async function resolving(
+  pm: PackageManager,
+  lockfile: string,
+  beforeText: string,
+  moved: string[],
+  attempt: () => Promise<void>,
+): Promise<{ start: string; retry?: EresolveRetry }> {
+  let failure: unknown;
+  try {
+    await attempt();
+    return { start: beforeText };
+  } catch (error) {
+    if (pm.kind !== 'npm' || !isEresolve(error)) throw error;
+    failure = error;
+  }
+  const conflicts = eresolveConflicts((failure as Error).message);
+  const holders = peerHolders(beforeText, moved);
+  const steps: [RetryStep, Set<string> | undefined][] = [
+    ['moved entries', holders],
+    ['whole lockfile', undefined],
+  ];
+  for (const [step, names] of steps) {
+    const start = dropEntries(beforeText, names);
+    writeFileSync(lockfile, start);
+    try {
+      await attempt();
+      return { start, retry: { step, dropped: names ? [...names].sort() : [], conflicts } };
+    } catch (error) {
+      if (!isEresolve(error)) throw error;
+      failure = error;
+    }
+  }
+  throw new InstallBlockedError({
+    attempts: ['lock-only', ...steps.map(([step]) => step)],
+    conflicts: eresolveConflicts((failure as Error).message),
+  });
 }
 export function lockGraph(pm: PackageManager, text: string, target: Targets): LockGraph {
   return pm.kind === 'npm'
@@ -134,6 +237,8 @@ async function parentLock(
   names: string[],
   lockfile: string,
   beforeText: string,
+  /** The lockfile the upgrade's install started from: `beforeText` less any dropped entries. */
+  startText: string,
 ): Promise<string | undefined> {
   const current = new Map(
     files
@@ -152,7 +257,7 @@ async function parentLock(
       if (text === undefined) rmSync(join(root, file));
       else writeFileSync(join(root, file), `${text}\n`);
     }
-    writeFileSync(lockfile, beforeText);
+    writeFileSync(lockfile, startText);
     const parse = pm.kind === 'npm' ? parseNpm : pm.kind === 'pnpm' ? parsePnpm : parseYarn;
     const locked = new Map<string, Map<string, string>>();
     for (const workspace of workspaces) {
@@ -191,39 +296,41 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       return [file, readFileSync(join(root, file), 'utf8')];
     }),
   );
-  await installPinned(root, pm, upgrade.workspaces, names, (_, name) => version.get(name));
-  if (pm.kind === 'yarn-berry') {
-    // Restoring a broad range drops Yarn's temporary resolution; pin its descriptor in the
-    // lockfile instead. A range the plan rewrote (`^14.0.0` → `^16.1.0`) is as broad as one it
-    // kept: left alone, Yarn resolves its newest match (16.3.3), not the planned version.
-    const descriptors = new Map<string, string>();
-    for (const [, text] of originals) {
-      const json = JSON.parse(text);
-      for (const section of INSTALLED)
-        for (const move of moves) {
-          const spec = json[section]?.[move.name];
-          if (!spec) continue;
-          const alias = /^(npm:(?:@[^/\s]+\/)?[^@\s]+@)(.+)$/.exec(spec);
-          const range = alias?.[2] ?? spec;
-          // Exact self-resolutions make Yarn's resolver recurse into itself.
-          if (range === move.version || !satisfies(move.version, range)) continue;
-          descriptors.set(
-            `${move.name}@${spec.startsWith('npm:') ? spec : `npm:${spec}`}`,
-            `${alias?.[1] ?? 'npm:'}${move.version}`,
-          );
-        }
+  const { start, retry } = await resolving(pm, lockfile, beforeText, names, async () => {
+    await installPinned(root, pm, upgrade.workspaces, names, (_, name) => version.get(name));
+    if (pm.kind === 'yarn-berry') {
+      // Restoring a broad range drops Yarn's temporary resolution; pin its descriptor in the
+      // lockfile instead. A range the plan rewrote (`^14.0.0` → `^16.1.0`) is as broad as one it
+      // kept: left alone, Yarn resolves its newest match (16.3.3), not the planned version.
+      const descriptors = new Map<string, string>();
+      for (const [, text] of originals) {
+        const json = JSON.parse(text);
+        for (const section of INSTALLED)
+          for (const move of moves) {
+            const spec = json[section]?.[move.name];
+            if (!spec) continue;
+            const alias = /^(npm:(?:@[^/\s]+\/)?[^@\s]+@)(.+)$/.exec(spec);
+            const range = alias?.[2] ?? spec;
+            // Exact self-resolutions make Yarn's resolver recurse into itself.
+            if (range === move.version || !satisfies(move.version, range)) continue;
+            descriptors.set(
+              `${move.name}@${spec.startsWith('npm:') ? spec : `npm:${spec}`}`,
+              `${alias?.[1] ?? 'npm:'}${move.version}`,
+            );
+          }
+      }
+      for (const [descriptor, resolution] of descriptors)
+        await run(root, pm, [
+          ...(pm.via === 'corepack' ? ['yarn'] : []),
+          'set',
+          'resolution',
+          descriptor,
+          resolution,
+        ]);
     }
-    for (const [descriptor, resolution] of descriptors)
-      await run(root, pm, [
-        ...(pm.via === 'corepack' ? ['yarn'] : []),
-        'set',
-        'resolution',
-        descriptor,
-        resolution,
-      ]);
-  }
-  // Let the real manager reconcile the final manifest, including its original range operator.
-  await reconcile(root, pm, upgrade.workspaces);
+    // Let the real manager reconcile the final manifest, including its original range operator.
+    await reconcile(root, pm, upgrade.workspaces);
+  });
   const written = readFileSync(lockfile, 'utf8');
   const afterText =
     pm.kind === 'npm' && Number(pm.actualVersion?.split('.')[0]) < 11
@@ -251,7 +358,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
     } catch (error) {
       if (!(error instanceof UptideError && error.code === 'LOCKFILE_OUT_OF_SCOPE')) throw error;
       // Attribute only what the upgrade adds over the same install at the parent commit.
-      const parentText = await parentLock(root, pm, upgrade, names, lockfile, beforeText);
+      const parentText = await parentLock(root, pm, upgrade, names, lockfile, beforeText, start);
       if (parentText === undefined) {
         if (!upgrade.acceptOutOfScope) throw error;
         diff = guard(before, true);
@@ -298,5 +405,10 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
       'LOCKFILE_OUT_OF_SCOPE',
       'Verification install changed the validated lockfile',
     );
-  return { ...diff, manager: pm.kind, file: pm.lockfile };
+  return {
+    ...diff,
+    manager: pm.kind,
+    file: pm.lockfile,
+    ...(retry ? { eresolveRetry: retry } : {}),
+  };
 }
