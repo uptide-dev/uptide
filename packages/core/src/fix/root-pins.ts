@@ -23,12 +23,18 @@ export const describeRootPin = (pin: RootPin): string =>
 export function planRootPins(
   root: string,
   moves: readonly { name: string; to: string }[],
-  options: { updatePins?: boolean; pr?: boolean; forPublication?: boolean } = {},
+  options: {
+    updatePins?: boolean;
+    pr?: boolean;
+    forPublication?: boolean;
+    unsafePins?: 'leave';
+  } = {},
   read = (file: string): string | undefined =>
     existsSync(join(root, file)) ? readFileSync(join(root, file), 'utf8') : undefined,
 ): RootPin[] {
   const manifest = JSON.parse(read('package.json') ?? '{}');
   const pins: RootPin[] = [];
+  const unsafe: UnsafeRootPin[] = [];
   function visit(file: string, path: string[], table: unknown, nested = false): void {
     if (!table || typeof table !== 'object') return;
     for (const [key, value] of Object.entries(table)) {
@@ -58,11 +64,16 @@ export function planRootPins(
           (section) => typeof manifest[section]?.[move.name] === 'string',
         );
         if (safe && before === reference && direct && path[0] !== 'resolutions') continue;
-        if (!safe || typeof before !== 'string' || !validRange(before))
-          throw new UptideError(
-            'INCONSISTENT_UPGRADE',
-            `${file} ${field.join(' > ')} may pin ${move.name}, but its selector or value cannot be updated safely. Update or remove that entry manually and rerun. Nothing was changed.`,
-          );
+        if (!safe || typeof before !== 'string' || !validRange(before)) {
+          unsafe.push({
+            file,
+            path: field,
+            name: move.name,
+            value: JSON.stringify(before),
+            to: move.to,
+          });
+          continue;
+        }
         if (satisfies(move.to, before)) continue;
         pins.push({
           file,
@@ -93,6 +104,7 @@ export function planRootPins(
     for (const pin of pins.filter((pin) => pin.file === 'pnpm-workspace.yaml'))
       assertIndependentYamlPin(doc, pin.path);
   }
+  if (unsafe.length && options.unsafePins !== 'leave') throw new UnsafeRootPinError(unsafe);
   let updatePins = options.updatePins;
   if (pins.length && updatePins === undefined && (options.pr || options.forPublication)) {
     const config = read(UPTIDE_CONFIG_FILE);
@@ -106,6 +118,28 @@ export function planRootPins(
     );
   }
   return pins;
+}
+
+/** A pin Uptide cannot rewrite without guessing: a nested or selector key, or a non-range value. */
+export interface UnsafeRootPin {
+  file: string;
+  path: string[];
+  name: string;
+  /** The value as written, JSON-encoded. */
+  value: string;
+  to: string;
+}
+export const describeUnsafePin = (pin: UnsafeRootPin): string =>
+  `${pin.file} ${pin.path.join(' > ')} = ${pin.value} (pins ${pin.name}, which moves to ${pin.to})`;
+
+/** Every pin Uptide cannot update safely, named at once. An agent-led run leaves them as they are (UPT-102). */
+export class UnsafeRootPinError extends UptideError {
+  constructor(readonly pins: UnsafeRootPin[]) {
+    super(
+      'INCONSISTENT_UPGRADE',
+      `${pins.map((pin) => `${pin.file} ${pin.path.join(' > ')} may pin ${pin.name}, but its selector or value cannot be updated safely.`).join('\n')}\nUpdate or remove ${pins.length === 1 ? 'that entry' : 'those entries'} manually and rerun. Nothing was changed.`,
+    );
+  }
 }
 
 /** Pins this upgrade must change, without consent. `refused`: uptide.yml says `updatePins: false`. */

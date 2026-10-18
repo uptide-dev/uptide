@@ -82,6 +82,11 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
     ...(report.agentFallback?.length
       ? [`  ${pad('Fallback', 9)} agent-led draft: ${report.agentFallback.join('; ')}`]
       : []),
+    ...(report.cleanInstall
+      ? [
+          `  ${pad('Install', 9)} ${report.cleanInstall.passed ? 'clean install passes' : 'clean install FAILS'}: ${report.cleanInstall.command}`,
+        ]
+      : []),
     ...(report.llm.feedback
       ? [
           `  ${pad('Feedback', 9)} ${report.llm.feedback.roundsUsed}/${report.llm.feedback.maxRounds} rounds · $${report.llm.costUsd.toFixed(2)} of $${report.llm.feedback.maxCostUsd.toFixed(2)}`,

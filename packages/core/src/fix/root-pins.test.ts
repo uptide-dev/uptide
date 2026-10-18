@@ -2,7 +2,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
-import { planRootPins, writeRootPins } from './root-pins.js';
+import { describeUnsafePin, planRootPins, UnsafeRootPinError, writeRootPins } from './root-pins.js';
 import { bumpCatalog, bumpVersions } from './versions.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-root-pins-'));
@@ -139,3 +139,27 @@ it.each([
     else expect(plan).toThrow('--update-pins');
   },
 );
+
+it('names every unsafe pin at once, and an agent-led run leaves them while updating the safe ones', () => {
+  const root = fixture();
+  const manifest = {
+    overrides: {
+      '@types/react': '18.0.26',
+      parent: { peerDependencies: { '@types/react': '18.0.26', '@types/react-dom': '18.0.26' } },
+    },
+  };
+  const read = (file: string) => (file === 'package.json' ? JSON.stringify(manifest) : undefined);
+  let error: unknown;
+  try {
+    planRootPins(root, moves, { updatePins: true }, read);
+  } catch (e) {
+    error = e;
+  }
+  expect(error).toBeInstanceOf(UnsafeRootPinError);
+  expect((error as UnsafeRootPinError).pins.map(describeUnsafePin)).toEqual([
+    'package.json overrides > parent > peerDependencies > @types/react = "18.0.26" (pins @types/react, which moves to 19.3.0)',
+    'package.json overrides > parent > peerDependencies > @types/react-dom = "18.0.26" (pins @types/react-dom, which moves to 19.3.0)',
+  ]);
+  const pins = planRootPins(root, moves, { updatePins: true, unsafePins: 'leave' }, read);
+  expect(pins).toMatchObject([{ path: ['overrides', '@types/react'], after: '19.3.0' }]);
+});

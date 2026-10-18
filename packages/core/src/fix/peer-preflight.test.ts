@@ -15,6 +15,7 @@ import { compatiblePeerVersion } from '../check/companions.js';
 import type { PackageFetcher } from '../domain/io.js';
 import { definePack } from '../packs/contract.js';
 import { zodPack } from '../packs/zod/index.js';
+import { assistedPeerPreflight } from './feedback.js';
 import { isolatedFix } from './isolate.js';
 import type { ManagerKind } from './managers/manager.js';
 import {
@@ -805,4 +806,40 @@ it('--no-llm still stops before the clone, with the major as the next command', 
   expect(error).toBeInstanceOf(PeerPreflightError);
   expect((error as PeerPreflightError).next).toMatch(/fix zod plugin --target 4\.6\.5 --no-llm$/);
   expect(install).not.toHaveBeenCalled();
+});
+
+it('an agent-led run names the first release that accepts the target, even when later ones do not (UPT-102)', async () => {
+  // 3.1.0 asks for a newer zod than the target, as @entur/react-component-toggle 1.1.x does for react 19.2.0.
+  const { root, services } = majorBlocker('plugin', '1.0.0', {
+    '1.0.0': { peerDependencies: { zod: '^3' } },
+    '3.0.0': { peerDependencies: { zod: '^4.1.0' } },
+    '3.1.0': { peerDependencies: { zod: '^4.7.0' } },
+  });
+  const planned = await assistedPeerPreflight(
+    { cwd: root, only: 'zod', target: '4.6.5' },
+    services,
+    undefined,
+    true,
+  );
+  expect(planned.reason).toMatch(
+    /^Peer blockers: plugin 1\.0\.0 → 3\.0\.0, the first release that accepts zod 4\.6\.5; continued as `.*fix zod plugin --target 4\.6\.5`$/,
+  );
+  expect(planned.plan?.companions).toMatchObject([{ name: 'plugin', to: '3.0.0' }]);
+});
+
+it('an agent-led run says when no release accepts the target (UPT-102)', async () => {
+  const { root, services } = majorBlocker('plugin', '1.0.0', {
+    '1.0.0': { peerDependencies: { zod: '^3' } },
+    '2.0.0': { peerDependencies: { zod: '^3' } },
+  });
+  const planned = await assistedPeerPreflight(
+    { cwd: root, only: 'zod', target: '4.6.5' },
+    services,
+    undefined,
+    true,
+  );
+  expect(planned.reason).toContain(
+    'Peer blockers: no plugin release accepts zod 4.6.5; 1.0.0 kept with a peer override',
+  );
+  expect(planned.plan?.conflicts).toMatchObject([{ name: 'plugin', allowed: true }]);
 });

@@ -41,10 +41,10 @@ import { behaviorCheck } from './behavior.js';
 import { buildWorkspaces, configuredBuildScript } from './build.js';
 import {
   assistedPeerPreflight,
+  assistedRootPins,
   fallbackReport,
   feedbackFiles,
   feedbackPatchRunner,
-  pinConsentFallback,
   trimOutput,
   verificationFeedback,
 } from './feedback.js';
@@ -110,6 +110,8 @@ export interface FixOptions {
   allowPeer?: string[];
   /** Explicit pin consent; otherwise PR runs may update pins unless uptide.yml opts out. */
   updatePins?: boolean;
+  /** Set for an agent-led run: pins Uptide cannot update safely stay as written (UPT-102). */
+  unsafePins?: 'leave';
   /** Frozen read-only plan made before the CLI clone. */
   peerPlan?: PeerPlan;
   /** Read-only planning failed before isolation; continue with the lead and record why. */
@@ -349,12 +351,14 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(target))
     throw new Error('target must be an exact version');
   assertNoDowngrades(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])]);
-  try {
-    planRootPins(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])], options);
-  } catch (error) {
-    agentLed.push(pinConsentFallback(error, canAssist));
-    options = { ...options, updatePins: true };
-  }
+  const pinPlan = assistedRootPins(
+    options,
+    (o) =>
+      planRootPins(root, [{ name: pack.name, to: target }, ...(peerPlan?.companions ?? [])], o),
+    canAssist,
+  );
+  options = pinPlan.options;
+  agentLed.push(...pinPlan.reasons);
   // A peer blocker moved across a major its pack covers: that pack's rules run here too.
   const companionPacks = (peerPlan?.companions ?? []).flatMap((c) => {
     const companion =
@@ -1098,6 +1102,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   if (feedbackLimits.roundsUsed) lap('feedback', (nanos(llm.costUsd) - nanos(agentSpend)) / 1e9);
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
+  // An agent-led draft must still install from scratch, as the repository's CI would (UPT-102).
+  const cleanInstall = fallback.length ? await cleanInstallCheck(root, services) : undefined;
   const pending = git(root, 'status', '--porcelain', '--untracked-files=all');
   const newErrors = newDiagnostics(baseline, after, gitLineMoves(root, baseHead));
   const behavior = pack.name === 'zod' ? behaviorCheck(root, originals, sites) : undefined;
@@ -1111,6 +1117,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const result: FixReport = {
     ...(pins.length ? { rootPins: pins } : {}),
     ...(fallback.length ? { agentFallback: fallback } : {}),
+    ...(cleanInstall ? { cleanInstall } : {}),
     ...(pending ? { verificationPending: true } : {}),
     ...(lockfile ? { lockfile } : {}),
     ...(generated.length ? { generated } : {}),
@@ -1162,6 +1169,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
           /incomplete check|Unknown baseline|Planner refused/.test(reason),
         ) &&
         newErrors.length === 0 &&
+        cleanInstall?.passed !== false &&
         !pending &&
         tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
         (!pack.requiresBuild || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
@@ -1313,3 +1321,22 @@ export function refreshReview(
 export { selectedFindings } from './select.js';
 
 export { safeFile } from './settle.js';
+
+/** The frozen install (`npm ci`, `pnpm install --frozen-lockfile`, …) on the branch as committed. */
+async function cleanInstallCheck(
+  root: string,
+  services: FixServices,
+): Promise<NonNullable<FixReport['cleanInstall']>> {
+  const pm = packageManager(root);
+  const command = [pm.bin, ...pm.args].join(' ');
+  try {
+    await services.install(root);
+    return { command, passed: true };
+  } catch (error) {
+    return {
+      command,
+      passed: false,
+      output: trimOutput(error instanceof Error ? error.message : String(error)),
+    };
+  }
+}
