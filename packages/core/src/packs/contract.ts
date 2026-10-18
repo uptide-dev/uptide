@@ -140,6 +140,13 @@ export interface GroundTruthRepo {
    * the package upgraded alone is an install the real upgrade never had.
    */
   with?: Record<string, string>;
+  /**
+   * Why this repository is scored without its generated code: a generator that cannot run at
+   * this commit outside its own environment (a Prisma config that needs a live database URL, a
+   * codegen config with no schema). Without it, a generator that fails leaves the repository
+   * unscored and fails `pack test` (UPT-95).
+   */
+  withoutGenerated?: string;
   why: string;
   /** Repository-relative `file`, 1-based `line`, and the rule (or behavior note) id. */
   findings: GroundTruthFinding[];

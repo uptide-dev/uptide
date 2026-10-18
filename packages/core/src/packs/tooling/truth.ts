@@ -2,15 +2,19 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { join } from 'node:path';
 import { defaultCacheDir } from '../../cache/paths.js';
 import { UptideError } from '../../errors.js';
+import { type Generated, generateClients } from '../../fix/generate.js';
 import { packageManager } from '../../fix/managers/manager.js';
 import { command, git } from '../../fix/process.js';
+import { workspacePackagesOrRoot } from '../../workspaces.js';
 import type { GroundTruth, GroundTruthRepo } from '../contract.js';
+import { prismaEngineEnv } from './prisma-engines.js';
 
 /**
  * Ground-truth repositories are fetched once and kept: a shallow fetch of the one pinned
- * commit, dependencies installed with lifecycle scripts off, nothing from the repository ever
- * executed (no hook, no script; the same environment `fix` installs with). After the first
- * run `uptide pack test` needs no network but the registry tarballs `check` caches itself.
+ * commit, dependencies installed with lifecycle scripts off (no hook, no script; the same
+ * environment `fix` installs with), then the repository's known code generators, as `fix`
+ * runs them (a Prisma client: a user's checkout has it). After the first run `uptide pack
+ * test` needs no network but the registry tarballs `check` caches itself.
  */
 export function truthCacheDir(env: NodeJS.ProcessEnv = process.env): string {
   return env.UPTIDE_GROUND_TRUTH_CACHE || join(defaultCacheDir(env), 'ground-truth');
@@ -46,6 +50,8 @@ export function truthProblems(truth: GroundTruth, packageName: string): string[]
     if (r.directory && (r.directory.startsWith('/') || /(^|\/)\.\.(\/|$)/.test(r.directory)))
       problems.push(`${where}: directory is relative and inside the repository`);
     if (!r.from || !r.to) problems.push(`${where}: from and to are exact versions`);
+    if (r.withoutGenerated !== undefined && !r.withoutGenerated.trim())
+      problems.push(`${where}: withoutGenerated says why the generators cannot run`);
     for (const f of r.findings ?? [])
       if (!f.file || !Number.isInteger(f.line) || f.line < 1 || !f.rule)
         problems.push(`${where}: every finding has a file, a line and a rule`);
@@ -137,9 +143,20 @@ interface Marker {
   commit: string;
   /** The directories installed so far (`.` for the root). */
   installed: string[];
+  /** What the code generators did after each directory's install (UPT-95). */
+  generated?: Record<string, Generated[]>;
 }
 
 const MARKER = '.uptide-ground-truth.json';
+
+/**
+ * Prisma downloads its engine binaries on first use when the install script did not run (5
+ * and 6 the schema engine and query library, 7 the schema engine): repository code stays off
+ * the network behind a mirror nothing listens on (UPT-95). The engines it needs are fetched
+ * before it runs, by uptide (`prisma-engines.ts`); one that is still missing fails the
+ * generator, and `pack test` fails the repository.
+ */
+const NO_DOWNLOADS = { PRISMA_ENGINES_MIRROR: 'http://127.0.0.1:9' };
 
 function readMarker(dir: string): Marker | undefined {
   try {
@@ -174,9 +191,13 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
   const cacheDir = options.cacheDir ?? truthCacheDir();
   const dir = cachedRepoDir(entry, cacheDir);
   const install = options.install ?? true;
+  const at = entry.directory ?? '.';
   const marker = readMarker(dir);
-  if (marker && (!install || marker.installed.includes(entry.directory ?? '.'))) return dir;
-  if (options.offline)
+  // A cache from before UPT-95 is installed but not generated, or a generator failed there
+  // (an engine missing then): generating again needs no fetch and no install.
+  const generatedAll = marker?.generated?.[at]?.every((g) => g.status === 'generated');
+  if (marker && (!install || (marker.installed.includes(at) && generatedAll))) return dir;
+  if (options.offline && !marker?.installed.includes(at))
     throw new UptideError(
       'GROUND_TRUTH_NOT_CACHED',
       `${entry.repo}@${entry.commit.slice(0, 12)} is not in the ground-truth cache (${cacheDir}); run without --offline once, or pnpm packs:fetch`,
@@ -229,6 +250,7 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
     }
   }
   const installed = [...(marker?.installed ?? [])];
+  const generated = { ...marker?.generated };
   if (install) {
     const project = entry.directory ? join(dir, entry.directory) : dir;
     if (entry.directory && (/(^|\/)\.\.(\/|$)/.test(entry.directory) || !existsSync(project)))
@@ -236,17 +258,44 @@ export async function ensureRepo(entry: PinnedRepo, options: EnsureOptions = {})
         'INVALID_GROUND_TRUTH',
         `no directory ${entry.directory} in ${entry.repo}`,
       );
-    const result = await installDependencies(project, entry.repo, options);
-    installed.push(entry.directory ?? '.');
-    options.log?.(
-      `installed with ${result.manager}${result.frozen ? '' : ', lockfile not frozen'}`,
+    if (!installed.includes(at)) {
+      const result = await installDependencies(project, entry.repo, options);
+      installed.push(at);
+      options.log?.(
+        `installed with ${result.manager}${result.frozen ? '' : ', lockfile not frozen'}`,
+      );
+    }
+    const workspaces = workspacePackagesOrRoot(project);
+    const engines = await prismaEngineEnv(
+      workspaces.map((w) => join(project, w)),
+      join(cacheDir, 'prisma-engines'),
+      options.log,
+      options.offline ? () => Promise.reject(new Error('offline')) : fetch,
     );
+    generated[at] = await generateClients(project, workspaces, { ...NO_DOWNLOADS, ...engines });
+    for (const g of generated[at])
+      options.log?.(`${g.status}: ${g.command}${g.workspace === '.' ? '' : ` in ${g.workspace}`}`);
   }
-  writeFileSync(
-    join(dir, MARKER),
-    `${JSON.stringify({ repo: entry.repo, commit: entry.commit, installed })}\n`,
-  );
+  const record: Marker = { repo: entry.repo, commit: entry.commit, installed, generated };
+  writeFileSync(join(dir, MARKER), `${JSON.stringify(record)}\n`);
   return dir;
+}
+
+/**
+ * The generators that did not produce their code in a cached repository (failed, timed out,
+ * refused), as `pack test` reports them: that repository is scored without the code.
+ */
+export function generatorFailures(entry: PinnedRepo, cacheDir = truthCacheDir()): string[] {
+  const done = readMarker(cachedRepoDir(entry, cacheDir))?.generated?.[entry.directory ?? '.'];
+  return (done ?? [])
+    .filter((g) => g.status !== 'generated')
+    .map((g) => {
+      // The last line that says what failed: codegen ends on its summary (`✔ Generate outputs`).
+      const lines = g.output?.trim().split('\n') ?? [];
+      const why = lines.findLast((l) => /fail|error|cannot/i.test(l)) ?? lines.at(-1);
+      const where = g.workspace === '.' ? '' : ` in ${g.workspace}`;
+      return `generator ${g.status === 'timeout' ? 'timed out' : 'failed'}: ${g.command}${where}${why ? ` (${why})` : ''}`;
+    });
 }
 
 /**

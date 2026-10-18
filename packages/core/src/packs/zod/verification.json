@@ -4,10 +4,10 @@
   "repos": 5,
   "breaking": {
     "precision": 1,
-    "recall": 0.7639,
+    "recall": 0.7925,
     "falsePositives": 0,
-    "truePositives": 55,
-    "falseNegatives": 17
+    "truePositives": 126,
+    "falseNegatives": 33
   },
   "behavior": {
     "precision": 1,
@@ -18,8 +18,8 @@
   },
   "class": "breaking",
   "breakingSites": 219,
-  "breakingFoundAny": 232,
-  "breakingFound": 55,
+  "breakingFoundAny": 216,
+  "breakingFound": 117,
   "breakingScored": 249,
   "behaviorSites": 0,
   "unexercised": ["error-members"],
@@ -33,7 +33,7 @@
       "falsePositives": 0
     },
     "string-format": {
-      "truePositives": 19,
+      "truePositives": 21,
       "falsePositives": 0
     },
     "error-members": {
@@ -41,7 +41,7 @@
       "falsePositives": 0
     },
     "error-issues": {
-      "truePositives": 52,
+      "truePositives": 51,
       "falsePositives": 0
     }
   }

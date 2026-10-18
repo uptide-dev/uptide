@@ -9,6 +9,7 @@
       "directory": "client",
       "from": "5.6.2",
       "to": "6.0.3",
+      "withoutGenerated": "graphql-codegen fails at this commit: codegen.ts names no schema",
       "why": "baseUrl \"src\" with ten paths entries: removed, paths rewritten relative (\"./src/graphql/*\")",
       "findings": [
         {

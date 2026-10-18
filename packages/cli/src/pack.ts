@@ -108,6 +108,7 @@ export function formatPackTest(report: PackTestReport, color = false, limit = In
         `${head}  predicted ${r.predicted.length}, expected ${r.expected.length}, false positives ${r.falsePositives.length}, false negatives ${r.falseNegatives.length}`,
       );
       if (r.installedMismatch) out.push(`    ${c.yellow('!')} ${r.installedMismatch}`);
+      for (const g of r.generatorFailed ?? []) out.push(`    ${c.yellow('!')} ${g}`);
       if (r.companions?.length)
         out.push(
           `    with ${r.companions.map((m) => `${m.name} ${m.from} → ${m.to}${m.required ? ` (moved because ${m.reason})` : ''}`).join(', ')}`,

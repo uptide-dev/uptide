@@ -253,10 +253,39 @@ They are scored like the others and never count toward `verified`.
 
 `uptide pack test` fetches each repository once: a shallow fetch of the pinned commit only,
 dependencies installed from its lockfile (npm, pnpm, Yarn or bun) with lifecycle scripts
-off, and nothing from the repository is ever
-executed. They are kept in `~/.cache/uptide/ground-truth` (`UPTIDE_GROUND_TRUTH_CACHE`), so
-`pack test --offline` runs without network after the first time. `pnpm packs:fetch` fills
+off: no lifecycle script or hook of the repository runs, and the only commands are its code
+generators (below). They are kept in `~/.cache/uptide/ground-truth`
+(`UPTIDE_GROUND_TRUTH_CACHE`), so `pack test --offline` runs without network after the first
+time. `pnpm packs:fetch` fills
 the cache for every pack (and `--corpus` for the repositories in `fixtures/corpus.json`).
+
+After the install and before `check`, the preparation runs the repository's known code
+generators, the ones `fix` runs in its clone (UPT-90): `prisma generate` for a
+`schema.prisma`, and GraphQL codegen for a `codegen.ts`/`yml` whose schema is local. On a
+user's machine that generated code exists (`prisma generate` has run), so without it `check`
+cannot resolve the imports of a generated client and scores those files as `unverified`: the
+scoring environment, not the rule, would understate the pack. The generators use the
+repository's own binaries, read local files only and reach no network beyond the registry; a
+codegen config with a remote schema is not run. Prisma downloads its engine binaries on first
+use when its install script did not run (the schema engine, and for Prisma 5 and 6 the query
+engine library), so the generators run behind a download mirror nothing listens on. Before
+they run, uptide fetches those engines itself, in its own code: the engine commit the locked
+`@prisma/engines-version` names (read as data), for this machine's platform, from
+binaries.prisma.sh, checked against the published sha256, and kept under the cache's
+`prisma-engines/`. Prisma uses them through `PRISMA_SCHEMA_ENGINE_BINARY` and
+`PRISMA_QUERY_ENGINE_LIBRARY`, so it generates the same on a fresh runner as on a machine
+whose Prisma cache already holds them. The step applies to every pack and every ground-truth
+repository alike, never to a single entry.
+
+A generator that still fails, times out or is not run leaves the repository **incomplete**:
+`pack test` does not score it (`incomplete, generated code missing: generator failed: …`),
+counts it as "could not be scored", and fails the pack. The one exception is declared in the
+ground truth, never assumed: an entry's `withoutGenerated` says why its generators cannot run
+at that commit outside the project's own environment (a Prisma config that needs a live
+database URL, a codegen config with no schema), and that repository is scored without the
+generated code, with the failure and the reason printed. A failed generator runs again on the
+next `pack test`, without a new fetch or install. `check` itself still runs no scripts.
+Fixtures are synthetic and installed in this tree; they get no generator step.
 
 The cache is large: each entry is a checkout with its dependencies installed. Measured on
 2026-10-14, per pack: ai 2.1 GB, lucide-react 3.6, next 1.4, react 4.3, @sentry/browser 0.7,
@@ -298,6 +327,15 @@ An expected site has the severity of the rule or note it is expected under: a ru
 `test-follow-up`); breaking for `generic`. A predicted site has the severity `check` reported.
 A missed site counts against breaking recall only when its severity is breaking: a missed
 `deprecated` note ("needs a look") or a decision is not a missed break.
+
+Downstream errors are not plan sites (see [one root cause, one
+finding](concepts.md#one-root-cause-one-finding)). `check` folds a compile error into the
+breaking finding whose expression the compiler traces its value to, for example every
+`errors.map(e => e.message)` under a `result.error.errors` that zod 4 no longer types. The
+root stays a site, and the folded errors are its `downstream`, so `pack test` scores neither
+a hit nor a false positive for them. A ground-truth site that `check` folds is a miss.
+Ground truth leaves these consequences out, as it always has, and the folding is an engine
+rule that applies to every user's `check`, not a scoring exception.
 
 It prints precision and recall for each, `n/a` where there was nothing to measure (nothing
 predicted, or nothing expected), every false positive as `repo  file:line  rule (severity)`,

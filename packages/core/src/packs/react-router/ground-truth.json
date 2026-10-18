@@ -170,6 +170,7 @@
       "migration": "https://github.com/getlago/lago-front/commit/6055a5a3c8076522235fe2da452a209e99af8541",
       "from": "6.30.6",
       "to": "7.18.3",
+      "withoutGenerated": "graphql-codegen fails at this commit: the local schema it reads has no Query root type",
       "with": {
         "react-router-dom": "7.18.3"
       },

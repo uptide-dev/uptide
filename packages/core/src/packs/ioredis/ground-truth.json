@@ -82,6 +82,7 @@
       "migration": "https://github.com/simondietschi/dokunc/commit/c47539089296efdb02a3093bb650185b4861f297",
       "from": "5.11.1",
       "to": "6.0.0",
+      "withoutGenerated": "its packages/db/prisma.config.ts reads DATABASE_URL, which only the project's own environment sets, so prisma generate stops while loading the config",
       "why": "merged in PR #15 (03ae5da): bump bb72cd7 extends the credential-redaction test to HELLO 3 AUTH; c475390 restores the v5 retryStrategy at the collab client after measuring 10-15 s command stalls; @hocuspocus/extension-redis keeps its own ioredis 5.6.1",
       "findings": [
         {
@@ -125,6 +126,7 @@
       "migration": "https://github.com/kazumadev619-dev/FishingConditionsApp/commit/cdecc03c3c04d0e4f08351ceef6b10df6f1bfd81",
       "from": "5.11.1",
       "to": "6.0.0",
+      "withoutGenerated": "its prisma.config.ts reads DATABASE_URL_DIRECT, which only the project's own environment sets, so prisma generate stops while loading the config",
       "why": "npm upgrade merged in PR #235 (ebf69b5) that removes the stale @types/ioredis stub and keeps its own retryStrategy: no source change, no compiler diagnostic",
       "findings": []
     }
