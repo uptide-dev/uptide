@@ -17,7 +17,8 @@ repo=$(sel .repo) parent=$(sel .parent) upgrade=$(sel .upgrade) pkg=$(sel .packa
 from=$(sel .from) to=$(sel .to)
 # Uptide's default executor model and effort (packages/core/src/llm/pricing.ts DEFAULT_MODELS,
 # capabilities.ts defaultEffort), used by both arms.
-model=claude-sonnet-5-5 effort=medium
+# BENCH_MODEL swaps the Claude Code arm's model.
+model=${BENCH_MODEL:-claude-sonnet-5-5} effort=medium
 
 run=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
 dir=$out/runs/$run
@@ -42,7 +43,7 @@ esac
 start=$(date +%s) status=0 cost=0
 case $arm in
 claude)
-  prompt="Upgrade $pkg from $from to $to. Make the code compile and work with the new version, keep behavior correct, and make sure type-check, lint and tests pass. Commit and summarize what to review."
+  prompt="Upgrade $pkg from $from to $to. Make the code compile and work with the new version, keep behavior correct, and make sure type-check, lint and tests pass. Commit and summarize what to review.${CLAUDE_PROMPT_EXTRA:+ $CLAUDE_PROMPT_EXTRA}"
   # --bare: none of this machine's hooks, plugins, memory or CLAUDE.md; --add-dir loads the
   # repository's own CLAUDE.md as a plain `claude -p` in it would. Bash runs only inside
   # Claude Code's sandbox (claude-sandbox.json); anything that would prompt is denied.
@@ -54,7 +55,8 @@ claude)
   # tokens with Uptide's table (pricing.ts, per million: input, output, cache read, 5m write),
   # the one Uptide's own cost uses.
   cost=$(jq '[.modelUsage // {} | to_entries[]
-    | (if (.key | test("haiku")) then [1, 5, 0.1, 1.25] else [2, 10, 0.2, 2.5] end) as $p
+    | (if (.key | test("haiku")) then [1, 5, 0.1, 1.25]
+      elif (.key | test("fable")) then [10, 50, 0.25, 12.5] else [2, 10, 0.2, 2.5] end) as $p
     | (.value.inputTokens * $p[0] + .value.outputTokens * $p[1]
       + .value.cacheReadInputTokens * $p[2] + .value.cacheCreationInputTokens * $p[3]) / 1e6]
     | add // 0' "$dir/agent.json" 2>/dev/null || echo 0)
@@ -82,11 +84,14 @@ wall=$(($(date +%s) - start)) cost=${cost:-0}
 dirty=$(git status --porcelain --untracked-files=no -- . ':!.uptide' | wc -l | tr -d ' ')
 jq -n --arg id "$id" --arg head "$(git rev-parse HEAD)" --argjson status "$status" \
   --argjson cost "$cost" --argjson wall "$wall" --argjson dirty "$dirty" \
-  --arg arm "$arm" --arg version "$version" \
+  --arg arm "$arm" --arg version "$version" --arg model "$([ "$arm" = human ] || echo "$model")" \
   --arg executor "$([ "$arm" = uptide ] && jq -r '.llm.executor // .llm.agent // "none"' "$dir/agent.json" 2>/dev/null)" \
+  --arg own "$([ "$arm" = claude ] && jq -r '.total_cost_usd // empty' "$dir/agent.json" 2>/dev/null)" \
   --arg sdk "$([ "$arm" = uptide ] && grep -m1 'Agent SDK' "$dir/agent.log" 2>/dev/null)" \
   '{id: $id, head: $head, exit: $status, costUsd: $cost, wallSeconds: $wall, uncommittedFiles: $dirty}
     + if $version == "" then {} else {version: {($arm): $version}} end
+    + if $model == "" then {} else {model: $model} end
+    + if $own == "" then {} else {claudeCodeCostUsd: ($own | tonumber)} end
     + if $executor == "" then {} else {executor: $executor} end
     + if $sdk == "" then {} else {sdkDownload: $sdk} end' \
   >"$dir/meta.json"
