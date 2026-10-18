@@ -266,13 +266,26 @@ user's machine that generated code exists (`prisma generate` has run), so withou
 cannot resolve the imports of a generated client and scores those files as `unverified`: the
 scoring environment, not the rule, would understate the pack. The generators use the
 repository's own binaries, read local files only and reach no network beyond the registry; a
-codegen config with a remote schema is not run, and a Prisma that would download its engine
-binaries (Prisma 5 and 6, whose install script did not run) cannot reach the download and
-fails. The step applies to every pack and every
-ground-truth repository alike, never to a single entry. A generator that fails or is not run
-is reported by `pack test` for that repository (`generator failed: …`), which is then scored
-without the generated code, as before. `check` itself still runs no scripts. Fixtures are
-synthetic and installed in this tree; they get no generator step.
+codegen config with a remote schema is not run. Prisma downloads its engine binaries on first
+use when its install script did not run (the schema engine, and for Prisma 5 and 6 the query
+engine library), so the generators run behind a download mirror nothing listens on. Before
+they run, uptide fetches those engines itself, in its own code: the engine commit the locked
+`@prisma/engines-version` names (read as data), for this machine's platform, from
+binaries.prisma.sh, checked against the published sha256, and kept under the cache's
+`prisma-engines/`. Prisma uses them through `PRISMA_SCHEMA_ENGINE_BINARY` and
+`PRISMA_QUERY_ENGINE_LIBRARY`, so it generates the same on a fresh runner as on a machine
+whose Prisma cache already holds them. The step applies to every pack and every ground-truth
+repository alike, never to a single entry.
+
+A generator that still fails, times out or is not run leaves the repository **incomplete**:
+`pack test` does not score it (`incomplete, generated code missing: generator failed: …`),
+counts it as "could not be scored", and fails the pack. The one exception is declared in the
+ground truth, never assumed: an entry's `withoutGenerated` says why its generators cannot run
+at that commit outside the project's own environment (a Prisma config that needs a live
+database URL, a codegen config with no schema), and that repository is scored without the
+generated code, with the failure and the reason printed. A failed generator runs again on the
+next `pack test`, without a new fetch or install. `check` itself still runs no scripts.
+Fixtures are synthetic and installed in this tree; they get no generator step.
 
 The cache is large: each entry is a checkout with its dependencies installed. Measured on
 2026-10-14, per pack: ai 2.1 GB, lucide-react 3.6, next 1.4, react 4.3, @sentry/browser 0.7,
