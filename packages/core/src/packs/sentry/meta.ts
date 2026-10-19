@@ -1,6 +1,18 @@
 import type { PackSource } from '../contract.js';
 import type { PackCompanion } from '../types.js';
 
+/** Config the compiler may not reach: init files, next.config, manifests and runtime pins. */
+export const INVENTORY = [
+  'package.json',
+  '{.nvmrc,.node-version}',
+  '**/*{sentry,Sentry,instrument}*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+  '**/sentry/**/*.{ts,tsx,js,jsx,mjs,cjs}',
+];
+export const NEXT_INVENTORY = [
+  'next.config.{js,mjs,cjs,ts,mts}',
+  '{middleware,proxy,src/middleware,src/proxy}.{ts,js}',
+];
+
 /** Read date of every source below; RESEARCH.md classifies each change against them. */
 export const READ = '2026-10-14';
 

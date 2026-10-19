@@ -171,7 +171,12 @@ pack's `records.json`, with the pages it quotes under `sources/`, and is set on 
   package's type passed to another package's function (`consumer`, with the range of its versions
   the record holds for), named by receiver type, method, argument and property. zod's
   `mcp-input-schema-additional-properties` matches a non-strict zod object passed as
-  `inputSchema` to `McpServer#registerTool` or `#tool`.
+  `inputSchema` to `McpServer#registerTool` or `#tool`. `omits-property`: an options object
+  without the property whose default changed. Stripe's `billing-mode-default-flexible` matches
+  subscription creation without `billing_mode`. Sentry's `data-collection-defaults` matches
+  `Sentry.init` without `dataCollection` while `sendDefaultPii` is not `true`; after `fix`, an
+  init is kept only when every `dataCollection` category is at least as restrictive as the
+  guide's baseline, so a partial deny list stays open.
 - `effect`, and `keepOld`: the edit that keeps the old behavior, whether it is `exact`, and
   when it is not, what else it changes (`alsoChanges`).
 

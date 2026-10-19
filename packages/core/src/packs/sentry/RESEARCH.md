@@ -37,7 +37,7 @@ compiler-visible and not a source site (documented only). Anchors are MIGRATION.
 | Top-level build options removed (`disableLogger`, `autoInstrument*`, `automaticVercelMonitors`, `excludeServerRoutes`, `disableSentryWebpackConfig`, `_experimental.turbopackApplicationKey`) | M where the mapping is 1:1 and the destination is free; else A | `build-options` | TS2353 only for a literal in next.config.ts |
 | `disableManifestInjection` (inverted), `unstable_sentryWebpackPluginOptions` (gone) | A | `build-options` | as above |
 | `reactComponentAnnotation` reinstated top-level, now also Turbopack | B | `react-component-annotation` | no |
-| `sendDefaultPii` removed; `dataCollection` defaults more permissive | A (never rewritten; options: remove / v10 baseline / accept) + B | `send-default-pii`, `data-collection` | TS2353 for the first excess key of a literal |
+| `sendDefaultPii` removed; `dataCollection` defaults more permissive | A (never rewritten; options: remove / v10 baseline / accept) + B + record | `send-default-pii`, `data-collection`, record `data-collection-defaults` | TS2353 for the first excess key of a literal; the widened defaults never |
 | `enableLogs`, `_experiments.enableLogs` removed | M for literal `true`; `false`/dynamic A | `enable-logs` | TS2353 (first excess key only) |
 | `enableMetrics`, `_experiments.enableMetrics` removed; `beforeSendMetric` top-level | M for literal `true`; A otherwise | `enable-metrics` | as above |
 | `profilesSampleRate`, `profilesSampler` removed (session profiling) | A (options: trace / manual lifecycle) | `profiling-options` | TS2353/TS2561 |
@@ -75,6 +75,32 @@ Mechanical rewrites edit only the reported site. Sampling (`profilesSampleRate`,
 by rule: each is an assisted rule whose guide lists the options and requires the choice in
 decisions (`sentry.test.ts` checks every options-bearing guide says so), plus a decision note
 where the default itself changed.
+
+### Behavior record: `data-collection-defaults` (UPT-123)
+
+`records.json` holds the ADR 0017 record for the `dataCollection` defaults, filed under each lead
+(`@sentry/nextjs/data-collection-defaults`, …). Its quotes are verbatim in `sources/MIGRATION-11.7.0.md.txt`,
+the guide at tag 11.7.0 (MIT, Functional Software, Inc. dba Sentry), read 2026-10-19: "In v10,
+leaving `sendDefaultPii` unset behaved like `sendDefaultPii: false` (restrictive)" and the block
+the guide labels "preserves the v10 default". That block is `keepOld`, exact: every category off
+or scrubbed as written. The guide's table also lists `frameContextLines` 7 → 5; the baseline
+leaves it, since fewer source lines is less data, not more.
+
+- **Sites (`check`, before).** `Sentry.init` options, and options objects typed as Sentry's,
+  with no `dataCollection` and `sendDefaultPii` unset or `false`, resolved with the checker
+  through consts, imports and the function returning the options. `sendDefaultPii: true` (v11
+  collects what v10 did), an explicit `dataCollection` (the owner chose), `enabled: false`, test
+  files and spreads the checker cannot see are no site; a computed `sendDefaultPii` is a decision.
+- **Kept (`fix`, after).** Only when the init's `dataCollection` is at least as restrictive as the
+  baseline in every category: `userInfo`, `cookies`, `databaseQueryData`, `queues` false;
+  `httpBodies: []`; `genAI` and `graphQL` both off; headers and query parameters `false` or a deny
+  list holding every baseline key. A deny list on cookies, a category left at v11's default, or a
+  value the checker cannot see leaves the site open, and the PR says it was not applied.
+- **Why.** UpgradeBench v1 pre-run, brendanlong/lion-reader, run 3caac4a1: the agent "kept v10
+  behavior" with `cookies: { deny: ["-ip", "forwarded"] }`, which sends every other cookie,
+  session cookies included, and left `urlQueryParams`, `queues` and `graphQL` at v11's defaults.
+  lion-reader is a bench repository and stays out of `ground-truth.json`; its silent sites belong
+  to the bench selection only.
 
 ### Compiler-blind sites
 

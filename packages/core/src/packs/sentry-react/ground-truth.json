@@ -1,5 +1,5 @@
 {
-  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. The truth helper links @sentry/react outside the consumer, so React's types do not resolve from it and Sentry.ErrorBoundary reports TS2607/TS2786 in both repositories; a real scripts-off install of the target (youth-activity-scheduler, recorded in ../sentry/RESEARCH.md) leaves only the two sendDefaultPii errors, and neither upgrade touched ErrorBoundary. Those diagnostics are helper artifacts, not expectations. Entries from flimm on were drafted and reviewed the same way on 2026-10-16 (UPT-64), before the pack was scored with them; the same ErrorBoundary artifacts appear there and are left out the same way.",
+  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. The truth helper links @sentry/react outside the consumer, so React's types do not resolve from it and Sentry.ErrorBoundary reports TS2607/TS2786 in both repositories; a real scripts-off install of the target (youth-activity-scheduler, recorded in ../sentry/RESEARCH.md) leaves only the two sendDefaultPii errors, and neither upgrade touched ErrorBoundary. Those diagnostics are helper artifacts, not expectations. Entries from flimm on were drafted and reviewed the same way on 2026-10-16 (UPT-64), before the pack was scored with them; the same ErrorBoundary artifacts appear there and are left out the same way. silent (UPT-123): each Sentry.init that left dataCollection unset with sendDefaultPii unset or false, read from its upgrade's diff on 2026-10-19 after the record was written: required where the upgrade set a restrictive dataCollection there to keep v10's collection (moved files and imported constants included), product-choice where it upgraded the init and accepted v11's defaults. Hyrox-Companion's server/bootstrap/observability.ts:110 is left out: that upgrade kept @sentry/node at 10, so the init's collection did not change, and the record's site there is a false positive of the release-group move (the same one as its breaking false positive).",
   "package": "@sentry/react",
   "repos": [
     {
@@ -23,6 +23,14 @@
           "rule": "send-default-pii",
           "note": "TS2339 options.sendDefaultPii; the assertion moves to dataCollection."
         }
+      ],
+      "silent": [
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 49,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
+        }
       ]
     },
     {
@@ -32,7 +40,15 @@
       "from": "10.74.0",
       "to": "11.0.0",
       "why": "Next.js Pages app that declares @sentry/react directly (ErrorBoundary, init in _app). Upgrade b21e87edaa1aca1323b20e516cca384429718a8d changes only package.json and the lockfile: nothing to migrate, every reported site would be a false positive. TypeScript 7.0.2 in the repository; compiled with this checkout's 5.9.3.",
-      "findings": []
+      "findings": [],
+      "silent": [
+        {
+          "file": "src/helpers/startSentry.ts",
+          "line": 40,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "product-choice"
+        }
+      ]
     },
     {
       "repo": "Seklfreak/flimm",
@@ -48,6 +64,14 @@
           "line": 16,
           "rule": "send-default-pii",
           "note": "TS2353."
+        }
+      ],
+      "silent": [
+        {
+          "file": "src/main.tsx",
+          "line": 10,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
         }
       ]
     },
@@ -65,6 +89,14 @@
           "rule": "send-default-pii",
           "note": "TS2353; the comment below it changed with it."
         }
+      ],
+      "silent": [
+        {
+          "file": "client/src/lib/errorReporting.ts",
+          "line": 24,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
+        }
       ]
     },
     {
@@ -81,6 +113,14 @@
           "rule": "send-default-pii",
           "note": "TS2353."
         }
+      ],
+      "silent": [
+        {
+          "file": "src/lib/runtime/monitoring.ts",
+          "line": 90,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
+        }
       ]
     },
     {
@@ -96,6 +136,14 @@
           "line": 19,
           "rule": "enable-logs",
           "note": "TS2353, enableLogs: true."
+        }
+      ],
+      "silent": [
+        {
+          "file": "src/app/observability/sentry.ts",
+          "line": 14,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "product-choice"
         }
       ]
     },
@@ -121,6 +169,20 @@
           "line": 23,
           "rule": "send-default-pii",
           "note": "@sentry/node init, outside the program."
+        }
+      ],
+      "silent": [
+        {
+          "file": "netlify/functions/_sentry.mjs",
+          "line": 19,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
+        },
+        {
+          "file": "src/utils/sentry.js",
+          "line": 95,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
         }
       ]
     },
@@ -153,6 +215,14 @@
           "line": 57,
           "rule": "send-default-pii",
           "note": "TS2353."
+        }
+      ],
+      "silent": [
+        {
+          "file": "src/lib/errorReporting.ts",
+          "line": 47,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
         }
       ]
     },
@@ -197,6 +267,20 @@
           "rule": "error-handlers",
           "note": "TS6387 setupExpressErrorHandler; the upgrade left it."
         }
+      ],
+      "silent": [
+        {
+          "file": "server/lib/sentry.ts",
+          "line": 37,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
+        },
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 33,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
+        }
       ]
     },
     {
@@ -212,6 +296,14 @@
           "line": 117,
           "rule": "send-default-pii",
           "note": "TS2353; the comment line 116 above it changed with it."
+        }
+      ],
+      "silent": [
+        {
+          "file": "src/utils/sentry.ts",
+          "line": 109,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
         }
       ]
     },
@@ -235,6 +327,14 @@
           "rule": "before-send-transaction",
           "note": "Replaced by beforeSendSpan."
         }
+      ],
+      "silent": [
+        {
+          "file": "src/lib/sentry.ts",
+          "line": 34,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "required"
+        }
       ]
     },
     {
@@ -250,6 +350,14 @@
           "line": 17,
           "rule": "enable-logs",
           "note": "TS2353, enableLogs: true."
+        }
+      ],
+      "silent": [
+        {
+          "file": "src/main.tsx",
+          "line": 11,
+          "record": "@sentry/react/data-collection-defaults",
+          "kind": "product-choice"
         }
       ]
     },

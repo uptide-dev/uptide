@@ -1,6 +1,6 @@
 {
   "status": "verified",
-  "truth": "sha256-fc095744a4a5744b3940294dd0d1edddab7dddb91a76e4c5df21105ec14290b4",
+  "truth": "sha256-3804d2d85f846ea08f74ca98d1eed0256c6c9d6da3e9bb937a6d49dd19cfcd8f",
   "repos": 3,
   "breaking": {
     "precision": 1,
@@ -14,6 +14,13 @@
     "recall": 1,
     "falsePositives": 0,
     "truePositives": 0,
+    "falseNegatives": 0
+  },
+  "silent": {
+    "precision": 1,
+    "recall": 1,
+    "falsePositives": 0,
+    "truePositives": 9,
     "falseNegatives": 0
   },
   "class": "breaking",

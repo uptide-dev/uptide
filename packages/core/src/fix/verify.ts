@@ -72,7 +72,7 @@ function relatedDeclarations(
  * The bundled compiler's host for a repository without a compiler API (TypeScript 7): every
  * lib it names, `lib: ["ES2023"]` under an older target included, comes from ts-morph's copy.
  */
-function bundledHost(options: ts.CompilerOptions): ts.CompilerHost {
+export function bundledHost(options: ts.CompilerOptions): ts.CompilerHost {
   const host = ts.createCompilerHost(options);
   const read = host.readFile,
     exists = host.fileExists;

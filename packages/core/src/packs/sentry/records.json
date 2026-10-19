@@ -1,0 +1,43 @@
+[
+  {
+    "id": "data-collection-defaults",
+    "range": { "from": ">=10.0.0 <11", "to": ">=11.0.0 <12" },
+    "sources": [
+      {
+        "url": "https://github.com/getsentry/sentry-javascript/blob/11.7.0/MIGRATION.md#senddefaultpii-is-replaced-by-datacollection",
+        "read": "2026-10-19",
+        "sha256": "c53f29b32d77fdb290eef739e8dfcf642ac8fc35944e875e7a6b1bdd0877b910",
+        "quote": "In v10, leaving `sendDefaultPii` unset behaved like `sendDefaultPii: false` (restrictive).",
+        "snapshot": "../sentry/sources/MIGRATION-11.7.0.md.txt"
+      },
+      {
+        "url": "https://github.com/getsentry/sentry-javascript/blob/11.7.0/MIGRATION.md#senddefaultpii-is-replaced-by-datacollection",
+        "read": "2026-10-19",
+        "sha256": "c53f29b32d77fdb290eef739e8dfcf642ac8fc35944e875e7a6b1bdd0877b910",
+        "quote": "In v11, leaving `dataCollection` unset collects the categories below **by default**.",
+        "snapshot": "../sentry/sources/MIGRATION-11.7.0.md.txt"
+      },
+      {
+        "url": "https://github.com/getsentry/sentry-javascript/blob/11.7.0/MIGRATION.md#if-you-want-to-keep-the-v10-default-behavior",
+        "read": "2026-10-19",
+        "sha256": "c53f29b32d77fdb290eef739e8dfcf642ac8fc35944e875e7a6b1bdd0877b910",
+        "quote": "Set the baseline explicitly. **Don't leave `dataCollection` unset** — that now enables broader collection.",
+        "snapshot": "../sentry/sources/MIGRATION-11.7.0.md.txt"
+      },
+      {
+        "url": "https://github.com/getsentry/sentry-javascript/blob/11.7.0/MIGRATION.md#if-you-want-to-keep-the-v10-default-behavior",
+        "read": "2026-10-19",
+        "sha256": "c53f29b32d77fdb290eef739e8dfcf642ac8fc35944e875e7a6b1bdd0877b910",
+        "quote": "// v11 — preserves the v10 default",
+        "snapshot": "../sentry/sources/MIGRATION-11.7.0.md.txt"
+      }
+    ],
+    "trigger": { "kind": "omits-property", "property": "dataCollection" },
+    "effect": "With no dataCollection, v11 collects user info and IP, cookies, request and response bodies, headers and query parameters without the IP-bearing keys scrubbed, database query data, queue arguments, GraphQL documents and variables, and GenAI inputs and outputs; v10 left these out unless sendDefaultPii was true.",
+    "keepOld": {
+      "edit": "dataCollection: { userInfo: false, cookies: false, httpHeaders: { request: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] }, response: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] } }, httpBodies: [], urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] }, genAI: { inputs: false, outputs: false }, databaseQueryData: false, queues: false, graphQL: { document: false, variables: false } } in the init options, replacing sendDefaultPii; every key as written, never a partial deny list",
+      "exact": true
+    },
+    "adopt": "set only the dataCollection categories the owner chose to collect, after reviewing cookies, bodies, headers and query parameters for session tokens and personal data; leaving dataCollection unset collects every category"
+  }
+]

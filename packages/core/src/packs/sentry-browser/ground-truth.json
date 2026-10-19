@@ -1,5 +1,5 @@
 {
-  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. Pure insertions (dataCollection blocks, beforeSendLog) are the decisions each repository made, not sites; comment lines that changed with an option are part of that option's site. See ../sentry/RESEARCH.md. Entries from Pokedex on were drafted and reviewed the same way on 2026-10-16 (UPT-64), before the pack was scored with them.",
+  "$comment": "Expectations drafted with `pnpm packs:truth` and reviewed by hand on 2026-10-14, before the pack was scored. Pure insertions (dataCollection blocks, beforeSendLog) are the decisions each repository made, not sites; comment lines that changed with an option are part of that option's site. See ../sentry/RESEARCH.md. Entries from Pokedex on were drafted and reviewed the same way on 2026-10-16 (UPT-64), before the pack was scored with them. silent (UPT-123): each Sentry.init that left dataCollection unset with sendDefaultPii unset or false, read from its upgrade's diff on 2026-10-19 after the record was written: required where the upgrade set a restrictive dataCollection there to keep v10's collection (moved files and imported constants included), product-choice where it upgraded the init and accepted v11's defaults.",
   "package": "@sentry/browser",
   "repos": [
     {
@@ -21,6 +21,14 @@
           "line": 24,
           "rule": "enable-logs",
           "note": "enableLogs: false (lines 20-23 are its comment); replaced by beforeSendLog: () => null."
+        }
+      ],
+      "silent": [
+        {
+          "file": "src/scripts/sentry.ts",
+          "line": 13,
+          "record": "@sentry/browser/data-collection-defaults",
+          "kind": "required"
         }
       ]
     },
@@ -54,6 +62,14 @@
           "rule": "send-default-pii",
           "note": "TS2353."
         }
+      ],
+      "silent": [
+        {
+          "file": "src/monitoring.ts",
+          "line": 15,
+          "record": "@sentry/browser/data-collection-defaults",
+          "kind": "required"
+        }
       ]
     },
     {
@@ -76,6 +92,14 @@
           "line": 65,
           "rule": "enable-logs",
           "note": "enableLogs: true; no diagnostic."
+        }
+      ],
+      "silent": [
+        {
+          "file": "src/observability/sentry.ts",
+          "line": 58,
+          "record": "@sentry/browser/data-collection-defaults",
+          "kind": "required"
         }
       ]
     },
@@ -187,6 +211,14 @@
           "line": 473,
           "rule": "generic",
           "note": "getScopeData().span."
+        }
+      ],
+      "silent": [
+        {
+          "file": "src/sentry-bridge.ts",
+          "line": 194,
+          "record": "@sentry/browser/data-collection-defaults",
+          "kind": "required"
         }
       ]
     }
