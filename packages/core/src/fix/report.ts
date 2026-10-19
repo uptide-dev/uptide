@@ -327,6 +327,11 @@ export function migrationRisk(report: FixReport): {
   )
     return { level: 'Low', reason: 'no behaviour change: the explicit pin equals the SDK default' };
   const g = groups(report);
+  // A behavior record's site is a cited change the owner decides, not an unverified one.
+  const recorded = (s: FixReport['sites'][number]) =>
+    !!report.packContext?.recordSites?.some(
+      (r) => r.record === s.finding.rule && r.file === s.finding.usage.file,
+    );
   const high = [
     ...(report.packWarning ? [report.packWarning] : []),
     ...(report.peerConflicts?.length ? ['peer compatibility is not verified'] : []),
@@ -337,10 +342,11 @@ export function migrationRisk(report: FixReport): {
     ...(report.sites.some((s) => s.outcome === 'manual') ? ['manual sites left'] : []),
     ...(!report.verification.passed ||
     report.verification.newErrors.length ||
-    report.sites.some((s) => s.finding.severity === 'unverified')
+    report.sites.some((s) => s.finding.severity === 'unverified' && !recorded(s))
       ? ['unverified sites']
       : []),
     ...(schemas(report).some(differs) ||
+    report.packContext?.recordSites?.length ||
     (report.package === 'stripe' &&
       g.some((x) => ['api-version', 'subscription-period'].includes(x.rule)) &&
       !additiveBumpOnly(report))

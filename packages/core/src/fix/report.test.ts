@@ -200,6 +200,27 @@ it('computes high risk for unverified sites, manual work, behavior differences a
     expect(visible(prBody(report))).toContain('Review required before merging.');
   }
 });
+it("calls a behavior record's site a behavior change, not an unverified site", () => {
+  const report = ruleOnly();
+  const site = first(report.sites);
+  site.finding.severity = 'unverified';
+  site.finding.rule = 'zod/mcp-input-schema-additional-properties';
+  report.packContext = {
+    from: '3.25.76',
+    to: '4.6.5',
+    includeDeprecated: false,
+    recordSites: [
+      {
+        record: 'zod/mcp-input-schema-additional-properties',
+        file: site.finding.usage.file,
+        line: site.finding.usage.line,
+        snippet: site.finding.usage.snippet,
+        kept: true,
+      },
+    ],
+  };
+  expect(migrationRisk(report)).toEqual({ level: 'High', reason: 'behavior changes' });
+});
 it('shows a minimal behavior difference in the actionable review list', () => {
   const report = ruleOnly();
   first(report.behavior).differences = [

@@ -192,7 +192,11 @@ export function citations(record: BehaviorRecord): string[] {
   return record.sources.map((s) => `"${s.quote}" (${s.url}, read ${s.read})`);
 }
 
-const at = (sites: readonly RecordSite[]) => sites.map((s) => `\`${s.file}:${s.line}\``).join(', ');
+const at = (sites: readonly RecordSite[]) =>
+  [...sites]
+    .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
+    .map((s) => `\`${s.file}:${s.line}\``)
+    .join(', ');
 
 /** The agent's block: every matched site with its record, sources and the edit that keeps it. */
 export function recordPrompt(

@@ -333,3 +333,41 @@ it('names the files an agent decision changed, not the task scope (UPT-106)', ()
   delete (report.llm.tasks[0] as { diffs?: unknown }).diffs;
   expect(prBody(report)).toContain('`src/module-4.ts` and 312 more files: Kept the ref nullable.');
 });
+
+it('drops an agent decision that restates a behavior record the PR already decides (UPT-114)', () => {
+  const report = manySitesReport();
+  const id = 'zod/mcp-input-schema-additional-properties';
+  report.packContext = {
+    from: '3.25.76',
+    to: '4.6.5',
+    includeDeprecated: false,
+    recordSites: [{ record: id, file: 'src/module-7.ts', line: 3, snippet: 'x', kept: true }],
+  };
+  report.llm.tasks = [
+    {
+      id: 't',
+      rule: id,
+      files: ['src/module-7.ts'],
+      sites: 0,
+      fixed: 0,
+      turns: 3,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      durationMs: 0,
+      toolCalls: {},
+      gate: 'accepted',
+      diffs: { 'src/module-7.ts': '+x' },
+      summary: {
+        changed: [],
+        decisions: [`${id}: chose .strict() at all 5 calls`, 'Kept the ref nullable'],
+        assumptions: [],
+        couldNotDo: [],
+        newFiles: [],
+      },
+    },
+  ];
+  const body = prBody(report);
+  expect(body).not.toContain('chose .strict()');
+  expect(body).toContain('- `src/module-7.ts`: Kept the ref nullable. Confirm or change.');
+});

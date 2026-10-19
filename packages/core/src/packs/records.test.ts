@@ -69,6 +69,13 @@ describe('behavior records', () => {
     expect(kept).toContain('it also makes the server reject a call with an unknown key');
     expect(kept).toContain('([source](https://unpkg.com/@modelcontextprotocol/sdk@1.30.1/');
     expect(kept).not.toContain('Not applied');
+    // In file and line order, whatever order the sites came in.
+    expect(
+      recordDecisions(
+        [record],
+        [...sites].reverse().map((s) => ({ ...s, kept: true })),
+      )[0],
+    ).toBe(kept);
     const [mixed] = recordDecisions(
       [record],
       [{ ...(sites[0] as (typeof sites)[0]), kept: true }, sites[1] as (typeof sites)[0]],
