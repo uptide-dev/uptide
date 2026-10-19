@@ -628,7 +628,7 @@ export function summaryCells(report: FixReport): {
   const messageSummary = messages.length
     ? ` · ${messages.filter((c) => c.status === 'identical').length}/${messages.length} custom-message assertions`
     : '';
-  const unmatched = stripeSection(report)?.unmatched ?? 0;
+  const unmatched = stripeSection(report)?.unmatched.length ?? 0;
   const behavior = bs.length
     ? `${bs.some(differs) ? '⚠️' : '✅'} ${count(identical, 'schema')} identical${bs.filter(unchecked).length ? ` · ${bs.filter(unchecked).length} not checked` : ''}${bs.some(differs) ? ` · ${bs.filter(differs).length} with differences` : ''}${messageSummary}`
     : report.apiChanges
@@ -751,6 +751,27 @@ function lockfileChanges(heading: string[], changes: OutOfScopeChange[], report:
       '',
       ...changes.slice(0, FIRST).map(line),
     ],
+  );
+}
+/** Stripe's breaking entries no field name can match: whole, or a count and the first ones. */
+function unmatchedEntries(entries: string[], report: FixReport): Piece {
+  const heading = [
+    `**${count(entries.length, 'breaking change')} to resources you use that field names can't match**`,
+    '',
+    "Each one changes a default or names no field, parameter or event, so Uptide can't tell whether your code is affected. A new default reaches every call that leaves the parameter out. Read each one against your code.",
+    '',
+  ];
+  const whole = [...heading, ...entries];
+  return shortened(
+    whole,
+    entries.length > FIRST
+      ? [
+          ...heading,
+          `The first ${FIRST}, new defaults first; all ${entries.length} are in ${fullLists(report)}.`,
+          '',
+          ...entries.slice(0, FIRST),
+        ]
+      : whole,
   );
 }
 /** Sites to change by hand: one line each, or per rule a count and the first locations. */
@@ -952,7 +973,7 @@ export function renderMigration(
         ? `The code was migrated to ${report.package} ${from.split('.')[0] === report.target.split('.')[0] ? report.target : report.target.split('.')[0]}${workspaces.length ? ` in ${listed(workspaces)}` : ''}.`
         : 'No code changes were needed; only versions and the lockfile changed.';
     lines.push(
-      `**${ready ? 'Ready for review.' : 'Review required before merging.'}** ${what} ${typeVerdict}${report.apiChanges ? ` ${sentenceCase(apiChangeSummary(report.apiChanges, stripeSection(report)?.unmatched))} between ${report.apiChanges.from} and ${report.apiChanges.to}.` : ''}`,
+      `**${ready ? 'Ready for review.' : 'Review required before merging.'}** ${what} ${typeVerdict}${report.apiChanges ? ` ${sentenceCase(apiChangeSummary(report.apiChanges, stripeSection(report)?.unmatched.length))} between ${report.apiChanges.from} and ${report.apiChanges.to}.` : ''}`,
       '',
     );
   }
@@ -1016,9 +1037,11 @@ export function renderMigration(
   lines.push(...summaryRows(report), '');
   const section = stripeSection(report);
   if (mode === 'full' && budget !== undefined && report.package === 'stripe' && section) {
-    // Evidence and unmatched breaking entries stay visible at rank zero; only resource
-    // overlap can yield to the budget.
+    // Evidence stays visible and rank zero. Breaking entries no field name can match are
+    // shortened, never dropped, and outrank test output; only resource overlap can yield.
     lines.push('### Stripe API changelog', '', ...section.lines, '');
+    if (section.unmatched.length) lines.push(unmatchedEntries(section.unmatched, report), '');
+    lines.push(section.link, '');
     const label = 'Other changes to resources you use (no code evidence)';
     lines.push(
       {

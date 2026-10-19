@@ -15,7 +15,7 @@ const DEFAULT = /\bdefaults?\b/i;
 export function stripeChangelog(
   section: ReviewSection,
   report: FixReport,
-): ReviewSection & { summary: string; omitted: string; unmatched: number } {
+): ReviewSection & { summary: string; omitted: string; unmatched: string[]; link: string } {
   const context = report.packContext;
   const names =
     report.apiChanges?.resources?.names ??
@@ -114,24 +114,14 @@ export function stripeChangelog(
     title: section.title,
     summary: summary(shown),
     omitted: summary(0),
-    unmatched: unmatched.length,
+    // In order, new defaults first; the PR body fits them to its budget.
+    unmatched: unmatched.map((e) => e.line),
     lines: [
       `**${evidence.length} ${evidence.length === 1 ? 'change' : 'changes'} with evidence in your code**`,
       '',
       ...evidence,
-      '',
-      ...(unmatched.length
-        ? [
-            `**${unmatched.length} breaking ${unmatched.length === 1 ? 'change' : 'changes'} to resources you use that field names can't match**`,
-            '',
-            "Each one changes a default or names no field, parameter or event, so Uptide can't tell whether your code is affected. A new default reaches every call that leaves the parameter out. Read each one against your code.",
-            '',
-            ...unmatched.map((e) => e.line),
-            '',
-          ]
-        : []),
-      `[Stripe's changelog](https://docs.stripe.com/changelog)${range ? `, ${range.from} → ${range.to}` : ' for the recorded API version range'}.`,
     ],
+    link: `[Stripe's changelog](https://docs.stripe.com/changelog)${range ? `, ${range.from} → ${range.to}` : ' for the recorded API version range'}.`,
     lists,
   };
 }

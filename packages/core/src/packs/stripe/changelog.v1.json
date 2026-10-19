@@ -2,7 +2,7 @@
   "schema": 1,
   "source": "https://docs.stripe.com/changelog.md",
   "sha256": "70a7476d626b5c3981838cd07d6d01293ca6d6995722e66bef524fc01e73fc17",
-  "generatedAt": "2026-10-19T00:02:10.759Z",
+  "generatedAt": "2026-10-19T00:42:45.409Z",
   "versions": [
     "2011-06-21",
     "2011-06-28",
@@ -3111,8 +3111,8 @@
       "category": "api",
       "touches": {
         "resources": ["tax"],
-        "fields": ["hr_oib"],
-        "params": ["hr_oib"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -4315,8 +4315,8 @@
       "category": "api",
       "touches": {
         "resources": ["tax"],
-        "fields": ["li_vat"],
-        "params": ["li_vat"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -4385,8 +4385,8 @@
       "category": "api",
       "touches": {
         "resources": ["tax"],
-        "fields": ["service_tax"],
-        "params": ["service_tax"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -4917,8 +4917,8 @@
       "category": "api",
       "touches": {
         "resources": ["checkout"],
-        "fields": ["checkout_add_brands_blocked"],
-        "params": ["checkout_add_brands_blocked"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -4945,8 +4945,8 @@
       "category": "api",
       "touches": {
         "resources": [],
-        "fields": ["cs_make_billing_country_and_email_field_optional_for_klarna_payments"],
-        "params": ["cs_make_billing_country_and_email_field_optional_for_klarna_payments"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -5001,8 +5001,8 @@
       "category": "api",
       "touches": {
         "resources": ["balance"],
-        "fields": ["add_pay_with_stripe_balance_bt_types"],
-        "params": ["add_pay_with_stripe_balance_bt_types"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -5015,8 +5015,8 @@
       "category": "api",
       "touches": {
         "resources": [],
-        "fields": ["add_presentment_details"],
-        "params": ["add_presentment_details"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -5113,8 +5113,8 @@
       "category": "api",
       "touches": {
         "resources": ["account"],
-        "fields": ["availability_of_additional_kyc_data"],
-        "params": ["availability_of_additional_kyc_data"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -5155,8 +5155,8 @@
       "category": "api",
       "touches": {
         "resources": ["checkout", "payment_link"],
-        "fields": ["checkout_optional_items"],
-        "params": ["checkout_optional_items"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -5211,8 +5211,8 @@
       "category": "api",
       "touches": {
         "resources": ["checkout"],
-        "fields": ["cs_add_checkout_session_permissions"],
-        "params": ["cs_add_checkout_session_permissions"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -5645,8 +5645,8 @@
       "category": "api",
       "touches": {
         "resources": ["payment_method"],
-        "fields": ["add_pix_to_payment_method_configuration"],
-        "params": ["add_pix_to_payment_method_configuration"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -5785,8 +5785,8 @@
       "category": "api",
       "touches": {
         "resources": ["event"],
-        "fields": ["cs_document_event_destination_ping_event"],
-        "params": ["cs_document_event_destination_ping_event"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -5827,8 +5827,8 @@
       "category": "api",
       "touches": {
         "resources": ["account"],
-        "fields": ["us_cfpb"],
-        "params": ["us_cfpb"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -5925,8 +5925,8 @@
       "category": "api",
       "touches": {
         "resources": [],
-        "fields": ["pix_cross_border_in_public_preview"],
-        "params": ["pix_cross_border_in_public_preview"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -6149,8 +6149,8 @@
       "category": "api",
       "touches": {
         "resources": ["refund"],
-        "fields": ["paypal_refund_network_decline_code"],
-        "params": ["paypal_refund_network_decline_code"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -6317,8 +6317,8 @@
       "category": "api",
       "touches": {
         "resources": [],
-        "fields": ["add_jp_installments_plan_types"],
-        "params": ["add_jp_installments_plan_types"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -6527,8 +6527,8 @@
       "category": "api",
       "touches": {
         "resources": ["payment_method"],
-        "fields": ["klarna_saved_payment_methods_preview"],
-        "params": ["klarna_saved_payment_methods_preview"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -6555,8 +6555,8 @@
       "category": "api",
       "touches": {
         "resources": [],
-        "fields": ["add_terminal_tipping_currency_aed_bgn_huf_chf_ron"],
-        "params": ["add_terminal_tipping_currency_aed_bgn_huf_chf_ron"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -6611,8 +6611,8 @@
       "category": "api",
       "touches": {
         "resources": [],
-        "fields": ["america_coyhaique_timezone"],
-        "params": ["america_coyhaique_timezone"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -6891,8 +6891,8 @@
       "category": "api",
       "touches": {
         "resources": ["payout", "balance"],
-        "fields": ["payout_schedule_customization_on_balance_settings"],
-        "params": ["payout_schedule_customization_on_balance_settings"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -6947,8 +6947,8 @@
       "category": "api",
       "touches": {
         "resources": ["subscription", "invoice", "invoice_item"],
-        "fields": ["add_invoice_items_metadata_and_period"],
-        "params": ["add_invoice_items_metadata_and_period"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -6961,8 +6961,8 @@
       "category": "api",
       "touches": {
         "resources": ["account"],
-        "fields": ["add_paypay_payments_settings"],
-        "params": ["add_paypay_payments_settings"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -7031,8 +7031,8 @@
       "category": "api",
       "touches": {
         "resources": ["payment_intent", "payment_method"],
-        "fields": ["cs_add_excluded_payment_method_types_pi"],
-        "params": ["cs_add_excluded_payment_method_types_pi"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -7241,8 +7241,8 @@
       "category": "api",
       "touches": {
         "resources": ["payment_method"],
-        "fields": ["mandates_listing_support"],
-        "params": ["mandates_listing_support"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -7297,8 +7297,8 @@
       "category": "api",
       "touches": {
         "resources": ["subscription_schedule", "subscription"],
-        "fields": ["remove_schedule_phase_iterations"],
-        "params": ["remove_schedule_phase_iterations"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -7605,8 +7605,8 @@
       "category": "api",
       "touches": {
         "resources": [],
-        "fields": ["issuing_card_second_line"],
-        "params": ["issuing_card_second_line"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -7675,8 +7675,8 @@
       "category": "stripejs",
       "touches": {
         "resources": ["checkout"],
-        "fields": ["postal_code_in_card_form_for_non_us_countries"],
-        "params": ["postal_code_in_card_form_for_non_us_countries"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },
@@ -9985,8 +9985,8 @@
       "category": "api",
       "touches": {
         "resources": ["account"],
-        "fields": ["relaxed_external_account_collection_account_session"],
-        "params": ["relaxed_external_account_collection_account_session"],
+        "fields": [],
+        "params": [],
         "events": []
       }
     },

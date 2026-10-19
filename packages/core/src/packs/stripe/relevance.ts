@@ -54,7 +54,10 @@ function words(text: string) {
 /** Explicit conservative metadata from title/URL; unclassified entries remain in the full disclosure. */
 export function entryTouches(entry: Pick<StripeEntry, 'title' | 'url'>): StripeTouches {
   const text = words(`${entry.title} ${entry.url}`);
-  const fields = [...new Set(`${entry.title} ${entry.url}`.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? [])];
+  // Field names from the title only: a URL or link slug (`postal_code_in_card_form_for_…`) names
+  // no field, and a made-up one hides the entry from the list of those no name can match.
+  const title = entry.title.replace(/\]\([^)]*\)|https?:\/\/\S+/g, ' ');
+  const fields = [...new Set(title.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? [])];
   if (entry.url.includes('/deprecate-subscription-current-period-start-and-end'))
     fields.push('current_period_start', 'current_period_end');
   return {

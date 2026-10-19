@@ -99,19 +99,23 @@ it("says what the changelog check covered, and lists the breaking changes it can
   const body = prBody({ ...fixture('stripe'), ...fixture('stripe-dms-saas-round-4') });
   expect(body).not.toMatch(/none affects? your code/);
   expect(body).toContain(
-    "0 of 230 API changes matched your code by field name; 12 breaking changes can't be matched this way between 2025-08-27.basil and 2026-08-26.dahlia.",
+    "0 of 230 API changes matched your code by field name; 13 breaking changes can't be matched this way between 2025-08-27.basil and 2026-08-26.dahlia.",
   );
   expect(body).toContain(
-    "| **Behavior** | ⚠️ 0 of 230 API changes matched your code by field name; 12 breaking changes can't be matched this way |",
+    "| **Behavior** | ⚠️ 0 of 230 API changes matched your code by field name; 13 breaking changes can't be matched this way |",
   );
   // The billing-mode default flip is in plain view under its own heading, first, not collapsed.
-  const heading = "**12 breaking changes to resources you use that field names can't match**";
+  const heading = "**13 breaking changes to resources you use that field names can't match**";
   const top = visible(body);
   const list = top.slice(top.indexOf(heading), top.indexOf("[Stripe's changelog]"));
   expect(list.split('\n').find((l) => l.startsWith('- '))).toBe(
     '- 2025-09-30.clover: [Makes flexible billing mode the default for new subscriptions](https://docs.stripe.com/changelog/clover/2025-09-30/billing-mode-default-flexible.md) — breaking; Billing, Checkout',
   );
-  expect(list.match(/^- /gm)).toHaveLength(12);
+  expect(list.match(/^- /gm)).toHaveLength(13);
+  // Its URL slug reads like a field name, but its title names none.
+  expect(list).toContain(
+    '[Removes postal code for card payments in certain regions on Checkout and Payment Element]',
+  );
   const collapsed = body.slice(
     body.indexOf('Other changes to resources you use (no code evidence)'),
   );
