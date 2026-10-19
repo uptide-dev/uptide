@@ -242,7 +242,15 @@ export function stripeBehaviorSites(input: {
           if (checkout) {
             const mode = property(params, 'mode', node);
             const literal = mode.state === 'present' ? value(mode.value) : undefined;
-            if (!literal || !ts.isStringLiteral(literal) || literal.text !== 'subscription') {
+            const modeSymbol = params && checker.getTypeAtLocation(params).getProperty('mode');
+            const modeType =
+              params && modeSymbol && checker.getTypeOfSymbolAtLocation(modeSymbol, params);
+            const subscriptionMode =
+              (literal && ts.isStringLiteral(literal) && literal.text === 'subscription') ||
+              (mode.state === 'unknown' &&
+                modeType?.isStringLiteral() &&
+                modeType.value === 'subscription');
+            if (!subscriptionMode) {
               ts.forEachChild(node, visit);
               return;
             }

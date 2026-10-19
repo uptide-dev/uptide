@@ -135,6 +135,12 @@ stripe.subscriptions.create(p);`);
     expect(recordKept(stripeRecords, unknown)).toEqual([]);
     expect(recordDecisions(stripeRecords, unknown).join('\n')).toContain('No automatic edit.');
   });
+  it('reports unresolved Checkout subscription parameters as a decision when the checker proves mode', () => {
+    const root = fixture(`declare const params: SessionCreateParams & { mode: 'subscription' };
+stripe.checkout.sessions.create(params);`);
+    expect(scan(root)).toHaveLength(1);
+    expect(scan(root)[0]?.decision).toBe(true);
+  });
   it('requires a source and proves classic after the session, not mere disappearance or flexible', () => {
     const root = fixture(`stripe.subscriptions.create({ billing_mode: { type: 'classic' } });
 stripe.subscriptions.create({ billing_mode: { type: 'flexible' } });
