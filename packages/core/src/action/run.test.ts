@@ -542,6 +542,49 @@ describe('the Uptide Action run', () => {
     } as FixReport;
   };
 
+  it.each(['list', 'check', 'fix'] as const)(
+    'reports an unused openai 4 → 7 candidate in %s without running it',
+    async (mode) => {
+      const { s, calls, published } = services({
+        list: listReport([dep('openai', '4.104.0', '7.32.0', { tier: 'generic' })]),
+        check: {
+          packages: [
+            {
+              name: 'openai',
+              installed: '4.104.0',
+              target: '7.32.0',
+              status: 'safe',
+              tier: 'generic',
+              findings: [],
+            },
+          ],
+        },
+      });
+      const report = await runAction(inputs(workspace('version: 1\n'), { mode }), s);
+      expect(reportProblems(report)).toEqual([]);
+      expect(report.upgrades[0]).toMatchObject({
+        package: 'openai',
+        from: '4.104.0',
+        to: '7.32.0',
+        unusedPack: { name: 'openai', status: 'candidate' },
+      });
+      expect(report.upgrades[0]?.analysis).not.toBe('pack');
+      expect(calls.map((c) => c.args[0])).toEqual(mode === 'check' ? ['list', 'check'] : ['list']);
+      expect(calls.some((c) => c.args.includes('--allow-candidate'))).toBe(false);
+      expect(published).toEqual([]);
+    },
+  );
+
+  it.each([
+    ['openai', '5.0.0', '7.32.0'],
+    ['openai', '4.104.0', '6.0.0'],
+    ['unknown', '4.0.0', '7.0.0'],
+  ])('does not advertise an unsupported candidate: %s %s → %s', async (name, from, to) => {
+    const { s } = services({ list: listReport([dep(name, from, to, { tier: 'generic' })]) });
+    const report = await runAction(inputs(workspace('version: 1\n'), { mode: 'list' }), s);
+    expect(report.upgrades[0]).not.toHaveProperty('unusedPack');
+  });
+
   it('fix: a major upgrade without a pack is never opened, even with a clean type-check (saas-starter-kit PR #3)', async () => {
     const { s, calls, published } = services({
       list: listReport([dep('next', '15.5.14', '16.4.0', { tier: 'generic' })]),

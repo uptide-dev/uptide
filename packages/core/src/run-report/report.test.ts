@@ -33,6 +33,24 @@ const run = (upgrades: RunReport['upgrades'], extra: Partial<RunReport> = {}): R
 const PR = { number: 42, url: 'https://github.com/acme/storefront/pull/42' };
 
 describe('uptide.run/v1', () => {
+  it('admits only a named candidate in unusedPack and keeps older rows valid', () => {
+    const row = skipped({ package: 'openai', from: '4.104.0', to: '7.32.0' }, 'available');
+    expect(reportProblems(run([row]))).toEqual([]);
+    expect(
+      reportProblems(run([{ ...row, unusedPack: { name: 'openai', status: 'candidate' } }])),
+    ).toEqual([]);
+    for (const unusedPack of [
+      null,
+      {},
+      { name: 'openai' },
+      { name: 'openai', status: 'verified' },
+      { name: 'two\nlines', status: 'candidate' },
+      { name: 'openai', status: 'candidate', source: 'extra' },
+    ]) {
+      expect(reportProblems({ ...run([]), upgrades: [{ ...row, unusedPack }] })).not.toEqual([]);
+    }
+  });
+
   it('a fix run reports versions, sites, verification counts, the PR and cost', () => {
     const report = run([fromFix(storefront(), { pr: PR, durationMs: 754_000 })]);
     expect(reportProblems(report)).toEqual([]);

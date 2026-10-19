@@ -7,6 +7,7 @@ import type { FixReport } from '../fix/types.js';
 import type { ListedDependency, ListReport } from '../list/list.js';
 import { loadUptideConfig } from '../onboarding/node.js';
 import { DEFAULT_CONFIG, UPTIDE_CONFIG_FILE, type UptideConfig } from '../onboarding/schema.js';
+import { packStatus, registeredPacks } from '../packs/index.js';
 import {
   fromChecked,
   fromFix,
@@ -211,7 +212,19 @@ export async function runAction(
     mode,
     startedAt: iso(startedAt),
     finishedAt: iso(services.now()),
-    upgrades,
+    upgrades: upgrades.map((upgrade) => {
+      const candidate =
+        upgrade.analysis !== 'pack' &&
+        registeredPacks().find(
+          (entry) =>
+            packStatus(entry) === 'candidate' &&
+            entry.pack.name === upgrade.package &&
+            entry.pack.supports(upgrade.from, upgrade.to),
+        );
+      return candidate
+        ? { ...upgrade, unusedPack: { name: candidate.pack.name, status: 'candidate' as const } }
+        : upgrade;
+    }),
     llmKey: apiKey ? 'present' : 'missing',
     ...(error ? { error: sentence(error) } : {}),
   });
