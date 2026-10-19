@@ -1,5 +1,11 @@
 # uptide
 
+## 0.17.2
+
+### Patch Changes
+
+- [#250](https://github.com/uptide-dev/uptide/pull/250) [`ec35174`](https://github.com/uptide-dev/uptide/commit/ec3517409cbf730822ab1c02801e8ce7b4779727) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Report matching candidate packs that the Action did not use, with their name and status, without changing which packs run.
+
 ## 0.17.1
 
 ### Patch Changes
