@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { Finding } from '../../domain/report.js';
 import { stripeBehaviorPlan } from '../../fix/stripe-behavior.js';
+import { sdkCostEstimate } from '../../llm/fixer.js';
 import {
   applicable,
   recordDecisions,
@@ -282,6 +283,28 @@ client.subscriptions.create({});`);
     expect(selected).toHaveLength(2);
     expect(selected[1]?.rule).toBe('stripe/billing-mode-default-flexible');
     expect(selected[1]?.details?.join('\n')).toContain('Subscriptions you create through the API');
+    // The SDK session receives silent records as manual sites with their own rule.
+    const silent = selected[1];
+    if (!silent) throw new Error('missing silent finding');
+    const transformed = stripePack.transform('client.subscriptions.create({});', silent, context);
+    expect(transformed.applied).toBe(false);
+    const site = {
+      finding: silent,
+      outcome: transformed.applied ? 'mechanical' : 'manual',
+      rule: silent.rule ?? transformed.rule,
+    };
+    expect(site.rule).toBe('stripe/billing-mode-default-flexible');
+    expect(site.finding.anchorOnly).not.toBe(true);
+    const otherRules = ['api-version', 'current-period'].map((rule) => ({
+      ...site,
+      rule,
+    }));
+    const estimate = (sites: (typeof site)[]) =>
+      sdkCostEstimate('anthropic', 'claude-sonnet-5-5', sites, 1);
+    expect(estimate(otherRules)).toMatchObject({ sites: 2, usd: 0.14 });
+    expect(estimate([...otherRules, site])).toMatchObject({ sites: 3, usd: 0.21 });
+    // Another occurrence counts as a site, but does not add another rule's cost.
+    expect(estimate([...otherRules, site, site])).toMatchObject({ sites: 4, usd: 0.21 });
     const retained: Finding[] = [];
     stripeBehaviorPlan(
       stripePack,
