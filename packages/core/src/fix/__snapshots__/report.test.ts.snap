@@ -295,19 +295,28 @@ exports[`stripe > snapshots the full PR description and compact terminal/comment
 
 - 2025-03-31.basil: [Adds subscription item-level billing periods and removes subscription-level periods](https://docs.stripe.com/changelog/basil/2025-03-31/deprecate-subscription-current-period-start-and-end.md) — breaking; Billing — evidence: \`src/billing.ts:18\` (field \`Stripe.Subscription#current_period_end\`); \`src/billing.ts:24\` (field \`Stripe.Subscription#current_period_end\`)
 
+**4 breaking changes to resources you use that field names can't match**
+
+Each one changes a default or names no field, parameter or event, so Uptide can't tell whether your code is affected. A new default reaches every call that leaves the parameter out. Read each one against your code.
+
+- 2025-09-30.clover: [Makes flexible billing mode the default for new subscriptions](https://docs.stripe.com/changelog/clover/2025-09-30/billing-mode-default-flexible.md) — breaking; Billing, Checkout
+- 2026-03-25.dahlia: [Adds retention policy cancellation reason to Subscriptions](https://docs.stripe.com/changelog/dahlia/2026-03-25/adds-new-cancellation-reason-subscription-test-retention-policy.md) — breaking; Billing
+- 2025-09-30.clover: [Updates computation of subscription schedule phase end date to consider billing cycle anchor changes](https://docs.stripe.com/changelog/clover/2025-09-30/billing-cycle-anchor-resets-during-phase-computation.md) — breaking; Billing
+- 2025-09-30.clover: [Removes iterations parameter for subscription schedules](https://docs.stripe.com/changelog/clover/2025-09-30/remove-iterations.md) — breaking; Billing
+
 [Stripe's changelog](https://docs.stripe.com/changelog) for the recorded API version range.
 
 <details><summary>Other changes to resources you use (no code evidence)</summary>
 
-Showing 5 of 30 other changes to resources you use, grouped by resource; 25 resource changes and 471 other changelog entries omitted. Full list in report.json.
+Showing 5 of 26 other changes to resources you use, grouped by resource; 21 resource changes and 471 other changelog entries omitted. Full list in report.json.
 
-**subscription · 30 changes (4 breaking)**
+**subscription · 26 changes (0 breaking)**
 
-- 2026-03-25.dahlia: [Adds retention policy cancellation reason to Subscriptions](https://docs.stripe.com/changelog/dahlia/2026-03-25/adds-new-cancellation-reason-subscription-test-retention-policy.md) — breaking; Billing
-- 2025-09-30.clover: [Updates computation of subscription schedule phase end date to consider billing cycle anchor changes](https://docs.stripe.com/changelog/clover/2025-09-30/billing-cycle-anchor-resets-during-phase-computation.md) — breaking; Billing
-- 2025-09-30.clover: [Makes flexible billing mode the default for new subscriptions](https://docs.stripe.com/changelog/clover/2025-09-30/billing-mode-default-flexible.md) — breaking; Billing, Checkout
-- 2025-09-30.clover: [Removes iterations parameter for subscription schedules](https://docs.stripe.com/changelog/clover/2025-09-30/remove-iterations.md) — breaking; Billing
 - 2026-08-26.dahlia: [Adds support for the Billie payment method for invoices and subscriptions](https://docs.stripe.com/changelog/dahlia/2026-08-26/billie-support-for-invoices-and-subscriptions.md) — non-breaking; Billing
+- 2026-08-26.dahlia: [Increases the subscription item limit](https://docs.stripe.com/changelog/dahlia/2026-08-26/flexible-subscription-item-limits.md) — non-breaking; Billing
+- 2026-07-29.dahlia: [Adds subscription metadata support to invoice previews](https://docs.stripe.com/changelog/dahlia/2026-07-29/adds-subscription-metadata-support-to-invoice-preview.md) — non-breaking; Invoicing, Billing
+- 2026-07-29.dahlia: [Adds Alipay support for invoices and subscriptions that send invoices for collection](https://docs.stripe.com/changelog/dahlia/2026-07-29/alipay-support-for-invoices-and-subscriptions-with-sendinvoice-collection.md) — non-breaking; Invoicing, Billing, Payments
+- 2026-07-29.dahlia: [Adds invoice description, footer, and custom parameters to the Subscription Schedules and Quotes APIs](https://docs.stripe.com/changelog/dahlia/2026-07-29/invoice-description-footer-and-custom-fields.md) — non-breaking; Billing, Invoicing
 
 
 </details>

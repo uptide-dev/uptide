@@ -22,6 +22,7 @@ import {
   apiClients,
   calledResources,
   clientPins,
+  entryTouches,
   evidencedEntries,
   mockFollowUps,
   payloadApiVersions,
@@ -261,6 +262,17 @@ it('parses release boundaries, deduplicates entries and fails closed when covera
   ).toBeGreaterThan(100);
 });
 
+it('keeps the checked-in touches equal to what entryTouches computes today', () => {
+  // A stale catalog matches with yesterday's rules: regenerate it when entryTouches changes.
+  for (const e of (catalog as StripeCatalog).entries)
+    expect(e.touches, e.url).toEqual(entryTouches(e));
+  const resourcesOf = (title: string) =>
+    entryTouches({ title, url: 'https://docs.stripe.com/changelog/x.md' }).resources;
+  expect(resourcesOf('Errors now produce exceptions for unrecognized API parameters')).toEqual([]);
+  expect(resourcesOf('Prevents reusing client secrets')).toEqual([]);
+  expect(resourcesOf('Adds billing meters and meter events')).toEqual(['meter', 'event']);
+});
+
 it('matches resource/field metadata and handled event literals, leaving unrelated changes collapsed', async () => {
   const { handledEvents, relevantEntries } = await import('./relevance.js');
   const events = handledEvents(
@@ -284,7 +296,7 @@ it('matches resource/field metadata and handled event literals, leaving unrelate
     eventTypes: events,
   });
   const text = sections?.[0]?.lines.join('\n') ?? '';
-  expect(text).toContain('0 of 502 affect your code');
+  expect(text).toContain('0 of 501 matched your code by name');
   // The second layer: changes to the resources the code uses, counted, breaking first.
   const { usedResources, resourceEntries } = await import('./relevance.js');
   const used = usedResources(['Stripe.Subscription#current_period_end'], events);

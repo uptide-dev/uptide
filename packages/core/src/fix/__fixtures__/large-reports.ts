@@ -16,7 +16,7 @@ export function largeStripeReport(): FixReport {
   };
   const items = Array.from({ length: 420 }, (_, i) => {
     const resource = i < 90 ? names[i % 3] : 'account';
-    return `- 2026-09-30.clover: [${resource} change ${i}: review response compatibility](https://docs.stripe.com/changelog/clover/2026-09-30/${resource}-${i}.md) — ${i < 30 ? 'breaking' : 'non-breaking'}; ${i < 90 ? 'Billing' : 'Connect'}${i < 24 ? ` — evidence: \`src/billing-${i}.ts:${i + 1}\` (field \`Stripe.Subscription#current_period_end\`)` : ''}`;
+    return `- 2026-09-30.clover: [${resource} change ${i}: review response compatibility${i < 30 ? ' of `old_field`' : ''}](https://docs.stripe.com/changelog/clover/2026-09-30/${resource}-${i}.md) — ${i < 30 ? 'breaking' : 'non-breaking'}; ${i < 90 ? 'Billing' : 'Connect'}${i < 24 ? ` — evidence: \`src/billing-${i}.ts:${i + 1}\` (field \`Stripe.Subscription#current_period_end\`)` : ''}`;
   });
   report.reviewSections = [
     {
@@ -48,6 +48,23 @@ export function largeStripeReport(): FixReport {
       ).join('\n'),
     },
   ];
+  return report;
+}
+
+/**
+ * A long API range with 40 breaking subscription entries that name no field, the last 3 of
+ * them new defaults: none can be matched by name, so all of them are listed in the open.
+ */
+export function unmatchedStripeReport(): FixReport {
+  const report = largeStripeReport();
+  const items = Array.from(
+    { length: 40 },
+    (_, i) =>
+      `- 2026-09-30.clover: [${i >= 37 ? `Makes setting ${i} the default for new subscriptions` : `Changes how subscriptions handle case ${i}`}](https://docs.stripe.com/changelog/clover/2026-09-30/subscription-unmatched-${i}.md) — breaking; Billing`,
+  );
+  const section = report.reviewSections?.[0];
+  if (!section?.lists?.[0]) throw new Error('large stripe fixture needs a resource list');
+  section.lists[0].items.push(...items);
   return report;
 }
 

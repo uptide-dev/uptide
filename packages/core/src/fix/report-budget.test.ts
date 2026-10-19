@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
 import { published, uptideCommand } from '../version.js';
-import { largeStripeReport, manySitesReport } from './__fixtures__/large-reports.js';
+import {
+  largeStripeReport,
+  manySitesReport,
+  unmatchedStripeReport,
+} from './__fixtures__/large-reports.js';
 import { migrationBody, PR_BODY_BUDGET, prBody, renderMigration } from './report.js';
 import { stripeChangelog } from './stripe-changelog.js';
 import type { FixReport } from './types.js';
@@ -41,6 +45,28 @@ it('groups and caps a large Stripe changelog, linking the omitted range', () => 
   expect(body).toMatchSnapshot();
 });
 
+it('shortens the breaking entries no field name can match, never drops them, and keeps them over test output', () => {
+  const report = unmatchedStripeReport();
+  const shown = (body: string) =>
+    [...body.matchAll(/subscription-unmatched-(\d+)\.md/g)].map((m) => Number(m[1]));
+  // Whole when it fits, ahead of the passed test log.
+  const whole = renderMigration(report, 'full', 20_000) ?? '';
+  expect(whole.length).toBeLessThanOrEqual(20_000);
+  expect(shown(whole)).toHaveLength(40);
+  expect(whole).not.toContain('PASS billing scenario 0');
+  // Tighter: the count, the first ten with the new defaults first, and where the rest are.
+  const tight = renderMigration(report, 'full', 16_000) ?? '';
+  expect(tight.length).toBeLessThanOrEqual(16_000);
+  expect(tight).toContain(
+    "**40 breaking changes to resources you use that field names can't match**",
+  );
+  expect(tight).toContain('The first 10, new defaults first; all 40 are in report.json.');
+  expect(shown(tight)).toHaveLength(10);
+  expect(shown(tight).slice(0, 3)).toEqual([37, 38, 39]);
+  expect(tight).toContain("40 breaking changes can't be matched this way");
+  balanced(tight);
+});
+
 it('caps the total across resources and discloses unrecognized legacy entries', () => {
   const report = largeStripeReport();
   const names = ['invoice', 'customer', 'subscription', 'account', 'charge'];
@@ -59,7 +85,7 @@ it('caps the total across resources and discloses unrecognized legacy entries', 
               Array.from(
                 { length: 6 },
                 (_, i) =>
-                  `- 2026-09-30.clover: [${name} change ${i}](https://docs.stripe.com/changelog/${name}-${i}) — breaking; All products`,
+                  `- 2026-09-30.clover: [${name} change ${i} to \`old_field\`](https://docs.stripe.com/changelog/${name}-${i}) — breaking; All products`,
               ),
             ),
             '- Legacy entry with an unknown format',

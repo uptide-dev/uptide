@@ -706,7 +706,7 @@ export const stripePack: Pack = {
       {
         title: 'Stripe API changelog',
         lines: [
-          `${relevant.length} of ${entries.length} affect your code: each shown entry names a method, field, parameter or event the code uses, with where. ${byResource.length} more change resources the code uses (${breaking} breaking), listed below breaking first, then the rest.`,
+          `${relevant.length} of ${entries.length} matched your code by name: each shown entry names a method, field, parameter or event the code uses, with where. ${byResource.length} more change resources the code uses (${breaking} breaking), listed below breaking first, then the rest.`,
           '',
           ...relevant.map(
             ({ entry, evidence }) =>
