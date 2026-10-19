@@ -1,6 +1,7 @@
 /** Explicit maintenance command; the migration pack never downloads changelog data. */
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { sourceProblems } from '../packages/core/src/packs/records.ts';
 import { parseChangelog } from '../packages/core/src/packs/stripe/changelog.ts';
 
 import { entryTouches } from '../packages/core/src/packs/stripe/relevance.ts';
@@ -10,18 +11,18 @@ import { entryTouches } from '../packages/core/src/packs/stripe/relevance.ts';
 const records = JSON.parse(
   readFileSync(new URL('../packages/core/src/packs/stripe/records.json', import.meta.url), 'utf8'),
 );
+const cache = new URL('../.cache/stripe-sources/', import.meta.url);
+mkdirSync(cache, { recursive: true });
 for (const record of records) {
   for (const source of record.sources) {
     const response = await fetch(source.url);
     if (!response.ok) throw new Error(`Stripe source: HTTP ${response.status}: ${source.url}`);
     const text = await response.text();
-    if (
-      createHash('sha256').update(text).digest('hex') !== source.sha256 ||
-      !text.includes(source.quote)
-    )
+    if (sourceProblems(source, text).length)
       throw new Error(
-        `Stripe behavior source drift: ${source.url}; review the record and snapshot explicitly`,
+        `Stripe behavior source drift: ${source.url}; author review required: review the quote and full-page sha256 explicitly`,
       );
+    writeFileSync(new URL(`${source.sha256}.md`, cache), text);
   }
 }
 

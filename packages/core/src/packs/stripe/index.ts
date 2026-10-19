@@ -290,7 +290,7 @@ const SDK_GUIDE =
   'Migrate the reported Stripe SDK usage while preserving payment, subscription and webhook semantics. Use the target diagnostic and checked-in API changelog. Never remove signature verification, change monetary amounts/currency, or introduce a cast to hide incompatible data.';
 const meta: PackMeta = {
   package: 'stripe',
-  from: '>=14',
+  from: '>=12',
   // Any later version: `supports` also requires the target to be newer than what is installed.
   to: '>=14',
   targetDescription: 'latest, API version pinning',
@@ -619,8 +619,15 @@ export const stripePack: Pack = {
     const path = 'Stripe.StripeConfig#apiVersion';
     const reason = `API version changes from ${api.from} to ${api.to} at runtime`;
     const behavior =
-      api.from < '2025-09-30.clover' && api.to >= '2025-09-30.clover'
-        ? recordFindings(stripeRecords, { root, workspace, package: 'stripe', from, to })
+      api.to >= '2025-09-30.clover'
+        ? recordFindings(stripeRecords, {
+            root,
+            workspace,
+            package: 'stripe',
+            from,
+            to,
+            stripe: { apiVersions: api },
+          })
         : [];
     return [
       ...behavior,

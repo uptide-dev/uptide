@@ -1,14 +1,23 @@
 import { readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { ts } from 'ts-morph';
 import { projectFiles } from '../../check/importers.js';
 import type { RecordSite } from '../records.js';
+import { type ApiClient, apiClients } from './relevance.js';
+
+export interface StripeBehaviorContext {
+  apiVersions: { from: string; to: string };
+  apiClients?: ApiClient[];
+  /** Clients whose explicit API pin is part of the selected API-version migration. */
+  movingApiPins?: { file: string; line: number }[];
+}
 
 /** Resolve only syntax whose value is visible. Types alone cannot prove an optional key absent. */
 export function stripeBehaviorSites(input: {
   root: string;
   workspace: string;
   phase: 'before' | 'after';
+  stripe?: StripeBehaviorContext;
 }): Omit<RecordSite, 'record'>[] {
   const dir = resolve(input.root, input.workspace);
   const { files, options } = projectFiles(dir);
@@ -24,6 +33,7 @@ export function stripeBehaviorSites(input: {
   function step(node: ts.Expression): ts.Expression | undefined {
     if (
       ts.isParenthesizedExpression(node) ||
+      ts.isNonNullExpression(node) ||
       ts.isAsExpression(node) ||
       ts.isSatisfiesExpression(node)
     )
@@ -200,6 +210,116 @@ export function stripeBehaviorSites(input: {
     visit(declaration.body);
     return found;
   }
+  const currentClients = apiClients(input.root, [input.workspace]);
+  const clients = input.stripe?.apiClients ?? currentClients;
+  function clientConstructor(
+    expr: ts.Expression | undefined,
+    seen = new Set<ts.Node>(),
+  ): ts.NewExpression | undefined {
+    if (!expr || seen.has(expr)) return undefined;
+    seen.add(expr);
+    if (ts.isNewExpression(expr)) return expr;
+    if (ts.isPropertyAccessExpression(expr)) return clientConstructor(expr.expression, seen);
+    const next = step(expr);
+    const direct = next && next !== expr ? clientConstructor(next, seen) : undefined;
+    if (direct) return direct;
+    if (ts.isIdentifier(expr)) {
+      const binding = symbol(expr);
+      const declaration = binding?.valueDeclaration;
+      const assignments: ts.Expression[] = [];
+      const visit = (n: ts.Node): void => {
+        if (
+          ts.isBinaryExpression(n) &&
+          n.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+          ts.isIdentifier(n.left) &&
+          symbol(n.left) === binding
+        )
+          assignments.push(n.right);
+        ts.forEachChild(n, visit);
+      };
+      if (declaration) visit(declaration.getSourceFile());
+      if (assignments.length === 1) return clientConstructor(assignments[0], seen);
+    }
+    return undefined;
+  }
+  function requestVersion(
+    node: ts.CallExpression,
+    checkoutWrapper: boolean,
+  ): 'crosses' | 'unchanged' | 'unknown' {
+    // A per-request override takes precedence over the client's configuration.
+    const options = node.arguments[1];
+    const overrideProperty = (expr: ts.Expression | undefined): Property => {
+      if (!expr || (ts.isIdentifier(expr) && expr.text === 'undefined')) return { state: 'absent' };
+      if (ts.isConditionalExpression(expr)) {
+        const a = overrideProperty(expr.whenTrue),
+          b = overrideProperty(expr.whenFalse);
+        return a.state === 'absent' && b.state === 'absent' ? a : { state: 'unknown' };
+      }
+      return property(expr, 'apiVersion', node);
+    };
+    const override = overrideProperty(options);
+    const explicit = override.state === 'present' ? value(override.value) : undefined;
+    if (explicit && ts.isStringLiteral(explicit)) return 'unchanged';
+    if (override.state !== 'absent') return 'unknown';
+    let ctor = clientConstructor(node.expression);
+    if (!ctor && checkoutWrapper) {
+      const d = checker.getResolvedSignature(node)?.declaration;
+      const visit = (n: ts.Node): void => {
+        if (ts.isCallExpression(n) && checkoutDeclaration(n))
+          ctor ??= clientConstructor(n.expression);
+        ts.forEachChild(n, visit);
+      };
+      if (d) visit(d);
+    }
+    const file = ctor && relative(input.root, ctor.getSourceFile().fileName);
+    const line =
+      ctor && ctor.getSourceFile().getLineAndCharacterOfPosition(ctor.getStart()).line + 1;
+    const currentClient = currentClients.find((c) => c.file === file && c.line === line);
+    const ordinal = currentClients
+      .filter((c) => c.file === file)
+      .indexOf(currentClient as ApiClient);
+    const client = clients.filter((c) => c.file === file)[ordinal];
+    // With no migration context, this is a structural scan, still respecting known pins.
+    const defaults = input.stripe?.apiVersions ?? {
+      from: '2025-08-27.basil',
+      to: '2025-09-30.clover',
+    };
+    const pinProperty = ctor?.arguments?.[1] && property(ctor.arguments[1], 'apiVersion', node);
+    const pinLiteral = pinProperty?.state === 'present' ? value(pinProperty.value) : undefined;
+    const moving =
+      !!pinLiteral &&
+      input.stripe?.movingApiPins?.some(
+        (p) =>
+          p.file === relative(input.root, pinLiteral.getSourceFile().fileName) &&
+          p.line ===
+            pinLiteral.getSourceFile().getLineAndCharacterOfPosition(pinLiteral.getStart()).line +
+              1,
+      );
+    const pin =
+      client?.version !== undefined
+        ? client.version
+        : pinLiteral && ts.isStringLiteral(pinLiteral)
+          ? pinLiteral.text
+          : undefined;
+    if (pin !== undefined) {
+      const before = pin ?? defaults.from;
+      const after =
+        input.phase === 'after'
+          ? (currentClient?.version ??
+            (pinLiteral && ts.isStringLiteral(pinLiteral) ? pinLiteral.text : defaults.to))
+          : moving || pin === null
+            ? defaults.to
+            : pin;
+      return before < '2025-09-30.clover' && after >= '2025-09-30.clover' ? 'crosses' : 'unchanged';
+    }
+    if (ctor && !ctor.arguments?.[1])
+      return defaults.from < '2025-09-30.clover' && defaults.to >= '2025-09-30.clover'
+        ? 'crosses'
+        : 'unchanged';
+    return defaults.from < '2025-09-30.clover' && defaults.to >= '2025-09-30.clover'
+      ? 'unknown'
+      : 'unchanged';
+  }
   const sites: Omit<RecordSite, 'record'>[] = [];
   for (const file of files) {
     const source = program.getSourceFile(join(dir, file));
@@ -215,6 +335,10 @@ export function stripeBehaviorSites(input: {
           /\/node_modules\/stripe\/(?:types|cjs|esm)\/(?:resources\/)?Subscriptions(?:Resource)?\.d\.ts$/.test(
             path,
           );
+        const resource =
+          /\/node_modules\/stripe\/(?:types|cjs|esm)\/(?:resources\/)?(Invoices|SubscriptionSchedules|Quotes|PaymentLinks)(?:Resource)?\.d\.ts$/.exec(
+            path,
+          )?.[1];
         const parameter = declaration?.parameters[0];
         const paramType = parameter && checker.getTypeAtLocation(parameter);
         const checkoutWrapper =
@@ -230,15 +354,49 @@ export function stripeBehaviorSites(input: {
             path,
           );
         if (
-          (subscription || checkout) &&
+          (subscription || checkout || resource) &&
           (checkoutWrapper ||
             (ts.isPropertyAccessExpression(node.expression) &&
-              node.expression.name.text === 'create'))
+              node.expression.name.text === (resource === 'Invoices' ? 'createPreview' : 'create')))
         ) {
-          const identity = `${subscription ? 'subscriptions' : 'checkout'}.create:${ordinal++}`;
+          const identity = `${subscription ? 'subscriptions' : checkout ? 'checkout' : resource}.create:${ordinal++}`;
+          const version = requestVersion(node, checkoutWrapper);
+          if (input.phase === 'before' && version === 'unchanged') {
+            ts.forEachChild(node, visit);
+            return;
+          }
           const params = node.arguments[0];
           let target = params;
           let state: Property;
+          let nesting = '';
+          let decisionReason =
+            version === 'unknown' ? 'Request API version could not be resolved' : undefined;
+          const present = (key: string) => property(params, key, node);
+          if (
+            (resource === 'SubscriptionSchedules' &&
+              present('from_subscription').state === 'present') ||
+            (resource === 'Invoices' &&
+              (present('subscription').state === 'present' ||
+                present('schedule').state === 'present'))
+          ) {
+            // Existing subscriptions retain their mode; from_subscription forbids other params.
+            ts.forEachChild(node, visit);
+            return;
+          }
+          if (
+            resource === 'SubscriptionSchedules' &&
+            present('from_subscription').state === 'unknown'
+          )
+            decisionReason = 'Cannot establish whether this schedule creates a new subscription';
+          if (resource === 'PaymentLinks')
+            decisionReason =
+              'Payment Link API exposes no billing_mode parameter; review recurring prices and Dashboard billing mode settings';
+          if (resource === 'Quotes') {
+            const data = present('subscription_data');
+            if (data.state !== 'present')
+              decisionReason =
+                'Cannot establish whether this quote creates a subscription from its prices';
+          }
           if (checkout) {
             const mode = property(params, 'mode', node);
             const literal = mode.state === 'present' ? value(mode.value) : undefined;
@@ -254,7 +412,28 @@ export function stripeBehaviorSites(input: {
               ts.forEachChild(node, visit);
               return;
             }
-            const data = property(params, 'subscription_data', node);
+          }
+          if (checkout || resource === 'Quotes' || resource === 'PaymentLinks')
+            nesting = 'subscription_data';
+          if (resource === 'Invoices') {
+            const sub = present('subscription_details');
+            const schedule = present('schedule_details');
+            nesting = schedule.state === 'present' ? 'schedule_details' : 'subscription_details';
+            const details = nesting === 'schedule_details' ? schedule : sub;
+            const creates =
+              details.state === 'present' &&
+              property(details.value, nesting === 'schedule_details' ? 'phases' : 'items', node)
+                .state === 'present';
+            if (sub.state === 'absent' && schedule.state === 'absent') {
+              ts.forEachChild(node, visit);
+              return;
+            }
+            if (!creates || (sub.state !== 'absent' && schedule.state !== 'absent'))
+              decisionReason =
+                'Cannot establish whether the preview creates a new subscription or schedule';
+          }
+          if (nesting) {
+            const data = property(params, nesting, node);
             target = data.state === 'present' ? data.value : undefined;
             state =
               data.state === 'absent'
@@ -278,8 +457,10 @@ export function stripeBehaviorSites(input: {
               line: line + 1,
               snippet: (lines[line] ?? '').trim(),
               identity,
-              decision: state.state === 'unknown',
-              ...(input.phase === 'after' ? { kept } : {}),
+              decision: state.state === 'unknown' || !!decisionReason,
+              ...(decisionReason ? { decisionReason } : {}),
+              edit: `${nesting ? `${nesting}.` : ''}billing_mode: { type: 'classic' }`,
+              ...(input.phase === 'after' ? { kept, unaffected: version === 'unchanged' } : {}),
             });
         }
       }

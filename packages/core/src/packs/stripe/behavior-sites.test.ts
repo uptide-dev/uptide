@@ -10,8 +10,11 @@ import {
   recordProblems,
   recordPrompt,
   recordSites,
+  sourceProblems,
 } from '../records.js';
-import { stripeRecords } from './index.js';
+import { stripeBehaviorSites } from './behavior-sites.js';
+import { stripePack, stripeRecords } from './index.js';
+import { apiClients } from './relevance.js';
 
 const dirs: string[] = [];
 afterAll(() => {
@@ -42,9 +45,15 @@ function fixture(code: string) {
     'node_modules/stripe/types/Checkout/SessionsResource.d.ts',
     `export interface SubscriptionData { billing_mode?: { type: 'classic' | 'flexible' }; trial_period_days?: number; } export interface SessionCreateParams { mode?: 'subscription' | 'payment' | 'setup'; subscription_data?: SubscriptionData; } export class Sessions { create(params: SessionCreateParams): void; }`,
   );
+  for (const name of ['Invoices', 'SubscriptionSchedules', 'Quotes', 'PaymentLinks']) {
+    put(
+      `node_modules/stripe/types/${name}Resource.d.ts`,
+      `export class ${name} { ${name === 'Invoices' ? 'createPreview' : 'create'}(params: Record<string, any>, options?: {apiVersion?: string}): void; }`,
+    );
+  }
   put(
     'node_modules/stripe/index.d.ts',
-    `import { Subscriptions } from './types/SubscriptionsResource'; import { Sessions } from './types/Checkout/SessionsResource'; export default class Stripe { subscriptions: Subscriptions; checkout: { sessions: Sessions }; } export type { SubscriptionCreateParams } from './types/SubscriptionsResource'; export type { SessionCreateParams, SubscriptionData } from './types/Checkout/SessionsResource';`,
+    `import { Invoices } from './types/InvoicesResource'; import { SubscriptionSchedules } from './types/SubscriptionSchedulesResource'; import { Quotes } from './types/QuotesResource'; import { PaymentLinks } from './types/PaymentLinksResource'; import { Subscriptions } from './types/SubscriptionsResource'; import { Sessions } from './types/Checkout/SessionsResource'; export default class Stripe { constructor(key?: string, options?: {apiVersion?: string}); invoices: Invoices; subscriptionSchedules: SubscriptionSchedules; quotes: Quotes; paymentLinks: PaymentLinks; subscriptions: Subscriptions; checkout: { sessions: Sessions }; } export type { SubscriptionCreateParams } from './types/SubscriptionsResource'; export type { SessionCreateParams, SubscriptionData } from './types/Checkout/SessionsResource';`,
   );
   put(
     'code.ts',
@@ -55,11 +64,32 @@ function fixture(code: string) {
 const scan = (root: string, phase: 'before' | 'after' = 'before') =>
   recordSites(stripeRecords, { root, workspace: '.', phase });
 describe('Stripe omitted billing mode', () => {
-  it('pins verbatim sources and only crosses the clover SDK boundary', () => {
+  it('pins quoted sources without vendoring pages; API versions refine the broad SDK range', () => {
     expect(recordProblems(stripeRecords, import.meta.dirname, 'stripe')).toEqual([]);
     expect(applicable(stripeRecords, '18.5.0', '22.6.2')).toHaveLength(1);
-    expect(applicable(stripeRecords, '19.0.0', '22.6.2')).toHaveLength(0);
+    expect(applicable(stripeRecords, '19.0.0', '22.6.2')).toHaveLength(1);
+    expect(applicable(stripeRecords, '12.0.0', '22.6.2')).toHaveLength(1);
+    expect(applicable(stripeRecords, '13.0.0', '22.6.2')).toHaveLength(1);
+    expect(stripePack.supports('12.0.0', '19.0.0')).toBe(true);
+    expect(stripePack.supports('13.0.0', '19.0.0')).toBe(true);
     expect(applicable(stripeRecords, '18.0.0', '18.5.0')).toHaveLength(0);
+  });
+  it('rejects full-page drift even when the quote survives, and rejects changed quotes', () => {
+    const record = stripeRecords[0];
+    const source = record?.sources[0];
+    if (!record || !source) throw new Error('missing Stripe behavior source');
+    expect(source.snapshot).toBeUndefined();
+    expect(sourceProblems(source, source.quote)).toEqual([
+      `${source.url} does not match its sha256`,
+    ]);
+    expect(sourceProblems(source, 'changed page')).toHaveLength(2);
+    expect(
+      recordProblems(
+        [{ ...record, sources: [{ ...source, quote: '' }] }],
+        import.meta.dirname,
+        'stripe',
+      ),
+    ).toHaveLength(1);
   });
   it('finds direct calls, variables and builders; leaves explicit classic and flexible alone', () => {
     const root = fixture(`stripe.subscriptions.create({ customer: 'cus' });
@@ -140,6 +170,116 @@ stripe.subscriptions.create(p);`);
 stripe.checkout.sessions.create(params);`);
     expect(scan(root)).toHaveLength(1);
     expect(scan(root)[0]?.decision).toBe(true);
+  });
+  it.each([
+    [
+      'invoices.createPreview',
+      'subscription_details: { items: [], BILLING }',
+      'subscription_details.billing_mode',
+    ],
+    [
+      'invoices.createPreview',
+      'schedule_details: { phases: [], BILLING }',
+      'schedule_details.billing_mode',
+    ],
+    ['subscriptionSchedules.create', "customer: 'cus', BILLING", 'billing_mode'],
+    ['quotes.create', 'subscription_data: { BILLING }', 'subscription_data.billing_mode'],
+  ])('%s resolves omitted, explicit and unknown parameters at %s', (method, template, edit) => {
+    const omitted = template.replace('BILLING', '');
+    const classic = template.replace('BILLING', "billing_mode: { type: 'classic' }");
+    const flexible = template.replace('BILLING', "billing_mode: { type: 'flexible' }");
+    const root = fixture(`stripe.${method}({ ${omitted} });
+const params = { ${omitted} }; stripe.${method}(params);
+stripe.${method}({ ${classic} });
+stripe.${method}({ ${flexible} });
+declare const unknown: Record<string, any>; stripe.${method}(unknown);`);
+    const sites = scan(root);
+    expect(sites).toHaveLength(3);
+    expect(sites.slice(0, 2).every((s) => !s.decision && s.edit?.startsWith(edit))).toBe(true);
+    expect(sites[2]?.decision).toBe(true);
+    expect(scan(root, 'after').filter((s) => s.kept)).toHaveLength(1);
+  });
+  it('Payment Links requires a cited decision because the API has no preserving parameter', () => {
+    const root =
+      fixture(`stripe.paymentLinks.create({ line_items: [{ price: 'price', quantity: 1 }] });
+const params = { subscription_data: {} }; stripe.paymentLinks.create(params);
+declare const unknown: Record<string, any>; stripe.paymentLinks.create(unknown);`);
+    expect(scan(root)).toHaveLength(3);
+    expect(
+      scan(root).every((s) => s.decision && s.decisionReason?.includes('no billing_mode')),
+    ).toBe(true);
+    expect(recordPrompt(stripeRecords, scan(root)).join('\n')).toContain(
+      'decision only; do not edit',
+    );
+  });
+  it('does not edit schedules migrated from subscriptions or previews of existing subscriptions', () => {
+    const root = fixture(`stripe.subscriptionSchedules.create({ from_subscription: 'sub' });
+stripe.invoices.createPreview({ subscription: 'sub', subscription_details: { items: [] } });
+stripe.invoices.createPreview({ schedule: 'sched', schedule_details: { phases: [] } });
+stripe.invoices.createPreview({ customer: 'cus' });
+stripe.quotes.create({ line_items: [{price: 'price'}] });`);
+    expect(scan(root)).toHaveLength(1);
+    expect(scan(root)[0]?.decision).toBe(true);
+  });
+  it('uses the receiver client pin, not payload versions or another client', () => {
+    const root = fixture(`const old = new Stripe('test', { apiVersion: '2025-08-27.basil' });
+const current = new Stripe('test', { apiVersion: '2025-09-30.clover' });
+old.subscriptions.create({});
+current.subscriptions.create({});
+const payload = { api_version: '2025-09-30.clover' };
+stripe.subscriptions.create({});`);
+    expect(scan(root).map((s) => s.line)).toEqual([8]);
+    const stripe = {
+      apiVersions: { from: '2025-08-27.basil', to: '2025-09-30.clover' },
+      apiClients: apiClients(root, ['.']),
+      movingApiPins: [{ file: 'code.ts', line: 3 }],
+    };
+    expect(
+      stripeBehaviorSites({ root, workspace: '.', phase: 'before', stripe }).map((s) => s.line),
+    ).toEqual([5, 8]);
+    // The planned pin migration was declined: it is unaffected after the session.
+    expect(
+      stripeBehaviorSites({ root, workspace: '.', phase: 'after', stripe })[0]?.unaffected,
+    ).toBe(true);
+    const code = `import Stripe from 'stripe';
+const old = new Stripe('test', { apiVersion: '2025-09-30.clover' });
+old.subscriptions.create({});`;
+    const before = apiClients(root, ['.']).filter((c) => c.version === '2025-08-27.basil');
+    writeFileSync(join(root, 'code.ts'), code);
+    expect(
+      stripeBehaviorSites({
+        root,
+        workspace: '.',
+        phase: 'after',
+        stripe: { ...stripe, apiClients: before },
+      })[0]?.unaffected,
+    ).toBe(false);
+    writeFileSync(join(root, 'code.ts'), code.replace(", { apiVersion: '2025-09-30.clover' }", ''));
+    expect(
+      stripeBehaviorSites({
+        root,
+        workspace: '.',
+        phase: 'after',
+        stripe: { ...stripe, apiClients: before },
+      })[0]?.unaffected,
+    ).toBe(false);
+  });
+  it('respects literal pins through options bindings and casts', () => {
+    const root = fixture(`const options = { apiVersion: '2025-08-27.basil' as string };
+const pinned = new Stripe('test', options);
+pinned.subscriptions.create({});
+stripe.invoices.createPreview({subscription_details: {items: []}}, {apiVersion: '2025-08-27.basil'});`);
+    expect(scan(root)).toHaveLength(0);
+  });
+  it('resolves factory clients and treats unknown request versions as decisions', () => {
+    const root = fixture(`let client: Stripe | null = null;
+function init() { client = new Stripe('test', { apiVersion: '2025-08-27.basil' }); }
+function getClient() { return client!; }
+getClient().subscriptions.create({});
+declare const options: {apiVersion?: string};
+stripe.invoices.createPreview({ subscription_details: {items: []} }, options);`);
+    expect(scan(root)).toHaveLength(1);
+    expect(scan(root)[0]?.decisionReason).toContain('API version');
   });
   it('requires a source and proves classic after the session, not mere disappearance or flexible', () => {
     const root = fixture(`stripe.subscriptions.create({ billing_mode: { type: 'classic' } });

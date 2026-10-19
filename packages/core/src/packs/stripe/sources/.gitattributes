@@ -1,2 +1,0 @@
-# Verbatim vendor snapshots: preserve whitespace covered by the source SHA256.
-*.md -whitespace

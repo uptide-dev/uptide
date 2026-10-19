@@ -37,6 +37,7 @@ import {
   applicable,
   type RecordSite,
   recordDecisions,
+  recordFindings,
   recordKept,
   recordSites,
 } from '../packs/records.js';
@@ -679,6 +680,42 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const selected = [pack.name, ...(sitePack === pack ? [] : companionPacks.map((c) => c.pack.name))]
     .flatMap((name) => selectedFindings(report, name, options.includeDeprecated ?? false))
     .filter((f) => !generic || f.severity === 'breaking');
+  // A pinned client's default changes only when its API-version migration is selected.
+  // Payload api_version fixtures (payloadApiVersions above) never move a request client.
+  const stripeBehavior =
+    pack.name === 'stripe' && packContext.apiVersions
+      ? {
+          apiVersions: packContext.apiVersions,
+          apiClients: packContext.apiClients,
+          movingApiPins: selected
+            .filter((f) => f.rule === 'api-version')
+            .map((f) => ({ file: f.usage.file, line: f.usage.line })),
+        }
+      : undefined;
+  if (stripeBehavior) {
+    for (const workspace of workspaces) {
+      for (const finding of recordFindings(pack.records ?? [], {
+        root,
+        workspace,
+        package: pack.name,
+        from: initialContext.from,
+        to: target,
+        stripe: stripeBehavior,
+      })) {
+        finding.usage.file =
+          workspace === '.' ? finding.usage.file : join(workspace, finding.usage.file);
+        if (
+          !selected.some(
+            (f) =>
+              f.rule === finding.rule &&
+              f.usage.file === finding.usage.file &&
+              f.usage.line === finding.usage.line,
+          )
+        )
+          selected.push(finding);
+      }
+    }
+  }
   const affected = [...new Set(selected.map((f) => f.usage.file))];
   // Evidence at a site the compiler rejected is confirmed evidence: the change is real there.
   if (packContext.evidence)
@@ -686,7 +723,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   // The sites a behavior record matched: the agent is told each one, the PR body decides them.
   const records = applicable(pack.records ?? [], initialContext.from, target);
   const matched = workspaces
-    .flatMap((workspace) => recordSites(records, { root, workspace, phase: 'before' }))
+    .flatMap((workspace) =>
+      recordSites(records, { root, workspace, phase: 'before', stripe: stripeBehavior }),
+    )
     .filter((site) =>
       selected.some(
         (f) => f.rule === site.record && f.usage.file === site.file && f.usage.line === site.line,
@@ -1455,12 +1494,15 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const before = packContext.recordSites ?? [];
   if (before.length) {
     const open = workspaces.flatMap((workspace) =>
-      recordSites(records, { root, workspace, phase: 'after' }),
+      recordSites(records, { root, workspace, phase: 'after', stripe: stripeBehavior }),
     );
     const same = (a: RecordSite, b: RecordSite) => a.file === b.file && a.record === b.record;
+    const activeBefore = before.filter(
+      (site) => !open.some((o) => same(o, site) && o.identity === site.identity && o.unaffected),
+    );
     packContext = {
       ...packContext,
-      recordSites: before.map((site) => {
+      recordSites: activeBefore.map((site) => {
         if (site.identity)
           return {
             ...site,
