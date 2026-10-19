@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { UptideError } from '../errors.js';
+import { isIndependentProject } from '../projects.js';
 
 /**
  * An empty directory to point `core.hooksPath` at: no hook of the repository can run from it.
@@ -109,7 +110,7 @@ export function command(
 }
 
 /**
- * The project a run belongs to: the top-most directory with a package.json between `cwd`
+ * The project a run belongs to: an independent install root between `cwd`
  * and the git top level. A JavaScript project may live below the repository root (a
  * `frontend/` next to a Python backend); a run from inside one of its workspaces is refused,
  * since every workspace declaring the dependency is upgraded together.
@@ -123,7 +124,7 @@ export function projectRoot(cwd: string): { root: string; top: string; project: 
       `${root}: no package.json; run fix at the project root`,
     );
   for (let dir = dirname(root); dir.startsWith(top) && dir !== root; dir = dirname(dir)) {
-    if (existsSync(join(dir, 'package.json')))
+    if (existsSync(join(dir, 'package.json')) && !isIndependentProject(root, dir))
       throw new UptideError(
         'NOT_REPOSITORY_ROOT',
         `run fix at the project root, ${dir} (workspace versions are upgraded together)`,

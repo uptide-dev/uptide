@@ -27,7 +27,7 @@ npx uptide pr --branch uptide/zod-4.6.5    # prints the plan; add --yes to push 
 preserves workspace and companion ranges that already accept the target, reports them as **already
 compatible**, and widens rejecting peer ranges without dropping existing alternatives. What the target
 requires moves within its major, else is a blocker; a deprecated `@types` stub is removed, not
-upgraded. Lockfile, target and companions must match the planned versions, or `fix` and `verify` fail.
+upgraded. Lockfile, target and companions must match the planned versions, or `fix` and `verify` fail. `fix` discovers a unique nested project with its own lockfile when the root does not declare the dependency, and scopes installation, verification and migration to it. If several projects match, select one with `--cwd frontend`.
 Draft PR runs update conflicting root Yarn resolutions and npm/pnpm overrides and put them under **Root pins changed: review**. Set `updatePins: false` in `uptide.yml` to opt out. Local runs require `--update-pins`; unrelated pins stay unchanged. npm pins use Corepack when needed, or local npm 9+ with a v3 lockfile and a report note; frozen installs must leave the lockfile unchanged. Everything else: [getting started](docs/getting-started.md).
 
 ## Why Uptide
