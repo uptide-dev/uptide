@@ -1,0 +1,926 @@
+[
+  {
+    "run": "0e732dab",
+    "id": "lucide-cypher-browser",
+    "head": "e82f6709b7877fab915b6019d14213d20d71e141",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.191087302,
+    "wallSeconds": 109,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 3,
+    "missed": [
+      "src/assets.d.ts:0"
+    ],
+    "agentHunks": 3,
+    "agentFiles": 2,
+    "unrelated": [],
+    "unverified": "unverified",
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 127
+    },
+    "ci": [
+      {
+        "name": "Verificar qualidade do Cypher/windows",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "19a96bfb",
+    "id": "lucide-cypher-browser",
+    "head": "dacabe95fa27d489c0cacb3ca1a904bd95bcf7e6",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 1.32908675,
+    "wallSeconds": 201,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 2,
+    "missed": [
+      "src/HomePage.tsx:16",
+      "src/assets.d.ts:0"
+    ],
+    "agentHunks": 3,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 127
+    },
+    "ci": [
+      {
+        "name": "Verificar qualidade do Cypher/windows",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "2608de53",
+    "id": "react-router-llamadesk",
+    "head": "6034819c2efc42a6254ddebabe479bfc488b0625",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Rust (fmt, clippy, test)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Frontend (vitest, build)",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "301164d7",
+    "id": "express-cubecobra",
+    "head": "d63b749f6ba134474f30f2ea809bcf372434aaef",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 2,
+    "uncommittedFiles": 0,
+    "humanHunks": 85,
+    "covered": 85,
+    "missed": [],
+    "agentHunks": 85,
+    "agentFiles": 50,
+    "unrelated": [],
+    "unverified": "not run",
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Build Bot Deckbuild Lambda/build-bot-deckbuild-lambda",
+        "bucket": "skipping"
+      },
+      {
+        "name": "Build CDK/build-cdk",
+        "bucket": "skipping"
+      },
+      {
+        "name": "Build Card Update Monitor Lambda/build-card-update-monitor-lambda",
+        "bucket": "skipping"
+      },
+      {
+        "name": "Build Client/build-client",
+        "bucket": "skipping"
+      },
+      {
+        "name": "Build Daily Jobs Lambda/build-daily-jobs-lambda",
+        "bucket": "skipping"
+      },
+      {
+        "name": "Build Recommender Service/build-recommender-service",
+        "bucket": "skipping"
+      },
+      {
+        "name": "Build Server/build-server",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI Tests/lint",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI Tests/test",
+        "bucket": "skipping"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "31b5ef5a",
+    "id": "react-router-llamadesk",
+    "head": "bd3e7579098eb026f3b92b7ea7b9def5469ba98a",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.33640075,
+    "wallSeconds": 53,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "didn't run",
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Frontend (vitest, build)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Rust (fmt, clippy, test)",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": [
+      "local test"
+    ]
+  },
+  {
+    "run": "3caac4a1",
+    "id": "sentry-lion-reader",
+    "head": "b327671510fe91a9140200b115172ac452d85ed1",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.479460101,
+    "wallSeconds": 522,
+    "uncommittedFiles": 0,
+    "humanHunks": 30,
+    "covered": 0,
+    "missed": [
+      "next.config.ts:265",
+      "src/lib/sentry/client-sdk.ts:8",
+      "src/lib/sentry/client-sdk.ts:27",
+      "src/lib/sentry/data-collection.ts:0",
+      "src/server/db/index.ts:107",
+      "src/server/sentry.ts:16",
+      "src/server/sentry.ts:58",
+      "src/server/sentry.ts:64",
+      "src/server/sentry.ts:68",
+      "src/server/sentry.ts:80",
+      "src/server/sentry.ts:84",
+      "src/server/sentry.ts:92",
+      "src/server/sentry.ts:94",
+      "src/server/sentry.ts:96",
+      "src/server/sentry.ts:135",
+      "src/server/sentry.ts:147",
+      "tests/unit/sentry-span-ip.test.ts:2",
+      "tests/unit/sentry-span-ip.test.ts:14",
+      "tests/unit/sentry-span-ip.test.ts:17",
+      "tests/unit/sentry-span-ip.test.ts:34",
+      "tests/unit/sentry-span-ip.test.ts:38",
+      "tests/unit/sentry-span-ip.test.ts:55",
+      "tests/unit/sentry-span-ip.test.ts:57",
+      "tests/unit/sentry-span-ip.test.ts:63",
+      "tests/unit/sentry-span-ip.test.ts:65",
+      "tests/unit/sentry-span-ip.test.ts:68",
+      "tests/unit/sentry-span-ip.test.ts:75",
+      "tests/unit/sentry-span-ip.test.ts:96",
+      "tests/unit/sentry-span-ip.test.ts:98",
+      "tests/unit/sentry-span-ip.test.ts:100"
+    ],
+    "agentHunks": 2,
+    "agentFiles": 2,
+    "unrelated": [],
+    "unverified": "unverified",
+    "checks": {
+      "install": 0,
+      "typecheck": 2,
+      "lint": 0,
+      "test": 1,
+      "build": 1
+    },
+    "ci": [
+      {
+        "name": "CI/App Real-Server Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/E2E Tests",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Unit Tests",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Integration Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Type Check",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Build Native Modules",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/OpenAPI Breaking Changes",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Rust Tests & Clippy",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Build Extension",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": [
+      "local typecheck",
+      "ci CI/E2E Tests",
+      "ci CI/Unit Tests",
+      "ci CI/Type Check"
+    ]
+  },
+  {
+    "run": "3e3e6373",
+    "id": "vitest-dag-chat",
+    "head": "2f6f686eeeb07b4d8f3d3231da54be79e73f29fa",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 1,
+    "covered": 1,
+    "missed": [],
+    "agentHunks": 1,
+    "agentFiles": 1,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Backend/ruff",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "Commitlint/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/build",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/pylint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Commitlint/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "Specs/validate",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/pylint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/ruff",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/build",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "4fdca78c",
+    "id": "sentry-lion-reader",
+    "head": "cb4729a758973c4a6b78cf2ef9a4b911b481c0c5",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 1,
+    "uncommittedFiles": 0,
+    "humanHunks": 30,
+    "covered": 30,
+    "missed": [],
+    "agentHunks": 30,
+    "agentFiles": 6,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 1,
+      "build": 1
+    },
+    "ci": [
+      {
+        "name": "CI/Unit Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Integration Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/App Real-Server Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/E2E Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Type Check",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Build Native Modules",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Build Extension",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Rust Tests & Clippy",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/OpenAPI Breaking Changes",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "6c81d9f3",
+    "id": "react-router-llamadesk",
+    "head": "4af09e9c20a35d88f1b7036f6a8a32a6d0e268b4",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.0469412,
+    "wallSeconds": 48,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not checked",
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Frontend (vitest, build)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Rust (fmt, clippy, test)",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "a0296c34",
+    "id": "vitest-dag-chat",
+    "head": "340e0b0996cf380483a320071f5b5e4d8d27340c",
+    "reference": false,
+    "exit": 2,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 1,
+    "covered": 0,
+    "missed": [
+      "frontend/vite.config.ts:21"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [],
+    "regressions": []
+  },
+  {
+    "run": "b3405d3c",
+    "id": "express-cubecobra",
+    "head": "486571bfcc852e456e90c665dcf504817f49ad8a",
+    "reference": false,
+    "exit": 2,
+    "costUsd": 0,
+    "wallSeconds": 57,
+    "uncommittedFiles": 0,
+    "humanHunks": 85,
+    "covered": 0,
+    "missed": [
+      "packages/archetypeAnnotater/src/ScatterPlot.tsx:2",
+      "packages/archetypeAnnotater/src/ScatterPlot.tsx:143",
+      "packages/client/jest.config.js:35",
+      "packages/client/postcss.config.js:3",
+      "packages/client/src/components/Markdown.tsx:12",
+      "packages/client/src/components/Markdown.tsx:30",
+      "packages/client/src/components/base/Button.tsx:125",
+      "packages/client/src/components/base/Input.tsx:73",
+      "packages/client/src/components/base/Modal.tsx:50",
+      "packages/client/src/components/base/TextArea.tsx:72",
+      "packages/client/src/components/content/ArticlePreview.tsx:30",
+      "packages/client/src/components/content/PodcastEpisodePreview.tsx:21",
+      "packages/client/src/components/content/PodcastPreview.tsx:21",
+      "packages/client/src/components/content/VideoPreview.tsx:26",
+      "packages/client/src/components/cube/CubeListRightSidebar.tsx:38",
+      "packages/client/src/components/draftSimulator/PoolExpansionContent.tsx:167",
+      "packages/client/src/utils/reactNodeToText.ts:0",
+      "packages/client/test/components/PrimerTabsEditor.component.test.tsx:54",
+      "packages/server/jest.config.mjs:44",
+      "packages/server/jest.config.mjs:46",
+      "packages/server/src/index.ts:34",
+      "packages/server/src/index.ts:282",
+      "packages/server/src/index.ts:344",
+      "packages/server/src/index.ts:363",
+      "packages/server/src/router/asyncHandler.ts:6",
+      "packages/server/src/router/asyncHandler.ts:10",
+      "packages/server/src/router/asyncHandler.ts:12",
+      "packages/server/src/router/asyncHandler.ts:30",
+      "packages/server/src/router/middleware.ts:10",
+      "packages/server/src/router/routes/crossword.ts:1",
+      "packages/server/src/router/routes/crossword.ts:31",
+      "packages/server/src/router/routes/cube.ts:14",
+      "packages/server/src/router/routes/cube.ts:658",
+      "packages/server/src/router/routes/cube.ts:660",
+      "packages/server/src/router/routes/cube/api/simulatesetup.ts:19",
+      "packages/server/src/router/routes/cube/api/simulatesetup.ts:29",
+      "packages/server/src/router/routes/manamatrix.ts:1",
+      "packages/server/src/router/routes/manamatrix.ts:31",
+      "packages/server/src/router/routes/model.ts:20",
+      "packages/server/src/router/routes/model.ts:77",
+      "packages/server/src/router/routes/synergyconnect.ts:1",
+      "packages/server/src/router/routes/synergyconnect.ts:31",
+      "packages/server/src/router/routes/tool/api/manamatrix/analysis.ts:5",
+      "packages/server/src/router/routes/tool/api/manamatrix/analysis.ts:48",
+      "packages/server/src/router/routes/tool/api/manamatrix/puzzle.ts:1",
+      "packages/server/src/router/routes/tool/api/manamatrix/puzzle.ts:24",
+      "packages/server/src/router/routes/tool/card.ts:35",
+      "packages/server/src/router/routes/tool/cardimage.ts:19",
+      "packages/server/src/router/routes/tool/cardimageflip.ts:19",
+      "packages/server/src/router/routes/tool/cardjson.ts:22",
+      "packages/server/src/router/routes/tool/crossword.ts:5",
+      "packages/server/src/router/routes/tool/crossword.ts:81",
+      "packages/server/src/router/routes/tool/manamatrix.ts:9",
+      "packages/server/src/router/routes/tool/manamatrix.ts:79",
+      "packages/server/src/router/routes/tool/p1p1.ts:2",
+      "packages/server/src/router/routes/tool/p1p1.ts:34",
+      "packages/server/src/router/routes/tool/synergyconnect.ts:4",
+      "packages/server/src/router/routes/tool/synergyconnect.ts:79",
+      "packages/server/src/router/routes/user/resetpassword.ts:5",
+      "packages/server/src/router/routes/user/resetpassword.ts:19",
+      "packages/server/src/router/routes/user/resetpassword.ts:21",
+      "packages/server/src/router/routes/user/resetpassword.ts:26",
+      "packages/server/src/router/routes/user/resetpassword.ts:30",
+      "packages/server/src/router/routes/user/resetpassword.ts:35",
+      "packages/server/src/router/routes/wiki.ts:29",
+      "packages/server/src/router/routes/wiki.ts:65",
+      "packages/server/src/serverutils/crossword/schedule.ts:38",
+      "packages/server/src/types/express.ts:2",
+      "packages/server/src/types/express.ts:37",
+      "packages/server/src/types/express.ts:40",
+      "packages/server/test/cards/filtering.test.ts:624",
+      "packages/server/test/cards/filtering.test.ts:640",
+      "packages/server/test/cards/filtering.test.ts:655",
+      "packages/server/test/crossword/routes.test.ts:7",
+      "packages/server/test/cube/draft/draftutils.test.ts:777",
+      "packages/server/test/manamatrix/routes.test.ts:7",
+      "packages/server/test/manamatrix/routes.test.ts:10",
+      "packages/server/test/manamatrix/routes.test.ts:15",
+      "packages/server/test/manamatrix/routes.test.ts:18",
+      "packages/server/test/router/matchParam.test.ts:0",
+      "packages/server/test/router/routes/resetpassword.test.ts:0",
+      "packages/server/test/routes/tool/api/cardimagedata.test.ts:33",
+      "packages/server/test/routes/tool/api/cardnames.test.ts:30",
+      "packages/server/test/synergyconnect/routes.test.ts:7",
+      "packages/utils/src/datatypes/Patron.ts:16"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 1,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [],
+    "regressions": [
+      "local lint"
+    ]
+  },
+  {
+    "run": "bf125523",
+    "id": "vitest-dag-chat",
+    "head": "9eac6ba8c1dae9293cb0ba10aab0e0785ec14b6c",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.73166725,
+    "wallSeconds": 129,
+    "uncommittedFiles": 0,
+    "humanHunks": 1,
+    "covered": 0,
+    "missed": [
+      "frontend/vite.config.ts:21"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Backend/ruff",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/build",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/pylint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "Commitlint/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/ruff",
+        "bucket": "pass"
+      },
+      {
+        "name": "Specs/validate",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "Backend/pylint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/build",
+        "bucket": "pass"
+      },
+      {
+        "name": "Commitlint/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "Frontend/lint",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "c4985421",
+    "id": "sentry-lion-reader",
+    "head": "57c03c32705db5d823425849af8231d7e0a170ff",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 5.057419250000001,
+    "wallSeconds": 711,
+    "uncommittedFiles": 7,
+    "humanHunks": 30,
+    "covered": 0,
+    "missed": [
+      "next.config.ts:265",
+      "src/lib/sentry/client-sdk.ts:8",
+      "src/lib/sentry/client-sdk.ts:27",
+      "src/lib/sentry/data-collection.ts:0",
+      "src/server/db/index.ts:107",
+      "src/server/sentry.ts:16",
+      "src/server/sentry.ts:58",
+      "src/server/sentry.ts:64",
+      "src/server/sentry.ts:68",
+      "src/server/sentry.ts:80",
+      "src/server/sentry.ts:84",
+      "src/server/sentry.ts:92",
+      "src/server/sentry.ts:94",
+      "src/server/sentry.ts:96",
+      "src/server/sentry.ts:135",
+      "src/server/sentry.ts:147",
+      "tests/unit/sentry-span-ip.test.ts:2",
+      "tests/unit/sentry-span-ip.test.ts:14",
+      "tests/unit/sentry-span-ip.test.ts:17",
+      "tests/unit/sentry-span-ip.test.ts:34",
+      "tests/unit/sentry-span-ip.test.ts:38",
+      "tests/unit/sentry-span-ip.test.ts:55",
+      "tests/unit/sentry-span-ip.test.ts:57",
+      "tests/unit/sentry-span-ip.test.ts:63",
+      "tests/unit/sentry-span-ip.test.ts:65",
+      "tests/unit/sentry-span-ip.test.ts:68",
+      "tests/unit/sentry-span-ip.test.ts:75",
+      "tests/unit/sentry-span-ip.test.ts:96",
+      "tests/unit/sentry-span-ip.test.ts:98",
+      "tests/unit/sentry-span-ip.test.ts:100"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 1,
+      "build": 1
+    },
+    "ci": [],
+    "regressions": []
+  },
+  {
+    "run": "dd12faa2",
+    "id": "lucide-cypher-browser",
+    "head": "6307a23f22e6b424857193df140b2e9c0148c043",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 1,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 4,
+    "missed": [],
+    "agentHunks": 4,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 127
+    },
+    "ci": [
+      {
+        "name": "Verificar qualidade do Cypher/windows",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "e7675a5a",
+    "id": "express-cubecobra",
+    "head": "486571bfcc852e456e90c665dcf504817f49ad8a",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 5.08664575,
+    "wallSeconds": 861,
+    "uncommittedFiles": 26,
+    "humanHunks": 85,
+    "covered": 0,
+    "missed": [
+      "packages/archetypeAnnotater/src/ScatterPlot.tsx:2",
+      "packages/archetypeAnnotater/src/ScatterPlot.tsx:143",
+      "packages/client/jest.config.js:35",
+      "packages/client/postcss.config.js:3",
+      "packages/client/src/components/Markdown.tsx:12",
+      "packages/client/src/components/Markdown.tsx:30",
+      "packages/client/src/components/base/Button.tsx:125",
+      "packages/client/src/components/base/Input.tsx:73",
+      "packages/client/src/components/base/Modal.tsx:50",
+      "packages/client/src/components/base/TextArea.tsx:72",
+      "packages/client/src/components/content/ArticlePreview.tsx:30",
+      "packages/client/src/components/content/PodcastEpisodePreview.tsx:21",
+      "packages/client/src/components/content/PodcastPreview.tsx:21",
+      "packages/client/src/components/content/VideoPreview.tsx:26",
+      "packages/client/src/components/cube/CubeListRightSidebar.tsx:38",
+      "packages/client/src/components/draftSimulator/PoolExpansionContent.tsx:167",
+      "packages/client/src/utils/reactNodeToText.ts:0",
+      "packages/client/test/components/PrimerTabsEditor.component.test.tsx:54",
+      "packages/server/jest.config.mjs:44",
+      "packages/server/jest.config.mjs:46",
+      "packages/server/src/index.ts:34",
+      "packages/server/src/index.ts:282",
+      "packages/server/src/index.ts:344",
+      "packages/server/src/index.ts:363",
+      "packages/server/src/router/asyncHandler.ts:6",
+      "packages/server/src/router/asyncHandler.ts:10",
+      "packages/server/src/router/asyncHandler.ts:12",
+      "packages/server/src/router/asyncHandler.ts:30",
+      "packages/server/src/router/middleware.ts:10",
+      "packages/server/src/router/routes/crossword.ts:1",
+      "packages/server/src/router/routes/crossword.ts:31",
+      "packages/server/src/router/routes/cube.ts:14",
+      "packages/server/src/router/routes/cube.ts:658",
+      "packages/server/src/router/routes/cube.ts:660",
+      "packages/server/src/router/routes/cube/api/simulatesetup.ts:19",
+      "packages/server/src/router/routes/cube/api/simulatesetup.ts:29",
+      "packages/server/src/router/routes/manamatrix.ts:1",
+      "packages/server/src/router/routes/manamatrix.ts:31",
+      "packages/server/src/router/routes/model.ts:20",
+      "packages/server/src/router/routes/model.ts:77",
+      "packages/server/src/router/routes/synergyconnect.ts:1",
+      "packages/server/src/router/routes/synergyconnect.ts:31",
+      "packages/server/src/router/routes/tool/api/manamatrix/analysis.ts:5",
+      "packages/server/src/router/routes/tool/api/manamatrix/analysis.ts:48",
+      "packages/server/src/router/routes/tool/api/manamatrix/puzzle.ts:1",
+      "packages/server/src/router/routes/tool/api/manamatrix/puzzle.ts:24",
+      "packages/server/src/router/routes/tool/card.ts:35",
+      "packages/server/src/router/routes/tool/cardimage.ts:19",
+      "packages/server/src/router/routes/tool/cardimageflip.ts:19",
+      "packages/server/src/router/routes/tool/cardjson.ts:22",
+      "packages/server/src/router/routes/tool/crossword.ts:5",
+      "packages/server/src/router/routes/tool/crossword.ts:81",
+      "packages/server/src/router/routes/tool/manamatrix.ts:9",
+      "packages/server/src/router/routes/tool/manamatrix.ts:79",
+      "packages/server/src/router/routes/tool/p1p1.ts:2",
+      "packages/server/src/router/routes/tool/p1p1.ts:34",
+      "packages/server/src/router/routes/tool/synergyconnect.ts:4",
+      "packages/server/src/router/routes/tool/synergyconnect.ts:79",
+      "packages/server/src/router/routes/user/resetpassword.ts:5",
+      "packages/server/src/router/routes/user/resetpassword.ts:19",
+      "packages/server/src/router/routes/user/resetpassword.ts:21",
+      "packages/server/src/router/routes/user/resetpassword.ts:26",
+      "packages/server/src/router/routes/user/resetpassword.ts:30",
+      "packages/server/src/router/routes/user/resetpassword.ts:35",
+      "packages/server/src/router/routes/wiki.ts:29",
+      "packages/server/src/router/routes/wiki.ts:65",
+      "packages/server/src/serverutils/crossword/schedule.ts:38",
+      "packages/server/src/types/express.ts:2",
+      "packages/server/src/types/express.ts:37",
+      "packages/server/src/types/express.ts:40",
+      "packages/server/test/cards/filtering.test.ts:624",
+      "packages/server/test/cards/filtering.test.ts:640",
+      "packages/server/test/cards/filtering.test.ts:655",
+      "packages/server/test/crossword/routes.test.ts:7",
+      "packages/server/test/cube/draft/draftutils.test.ts:777",
+      "packages/server/test/manamatrix/routes.test.ts:7",
+      "packages/server/test/manamatrix/routes.test.ts:10",
+      "packages/server/test/manamatrix/routes.test.ts:15",
+      "packages/server/test/manamatrix/routes.test.ts:18",
+      "packages/server/test/router/matchParam.test.ts:0",
+      "packages/server/test/router/routes/resetpassword.test.ts:0",
+      "packages/server/test/routes/tool/api/cardimagedata.test.ts:33",
+      "packages/server/test/routes/tool/api/cardnames.test.ts:30",
+      "packages/server/test/synergyconnect/routes.test.ts:7",
+      "packages/utils/src/datatypes/Patron.ts:16"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 1,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [],
+    "regressions": [
+      "local lint"
+    ]
+  }
+]

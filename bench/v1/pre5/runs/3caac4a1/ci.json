@@ -1,0 +1,62 @@
+[
+  {
+    "bucket": "pass",
+    "name": "App Real-Server Tests",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "fail",
+    "name": "E2E Tests",
+    "state": "FAILURE",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "fail",
+    "name": "Unit Tests",
+    "state": "FAILURE",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "pass",
+    "name": "Integration Tests",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "fail",
+    "name": "Type Check",
+    "state": "FAILURE",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "pass",
+    "name": "Build Native Modules",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "pass",
+    "name": "OpenAPI Breaking Changes",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "pass",
+    "name": "Lint",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "pass",
+    "name": "Rust Tests & Clippy",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "pass",
+    "name": "Build Extension",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  }
+]

@@ -1,0 +1,56 @@
+[
+  {
+    "bucket": "skipping",
+    "name": "build-bot-deckbuild-lambda",
+    "state": "SKIPPED",
+    "workflow": "Build Bot Deckbuild Lambda"
+  },
+  {
+    "bucket": "skipping",
+    "name": "build-cdk",
+    "state": "SKIPPED",
+    "workflow": "Build CDK"
+  },
+  {
+    "bucket": "skipping",
+    "name": "build-card-update-monitor-lambda",
+    "state": "SKIPPED",
+    "workflow": "Build Card Update Monitor Lambda"
+  },
+  {
+    "bucket": "skipping",
+    "name": "build-client",
+    "state": "SKIPPED",
+    "workflow": "Build Client"
+  },
+  {
+    "bucket": "skipping",
+    "name": "build-daily-jobs-lambda",
+    "state": "SKIPPED",
+    "workflow": "Build Daily Jobs Lambda"
+  },
+  {
+    "bucket": "skipping",
+    "name": "build-recommender-service",
+    "state": "SKIPPED",
+    "workflow": "Build Recommender Service"
+  },
+  {
+    "bucket": "skipping",
+    "name": "build-server",
+    "state": "SKIPPED",
+    "workflow": "Build Server"
+  },
+  {
+    "bucket": "skipping",
+    "name": "lint",
+    "state": "SKIPPED",
+    "workflow": "CI Tests"
+  },
+  {
+    "bucket": "skipping",
+    "name": "test",
+    "state": "SKIPPED",
+    "workflow": "CI Tests"
+  }
+]

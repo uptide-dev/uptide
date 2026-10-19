@@ -1,0 +1,13 @@
+{
+  "id": "sentry-lion-reader",
+  "head": "57c03c32705db5d823425849af8231d7e0a170ff",
+  "exit": 1,
+  "costUsd": 5.057419250000001,
+  "wallSeconds": 711,
+  "uncommittedFiles": 7,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-fable-5-1",
+  "claudeCodeCostUsd": 5.057419249999999
+}

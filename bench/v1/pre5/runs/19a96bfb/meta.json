@@ -1,0 +1,13 @@
+{
+  "id": "lucide-cypher-browser",
+  "head": "dacabe95fa27d489c0cacb3ca1a904bd95bcf7e6",
+  "exit": 0,
+  "costUsd": 1.32908675,
+  "wallSeconds": 201,
+  "uncommittedFiles": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-fable-5-1",
+  "claudeCodeCostUsd": 1.3290867500000003
+}

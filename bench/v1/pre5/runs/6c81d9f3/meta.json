@@ -1,0 +1,14 @@
+{
+  "id": "react-router-llamadesk",
+  "head": "4af09e9c20a35d88f1b7036f6a8a32a6d0e268b4",
+  "exit": 0,
+  "costUsd": 0.0469412,
+  "wallSeconds": 48,
+  "uncommittedFiles": 0,
+  "version": {
+    "uptide": "0.17.1"
+  },
+  "model": "claude-sonnet-5-5",
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into <out>/runs/6c81d9f3/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

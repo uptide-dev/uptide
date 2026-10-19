@@ -1,0 +1,13 @@
+{
+  "id": "react-router-llamadesk",
+  "head": "bd3e7579098eb026f3b92b7ea7b9def5469ba98a",
+  "exit": 0,
+  "costUsd": 0.33640075,
+  "wallSeconds": 53,
+  "uncommittedFiles": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-fable-5-1",
+  "claudeCodeCostUsd": 0.33640074999999997
+}

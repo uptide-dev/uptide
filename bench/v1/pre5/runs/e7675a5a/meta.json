@@ -1,0 +1,13 @@
+{
+  "id": "express-cubecobra",
+  "head": "486571bfcc852e456e90c665dcf504817f49ad8a",
+  "exit": 1,
+  "costUsd": 5.08664575,
+  "wallSeconds": 861,
+  "uncommittedFiles": 26,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-fable-5-1",
+  "claudeCodeCostUsd": 5.086645749999999
+}

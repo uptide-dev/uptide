@@ -1,0 +1,13 @@
+{
+  "id": "vitest-dag-chat",
+  "head": "9eac6ba8c1dae9293cb0ba10aab0e0785ec14b6c",
+  "exit": 0,
+  "costUsd": 0.73166725,
+  "wallSeconds": 129,
+  "uncommittedFiles": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-fable-5-1",
+  "claudeCodeCostUsd": 0.7316672499999999
+}

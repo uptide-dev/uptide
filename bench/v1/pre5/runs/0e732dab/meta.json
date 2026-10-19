@@ -1,0 +1,14 @@
+{
+  "id": "lucide-cypher-browser",
+  "head": "e82f6709b7877fab915b6019d14213d20d71e141",
+  "exit": 1,
+  "costUsd": 0.191087302,
+  "wallSeconds": 109,
+  "uncommittedFiles": 0,
+  "version": {
+    "uptide": "0.17.1"
+  },
+  "model": "claude-sonnet-5-5",
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into <out>/runs/0e732dab/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

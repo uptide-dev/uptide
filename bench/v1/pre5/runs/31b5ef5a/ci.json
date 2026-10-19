@@ -1,0 +1,14 @@
+[
+  {
+    "bucket": "pass",
+    "name": "Frontend (vitest, build)",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "bucket": "pass",
+    "name": "Rust (fmt, clippy, test)",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  }
+]

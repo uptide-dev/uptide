@@ -1,0 +1,8 @@
+[
+  {
+    "bucket": "pass",
+    "name": "windows",
+    "state": "SUCCESS",
+    "workflow": "Verificar qualidade do Cypher"
+  }
+]

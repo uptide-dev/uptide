@@ -1,0 +1,13 @@
+{
+  "id": "vitest-dag-chat",
+  "head": "340e0b0996cf380483a320071f5b5e4d8d27340c",
+  "exit": 2,
+  "costUsd": 0,
+  "wallSeconds": 0,
+  "uncommittedFiles": 0,
+  "version": {
+    "uptide": "0.17.1"
+  },
+  "model": "claude-sonnet-5-5",
+  "executor": "none"
+}
