@@ -242,6 +242,30 @@ describe('decisions are scoped to evidence in the repository', () => {
     expect(text).not.toContain('declares typescript');
   });
 
+  // UPT-121: lion-reader's test asserted v10's dataCollection default; v11 changed it.
+  it('names a test that asserts a changed default it leaves unset, for the owner to decide', () => {
+    const lines = decisions(sentryNextjsPack, {
+      'src/server/sentry.ts':
+        "import * as Sentry from '@sentry/nextjs';\nSentry.init({ dsn: 'x', attachStacktrace: false });\n",
+      'tests/unit/posture.test.ts': [
+        "import * as Sentry from '@sentry/nextjs';",
+        "it('is conservative', () => {",
+        "  Sentry.init({ dsn: 'x', enabled: false });",
+        '  expect(Sentry.getClient()?.getDataCollectionOptions()).toMatchObject({ userInfo: false });',
+        '});',
+      ].join('\n'),
+      'tests/unit/other.test.ts':
+        "import * as Sentry from '@sentry/nextjs';\nSentry.init({ dsn: 'x' });\nexpect(1).toBe(1);\n",
+    });
+    const pinned = lines.filter((l) => l.includes('pins @sentry/nextjs'));
+    expect(pinned).toEqual([
+      expect.stringContaining(
+        '`tests/unit/posture.test.ts` asserts dataCollection without setting it',
+      ),
+    ]);
+    expect(pinned[0]).toContain('Uptide leaves the test as it is');
+  });
+
   it('drops a decision the repository already made', () => {
     const lines = decisions(sentryBrowserPack, {
       'src/sentry.ts':

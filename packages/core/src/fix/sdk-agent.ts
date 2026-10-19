@@ -25,7 +25,7 @@ import type { MigrationPack, PackContext } from '../packs/types.js';
 import { command, git } from './process.js';
 import { commit, followedText, safeFile } from './settle.js';
 import { formatFiles, lintFiles } from './style.js';
-import { isTestFile, testEditObjection } from './test-edits.js';
+import { isTestFile, missingProperties, testEditObjection } from './test-edits.js';
 import type {
   AgentSummary,
   AgentTaskRecord,
@@ -223,11 +223,13 @@ export function declaredFiles(root: string, summary: AgentSummary | undefined): 
 /**
  * What a task's own edits must satisfy before anything runs: only the task's files plus the
  * new files the agent declared, and no compiler escape hatches. Returns why not, or undefined.
+ * `before` is the task's starting diagnostics: what they say a fixture lacks, a test may add.
  */
 export function editRules(
   root: string,
   task: AgentTask,
   summary: AgentSummary | undefined,
+  before: readonly FixDiagnostic[] = [],
 ): string | undefined {
   const { modified, added } = changedPaths(root);
   const outside = modified.filter((f) => !task.files.includes(f));
@@ -241,6 +243,7 @@ export function editRules(
       added.includes(file) ? '' : git(root, 'show', `HEAD:${file}`),
       existsSync(join(root, file)) ? readFileSync(join(root, file), 'utf8') : '',
       summary?.changed.find((change) => change.file === file)?.what,
+      missingProperties(before, file),
     );
     if (objection) return objection;
   }
@@ -658,7 +661,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
         conventions: conventions(root, workspaces, task.files),
       }),
       input.feedback ?? '',
-      'Never weaken or skip tests. Only static expected values in existing exact assertions may change for changed upgrade behavior; explain why for each test file in changed.what. Such edits are flagged as Tests changed: review. Never introduce any or TypeScript suppression directives.',
+      "Never weaken or skip tests. Only static expected values in existing exact assertions may change for changed upgrade behavior, and a fixture object may gain a property the compiler reports missing (TS2741/TS2739), with a literal value; explain why for each test file in changed.what. A test that asserts a default the upgrade changed is the owner's decision: leave it and say so in decisions. Such edits are flagged as Tests changed: review. Never introduce any or TypeScript suppression directives.",
     ].join('\n\n');
     let run: TaskRun;
     let error: string | undefined;
@@ -690,7 +693,8 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     // Only declared additions enter the gate; scratch files must not forfeit otherwise valid edits.
     for (const file of discardedFiles) rmSync(join(root, file));
     const touched = [...modified, ...added.filter((file) => !discardedFiles.includes(file))];
-    const rejection = error ?? (touched.length ? editRules(root, task, run.summary) : undefined);
+    const rejection =
+      error ?? (touched.length ? editRules(root, task, run.summary, before) : undefined);
     const record: AgentTaskRecord = {
       id: task.id,
       rule: task.rule,

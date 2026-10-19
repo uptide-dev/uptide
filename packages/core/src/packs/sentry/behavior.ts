@@ -57,11 +57,13 @@ function note(
   id: string,
   summary: string,
   evidence: (context: PackContext) => string | boolean,
+  option?: string,
 ): BehaviorNote {
   return {
     id,
     summary,
     reported: ['decision'],
+    ...(option ? { option } : {}),
     applies(context) {
       const hit = evidence(context);
       return typeof hit === 'string' ? `${hit}: ${summary}` : hit;
@@ -172,6 +174,7 @@ export function sentryBehavior(lead: Lead): BehaviorNote[] {
           ? `${list(open.map((i) => i.file))} call Sentry.init without dataCollection`
           : false;
       },
+      'dataCollection',
     ),
     note(
       'span-streaming',
@@ -204,6 +207,7 @@ export function sentryBehavior(lead: Lead): BehaviorNote[] {
           ? `${list(open.map((i) => i.file))} leave attachStacktrace unset`
           : false;
       },
+      'attachStacktrace',
     ),
     note(
       'trace-propagation-targets',

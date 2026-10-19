@@ -753,3 +753,27 @@ for (const edit of [
     ).toMatch(/test/i);
   });
 }
+
+it('accepts a fixture property the starting diagnostics report missing (UPT-121)', () => {
+  const span =
+    "const s: SpanJSON = { span_id: 'a' };\nit('strips', () => { expect(strip(s)).toEqual({}); });";
+  const root = repo({ 'span.test.ts': span });
+  writeFileSync(
+    join(root, 'span.test.ts'),
+    span.replace("span_id: 'a'", "span_id: 'a', status: 'ok'"),
+  );
+  const task = { id: 'initial', rule: 'TS2741', sites: [], files: ['span.test.ts'] };
+  const said = summary({
+    changed: [{ file: 'span.test.ts', what: 'SpanJSON.status is required' }],
+  });
+  const missing = {
+    file: 'span.test.ts',
+    line: 1,
+    column: 7,
+    code: 2741,
+    message:
+      "Property 'status' is missing in type '{ span_id: string; }' but required in type 'SpanJSON'.",
+  };
+  expect(editRules(root, task, said)).toContain('rejected');
+  expect(editRules(root, task, said, [missing])).toBeUndefined();
+});

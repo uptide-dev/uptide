@@ -12,7 +12,7 @@ import { applySitePatch } from './patch.js';
 import { git } from './process.js';
 import { siteKey } from './report.js';
 import { safeFile } from './settle.js';
-import { testEditObjection } from './test-edits.js';
+import { missingProperties, testEditObjection } from './test-edits.js';
 import type { AssistedAttempt, FixDiagnostic, Fixer, FixReport, FixSite } from './types.js';
 import { diagnosticKey, lineMoves, moved, newDiagnostics } from './verify.js';
 
@@ -383,6 +383,7 @@ export async function assist(
             files.get(path)?.source ?? '',
             patched,
             response.explanation,
+            missingProperties(before, path),
           );
           if (testObjection) throw new Error(testObjection);
           const objection = pack.validateAssisted?.(

@@ -95,6 +95,11 @@ export interface BehaviorNote {
   reported: readonly ('finding' | 'decision' | 'test-follow-up')[];
   /** With `decision`: false hides it; a string supplies a repository-specific line. Omitted means show summary. */
   applies?(context: PackContext): boolean | string;
+  /**
+   * With `decision`: the option whose default changed (`dataCollection`). A test file the
+   * note's line names that mentions it and asserts pins the old default: the owner decides.
+   */
+  option?: string;
   /** With `finding`: the sites, from a file that uses the package. */
   detect?(text: string, file: string): SourceSite[];
   /** With `finding`: whether a site breaks at the target, or only needs a look. */
