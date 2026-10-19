@@ -1,0 +1,443 @@
+[
+  {
+    "pack": "react-router",
+    "repo": "Arize-ai/phoenix",
+    "commit": "4d6c1dfb01e9406cf769efab14f0350ea2d0a0f8",
+    "from": "6.25.1",
+    "to": "7.4.0"
+  },
+  {
+    "pack": "stripe",
+    "repo": "AtlasDevHQ/atlas",
+    "commit": "cfaf3c3c500995a4dc1e918ef89de20e535af43f",
+    "from": "21.0.1",
+    "to": "22.2.0"
+  },
+  {
+    "pack": "@sentry/browser",
+    "repo": "Automancer-Ltd/automancer-site",
+    "commit": "ea78c738e8de80efbb796b506fbc81bb4f649f70",
+    "from": "10.75.2",
+    "to": "11.4.0"
+  },
+  {
+    "pack": "typescript",
+    "repo": "Borewit/music-metadata",
+    "commit": "783509b27bac24e244dd75e66c9b4a0828c35a96",
+    "from": "5.9.3",
+    "to": "6.0.3"
+  },
+  {
+    "pack": "zod",
+    "repo": "CANShift/canshift-core",
+    "commit": "3ad0a35edd902e94cb3014f1331cd38528532e3f",
+    "from": "3.25.76",
+    "to": "4.4.3"
+  },
+  {
+    "pack": "typescript",
+    "repo": "CroffZ/github-release-notifier",
+    "commit": "d9353f2471c554f0ce339496f0058a27599f4965",
+    "from": "5.9.3",
+    "to": "6.0.3"
+  },
+  {
+    "pack": "next",
+    "repo": "HiroshiIgarash/koremina",
+    "commit": "e9a1595083f746c8cb481e1ca7156aca6db6d4d0",
+    "from": "15.5.10",
+    "to": "16.1.6"
+  },
+  {
+    "pack": "typescript",
+    "repo": "JosephMaynard/dependency-radar",
+    "commit": "1920eb3217b701e43afc1651db3f6197028e6f0e",
+    "from": "5.9.3",
+    "to": "6.0.3"
+  },
+  {
+    "pack": "typescript",
+    "repo": "SignalK/signalk-derived-data",
+    "commit": "02f635e8232a433462593ed1192ff22e2e9b6253",
+    "from": "5.9.3",
+    "to": "6.0.3"
+  },
+  {
+    "pack": "@sentry/node",
+    "repo": "TryGhost/ActivityPub",
+    "commit": "f8a8233219f927b39a41418c7cce0f2fa4867b67",
+    "from": "10.75.3",
+    "to": "11.0.0"
+  },
+  {
+    "pack": "redis",
+    "repo": "UNN-Devotek/FCM-Fallout-Chat-Mod",
+    "commit": "280190489fac1ac8b75bf5fda8fd54265f339d7e",
+    "from": "4.7.1",
+    "to": "6.0.0"
+  },
+  {
+    "pack": "express",
+    "repo": "amiantos/lurker",
+    "commit": "f7a0f3dac77570ec3fd93a487ccf0aaf2f6ca5db",
+    "from": "4.22.2",
+    "to": "5.2.1"
+  },
+  {
+    "pack": "zod",
+    "repo": "band-ai/band-sdk-typescript",
+    "commit": "5d9a66a1dde4989fbc0608200f291f0ca8194052",
+    "from": "3.25.76",
+    "to": "4.6.5"
+  },
+  {
+    "pack": "express",
+    "repo": "bcgov/tenant-management-system",
+    "commit": "6fd01755043a3db9ed0577ffa6b1b4a184ae670f",
+    "from": "4.22.2",
+    "to": "5.2.1"
+  },
+  {
+    "pack": "next",
+    "repo": "benshabbat/GamesForMyKids",
+    "commit": "793cb46f19f2bc279dbf741a74cf7083a5025310",
+    "from": "15.5.15",
+    "to": "16.2.6"
+  },
+  {
+    "pack": "@sentry/nextjs",
+    "repo": "cohstats/coh3-stats",
+    "commit": "5b9c60bd6575ed4a4bcd8d2bb71529766675a7e6",
+    "from": "10.75.3",
+    "to": "11.1.0"
+  },
+  {
+    "pack": "openai",
+    "repo": "csnyder256/ux-struggle-detector",
+    "commit": "b73084896208f7d2794b84bf23de3157eca5fc09",
+    "from": "4.104.0",
+    "to": "7.23.0"
+  },
+  {
+    "pack": "lucide-react",
+    "repo": "cubicsteak/keep",
+    "commit": "9380d10ea22b66e4559779d7cc3afb4f209cf198",
+    "from": "0.483.0",
+    "to": "1.47.0"
+  },
+  {
+    "pack": "redis",
+    "repo": "deanmoses/tacocat-gallery-sam",
+    "commit": "34e11760f6e767abef6afd53f973dc155f6f8c4b",
+    "from": "4.6.12",
+    "to": "5.10.0"
+  },
+  {
+    "pack": "redis",
+    "repo": "deanmoses/tacocat-gallery-sam",
+    "commit": "30724e21efd6db123a7385e73482cac237b1e9ba",
+    "from": "5.12.1",
+    "to": "6.2.1"
+  },
+  {
+    "pack": "openai",
+    "repo": "digitalchokro/askchokro",
+    "commit": "047fc4485538a3bff4224a9a604d83143c2cd5d2",
+    "from": "4.104.0",
+    "to": "7.4.0"
+  },
+  {
+    "pack": "joi",
+    "repo": "edtech4good/edtech-lms-api",
+    "commit": "ce2281005fcf0c41a883779c778f3123a48bbeec",
+    "from": "17.6.0",
+    "to": "18.2.9"
+  },
+  {
+    "pack": "react",
+    "repo": "excalidraw/excalidraw",
+    "commit": "9ee0b8ffcbd3664a47748a93262860321a203821",
+    "from": "18.2.0",
+    "to": "19.0.0"
+  },
+  {
+    "pack": "ioredis",
+    "repo": "ferni-ai/voiceai",
+    "commit": "c59ed0982f96e23d2b2f5728711da5b55e07483a",
+    "from": "5.8.2",
+    "to": "6.0.0"
+  },
+  {
+    "pack": "@sentry/node",
+    "repo": "frog-pond/ccc-server",
+    "commit": "75fdc083bbf719c5c577b4c3068528776bea6fa3",
+    "from": "10.75.3",
+    "to": "11.2.0"
+  },
+  {
+    "pack": "react-router",
+    "repo": "getlago/lago-front",
+    "commit": "84aa05d535edc326a4d104923e4e7293d1be6646",
+    "from": "6.30.6",
+    "to": "7.18.3"
+  },
+  {
+    "pack": "openai",
+    "repo": "grantsingleton/batch-ai",
+    "commit": "05c7e9f132b3e6ec6504de3d82371889fdc2d368",
+    "from": "4.83.0",
+    "to": "7.4.0"
+  },
+  {
+    "pack": "zod",
+    "repo": "howardyang2009/PATH",
+    "commit": "bb171417d911f373c8df28ab7a1e0698b62e0906",
+    "from": "3.25.76",
+    "to": "4.6.5"
+  },
+  {
+    "pack": "ioredis",
+    "repo": "kazumadev619-dev/FishingConditionsApp",
+    "commit": "8ba3f0d24bc709169b79df11daa87307df32e77c",
+    "from": "5.11.1",
+    "to": "6.0.0"
+  },
+  {
+    "pack": "typescript",
+    "repo": "m-lyon/recipe",
+    "commit": "f6e44b530c4dab5afc9ca6f3505774d5b44fcd33",
+    "from": "5.6.2",
+    "to": "6.0.3"
+  },
+  {
+    "pack": "@sentry/nextjs",
+    "repo": "maximunited/yomu",
+    "commit": "228fc3e4f7abf1850e4d03d32535e28b5173306c",
+    "from": "10.75.1",
+    "to": "11.1.0"
+  },
+  {
+    "pack": "openai",
+    "repo": "microsoft/prompty",
+    "commit": "e878b6b7789ff621265ca086b20d4e2d70914f81",
+    "from": "4.104.0",
+    "to": "7.10.0"
+  },
+  {
+    "pack": "ai",
+    "repo": "miurla/morphic",
+    "commit": "989a05697d973030f2fbb4b805326bb24e68fd0d",
+    "from": "6.0.180",
+    "to": "7.0.66"
+  },
+  {
+    "pack": "express",
+    "repo": "netlify/cli",
+    "commit": "63b6f1cbca316fa6c338d59e5b5053a11de25c6c",
+    "from": "4.22.1",
+    "to": "5.2.1"
+  },
+  {
+    "pack": "stripe",
+    "repo": "nextjs/saas-starter",
+    "commit": "3e5fd2bf626c4ee73c06dcc9e1aa503b8904a37c",
+    "from": "17.7.0",
+    "to": "18.0.0"
+  },
+  {
+    "pack": "openai",
+    "repo": "openai/openai-guardrails-js",
+    "commit": "6c13ba08ab021215fd6f8c900ae15ae29627f2d2",
+    "from": "4.104.0",
+    "to": "7.9.0"
+  },
+  {
+    "pack": "express",
+    "repo": "openhab/openhab-cloud",
+    "commit": "5a1866efe1c038e287d2d59091951e1912db12f8",
+    "from": "4.22.1",
+    "to": "5.2.1"
+  },
+  {
+    "pack": "@sentry/react",
+    "repo": "owine/youth-activity-scheduler",
+    "commit": "18b467f5c4f2fc066e14dc5edfe10874016ba3d3",
+    "from": "10.75.3",
+    "to": "11.0.0"
+  },
+  {
+    "pack": "typescript",
+    "repo": "robrechtme/recipes",
+    "commit": "0853747427b71f1d5de275e72aead59979fc1a03",
+    "from": "5.9.3",
+    "to": "6.0.3"
+  },
+  {
+    "pack": "ioredis",
+    "repo": "safe-global/safe-client-gateway",
+    "commit": "14bd05b98bf41df509de0bfee8bc662cb9d95d1e",
+    "from": "5.11.1",
+    "to": "6.0.0"
+  },
+  {
+    "pack": "next",
+    "repo": "sambecker/exif-photo-blog",
+    "commit": "3f1a36354d203e5a28f7c2cd55eceda95a13e3bd",
+    "from": "15.5.5",
+    "to": "16.0.1"
+  },
+  {
+    "pack": "@sentry/browser",
+    "repo": "sbomify/sbomify",
+    "commit": "4c2be20126779d91d629b9478c6a0aff0239abfe",
+    "from": "10.75.2",
+    "to": "11.0.0"
+  },
+  {
+    "pack": "joi",
+    "repo": "senacor/azure-function-middleware",
+    "commit": "5c2da676e7327681dde70db6229edeebfa76b0f4",
+    "from": "17.13.1",
+    "to": "18.0.1"
+  },
+  {
+    "pack": "typescript",
+    "repo": "shogo82148/typescript-action",
+    "commit": "0f03405c7267fafaebee5d57e773c1bb56e28b44",
+    "from": "5.9.3",
+    "to": "6.0.3"
+  },
+  {
+    "pack": "ioredis",
+    "repo": "simondietschi/dokunc",
+    "commit": "83681ed0ccc527fa1dd5c802f554f26a5eac575c",
+    "from": "5.11.1",
+    "to": "6.0.0"
+  },
+  {
+    "pack": "lucide-react",
+    "repo": "spizeck/SFPCA",
+    "commit": "7f5b9dcb8985260e7b9ab345be971b392bd129a5",
+    "from": "0.563.0",
+    "to": "1.47.0"
+  },
+  {
+    "pack": "stripe",
+    "repo": "starl3xx/wallet-to-social",
+    "commit": "b7f60f1167b4665746e455696f6aa34caa75ad0c",
+    "from": "20.2.0",
+    "to": "22.6.2"
+  },
+  {
+    "pack": "next",
+    "repo": "stoczec/wortkarte",
+    "commit": "e3bd3679ae6ea60ce2a78aefebec0caa48c4febd",
+    "from": "15.5.27",
+    "to": "16.3.8"
+  },
+  {
+    "pack": "@sentry/react",
+    "repo": "successible/cleanslate",
+    "commit": "5d45401e6562e6c028028774c9097ecb4737dc6e",
+    "from": "10.74.0",
+    "to": "11.0.0"
+  },
+  {
+    "pack": "redis",
+    "repo": "swoofer/mcp-coordinator",
+    "commit": "8b337f0a081d0d0e0c3724890b9cc847b6c5dd6f",
+    "from": "5.12.1",
+    "to": "6.2.0"
+  },
+  {
+    "pack": "ioredis",
+    "repo": "syzygyhack/open-foundry",
+    "commit": "73910018b5e8119cf4db99a81ff145726451aa3b",
+    "from": "5.10.1",
+    "to": "6.0.0"
+  },
+  {
+    "pack": "redis",
+    "repo": "tearingItUp786/blog",
+    "commit": "bb88f3afc40df07e29da461c6aed6c34709bc6bf",
+    "from": "4.7.0",
+    "to": "6.0.0"
+  },
+  {
+    "pack": "react",
+    "repo": "tldraw/tldraw",
+    "commit": "5957867a9c5c205a0b0c3665be443138b8014a79",
+    "from": "18.3.1",
+    "to": "19.2.1"
+  },
+  {
+    "pack": "lucide-react",
+    "repo": "tradeblocks-org/tradeblocks",
+    "commit": "918c0dadccacec7e0533ea1a208f252562ac711f",
+    "from": "0.577.0",
+    "to": "1.52.0"
+  },
+  {
+    "pack": "zod",
+    "repo": "ugurkocde/AwesomeIntune",
+    "commit": "dcf38603fd55cea72737e17274d5de03cece341e",
+    "from": "3.25.76",
+    "to": "4.6.5"
+  },
+  {
+    "pack": "stripe",
+    "repo": "unkeyed/unkey",
+    "commit": "37044fc57fe08c917e92b323933baf322d6df1c6",
+    "from": "14.23.0",
+    "to": "22.2.0"
+  },
+  {
+    "pack": "ai",
+    "repo": "vercel/chatbot",
+    "commit": "77d362e596e2c624638cad5a35199c0c8785c9fd",
+    "from": "6.0.116",
+    "to": "7.0.9"
+  },
+  {
+    "pack": "vitest",
+    "repo": "vitorvasc/opentelemetry-ecosystem-explorer",
+    "commit": "46d5b37d00bbf27f394e33cee64a0e206c31315f",
+    "from": "4.1.11",
+    "to": "5.0.0"
+  },
+  {
+    "pack": "vitest",
+    "repo": "votingworks/vxsuite",
+    "commit": "5cb3c7d9c1abc891e7b12de57c0278790dd6160a",
+    "from": "4.1.11",
+    "to": "5.0.2"
+  },
+  {
+    "pack": "zod",
+    "repo": "vzdc-artcc/website",
+    "commit": "48a93f65a0976e342d4c15145b51de8eef030214",
+    "from": "3.25.76",
+    "to": "4.6.5"
+  },
+  {
+    "pack": "openai",
+    "repo": "wardby/wardby",
+    "commit": "d46ec64dc0be781aa43967d9b6d26be9386aa67d",
+    "from": "4.104.0",
+    "to": "7.30.0"
+  },
+  {
+    "pack": "@sentry/nextjs",
+    "repo": "xdoubleu/tools.xdoubleu.com",
+    "commit": "d3b780d42c8937af42d37072f7b0948bced39d47",
+    "from": "10.75.3",
+    "to": "11.0.0"
+  },
+  {
+    "pack": "openai",
+    "repo": "zeikar/charivo",
+    "commit": "b9a476d9acb59f473e08f0e97ce6e91dc2201d99",
+    "from": "4.104.0",
+    "to": "7.10.0"
+  }
+]
