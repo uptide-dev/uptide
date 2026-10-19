@@ -1,0 +1,540 @@
+[
+  {
+    "id": "alanagoyal",
+    "source": "user-reported run; stored .git/uptide/uptide__react-19.3.1/report.json",
+    "package": "react",
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "beforeUsd": 1.08,
+    "actualUsd": 0.1336105,
+    "feedbackRounds": 1,
+    "sites": [
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "RefObject"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "global-jsx-namespace",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2503"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "RefObject"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "RefObject"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "element-props-unknown",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS18046"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "element-props-unknown",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS18046"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "element-props-unknown",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS18046"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "RefObject"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "RefObject"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "RefObject"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "ref-object-nullable",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "mechanical",
+        "rule": "use-ref-argument",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "\".\":useRef"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "3ecb8897",
+    "source": "https://github.com/uptide-bench/consetto--calmcp/pull/10",
+    "package": "zod",
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "beforeUsd": 0.3,
+    "actualUsd": 0.08424590000000003,
+    "feedbackRounds": 0,
+    "sites": [
+      {
+        "outcome": "mechanical",
+        "rule": "string-format",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "ZodString#uuid"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "types",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "ZodType#description"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "types",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "ZodType"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "types",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "ZodArray#element"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "types",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "ZodType#_def"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "types",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2740"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "08cc4e68",
+    "source": "https://github.com/uptide-bench/AntelopeJS--dms-saas/pull/13",
+    "package": "stripe",
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "beforeUsd": 0.6,
+    "actualUsd": 0.27404379999999995,
+    "feedbackRounds": 0,
+    "sites": [
+      {
+        "outcome": "manual",
+        "rule": "TS2353",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2353"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2353",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2353"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "api-version",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "Stripe.LatestApiVersion"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "Stripe.SubscriptionScheduleUpdateParams.Phase#iterations",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "Stripe.SubscriptionScheduleUpdateParams.Phase#iterations"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2345",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2345"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2345",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2345"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2769",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2769"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2322",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2353",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2353"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2353",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2353"
+          }
+        }
+      },
+      {
+        "outcome": "mechanical",
+        "rule": "api-version-unpinned",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "Stripe.StripeConfig#apiVersion"
+          }
+        }
+      },
+      {
+        "outcome": "mechanical",
+        "rule": "api-version",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "Stripe.LatestApiVersion"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "1ff708af",
+    "source": "https://github.com/uptide-bench/entur--enki/pull/9",
+    "package": "react",
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "beforeUsd": 0.54,
+    "actualUsd": 0.1431526,
+    "feedbackRounds": 1,
+    "sites": [
+      {
+        "outcome": "manual",
+        "rule": "TS2558",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2558"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2558",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2558"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2558",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2558"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2322",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2322",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2322"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2345",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2345"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS2345",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2345"
+          }
+        }
+      },
+      {
+        "outcome": "mechanical",
+        "rule": "use-ref-argument",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2554"
+          }
+        }
+      },
+      {
+        "outcome": "mechanical",
+        "rule": "use-ref-argument",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2554"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "cause:JourneyPatternsMapState",
+        "finding": {
+          "anchorOnly": true,
+          "change": {
+            "path": "cause:JourneyPatternsMapState"
+          }
+        }
+      },
+      {
+        "outcome": "mechanical",
+        "rule": "use-ref-argument",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS2554"
+          }
+        }
+      },
+      {
+        "outcome": "manual",
+        "rule": "TS7006",
+        "finding": {
+          "anchorOnly": false,
+          "change": {
+            "path": "TS7006"
+          }
+        }
+      }
+    ]
+  }
+]

@@ -18,6 +18,7 @@ import {
   describeEstimate,
   overEstimateMessage,
   providerFixer,
+  sdkCostEstimate,
 } from '../llm/fixer.js';
 import { nanos } from '../llm/pricing.js';
 import { packageChangelog, usedNames } from '../packs/changelog.js';
@@ -961,7 +962,15 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const maxCostUsd = options.maxCostUsd ?? DEFAULT_MAX_COST_USD;
   const agentSites = sites.filter((s) => s.outcome === 'manual').length;
   const estimate = canAssist
-    ? costEstimate(selection.provider, selection.model, agentSites, maxCostUsd, options.costSetting)
+    ? sdkAgent
+      ? sdkCostEstimate(selection.provider, selection.model, sites, maxCostUsd, options.costSetting)
+      : costEstimate(
+          selection.provider,
+          selection.model,
+          agentSites,
+          maxCostUsd,
+          options.costSetting,
+        )
     : undefined;
   if (estimate && !options.withinBudget && nanos(estimate.usd) > nanos(estimate.limitUsd))
     throw new UptideError('COST_ESTIMATE', overEstimateMessage(estimate));
