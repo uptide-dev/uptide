@@ -12,6 +12,38 @@
       "to": "4.6.5",
       "parent": "741de4eba98eb96b4bed817d8974e9e8c6eec867",
       "upgrade": "bdaef39c34705b2dfc1065a59ec683288a2e99d2",
+      "silent": [
+        {
+          "file": "src/tools/index.ts",
+          "line": 69,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 83,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 102,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 119,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 148,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        }
+      ],
       "note": "npm, single package. The upgrade (merged in PR #22) changes 3 source files, a test and a script: z.string().uuid() to z.guid(), .strict() tool schemas, a _def walker rewritten for zod 4. Mostly behavior, little a compiler sees. The commit carries a Co-Authored-By: Claude trailer.",
       "ci": ".github/workflows/ci.yml: build (lint, typecheck, test, build, test:e2e), btp-descriptors, docker; tool-surface.yml",
       "checks": {

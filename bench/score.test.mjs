@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { compare, hunks, regressions } from './score.mjs';
+import { compare, hunks, regressions, silent } from './score.mjs';
 
 const diff = (...parts) => parts.join('\n');
 const human = hunks(
@@ -38,4 +38,36 @@ test('regressions are failures the reference does not have', () => {
   };
   const row = { checks: { test: 1, lint: 1 }, ci: [{ name: 'ci/build', bucket: 'fail' }] };
   assert.deepEqual(regressions(row, reference), ['local test', 'ci ci/build']);
+});
+
+test('silent changes: caught by the keep edit at the site or a decision naming the record; a named site the selection lacks is a false positive', () => {
+  const record = 'zod/mcp-input-schema-additional-properties';
+  const entry = {
+    silent: [69, 83, 102].map((line) => ({
+      file: 'src/tools/index.ts',
+      line,
+      record,
+      keep: '\\.strict\\(\\)|strictObject\\(',
+    })),
+  };
+  const agent = hunks(
+    diff('diff --git a/src/tools/index.ts b/src/tools/index.ts', '@@ -69 +69 @@'),
+  );
+  const head = () => 'function strictInput(shape) { return z.object(shape).strict(); }';
+  assert.deepEqual(silent(entry, agent, '', head), {
+    silentSites: 3,
+    silentEdited: ['src/tools/index.ts:69'],
+    silentDecided: [],
+    silentFalsePositives: [],
+  });
+  // The line touched without the edit is not caught.
+  assert.deepEqual(silent(entry, agent, '', () => 'z.object(shape)').silentEdited, []);
+  const body = `- **Behavior change (${record}):** … Not applied at \`src/tools/index.ts:83\`, \`src/other.ts:4\`: recommended`;
+  assert.deepEqual(silent(entry, agent, body, head), {
+    silentSites: 3,
+    silentEdited: ['src/tools/index.ts:69'],
+    silentDecided: ['src/tools/index.ts:83', 'src/tools/index.ts:102'],
+    silentFalsePositives: [`${record} src/other.ts:4`],
+  });
+  assert.equal(silent({}, agent, body, head).silentSites, 0);
 });
