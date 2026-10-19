@@ -1,0 +1,100 @@
+{
+  "$comment": "UpgradeBench v1 pre-run: the 5 repositories bench/v1/repos.md's rule picks, committed before either arm runs. checks are the repository's own commands, run by bench/check.sh with lifecycle scripts off; the from version is the one installed at the parent.",
+  "selected": "2026-10-19",
+  "repos": [
+    {
+      "id": "express-cubecobra",
+      "repo": "dekkerglen/CubeCobra",
+      "license": "Apache-2.0",
+      "pack": "express",
+      "package": "express",
+      "from": "4.22.2",
+      "to": "5.3.0",
+      "parent": "486571bfcc852e456e90c665dcf504817f49ad8a",
+      "upgrade": "d63b749f6ba134474f30f2ea809bcf372434aaef",
+      "note": "npm workspaces; the bump is in packages/recommenderService. Human commit #3052 'refresh dependencies and take security-relevant majors' moves other packages too.",
+      "checks": {
+        "install": "npm ci --ignore-scripts",
+        "typecheck": "npm run type-check --workspace=packages/recommenderService",
+        "lint": "npm run lint:check",
+        "test": "npm run test --workspace=packages/recommenderService",
+        "build": "npm run build --workspace=packages/recommenderService"
+      }
+    },
+    {
+      "id": "vitest-dag-chat",
+      "repo": "ZM-BAD/DAG-chat",
+      "license": "MIT",
+      "pack": "vitest",
+      "package": "vitest",
+      "from": "4.1.12",
+      "to": "5.0.5",
+      "parent": "340e0b0996cf380483a320071f5b5e4d8d27340c",
+      "upgrade": "2f6f686eeeb07b4d8f3d3231da54be79e73f29fa",
+      "note": "npm; the app is frontend/ with its own lockfile. The human commit also upgrades web-vitals and react-intersection-observer and replaces __dirname in vite.config.ts.",
+      "checks": {
+        "install": "npm ci --ignore-scripts && npm --prefix frontend ci --ignore-scripts",
+        "typecheck": "cd frontend && ./node_modules/.bin/tsc --noEmit -p .",
+        "lint": "npm --prefix frontend run lint",
+        "test": "npm --prefix frontend test",
+        "build": "npm --prefix frontend run build"
+      }
+    },
+    {
+      "id": "sentry-lion-reader",
+      "repo": "brendanlong/lion-reader",
+      "license": "MIT",
+      "pack": "sentry",
+      "package": "@sentry/nextjs",
+      "from": "10.75.0",
+      "to": "11.6.0",
+      "parent": "57c03c32705db5d823425849af8231d7e0a170ff",
+      "upgrade": "cb4729a758973c4a6b78cf2ef9a4b911b481c0c5",
+      "note": "pnpm, Next.js. Amended source: Dependabot PR #1971 with a human fix commit before merge; ground truth is the merged PR's diff against its base. Tests are CI's unit job: test:integration needs Postgres and Redis services.",
+      "checks": {
+        "install": "corepack pnpm install --frozen-lockfile --ignore-scripts",
+        "typecheck": "corepack pnpm typecheck",
+        "lint": "corepack pnpm lint",
+        "test": "corepack pnpm test:unit",
+        "build": "corepack pnpm build"
+      }
+    },
+    {
+      "id": "lucide-cypher-browser",
+      "repo": "sCypher-me/cypher-browser",
+      "license": "GPL-3.0",
+      "pack": "lucide-react",
+      "package": "lucide-react",
+      "from": "0.468.0",
+      "to": "1.57.0",
+      "parent": "9e770c9e3d887089366fd18b9fc02dfa9cb170c2",
+      "upgrade": "6307a23f22e6b424857193df140b2e9c0148c043",
+      "note": "npm, Electron + Vite. The human commit (#12) also moves TypeScript to 7. No lint script; check runs node --check on the Electron entry files and tsc.",
+      "checks": {
+        "install": "npm ci --ignore-scripts",
+        "typecheck": "./node_modules/.bin/tsc --noEmit",
+        "lint": "npm run check",
+        "test": "npm test",
+        "build": "npm run build"
+      }
+    },
+    {
+      "id": "react-router-llamadesk",
+      "repo": "GlennLab/LlamaDesk",
+      "license": "MIT-0",
+      "pack": "react-router",
+      "package": "react-router-dom",
+      "from": "6.30.6",
+      "to": "7.18.4",
+      "parent": "2f0239dfbf37e14cc272946b187f3410402bfc77",
+      "upgrade": "6034819c2efc42a6254ddebabe479bfc488b0625",
+      "note": "npm, Vite. The human commit also bumps echarts and vitest and adds the MIT-0 LICENSE. No lint script.",
+      "checks": {
+        "install": "npm ci --ignore-scripts",
+        "typecheck": "./node_modules/.bin/tsc --noEmit",
+        "test": "npm run test:run",
+        "build": "npm run build"
+      }
+    }
+  ]
+}
