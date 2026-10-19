@@ -15,7 +15,7 @@ git -C "$dir/repo" worktree add -q --detach "$dir/check" "$head"
 cd "$dir/check"
 result='{}'
 for step in install typecheck lint test build; do
-  cmd=$(jq -r --arg id "$id" --arg s "$step" '.repos[] | select(.id == $id) | .checks[$s] // ""' "$here/selection.json")
+  cmd=$(jq -r --arg id "$id" --arg s "$step" '.repos[] | select(.id == $id) | .checks[$s] // ""' "${BENCH_SELECTION:-$here/selection.json}")
   [ -z "$cmd" ] && continue
   code=0
   bash -c "$cmd" >"$dir/check-$step.log" 2>&1 || code=$?

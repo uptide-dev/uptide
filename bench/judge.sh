@@ -12,7 +12,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 dir=${BENCH_OUT:?}/runs/$run
 org=uptide-bench
 id=$(jq -r .id "$dir/meta.json") head=$(jq -r .head "$dir/meta.json")
-sel() { jq -er --arg id "$id" ".repos[] | select(.id == \$id) | $1" "$here/selection.json"; }
+sel() { jq -er --arg id "$id" ".repos[] | select(.id == \$id) | $1" "${BENCH_SELECTION:-$here/selection.json}"; }
 repo=$(sel .repo) parent=$(sel .parent)
 fork=$org/${repo%%/*}--${repo##*/}
 

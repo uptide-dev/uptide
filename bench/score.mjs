@@ -133,7 +133,9 @@ function table(rows, arms) {
 if (process.argv[1] === new URL(import.meta.url).pathname) {
   const out = process.env.BENCH_OUT;
   if (!out) throw new Error('set BENCH_OUT');
-  const selection = JSON.parse(readFileSync(new URL('./selection.json', import.meta.url), 'utf8'));
+  const selection = JSON.parse(
+    readFileSync(process.env.BENCH_SELECTION ?? new URL('./selection.json', import.meta.url), 'utf8'),
+  );
   const rows = readdirSync(join(out, 'runs')).map((run) => score(out, selection, run));
   for (const row of rows)
     row.regressions = regressions(

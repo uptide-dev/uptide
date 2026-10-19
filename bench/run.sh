@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One run of one arm on one repository of bench/selection.json.
+# One run of one arm on one repository of bench/selection.json (or $BENCH_SELECTION).
 #
 #   BENCH_OUT=<dir outside this repo> bench/run.sh <claude|uptide|human> <id>
 #
@@ -12,13 +12,14 @@ set -euo pipefail
 arm=$1 id=$2
 here=$(cd "$(dirname "$0")" && pwd)
 out=${BENCH_OUT:?set BENCH_OUT to a directory outside this repository}
-sel() { jq -er --arg id "$id" ".repos[] | select(.id == \$id) | $1" "$here/selection.json"; }
+sel() { jq -er --arg id "$id" ".repos[] | select(.id == \$id) | $1" "${BENCH_SELECTION:-$here/selection.json}"; }
 repo=$(sel .repo) parent=$(sel .parent) upgrade=$(sel .upgrade) pkg=$(sel .package)
 from=$(sel .from) to=$(sel .to)
 # Uptide's default executor model and effort (packages/core/src/llm/pricing.ts DEFAULT_MODELS,
 # capabilities.ts defaultEffort), used by both arms.
-# BENCH_MODEL swaps the Claude Code arm's model.
+# BENCH_MODEL swaps the Claude Code arm's model; Uptide always runs its default.
 model=${BENCH_MODEL:-claude-sonnet-5-5} effort=medium
+[ "$arm" = uptide ] && model=claude-sonnet-5-5
 
 run=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
 dir=$out/runs/$run
@@ -33,7 +34,7 @@ export npm_config_ignore_scripts=true YARN_ENABLE_SCRIPTS=0
 # A developer's checkout is installed; Uptide refuses one that is not. Untimed, both arms.
 bash -c "$(sel .checks.install)" >"$dir/setup.log" 2>&1
 
-uptide=${UPTIDE_VERSION:-0.16.0}
+uptide=${UPTIDE_VERSION:-0.17.1}
 case $arm in
 claude) version=$(claude --version | cut -d' ' -f1) ;;
 uptide) version=$(npx -y "uptide@$uptide" --version) ;;
@@ -67,7 +68,7 @@ uptide)
   # the first fix downloads the Agent SDK as a new user's does (--yes approves it).
   mkdir -p "$dir/uptide-cache"
   UPTIDE_CACHE_DIR=$dir/uptide-cache UPTIDE_MODEL=$model npx -y "uptide@$uptide" fix "$pkg" \
-    --target "$to" --yes --json >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
+    --target "$to" --yes --json --max-cost "${UPTIDE_CAP_USD:-1}" >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
   branch=$(git for-each-ref --format='%(refname:short)' "refs/heads/uptide/$pkg-*" | head -1)
   [ -n "$branch" ] && git checkout -q "$branch"
   cost=$(jq '.llm.costUsd // 0' "$dir/agent.json" 2>/dev/null || echo 0)
