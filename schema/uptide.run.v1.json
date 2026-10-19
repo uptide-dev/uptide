@@ -85,6 +85,21 @@
           "durationMs"
         ],
         "properties": {
+          "unusedPack": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "status"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^(?:@[A-Za-z0-9._~-]+/)?[A-Za-z0-9._~-]+$",
+                "maxLength": 214
+              },
+              "status": {
+                "const": "candidate"
+              }
+            }
+          },
           "package": {
             "type": "string",
             "pattern": "^(?:@[A-Za-z0-9._~-]+/)?[A-Za-z0-9._~-]+$",

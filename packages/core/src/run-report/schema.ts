@@ -72,6 +72,8 @@ export interface Upgrade {
   breaking: BreakingSite[];
   /** Set when the upgrade was analyzed; see `Analysis`. */
   analysis?: Analysis;
+  /** A matching candidate pack that this run did not use. */
+  unusedPack?: { name: string; status: 'candidate' };
   /** The package this one moves with (`react` for `react-dom`): its upgrade carries this one. */
   movesWith?: string;
   /** Set when a migration was attempted. */
@@ -184,6 +186,15 @@ export const RUN_REPORT_SCHEMA = {
           'durationMs',
         ],
         properties: {
+          unusedPack: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['name', 'status'],
+            properties: {
+              name: { type: 'string', pattern: PACKAGE, maxLength: 214 },
+              status: { const: 'candidate' },
+            },
+          },
           package: { type: 'string', pattern: PACKAGE, maxLength: 214 },
           from: { type: 'string', pattern: VERSION },
           to: { type: 'string', pattern: VERSION },
