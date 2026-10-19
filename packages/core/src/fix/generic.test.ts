@@ -379,6 +379,7 @@ describe('fix for a dependency without a pack', () => {
         }),
       },
     );
+    expect(result.llm.estimate).toEqual({ sites: 3, usd: 0.09, limitUsd: 0.1, setting: 'maxCost' });
     expect(result.llm.costLimit).toEqual({ limitUsd: 0.1, notAttempted: 3 });
     expect(prBody(result)).toContain(
       '3 sites not completed. Raise `maxCost` in uptide.yml to 0.20 to finish.',
@@ -504,6 +505,47 @@ describe('fix for a dependency without a pack', () => {
       expect(seen).toHaveLength(0);
     }
   }, 30000);
+
+  it('uses the SDK estimate for preflight without raising the spending limit', async () => {
+    for (const maxCostUsd of [0.08, 0.09]) {
+      const fixture = paintFixture(3);
+      const budgets: number[] = [];
+      const run = fix(
+        {
+          cwd: fixture.root,
+          only: 'paint',
+          fixer: fixture.fixer(0.01, []),
+          agent: 'sdk',
+          maxCostUsd,
+        },
+        {
+          ...fixture.services,
+          agentRunner: async (input) => {
+            budgets.push(input.maxBudgetUsd);
+            return {
+              turns: 1,
+              inputTokens: 1,
+              outputTokens: 1,
+              costUsd: maxCostUsd,
+              durationMs: 1,
+              toolCalls: {},
+              stop: 'error_max_budget_usd',
+            };
+          },
+        },
+      );
+      if (maxCostUsd < 0.09) {
+        await expect(run).rejects.toMatchObject({ code: 'COST_ESTIMATE' });
+        expect(budgets).toEqual([]);
+      } else {
+        const report = await run;
+        expect(budgets).toEqual([0.09]);
+        expect(report.llm.estimate?.usd).toBe(0.09);
+        expect(report.llm.costLimit).toEqual({ limitUsd: 0.09, notAttempted: 3 });
+        expect(report.llm.feedback?.roundsUsed).toBe(0);
+      }
+    }
+  }, 60000);
 
   it('repairs an unconfirmed site when final verification proves a new type error', async () => {
     const { root, services, fixer, report, finding } = paintFixture();

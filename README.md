@@ -43,7 +43,7 @@ Draft PR runs update conflicting root Yarn resolutions and npm/pnpm overrides an
   include a representative diff and affected files; choices from migration guides appear
   under **Decisions for you** with their reasoning and alternatives. Large PR descriptions [trim changelog detail before review evidence](docs/commands/pr.md#uptide-pr-body).
 - Runs locally, no account. Code leaves your machine only for assisted fixes in `fix`, which
-  runs them with the Claude Agent SDK and your own Anthropic API key.
+  runs them with the Claude Agent SDK and your own Anthropic API key. Its [cost estimate](docs/cost-estimate-calibration.md) accounts for shared migration rules and never raises your spending limit.
 
 ## Verified packs
 

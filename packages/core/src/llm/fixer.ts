@@ -7,9 +7,7 @@ import type { Call, Provider } from './types.js';
 
 export const MAX_OUTPUT_TOKENS = 8192;
 export const DEFAULT_MAX_COST_USD = 1;
-// What one agent site is assumed to cost, SDK turns and the gate's retries included, uncached.
-// ponytail: assumed, not calibrated against stored runs; tune from report.json `llm.estimate`
-// against `llm.costUsd` once runs with many agent sites exist.
+// Legacy patch-executor allowance. SDK sessions share context across sites; see sdkCostEstimate.
 export const SITE_INPUT_TOKENS = 20_000;
 export const SITE_OUTPUT_TOKENS = 2_000;
 /** Where the run's limit is set, so every message names what to change. */
@@ -39,6 +37,50 @@ export function costEstimate(
     cacheWriteHourTokens: 0,
   });
   return { sites, usd: cents(sites * site), limitUsd, setting };
+}
+/** Only pre-agent fields: never use accepted edits, actual tokens or feedback rounds to predict. */
+export interface EstimateSite {
+  outcome: string;
+  rule?: string;
+  finding: { anchorOnly?: boolean; change: { path: string } };
+}
+/**
+ * SDK calibration: docs/cost-estimate-calibration.md. Repeated sites share rule knowledge.
+ * Declaration-only anchors add context, not another independent migration rule. Keep a
+ * session floor (also for anchor-only work) and an allowance for each remaining site.
+ * These are effective uncached token equivalents, including typical verification feedback,
+ * not token caps. Actual reservations and the three-round feedback ceiling stay independent.
+ */
+export function sdkCostEstimate(
+  provider: Provider,
+  model: string,
+  sites: readonly EstimateSite[],
+  limitUsd: number,
+  setting: CostSetting = '--max-cost',
+): CostEstimate {
+  const pending = sites.filter((site) => site.outcome === 'manual');
+  const rules = new Set(
+    pending
+      .filter((site) => !site.finding.anchorOnly)
+      .map((site) => site.rule ?? site.finding.change.path),
+  ).size;
+  const price = (inputTokens: number, outputTokens: number) =>
+    usageCost(provider, model, {
+      inputTokens,
+      outputTokens,
+      cachedInputTokens: 0,
+      cacheWriteTokens: 0,
+      cacheWriteHourTokens: 0,
+    });
+  const usd = pending.length
+    ? cents(
+        Math.max(
+          price(20_000, 5_000),
+          rules * price(12_500, 2_000) + pending.length * price(250, 50),
+        ),
+      )
+    : 0;
+  return { sites: pending.length, usd, limitUsd, setting };
 }
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const usd = (n: number) => `$${n.toFixed(2)}`;
