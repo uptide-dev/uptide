@@ -155,6 +155,11 @@ snapshotted before edits, with repository-relative paths (including package.json
 configuration contents when declared). An explicit `decisions()` hook owns the section,
 even when it returns an empty list. Decision notes are not repeated as generic run notes.
 
+A decision note whose default changed names the option (`option: 'dataCollection'`). A test
+file its line names that mentions the option and asserts pins the old default, so it fails
+after the upgrade: the decision then names the test too, for the owner to choose between
+setting the option and updating the expectation. Uptide never edits that test.
+
 A note found by `detect` is scored by `pack test` like a rule.
 
 ### Behavior records: silent changes with a cited source

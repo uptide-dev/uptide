@@ -239,3 +239,50 @@ it("in a fork, reads and edits the pull request of the repository origin names, 
   expect(view.slice(0, 6)).toEqual(['gh', 'pr', 'view', '82', '--repo', 'owner/demo']);
   expect(edit.slice(0, 6)).toEqual(['gh', 'pr', 'edit', '82', '--repo', 'owner/demo']);
 });
+
+it('shows each fixture property an accepted edit added, with the value chosen (UPT-121)', () => {
+  const { report } = mock();
+  report.changedFiles = [...(report.changedFiles ?? []), 'tests/unit/span.test.ts'];
+  report.llm.tasks = [
+    {
+      id: 'initial',
+      rule: 'TS2741',
+      files: ['tests/unit/span.test.ts'],
+      sites: 1,
+      fixed: 1,
+      turns: 3,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      durationMs: 0,
+      toolCalls: {},
+      gate: 'accepted',
+      fixtureProperties: [
+        { file: 'tests/unit/span.test.ts', line: 46, property: 'status', value: "'ok'" },
+      ],
+    },
+    {
+      id: 'later',
+      rule: 'TS2741',
+      files: ['tests/unit/span.test.ts'],
+      sites: 1,
+      fixed: 0,
+      turns: 1,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      durationMs: 0,
+      toolCalls: {},
+      gate: 'rejected',
+      fixtureProperties: [
+        { file: 'tests/unit/span.test.ts', line: 50, property: 'kind', value: "'x'" },
+      ],
+    },
+  ];
+  const body = prBody(report);
+  const tests = body.slice(body.indexOf('**Tests changed: review**'));
+  expect(tests).toContain(
+    "- Added `status: 'ok'` at tests/unit/span.test.ts:46: the compiler reported it missing there; the value is the agent's choice.",
+  );
+  expect(tests).not.toContain('kind');
+});

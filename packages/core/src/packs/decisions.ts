@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { isTestFile } from '../fix/test-edits.js';
 import { packInventory } from './inventory.js';
 import type { MigrationPack, PackContext } from './types.js';
 
@@ -41,8 +42,37 @@ export function packDecisions(
   return (pack.behavior ?? []).flatMap((note) => {
     if (!note.reported.includes('decision')) return [];
     const applies = note.applies ? note.applies(context) : true;
-    return applies ? [`- ${typeof applies === 'string' ? applies : note.summary}`] : [];
+    if (!applies) return [];
+    const line = `- ${typeof applies === 'string' ? applies : note.summary}`;
+    return [line, ...pinnedDefaults(pack, context, note.option, line)];
   });
+}
+
+/**
+ * Tests the line names (they leave `option` unset) that mention it and assert: they check the
+ * old default, so they fail once it changes. Which default is right is the owner's call (UPT-121).
+ */
+function pinnedDefaults(
+  pack: MigrationPack,
+  context: PackContext,
+  option: string | undefined,
+  line: string,
+): string[] {
+  if (!option) return [];
+  const named = new Set([...line.matchAll(/`([^`]+)`/g)].map((m) => m[1]));
+  const mentions = new RegExp(option, 'i');
+  return (context.inventory ?? [])
+    .filter(
+      (f) =>
+        named.has(f.file) &&
+        isTestFile(f.file) &&
+        mentions.test(f.text) &&
+        /\b(?:expect|assert)\b/.test(f.text),
+    )
+    .map(
+      (f) =>
+        `- \`${f.file}\` asserts ${option} without setting it: it pins ${pack.name} ${context.from}'s default, which ${context.to} changes, so it fails until you choose. Set ${option} to keep the old default, or update the test to expect the new one; Uptide leaves the test as it is.`,
+    );
 }
 
 /**
