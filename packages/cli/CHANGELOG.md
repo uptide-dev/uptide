@@ -1,5 +1,25 @@
 # uptide
 
+## 0.18.0
+
+### Minor Changes
+
+- [#261](https://github.com/uptide-dev/uptide/pull/261) [`93f029e`](https://github.com/uptide-dev/uptide/commit/93f029ef11401b937ffbe924d3bc810286b0f5fd) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Sentry 10 → 11: report every `Sentry.init` whose data collection widens because `dataCollection` is unset, citing the migration guide, and give the agent the guide's exact v10 baseline. After a fix, a site counts as kept only when every category is at least that restrictive, so a partial edit such as a cookie deny list stays open in the PR instead of being reported as kept. The agent now keeps privacy settings at their most restrictive value, or leaves them as a decision, when no cited edit exists.
+
+- [#253](https://github.com/uptide-dev/uptide/pull/253) [`e48373d`](https://github.com/uptide-dev/uptide/commit/e48373db4355a4516056a727042cc1c511e2fc8d) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Find Stripe's clover billing-mode default change at subscription creation sites, across the six affected APIs. Respect request API-version pins, preserve classic billing at documented parameter paths, and report unresolved parameters or semantics as decisions. Verify quoted sources against full-page hashes at pack-build time without vendoring Stripe pages. Score the dms-saas silent billing change in UpgradeBench.
+
+### Patch Changes
+
+- [#260](https://github.com/uptide-dev/uptide/pull/260) [`8ea1a87`](https://github.com/uptide-dev/uptide/commit/8ea1a87a8e89a49b11080d596ee7267fbd8fbfeb) Thanks [@lucasbraum](https://github.com/lucasbraum)! - A build that fails the same way before and after the upgrade (same command, status and output; only durations and clock times may differ) no longer fails verification. Builds are now compared to the baseline the same way tests are. The PR says `⚠️ build: failing at baseline, not checked`, and the verdict reads `no new errors`, not `verification passed`. A build that passed at baseline and fails after the upgrade still fails, and so does one that fails differently. Without a pack, a run like this still does not publish, because its build cannot verify the bump.
+
+- [#259](https://github.com/uptide-dev/uptide/pull/259) [`0db73c8`](https://github.com/uptide-dev/uptide/commit/0db73c86a4adabfb50d910ea01ec39396e060f92) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Let the agent add a property the upgraded types made required to a test fixture: only to the object the compiler's TS2739, TS2740 or TS2741 error points at, and only with a literal value. Every other test input change is still rejected. Each such property is listed under "Tests changed: review" in the PR body and in report.json (file, line, property and the value the agent chose). Name a test that asserts a dependency default the upgrade changed (Sentry's `dataCollection` and `attachStacktrace`) under "Decisions for you", instead of leaving it to fail unexplained.
+
+- [#251](https://github.com/uptide-dev/uptide/pull/251) [`773dbbe`](https://github.com/uptide-dev/uptide/commit/773dbbed115524c30689c556eed1c8b80eedfa0e) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Calibrate the SDK pre-run cost estimate from recorded migrations, accounting for shared rule knowledge instead of charging a full session allowance per site. Keep the configured spending limit and per-call budget enforcement unchanged.
+
+- [#258](https://github.com/uptide-dev/uptide/pull/258) [`3a4898f`](https://github.com/uptide-dev/uptide/commit/3a4898f579974951337e236ffd666c3dcf3abead) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Discover independent nested projects when fixing a dependency absent from the root project. Run installation, migration and verification in the selected project's directory, preserving its lockfile and package manager. When several projects declare the dependency, name their manifests and require an explicit directory.
+
+- [#257](https://github.com/uptide-dev/uptide/pull/257) [`7b9ed7f`](https://github.com/uptide-dev/uptide/commit/7b9ed7f10d9c76af631d5174e42df06b77a008ca) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Run pinned npm through Corepack when local npm differs. When the pin is unavailable, allow local npm with a compatible v3 lockfile, record the fallback in the report, and reject frozen installs that rewrite the lockfile.
+
 ## 0.17.2
 
 ### Patch Changes
