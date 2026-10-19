@@ -1840,3 +1840,26 @@ it('refuses verification if an approved pin update still installs the old packag
     fix({ cwd: root, only: 'zod', fixer: null, updatePins: true }, services),
   ).rejects.toThrow('Requested zod@4.6.5, but . has 3.25.76 installed');
 });
+
+it('keeps npm fallback notes in the fix report and review body (UPT-119)', async () => {
+  const { root, services } = fixture();
+  const install = services.install;
+  const note =
+    "Using local npm@11.21.0 instead of the repository's npm@10.9.0: Corepack could not run the pin.";
+  services.install = async (dir, upgrade) => {
+    await install(dir, upgrade);
+    if (upgrade)
+      return {
+        manager: 'npm',
+        file: 'package-lock.json',
+        changed: [],
+        added: [],
+        removed: [],
+        allowed: [],
+        notes: [note],
+      };
+  };
+  const report = await fix({ cwd: root, only: 'zod', target: '4.6.5' }, services);
+  expect(report.notes).toContain(note);
+  expect(prBody(report)).toContain(note);
+});

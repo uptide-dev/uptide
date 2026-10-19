@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { UptideError } from '../../errors.js';
 import { command } from '../process.js';
 import { berrySkipBuild, type PackageManager, packageManager } from './manager.js';
@@ -39,7 +41,7 @@ export function needsCorepack(
 }
 
 /**
- * The same install, run as `corepack yarn …`: corepack resolves and caches the pinned
+ * The same install, run as `corepack npm …` or `corepack yarn …`: corepack resolves and caches the pinned
  * version on its own, with the download prompt off and without `corepack enable`, so
  * nothing on the user's machine changes outside corepack's cache. `COREPACK_NPM_REGISTRY`
  * from the environment is passed through as it is.
@@ -48,7 +50,7 @@ export function throughCorepack(pm: PackageManager): PackageManager {
   return {
     ...pm,
     bin: 'corepack',
-    args: ['yarn', ...pm.args],
+    args: [pm.kind === 'npm' ? 'npm' : 'yarn', ...pm.args],
     env: { ...pm.env, ...COREPACK_ENV },
     via: 'corepack',
   };
@@ -67,6 +69,23 @@ export async function assertManagerAvailable(
   });
   const next = repairCommand(pm);
   let actual = versionOf(result.output);
+  if (pm.kind === 'npm' && pm.requestedVersion && (result.code || !matches(pm, actual))) {
+    const corepack = await probe(root, 'corepack', ['--version'], 15000, COREPACK_ENV);
+    if (!corepack.code) {
+      const pinned = throughCorepack(pm);
+      const run = await probe(root, pinned.bin, ['npm', '--version'], 120_000, pinned.env);
+      if (!run.code && matches(pm, versionOf(run.output)))
+        return { ...pinned, actualVersion: versionOf(run.output) };
+    }
+    // npm 9+ writes v3 by default. A frozen install must still leave every byte intact.
+    const format = JSON.parse(readFileSync(join(root, pm.lockfile), 'utf8')).lockfileVersion;
+    if (!result.code && majorOf(actual) >= 9 && format === 3)
+      return {
+        ...pm,
+        actualVersion: actual,
+        note: `Using local npm@${actual} instead of the repository's npm@${pm.requestedVersion}: Corepack could not run the pin. The repository uses lockfileVersion 3; frozen installs must leave the lockfile unchanged.`,
+      };
+  }
   if (needsCorepack(pm, result)) {
     const pinned = `yarn@${pm.requestedVersion ?? '2 or later'}`;
     const found = result.code ? 'no yarn is on PATH' : `the yarn on PATH is ${actual || 'unknown'}`;

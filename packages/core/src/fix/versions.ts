@@ -313,7 +313,16 @@ export function declareLead(
 export async function install(root: string, upgrade?: Upgrade): Promise<InstallReport | undefined> {
   if (upgrade) return isolatedUpgrade(root, upgrade);
   const pm = await assertManagerAvailable(root);
+  const lockfile = join(root, pm.lockfile);
+  const before = readFileSync(lockfile);
   const result = await command(root, pm.bin, pm.args, 300_000, pm.env);
+  if (!readFileSync(lockfile).equals(before)) {
+    writeFileSync(lockfile, before);
+    throw new UptideError(
+      'LOCKFILE_OUT_OF_SCOPE',
+      'Frozen install changed the lockfile; the original was restored.',
+    );
+  }
   if (result.code)
     throw new UptideError(
       'INSTALL_FAILED',

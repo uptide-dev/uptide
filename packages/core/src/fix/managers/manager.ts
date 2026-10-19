@@ -8,10 +8,12 @@ export interface PackageManager {
   lockfile: string;
   args: string[];
   env?: Record<string, string>;
-  /** Set when `bin` is corepack running the pinned Yarn (`args` then start with `yarn`); see availability.ts. */
+  /** Set when `bin` is corepack running the pinned manager (`args` start with its name); see availability.ts. */
   via?: 'corepack';
   requestedVersion?: string;
   actualVersion?: string;
+  /** Local npm differs from the pin, but uses the same lockfile format. */
+  note?: string;
   /** Why this manager, when the repository could have meant another: other lockfiles present. */
   chosen?: string;
 }
@@ -103,7 +105,7 @@ export function packageManager(root: string): PackageManager {
 /** Manifests have already been updated, so npm can preserve dependency sections with no add/save flags. */
 export function updateArgs(pm: PackageManager, root: string, workspaces: string[]): string[] {
   const args = managerArgs(pm, root, workspaces);
-  return pm.via === 'corepack' ? ['yarn', ...args] : args;
+  return pm.via === 'corepack' ? [pm.kind === 'npm' ? 'npm' : 'yarn', ...args] : args;
 }
 function managerArgs(pm: PackageManager, root: string, workspaces: string[]): string[] {
   switch (pm.kind) {
