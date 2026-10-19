@@ -10,9 +10,7 @@
     "uncommittedFiles": 0,
     "humanHunks": 4,
     "covered": 3,
-    "missed": [
-      "src/assets.d.ts:0"
-    ],
+    "missed": ["src/assets.d.ts:0"],
     "agentHunks": 3,
     "agentFiles": 2,
     "unrelated": [],
@@ -43,10 +41,7 @@
     "uncommittedFiles": 0,
     "humanHunks": 4,
     "covered": 2,
-    "missed": [
-      "src/HomePage.tsx:16",
-      "src/assets.d.ts:0"
-    ],
+    "missed": ["src/HomePage.tsx:16", "src/assets.d.ts:0"],
     "agentHunks": 3,
     "agentFiles": 3,
     "unrelated": [],
@@ -195,9 +190,7 @@
         "bucket": "pass"
       }
     ],
-    "regressions": [
-      "local test"
-    ]
+    "regressions": ["local test"]
   },
   {
     "run": "3caac4a1",
@@ -295,12 +288,7 @@
         "bucket": "pass"
       }
     ],
-    "regressions": [
-      "local typecheck",
-      "ci CI/E2E Tests",
-      "ci CI/Unit Tests",
-      "ci CI/Type Check"
-    ]
+    "regressions": ["local typecheck", "ci CI/E2E Tests", "ci CI/Unit Tests", "ci CI/Type Check"]
   },
   {
     "run": "3e3e6373",
@@ -501,9 +489,7 @@
     "uncommittedFiles": 0,
     "humanHunks": 1,
     "covered": 0,
-    "missed": [
-      "frontend/vite.config.ts:21"
-    ],
+    "missed": ["frontend/vite.config.ts:21"],
     "agentHunks": 0,
     "agentFiles": 0,
     "unrelated": [],
@@ -628,9 +614,7 @@
       "build": 0
     },
     "ci": [],
-    "regressions": [
-      "local lint"
-    ]
+    "regressions": ["local lint"]
   },
   {
     "run": "bf125523",
@@ -643,9 +627,7 @@
     "uncommittedFiles": 0,
     "humanHunks": 1,
     "covered": 0,
-    "missed": [
-      "frontend/vite.config.ts:21"
-    ],
+    "missed": ["frontend/vite.config.ts:21"],
     "agentHunks": 0,
     "agentFiles": 0,
     "unrelated": [],
@@ -919,8 +901,6 @@
       "build": 0
     },
     "ci": [],
-    "regressions": [
-      "local lint"
-    ]
+    "regressions": ["local lint"]
   }
 ]
