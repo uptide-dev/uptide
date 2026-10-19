@@ -1,5 +1,11 @@
 # uptide
 
+## 0.18.1
+
+### Patch Changes
+
+- [#262](https://github.com/uptide-dev/uptide/pull/262) [`e72bb63`](https://github.com/uptide-dev/uptide/commit/e72bb63f9182d23af4dec23cae925648c8c6db80) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Pin the Action to v0.18.0.
+
 ## 0.18.0
 
 ### Minor Changes
