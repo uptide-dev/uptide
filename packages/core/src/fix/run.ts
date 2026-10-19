@@ -46,7 +46,12 @@ import { resetSharedState } from '../shared-state.js';
 import { prepareWorkspace } from '../verify/prepare-workspace.js';
 import { UPTIDE_COMMAND, uptideVersionInfo } from '../version.js';
 import { assist } from './assisted.js';
-import { baselineHealth, testsOrBuildVouch, upgradeBrokeBuild } from './baseline.js';
+import {
+  baselineHealth,
+  markPreexistingBuilds,
+  testsOrBuildVouch,
+  upgradeBrokeBuild,
+} from './baseline.js';
 import { behaviorCheck } from './behavior.js';
 import { buildWorkspaces, configuredBuildScript } from './build.js';
 import {
@@ -1344,6 +1349,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   }
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
   const tests = markPreexisting(ran, baselineTests);
+  build = markPreexistingBuilds(build, baselineBuild);
   // An agent-led draft must still install from scratch, as the repository's CI would (UPT-102).
   const cleanInstall = fallback.length ? await cleanInstallCheck(root, services) : undefined;
   if (cleanInstall) lap('clean-install');
@@ -1364,8 +1370,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     cleanInstall?.passed !== false &&
     !pending &&
     tests.every((t) => t.status === 'passed' || t.status === 'missing' || t.preexisting) &&
-    (!pack.requiresBuild || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
-    build.every((b) => b.status === 'passed' || b.status === 'missing') &&
+    // A build failing the same way at baseline is not checked, as a failing test is (UPT-122).
+    (!pack.requiresBuild ||
+      (build.length > 0 && build.every((b) => b.status === 'passed' || b.preexisting))) &&
+    build.every((b) => b.status === 'passed' || b.status === 'missing' || b.preexisting) &&
     testsOrBuildVouch(typeCoverage, tests, build) &&
     lint.every((l) => l.status !== 'failed');
   // A head build that fails where the parent's could not be checked fails the run too.

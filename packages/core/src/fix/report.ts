@@ -581,7 +581,7 @@ export function verifiedBy(report: FixReport): string {
       : report.packWarning
         ? ' (not required by this candidate pack)'
         : ' (not required by the pack)';
-  const firstError = firstBuildError(v.build);
+  const firstError = firstBuildError(v.build?.filter((b) => !b.preexisting));
   // Built again at the parent only when it failed here: whose failure it is (UPT-110).
   const parent = v.parentUnchecked
     ? ' — the parent build could not be checked'
@@ -595,9 +595,11 @@ export function verifiedBy(report: FixReport): string {
       ? '⚠️ build not run'
       : !v.build.length || v.build.some((b) => b.status === 'missing')
         ? '⚠️ build not run: no build script'
-        : v.build.some((b) => failing(b.status))
-          ? `❌ build${firstError ? `: ${cell(firstError.slice(0, 160))}` : ''}${buildCauseText(v.build)}${parent}`
-          : '✅ build'
+        : v.build.some((b) => failing(b.status) && !b.preexisting)
+          ? `❌ build${firstError ? `: ${cell(firstError.slice(0, 160))}` : ''}${buildCauseText(v.build.filter((b) => !b.preexisting))}${parent}`
+          : v.build.some((b) => b.preexisting)
+            ? '⚠️ build: failing at baseline, not checked'
+            : '✅ build'
   }${gate}`;
   const ran = v.tests.filter((t) => t.status !== 'missing');
   const tests = !ran.length
@@ -1602,7 +1604,7 @@ function verificationDetails(report: FixReport, bounded: boolean): (string | Pie
       );
       lines.push(
         '',
-        `**Build: ${b.workspace}${preexisting ? ' (failed at the parent; not iterated)' : ''}**`,
+        `**Build: ${b.workspace}${b.preexisting ? ' (failing at baseline, not checked)' : preexisting ? ' (failed at the parent; not iterated)' : ''}**`,
         droppable(2, ['```text', testOutput(b.output), '```'], `Build output (${b.status})`),
       );
     }

@@ -102,6 +102,30 @@ export function upgradeBrokeBuild(parentBuild: BuildResult[] | undefined): boole
 }
 
 /**
+ * Builds that fail the same way they did before anything changed, marked `preexisting`, as
+ * `markPreexisting` marks tests (UPT-122). Digits are ignored: durations and counts vary.
+ */
+export function markPreexistingBuilds(
+  build: BuildResult[],
+  baseline: BuildResult[] | undefined,
+): BuildResult[] {
+  const failing = (b: BuildResult) => b.status === 'failed' || b.status === 'timeout';
+  const text = (b: BuildResult) => b.output.replace(/\d+/g, '#');
+  return build.map((b) =>
+    failing(b) &&
+    baseline?.some(
+      (p) =>
+        p.workspace === b.workspace &&
+        p.command === b.command &&
+        p.status === b.status &&
+        text(p) === text(b),
+    )
+      ? { ...b, preexisting: true }
+      : b,
+  );
+}
+
+/**
  * The verdict of a run. A healthy baseline keeps the strict gate's words; an unhealthy one
  * that gained nothing says `no new errors`, since that is all a comparison can show; a
  * failure separates what the upgrade introduced from what was already there.
@@ -113,8 +137,9 @@ export function fixVerdict(report: FixReport): {
   const v = report.verification;
   const health = baselineHealthOf(report);
   const low = lowTypeCoverage(report.typeCoverage);
+  // A build already failing before the change proves nothing either way: compared, not proved.
   if (v.passed)
-    return health.healthy
+    return health.healthy && !v.build?.some((b) => b.preexisting)
       ? {
           text: low ? `verification passed on tests and build (${low})` : 'verification passed',
           tone: 'passed',

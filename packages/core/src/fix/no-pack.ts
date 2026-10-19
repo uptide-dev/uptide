@@ -44,5 +44,7 @@ export function noPackBlockers(report: FixReport): string[] {
     ];
   if (v.tests.some((t) => t.status === 'failed' && t.preexisting))
     return [`${NO_PACK_YET}: tests fail, already before the upgrade, so they cannot verify it`];
+  if ((v.build ?? []).some((b) => b.preexisting))
+    return [`${NO_PACK_YET}: the build fails, already before the upgrade, so it cannot verify it`];
   return [];
 }

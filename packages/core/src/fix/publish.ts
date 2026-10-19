@@ -22,14 +22,14 @@ export function publicationBlockers(
   if (
     !fallback &&
     v.buildRequired &&
-    (!v.build?.length || v.build.some((b) => b.status !== 'passed'))
+    (!v.build?.length || v.build.some((b) => b.status !== 'passed' && !b.preexisting))
   )
     blockers.push(
       'build required by the migration pack: ' +
         (!v.build?.length
           ? 'not run'
           : v.build
-              .filter((b) => b.status !== 'passed')
+              .filter((b) => b.status !== 'passed' && !b.preexisting)
               .map(
                 (b) => `${b.workspace}: ${b.status === 'missing' ? 'no build script' : b.status}`,
               )
@@ -55,7 +55,7 @@ export function publicationBlockers(
         .filter((l) => l.status === 'failed')
         .map((l) => `lint (${l.tool}) fails on the edited files`),
       ...(v.build ?? [])
-        .filter((b) => b.status === 'failed' || b.status === 'timeout')
+        .filter((b) => (b.status === 'failed' || b.status === 'timeout') && !b.preexisting)
         .map((b) => `build ${b.status === 'timeout' ? 'timed out' : 'failed'} in ${b.workspace}`),
       ...failing
         .filter((t) => !t.preexisting)

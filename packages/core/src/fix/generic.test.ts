@@ -690,14 +690,17 @@ describe('fix never publishes an upgrade nothing analyzed', () => {
   }, 30000);
 
   it('fails a minor upgrade without a pack whose build fails after the bump', async () => {
+    let builds = 0;
     const { root, services, fixer } = cleanMinor(
       async () => [
-        {
-          workspace: '.',
-          status: 'failed',
-          command: 'next build',
-          output: 'Error: next lint was removed',
-        },
+        builds++ === 0
+          ? { workspace: '.', status: 'passed', command: 'next build', output: '' }
+          : {
+              workspace: '.',
+              status: 'failed',
+              command: 'next build',
+              output: 'Error: next lint was removed',
+            },
       ],
       passingTests,
     );
@@ -710,6 +713,30 @@ describe('fix never publishes an upgrade nothing analyzed', () => {
       'verification failed: build failed in .',
     ]);
     expect(prBody(result)).toContain('❌ build');
+  }, 20000);
+
+  it('does not fail a minor upgrade without a pack on a build already failing the same way, and does not publish it (UPT-122)', async () => {
+    const { root, services, fixer } = cleanMinor(
+      async () => [
+        {
+          workspace: '.',
+          status: 'failed',
+          command: 'npm run build',
+          output: 'sh: pwsh: command not found',
+        },
+      ],
+      passingTests,
+    );
+    const result = await fix(
+      { cwd: root, only: 'paint', tool: CLEAN_TOOL, fixer: fixer(0.01) },
+      services,
+    );
+    expect(result.verification.passed).toBe(true);
+    expect(prBody(result)).toContain('⚠️ build: failing at baseline, not checked');
+    // Without a pack the build is what verifies a bump: one that checks nothing cannot.
+    expect(publicationBlockers(result, { uptideDirty: false })).toEqual([
+      'no pack yet: the build fails, already before the upgrade, so it cannot verify it',
+    ]);
   }, 20000);
 });
 

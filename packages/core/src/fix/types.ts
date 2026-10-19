@@ -124,6 +124,11 @@ export interface BuildResult {
   cause?: string;
   /** The end of what it printed, or why nothing ran. */
   output: string;
+  /**
+   * It failed the same way before anything changed (same command, status and output): the
+   * build checks nothing here, and its failure is not the upgrade's (UPT-122).
+   */
+  preexisting?: true;
 }
 /** The repository's own lint (biome, prettier, eslint) run on the files the migration edited. */
 export interface LintResult {

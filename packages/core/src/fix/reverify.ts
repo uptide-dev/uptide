@@ -7,7 +7,7 @@ import { decidedRules, packDecisions } from '../packs/decisions.js';
 import { activePack } from '../packs/index.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { uptideVersionInfo } from '../version.js';
-import { testsOrBuildVouch, upgradeBrokeBuild } from './baseline.js';
+import { markPreexistingBuilds, testsOrBuildVouch, upgradeBrokeBuild } from './baseline.js';
 import { buildWorkspaces, configuredBuildScript } from './build.js';
 import { git } from './process.js';
 import { prBody } from './report.js';
@@ -136,11 +136,14 @@ export async function reverify(
   });
   const buildRequired = report.verification.buildRequired || pack.requiresBuild === true;
   // Rebuilt on this head even when the pack does not require it: a stored result is stale.
-  const build = await (services.build ?? buildWorkspaces)(
-    root,
-    workspaces,
-    undefined,
-    options.buildScript ?? configuredBuildScript(root),
+  const build = markPreexistingBuilds(
+    await (services.build ?? buildWorkspaces)(
+      root,
+      workspaces,
+      undefined,
+      options.buildScript ?? configuredBuildScript(root),
+    ),
+    report.verification.baselineBuild,
   );
   assertInstalledVersions(root, moves);
   const left = git(root, 'status', '--porcelain', '--untracked-files=all')
@@ -183,7 +186,8 @@ export async function reverify(
     !unverified &&
     newErrors.length === 0 &&
     left.length === 0 &&
-    (!buildRequired || (build.length > 0 && build.every((b) => b.status === 'passed'))) &&
+    (!buildRequired ||
+      (build.length > 0 && build.every((b) => b.status === 'passed' || b.preexisting))) &&
     tests.every((t) => t.status === 'passed' || t.status === 'missing') &&
     testsOrBuildVouch(report.typeCoverage, tests, build) &&
     lint.every((l) => l.status !== 'failed');
