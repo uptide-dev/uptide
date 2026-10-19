@@ -6,3 +6,6 @@ snapshot and its sha256, and checking the quote still holds.
 - `MIGRATION-11.7.0.md.txt`: the Sentry JavaScript SDK migration guide,
   https://github.com/getsentry/sentry-javascript/blob/11.7.0/MIGRATION.md, read 2026-10-19.
   MIT License, Copyright (c) 2012 Functional Software, Inc. dba Sentry.
+- `core-11.7.0-datacollection.d.ts.txt`: `build/types/types/datacollection.d.ts` from the published
+  `@sentry/core` 11.7.0 tarball (https://unpkg.com/@sentry/core@11.7.0/build/types/types/datacollection.d.ts),
+  read 2026-10-19. MIT License, Copyright (c) 2012 Functional Software, Inc. dba Sentry.

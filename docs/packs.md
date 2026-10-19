@@ -176,7 +176,7 @@ pack's `records.json`, with the pages it quotes under `sources/`, and is set on 
   subscription creation without `billing_mode`. Sentry's `data-collection-defaults` matches
   `Sentry.init` without `dataCollection` while `sendDefaultPii` is not `true`; after `fix`, an
   init is kept only when every `dataCollection` category is at least as restrictive as the
-  guide's baseline, so a partial deny list stays open.
+  guide's baseline and `frameContextLines` is v10's 7, so a partial deny list stays open.
 - `effect`, and `keepOld`: the edit that keeps the old behavior, whether it is `exact`, and
   when it is not, what else it changes (`alsoChanges`).
 

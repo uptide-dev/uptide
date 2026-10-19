@@ -61,6 +61,7 @@ export const SENTRY_DATA_COLLECTION = {
   databaseQueryData: false,
   queues: false,
   graphQL: { document: false, variables: false },
+  frameContextLines: 7,
 };
 `;
 
@@ -96,10 +97,10 @@ describe('sentry data-collection record (UPT-123)', () => {
     ]);
   });
 
-  it("counts the human's edit as kept: the guide's baseline through an imported const and an options function", () => {
-    const root = repo({
+  it('counts the exact edit as kept, through an imported const and an options function, and only with frameContextLines: 7', () => {
+    const files = (baseline: string) => ({
       ...before,
-      'src/lib/sentry/data-collection.ts': BASELINE,
+      'src/lib/sentry/data-collection.ts': baseline,
       'src/lib/sentry/client-sdk.ts': client('\n    dataCollection: SENTRY_DATA_COLLECTION,'),
       'src/server/sentry.ts': `import * as Sentry from "@sentry/nextjs";
 import { SENTRY_DATA_COLLECTION } from "../lib/sentry/data-collection";
@@ -111,7 +112,13 @@ export function serverSentryOptions(dsn: string) {
 }
 `,
     });
-    expect(sites(root, 'after')).toEqual([]);
+    expect(sites(repo(files(BASELINE)), 'after')).toEqual([]);
+    // The human's lion-reader edit, the guide's block as printed: v11's five context lines, not v10's seven.
+    const guideBlock = BASELINE.replace('  frameContextLines: 7,\n', '');
+    expect(sites(repo(files(guideBlock)), 'after')).toEqual([
+      'src/lib/sentry/client-sdk.ts:4',
+      'src/server/sentry.ts:7',
+    ]);
   });
 
   it('is no site where v10 already collected, the owner chose, nothing is sent or the options are hidden', () => {
@@ -193,7 +200,10 @@ export function start({ dsn, orgId, sendDefaultPii }: { dsn: string; orgId?: str
     expect(prompt).toContain(
       "cookies: false, httpHeaders: { request: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] }",
     );
-    expect(prompt).toContain('queues: false, graphQL: { document: false, variables: false }');
+    expect(prompt).toContain(
+      'queues: false, graphQL: { document: false, variables: false }, frameContextLines: 7 }',
+    );
+    expect(prompt).toContain('"frameContextLines?: number;"');
     expect(prompt).toContain('never a partial deny list');
     expect(prompt).toContain('"// v11 — preserves the v10 default"');
 

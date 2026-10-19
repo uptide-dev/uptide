@@ -23,9 +23,10 @@ const SPREAD_KEYS = ['dataCollection', 'sendDefaultPii', 'enabled'];
  * - `before`: options with no `dataCollection` and `sendDefaultPii` not `true`, the v10
  *   restrictive default. A computed `sendDefaultPii` is a decision; a spread the checker cannot
  *   see, `enabled: false` and test files are no site.
- * - `after`: options whose `dataCollection` is missing or collects more than the guide's
- *   baseline in any category: a cookie deny list, an unset `queues`, a value the checker cannot
- *   see. Those sites stay open, so a partial edit is never reported as kept.
+ * - `after`: options whose `dataCollection` is missing, collects more than the guide's
+ *   baseline in any category (a cookie deny list, an unset `queues`, a value the checker cannot
+ *   see) or leaves `frameContextLines` at v11's 5. Those sites stay open, so a partial edit is
+ *   never reported as kept.
  */
 export function dataCollectionSites(input: {
   root: string;
@@ -204,7 +205,7 @@ export function dataCollectionSites(input: {
   // A typed options object spread into another one is part of that one's site, not its own.
   return sites.filter((s) => !spreadInto.has(s.object)).map(({ object: _, ...s }) => s);
 
-  /** At least as restrictive as the guide's v10 baseline in every category. */
+  /** At least as restrictive as the guide's v10 baseline in every category, v10's context lines kept. */
   function baseline(node: ts.Expression | undefined): boolean {
     const o = node && ts.isObjectLiteralExpression(node) ? node : undefined;
     if (!o) return false;
@@ -241,7 +242,9 @@ export function dataCollectionSites(input: {
       pair('genAI', 'inputs', 'outputs') &&
       off(get(o, 'databaseQueryData')) &&
       off(get(o, 'queues')) &&
-      pair('graphQL', 'document', 'variables')
+      pair('graphQL', 'document', 'variables') &&
+      // v10's seven lines of source context (v11 defaults to five): the edit is exact only with it.
+      get(o, 'frameContextLines')?.getText() === '7'
     );
   }
 

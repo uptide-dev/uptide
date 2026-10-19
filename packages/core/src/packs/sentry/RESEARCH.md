@@ -82,9 +82,13 @@ where the default itself changed.
 (`@sentry/nextjs/data-collection-defaults`, …). Its quotes are verbatim in `sources/MIGRATION-11.7.0.md.txt`,
 the guide at tag 11.7.0 (MIT, Functional Software, Inc. dba Sentry), read 2026-10-19: "In v10,
 leaving `sendDefaultPii` unset behaved like `sendDefaultPii: false` (restrictive)" and the block
-the guide labels "preserves the v10 default". That block is `keepOld`, exact: every category off
-or scrubbed as written. The guide's table also lists `frameContextLines` 7 → 5; the baseline
-leaves it, since fewer source lines is less data, not more.
+the guide labels "preserves the v10 default". That block plus `frameContextLines: 7` is `keepOld`,
+exact: every category off or scrubbed as written, and v10's seven lines of source context around
+stack frames, which v11 cuts to five (the guide's table row is quoted). `frameContextLines` is a
+`DataCollection` option in 11.x (`frameContextLines?: number;` in `@sentry/core` 11.7.0's
+`build/types/types/datacollection.d.ts`, vendored as `sources/core-11.7.0-datacollection.d.ts.txt`),
+and `contextLinesIntegration` in `@sentry/node` and `@sentry/browser` 11.7.0 reads it through
+`getDataCollectionOptions()`.
 
 - **Sites (`check`, before).** `Sentry.init` options, and options objects typed as Sentry's,
   with no `dataCollection` and `sendDefaultPii` unset or `false`, resolved with the checker
@@ -94,8 +98,10 @@ leaves it, since fewer source lines is less data, not more.
 - **Kept (`fix`, after).** Only when the init's `dataCollection` is at least as restrictive as the
   baseline in every category: `userInfo`, `cookies`, `databaseQueryData`, `queues` false;
   `httpBodies: []`; `genAI` and `graphQL` both off; headers and query parameters `false` or a deny
-  list holding every baseline key. A deny list on cookies, a category left at v11's default, or a
-  value the checker cannot see leaves the site open, and the PR says it was not applied.
+  list holding every baseline key; and `frameContextLines: 7`. A deny list on cookies, a category
+  left at v11's default, the guide's block without `frameContextLines` (as lion-reader's human
+  wrote it) or a value the checker cannot see leaves the site open, and the PR says it was not
+  applied.
 - **Why.** UpgradeBench v1 pre-run, brendanlong/lion-reader, run 3caac4a1: the agent "kept v10
   behavior" with `cookies: { deny: ["-ip", "forwarded"] }`, which sends every other cookie,
   session cookies included, and left `urlQueryParams`, `queues` and `graphQL` at v11's defaults.
