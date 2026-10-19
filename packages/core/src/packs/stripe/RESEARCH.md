@@ -43,7 +43,7 @@ on 2026-10-18 establish these preserving parameter paths:
 | subscriptions.create | billing_mode.type = classic |
 | subscriptionSchedules.create | billing_mode.type = classic, only for a new subscription |
 | invoices.createPreview | subscription_details.billing_mode.type or schedule_details.billing_mode.type, only when previewing creation |
-| quotes.create | subscription_data.billing_mode.type; absent subscription context requires a decision |
+| quotes.create | subscription_data.billing_mode.type; unknown recurring-price semantics require a decision |
 | checkout.sessions.create | subscription_data.billing_mode.type, with mode proven subscription |
 | paymentLinks.create | Decision: the API reference exposes no billing_mode parameter; review recurring prices and Dashboard billing mode settings |
 

@@ -183,7 +183,11 @@ stripe.checkout.sessions.create(params);`);
       'schedule_details.billing_mode',
     ],
     ['subscriptionSchedules.create', "customer: 'cus', BILLING", 'billing_mode'],
-    ['quotes.create', 'subscription_data: { BILLING }', 'subscription_data.billing_mode'],
+    [
+      'quotes.create',
+      "line_items: [{price_data: {recurring: {interval: 'month'}}}], subscription_data: { BILLING }",
+      'subscription_data.billing_mode',
+    ],
   ])('%s resolves omitted, explicit and unknown parameters at %s', (method, template, edit) => {
     const omitted = template.replace('BILLING', '');
     const classic = template.replace('BILLING', "billing_mode: { type: 'classic' }");
@@ -198,6 +202,12 @@ declare const unknown: Record<string, any>; stripe.${method}(unknown);`);
     expect(sites.slice(0, 2).every((s) => !s.decision && s.edit?.startsWith(edit))).toBe(true);
     expect(sites[2]?.decision).toBe(true);
     expect(scan(root, 'after').filter((s) => s.kept)).toHaveLength(1);
+  });
+  it('adds quote subscription_data only when an inline price proves recurrence', () => {
+    const root =
+      fixture(`stripe.quotes.create({line_items: [{price_data: {recurring: {interval: 'month'}}}]});
+stripe.quotes.create({subscription_data: {}, line_items: [{price: 'price'}]});`);
+    expect(scan(root).map((s) => s.decision)).toEqual([false, true]);
   });
   it('Payment Links requires a cited decision because the API has no preserving parameter', () => {
     const root =
@@ -273,8 +283,7 @@ stripe.invoices.createPreview({subscription_details: {items: []}}, {apiVersion: 
   });
   it('resolves factory clients and treats unknown request versions as decisions', () => {
     const root = fixture(`let client: Stripe | null = null;
-function init() { client = new Stripe('test', { apiVersion: '2025-08-27.basil' }); }
-function getClient() { return client!; }
+function getClient() { if (client) return client; client = new Stripe('test', {apiVersion: '2025-08-27.basil'}); return client; }
 getClient().subscriptions.create({});
 declare const options: {apiVersion?: string};
 stripe.invoices.createPreview({ subscription_details: {items: []} }, options);`);

@@ -57,6 +57,13 @@ export function stripeBehaviorSites(input: {
         };
         visit(d.body);
         if (returns.length === 1) return returns[0];
+        const first = returns[0];
+        if (
+          first &&
+          ts.isIdentifier(first) &&
+          returns.every((r) => ts.isIdentifier(r) && symbol(r) === symbol(first))
+        )
+          return first;
       }
       return undefined;
     }
@@ -392,8 +399,19 @@ export function stripeBehaviorSites(input: {
             decisionReason =
               'Payment Link API exposes no billing_mode parameter; review recurring prices and Dashboard billing mode settings';
           if (resource === 'Quotes') {
-            const data = present('subscription_data');
-            if (data.state !== 'present')
+            const items = present('line_items');
+            const array = items.state === 'present' ? value(items.value) : undefined;
+            const recurring =
+              array &&
+              ts.isArrayLiteralExpression(array) &&
+              array.elements.some((item) => {
+                const price = property(item, 'price_data', node);
+                return (
+                  price.state === 'present' &&
+                  property(price.value, 'recurring', node).state === 'present'
+                );
+              });
+            if (!recurring)
               decisionReason =
                 'Cannot establish whether this quote creates a subscription from its prices';
           }
