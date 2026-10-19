@@ -12,10 +12,10 @@ These are original `report.json` estimates and spend, checked against the pilot'
 
 | Run | Agent sites | Mechanical sites | Feedback rounds | Old estimate | Actual USD | New estimate | New / actual |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alanagoyal React 18 → 19.3.1 | 18 | 1 | 1 | 1.08 | 0.1336105 | 0.16 | 1.20 |
-| calmcp, round 4, `3ecb8897` | 5 | 1 | 0 | 0.30 | 0.0842459 | 0.09 | 1.07 |
-| dms-saas, round 4, `08cc4e68` | 10 | 2 | 0 | 0.60 | 0.2740438 | 0.28 | 1.02 |
-| enki, round 4, `1ff708af` | 9 | 3 | 1 | 0.54 | 0.1431526 | 0.19 | 1.33 |
+| alanagoyal React 18 → 19.3.1 | 18 | 1 | 1 | 1.08 | 0.1336105 | 0.23 | 1.72 |
+| calmcp, round 4, `3ecb8897` | 5 | 1 | 0 | 0.30 | 0.0842459 | 0.14 | 1.66 |
+| dms-saas, round 4, `08cc4e68` | 10 | 2 | 0 | 0.60 | 0.2740438 | 0.42 | 1.53 |
+| enki, round 4, `1ff708af` | 9 | 3 | 1 | 0.54 | 0.1431526 | 0.29 | 2.03 |
 
 Sources: [pilot #169 comments](https://github.com/uptide-dev/uptide/pull/169),
 [calmcp report](https://github.com/uptide-bench/consetto--calmcp/pull/10),
@@ -44,12 +44,17 @@ executor/verification behavior (including three feedback rounds on dms-saas).
 ## Formula and findings
 
 For pending manual sites only, use the selected model's pricing table and round
-up once to a cent:
+up once to a cent, after applying the safety margin:
 
 - Session minimum: 20k input + 5k output token equivalents ($0.09 on Sonnet).
 - Per distinct migration rule: 12.5k input + 2k output equivalents ($0.045).
 - Per pending site: 250 input + 50 output equivalents ($0.001).
-- Estimate = max(session minimum, rule allowance + site allowance); zero if no sites remain.
+- Estimate = 1.5 × max(session minimum, rule allowance + site allowance), rounded up to a cent; zero if no sites remain.
+
+`SDK_ESTIMATE_MARGIN` supplies an explicit 1.5× safety margin because the
+coefficients are fit in-sample on only four runs. An estimate below actual spend
+turns a free preflight stop into a paid mid-run budget stop. Tests require every
+recorded estimate to remain between 1.3× and 2.5× actual spend.
 
 These are effective uncached token equivalents, not forecasts of raw token totals
 or hard reservations. Actual SDK input includes cheap cached reads: calmcp reports
@@ -70,7 +75,7 @@ not capped at the session minimum.
 Mechanical sites were already excluded after rule application and compiler
 rechecking. There was no mechanical-site counting bug in these four runs; the new
 estimator preserves that boundary. This is a small, in-sample calibration, not a
-claim of 1.5x accuracy on unseen projects, long feedback loops, or other providers.
+claim of 1.3–2.5× accuracy on unseen projects, long feedback loops, or other providers.
 Revisit the coefficients with more runs; do not add repository-specific rates.
 
 ## Spending limits

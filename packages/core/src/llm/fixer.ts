@@ -38,6 +38,9 @@ export function costEstimate(
   });
   return { sites, usd: cents(sites * site), limitUsd, setting };
 }
+// Coefficients fit in-sample on four runs; underestimating turns a free preflight stop into a paid mid-run budget stop.
+export const SDK_ESTIMATE_MARGIN = 1.5;
+
 /** Only pre-agent fields: never use accepted edits, actual tokens or feedback rounds to predict. */
 export interface EstimateSite {
   outcome: string;
@@ -77,7 +80,7 @@ export function sdkCostEstimate(
         Math.max(
           price(20_000, 5_000),
           rules * price(12_500, 2_000) + pending.length * price(250, 50),
-        ),
+        ) * SDK_ESTIMATE_MARGIN,
       )
     : 0;
   return { sites: pending.length, usd, limitUsd, setting };
