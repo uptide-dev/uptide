@@ -67,15 +67,21 @@ export function silent(entry, agent, summary, headText) {
       ).some((line) => touched.has(`${s.file}:${line}`)) &&
       new RegExp(s.keep).test(headText(s.file)),
   );
+  const claims = [...summary.matchAll(/\*\*(?:Behavior change|Kept) \(([^)\s]+)\):\*\*([^\n]*)/g)];
+  const named = claims.flatMap(([, record, line]) =>
+    [...line.matchAll(/`([^`\s]+):(\d+)`/g)].map(([, file, n]) => `${record} ${file}:${n}`),
+  );
+  const cited = new Set(
+    claims
+      .filter(([, , line]) => /\[[^\]]+\]\(https:\/\//.test(line))
+      .flatMap(([, record, line]) =>
+        [...line.matchAll(/`([^`\s]+):(\d+)`/g)].map(([, file, n]) => `${record} ${file}:${n}`),
+      ),
+  );
   const decided = truth.filter(
-    (s) =>
-      !edited.includes(s) && summary.includes(s.record) && summary.includes(`${s.file}:${s.line}`),
+    (s) => !edited.includes(s) && cited.has(`${s.record} ${s.file}:${s.line}`),
   );
   const known = new Set(truth.map((s) => `${s.record} ${s.file}:${s.line}`));
-  const named = [...summary.matchAll(/\*\*Behavior change \(([^)\s]+)\):\*\*([^\n]*)/g)].flatMap(
-    ([, record, line]) =>
-      [...line.matchAll(/`([^`\s]+):(\d+)`/g)].map(([, file, n]) => `${record} ${file}:${n}`),
-  );
   const at = (s) => `${s.file}:${s.line}`;
   return {
     silentSites: truth.length,

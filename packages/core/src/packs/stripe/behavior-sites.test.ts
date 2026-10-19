@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   applicable,
+  recordDecisions,
   recordFindings,
+  recordKept,
   recordProblems,
   recordPrompt,
   recordSites,
@@ -80,6 +82,8 @@ function open(params: SessionCreateParams) { stripe.checkout.sessions.create(par
 open({ mode: 'subscription', subscription_data: build() });
 stripe.checkout.sessions.create({ mode: 'payment' });
 stripe.checkout.sessions.create({ mode: 'setup' });
+function onlyLogs(params: SessionCreateParams) { console.log(params); }
+onlyLogs({ mode: 'subscription' });
 stripe.checkout.sessions.create({ mode: 'subscription', subscription_data: { billing_mode: { type: 'classic' } } });
 stripe.checkout.sessions.create({ mode: 'subscription', subscription_data: { billing_mode: { type: 'flexible' } } });`);
     expect(scan(root).map((s) => s.line)).toEqual([3, 4, 5]);
@@ -103,6 +107,33 @@ const data: SubscriptionData = {};
 data.trial_period_days = 5;
 stripe.checkout.sessions.create({ mode: 'subscription', subscription_data: data });`);
     expect(scan(root).map((s) => s.line)).toEqual([6]);
+  });
+  it('does not infer omission through a mutated builder return or an escaped alias', () => {
+    const root = fixture(`function build(): SubscriptionCreateParams {
+  const p: SubscriptionCreateParams = {};
+  p.billing_mode = { type: 'flexible' };
+  return p;
+}
+stripe.subscriptions.create(build());
+const p: SubscriptionCreateParams = {};
+const alias = p; alias.billing_mode = { type: 'flexible' };
+stripe.subscriptions.create(p);`);
+    expect(scan(root)).toHaveLength(1);
+    expect(scan(root)[0]?.decision).toBe(true);
+  });
+  it('reports proven exact edits as Kept and unresolved sites as cited decisions', () => {
+    const root = fixture("stripe.subscriptions.create({ billing_mode: { type: 'classic' } });");
+    const sites = scan(root, 'after');
+    expect(recordKept(stripeRecords, sites).join('\n')).toContain(
+      '**Kept (stripe/billing-mode-default-flexible):**',
+    );
+    expect(recordKept(stripeRecords, sites).join('\n')).toContain(
+      '[source](https://docs.stripe.com/',
+    );
+    expect(recordDecisions(stripeRecords, sites)).toEqual([]);
+    const unknown = sites.map((s) => ({ ...s, kept: false, decision: true }));
+    expect(recordKept(stripeRecords, unknown)).toEqual([]);
+    expect(recordDecisions(stripeRecords, unknown).join('\n')).toContain('No automatic edit.');
   });
   it('requires a source and proves classic after the session, not mere disappearance or flexible', () => {
     const root = fixture(`stripe.subscriptions.create({ billing_mode: { type: 'classic' } });

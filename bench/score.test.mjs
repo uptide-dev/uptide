@@ -62,7 +62,7 @@ test('silent changes: caught by the keep edit at the site or a decision naming t
   });
   // The line touched without the edit is not caught.
   assert.deepEqual(silent(entry, agent, '', () => 'z.object(shape)').silentEdited, []);
-  const body = `- **Behavior change (${record}):** … Not applied at \`src/tools/index.ts:83\`, \`src/other.ts:4\`: recommended`;
+  const body = `- **Behavior change (${record}):** … Not applied at \`src/tools/index.ts:83\`, \`src/other.ts:4\`: recommended ([source](https://example.com))`;
   assert.deepEqual(silent(entry, agent, body, head), {
     silentSites: 3,
     silentEdited: ['src/tools/index.ts:69'],
@@ -70,6 +70,14 @@ test('silent changes: caught by the keep edit at the site or a decision naming t
     silentFalsePositives: [`${record} src/other.ts:4`],
   });
   assert.equal(silent({}, agent, body, head).silentSites, 0);
+  assert.deepEqual(
+    silent(entry, [], body.replace('([source](https://example.com))', ''), head).silentDecided,
+    [],
+  );
+  assert.deepEqual(
+    silent(entry, [], body.replace('Behavior change', 'Kept'), head).silentFalsePositives,
+    [`${record} src/other.ts:4`],
+  );
 });
 
 test('Stripe builder edit scores the creation site, not unrelated billing changes', () => {

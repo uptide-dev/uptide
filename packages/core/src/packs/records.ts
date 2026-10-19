@@ -193,7 +193,10 @@ export function recordFindings(
         severity: 'unverified',
         confidence: 1,
         fixability: 'manual',
-        reason: record.effect,
+        reason:
+          'decision' in site && site.decision
+            ? `Parameters could not be resolved; review billing_mode before choosing classic or flexible. ${record.effect}`
+            : record.effect,
         rule: record.id,
         details: citations(record),
         evidence: 'pack',

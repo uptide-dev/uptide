@@ -859,7 +859,7 @@ function minimalBody(report: FixReport, title: string): string {
           `- Lockfile: ${lock.outOfScope?.length ?? 0} outside the upgrade, ${lock.parentChurn?.length ?? 0} the parent commit already has, ${lock.transitive?.reduce((n, m) => n + m.changes.length, 0) ?? 0} transitive.`,
         ]
       : []),
-    `- Changed files: ${report.changedFiles?.length ?? 0}. Decisions for you: ${(report.decisions?.length ?? 0) + (report.headline?.decision?.length ?? 0)}. Run notes: ${report.notes.length}.`,
+    `- Changed files: ${report.changedFiles?.length ?? 0}. Decisions for you: ${(report.decisions?.filter((d) => !d.startsWith('- **Kept (')).length ?? 0) + (report.headline?.decision?.length ?? 0)}. Run notes: ${report.notes.length}.`,
     '',
     `Branch: \`${report.branch}\`${report.head ? ` · Verified commit: \`${report.head}\`` : ''}`,
     '',
