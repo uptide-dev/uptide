@@ -512,7 +512,10 @@ Declare `requiresBuild: true` when the upgrade changes contracts only the consum
 build can check. Fix runs each affected workspace's build script (falling back to the
 root script) after migration, using the same credential-filtered environment as tests.
 A missing, failed, or timed-out build blocks publication; its result appears in the
-PR's **Verified by** row. Reverification reruns the required build. Existing packs
+PR's **Verified by** row. A build that fails the same way before the upgrade (same
+command, status and output; only durations and clock times may differ) checks nothing. It is reported as
+`failing at baseline, not checked` and does not fail verification, the same way a test
+that was already failing doesn't. Reverification reruns the required build. Existing packs
 without this declaration retain their current behavior. Next 16 requires this gate
 because custom webpack configuration can fail with the default Turbopack build.
 

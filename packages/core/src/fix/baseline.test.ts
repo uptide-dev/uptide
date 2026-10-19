@@ -7,10 +7,11 @@ import {
   baselineHealth,
   baselineHealthOf,
   fixVerdict,
+  markPreexistingBuilds,
   testsOrBuildVouch,
 } from './baseline.js';
 import { renderMigration, summaryCells, verifiedBy } from './report.js';
-import type { FixDiagnostic, FixReport, TestResult } from './types.js';
+import type { BuildResult, FixDiagnostic, FixReport, TestResult } from './types.js';
 import { diagnostics } from './verify.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'uptide-baseline-tests-'));
@@ -204,5 +205,55 @@ describe('low type coverage (UPT-12)', () => {
       text: 'verification failed: types cover 3 of 10 affected files and no test or build passed',
       tone: 'failed',
     });
+  });
+});
+
+describe('markPreexistingBuilds (UPT-122)', () => {
+  const tsc = (output: string): BuildResult => ({
+    workspace: '.',
+    status: 'failed',
+    command: 'tsc -b',
+    output,
+  });
+  const before = tsc(
+    "src/a.ts(3,8): error TS2322: Type 'string' is not assignable.\nFound 1 error. Done in 2.4s at 10:41:07",
+  );
+  const marked = (after: BuildResult) => markPreexistingBuilds([after], [before])[0]?.preexisting;
+
+  it('marks a failure that differs only in its duration and clock time', () => {
+    expect(
+      marked(
+        tsc(
+          "src/a.ts(3,8): error TS2322: Type 'string' is not assignable.\nFound 1 error. Done in 31.07s at 10:52:44",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      'another error code',
+      "src/a.ts(3,8): error TS2339: Type 'string' is not assignable.\nFound 1 error. Done in 2.4s at 10:41:07",
+    ],
+    [
+      'another position',
+      "src/a.ts(9,1): error TS2322: Type 'string' is not assignable.\nFound 1 error. Done in 2.4s at 10:41:07",
+    ],
+    [
+      'another count',
+      "src/a.ts(3,8): error TS2322: Type 'string' is not assignable.\nFound 2 errors. Done in 2.4s at 10:41:07",
+    ],
+  ])('does not mark a failure with %s', (_, output) => {
+    expect(marked(tsc(output))).toBeUndefined();
+  });
+
+  it('does not mark a build that passed at baseline, or ran another command', () => {
+    expect(
+      markPreexistingBuilds([before], [{ ...before, status: 'passed', output: '' }])[0]
+        ?.preexisting,
+    ).toBeUndefined();
+    expect(
+      markPreexistingBuilds([before], [{ ...before, command: 'vite build' }])[0]?.preexisting,
+    ).toBeUndefined();
   });
 });

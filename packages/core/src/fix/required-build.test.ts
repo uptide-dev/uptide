@@ -19,8 +19,15 @@ it.each(['passed', 'failed', 'missing'] as const)(
   'requires the repo build after a packed migration: %s',
   async (status) => {
     const { root, services } = zodFixture(scratch);
+    // Passing at baseline: a build that already failed there is not the upgrade's (UPT-122).
+    let builds = 0;
     const build = vi.fn(async () => [
-      { workspace: '.', status, output: status, command: 'next build' },
+      {
+        workspace: '.',
+        status: builds++ === 0 && status === 'failed' ? ('passed' as const) : status,
+        output: status,
+        command: 'next build',
+      },
     ]);
     const result = await fix({ cwd: root, only: 'zod', pack, fixer: null }, { ...services, build });
     expect(build).toHaveBeenCalledWith(root, ['.'], undefined, undefined);
@@ -216,4 +223,53 @@ it('fails a run whose parent could not be checked, and never says the parent pas
   expect(publicationBlockers({ ...result, uptideDirty: false }, { uptideDirty: false })).toEqual(
     [],
   );
+});
+
+/** The build of sCypher-me/cypher-browser on a machine without PowerShell (UPT-122). */
+const pwshBuild = (seconds = 1) => ({
+  workspace: '.',
+  status: 'failed' as const,
+  command: 'npm run build',
+  output: `> npm run prepare:tracker-list && tsc --noEmit && vite build\n> pwsh -File scripts/fetch-tracker-list.ps1\nsh: pwsh: command not found\nnpm error Lifecycle script failed after ${seconds}s`,
+});
+
+it('does not fail a required build that fails the same way before and after the upgrade (UPT-122)', async () => {
+  const { root, services } = zodFixture(scratch);
+  // Only the duration differs between the baseline build and the one after the bump.
+  let builds = 0;
+  const build = vi.fn(async () => [pwshBuild(++builds)]);
+  const result = await fix({ cwd: root, only: 'zod', pack, fixer: null }, { ...services, build });
+  expect(builds).toBeGreaterThanOrEqual(2);
+  expect(result.verification.baselineBuild).toEqual([pwshBuild(1)]);
+  expect(result.verification.build?.at(-1)).toMatchObject({ status: 'failed', preexisting: true });
+  expect(result.verification.passed).toBe(true);
+  expect(result.verification.buildBroken).toBeUndefined();
+  // Compared, not proved: the build checked nothing.
+  expect(fixVerdict(result)).toEqual({ text: 'no new errors', tone: 'compared' });
+  const body = prBody(result);
+  expect(body).toContain('⚠️ build: failing at baseline, not checked');
+  expect(body).not.toContain('❌ build');
+  expect(body).toContain('**Build: . (failing at baseline, not checked)**');
+  expect(publicationBlockers({ ...result, uptideDirty: false }, { uptideDirty: false })).toEqual(
+    [],
+  );
+  // `verify` compares with the stored baseline build the same way.
+  const again = await reverify(
+    { cwd: root, pack },
+    { ...services, build: async () => [pwshBuild(7)] },
+  );
+  expect(again.verification.passed).toBe(true);
+});
+
+it('fails a required build that failed at baseline but fails differently after the upgrade (UPT-122)', async () => {
+  const { root, services } = zodFixture(scratch);
+  let builds = 0;
+  const build = vi.fn(async () => [builds++ === 0 ? pwshBuild() : failedBuild]);
+  const result = await fix({ cwd: root, only: 'zod', pack, fixer: null }, { ...services, build });
+  expect(result.verification.build?.at(-1)?.preexisting).toBeUndefined();
+  expect(result.verification.passed).toBe(false);
+  expect(prBody(result)).toContain(
+    "❌ build: src/db.ts(3,8): error TS2307: Cannot find module 'pg'.",
+  );
+  expect(publicationBlockers(result).join('; ')).toContain('build required by the migration pack');
 });
