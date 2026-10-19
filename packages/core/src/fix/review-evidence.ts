@@ -50,7 +50,12 @@ export function agentDecisionLines(report: FixReport): string[] {
           return `- ${count} revalidateTag calls in \`${file}\` now pass \`{ expire: 0 }\` (immediate expiry, as in Next 15). Next recommends [\`"max"\`](https://nextjs.org/docs/app/api-reference/functions/revalidateTag) (stale-while-revalidate) for most cases; \`updateTag\` is another option for Server Actions: confirm or change.`;
         });
       }
-      const decisions = task.summary?.decisions ?? [];
+      // A behavior record's line already puts it to the owner, with its sources: the agent's
+      // restatement of it, naming the record id, is not said again.
+      const recorded = new Set((report.packContext?.recordSites ?? []).map((r) => r.record));
+      const decisions = (task.summary?.decisions ?? []).filter(
+        (d) => ![...recorded].some((id) => d.includes(id)),
+      );
       const rules = [...new Set(sites.map((site) => site.rule ?? ''))].sort();
       if (decisions.length === 0 || (rules.length > 0 && rules.every((r) => decided.has(r))))
         return [];

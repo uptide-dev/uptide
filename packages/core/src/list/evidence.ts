@@ -19,9 +19,21 @@ export function installedManifest(
   workspace: string,
   name: string,
 ): Manifest | undefined {
+  const dir = installedPackageDir(root, workspace, name);
+  return dir ? JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) : undefined;
+}
+
+/** The directory Node resolution finds `name` in from `workspace`, when it has a readable manifest. */
+export function installedPackageDir(
+  root: string,
+  workspace: string,
+  name: string,
+): string | undefined {
   for (let dir = resolve(root, workspace); ; dir = dirname(dir)) {
+    const at = join(dir, 'node_modules', name);
     try {
-      return JSON.parse(readFileSync(join(dir, 'node_modules', name, 'package.json'), 'utf8'));
+      JSON.parse(readFileSync(join(at, 'package.json'), 'utf8'));
+      return at;
     } catch {
       // Discovery also works before installation; registry metadata supplies peers and bins.
     }

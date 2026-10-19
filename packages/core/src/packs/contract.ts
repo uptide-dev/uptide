@@ -150,6 +150,21 @@ export interface GroundTruthRepo {
   why: string;
   /** Repository-relative `file`, 1-based `line`, and the rule (or behavior note) id. */
   findings: GroundTruthFinding[];
+  /**
+   * Silent behavior changes the real upgrade made (ADR 0017): `required` keeps the old behavior
+   * and is what a record must find; `product-choice` is a change the upgrade did not need, and a
+   * record site there is a false positive. Scored apart from `findings`.
+   */
+  silent?: GroundTruthSilent[];
+}
+
+export interface GroundTruthSilent {
+  file: string;
+  line: number;
+  /** The behavior record id (`zod/mcp-input-schema-additional-properties`). */
+  record: string;
+  kind: 'required' | 'product-choice';
+  note?: string;
 }
 
 export interface GroundTruthFinding {
@@ -180,6 +195,8 @@ export interface PackVerification {
   breaking: VerificationTally;
   /** Sites of behavior notes, whatever their severity. Absent from records written before it. */
   behavior?: VerificationTally;
+  /** Sites of behavior records against `silent` ground truth; only for a pack with records or silent truth. */
+  silent?: VerificationTally;
   /** The gate's class (`verifiedGate`). Absent from records written before UPT-48. */
   class?: 'breaking' | 'behavior';
   /** Expected breaking and behavior-note sites across public repositories. */

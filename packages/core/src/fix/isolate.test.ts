@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { SafetyRefusal, UptideError } from '../errors.js';
 import { selectLlm } from '../llm/config.js';
 import { genericPack } from '../packs/generic.js';
@@ -965,6 +965,11 @@ it('checks committed root pins before cloning, even if the working copy removes 
 });
 
 describe('preflight refusals become agent-led drafts with an agent (UPT-78)', () => {
+  // A test that times out never reaches its `finally`: its planner spy would answer every
+  // later test's preflight. Restored here too, so one slow runner fails one test, not five.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   const agent = {
     only: 'zod',
     target: '4.6.5',

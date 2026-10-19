@@ -55,6 +55,17 @@ export function truthProblems(truth: GroundTruth, packageName: string): string[]
     for (const f of r.findings ?? [])
       if (!f.file || !Number.isInteger(f.line) || f.line < 1 || !f.rule)
         problems.push(`${where}: every finding has a file, a line and a rule`);
+    for (const f of r.silent ?? [])
+      if (
+        !f.file ||
+        !Number.isInteger(f.line) ||
+        f.line < 1 ||
+        !f.record ||
+        !['required', 'product-choice'].includes(f.kind)
+      )
+        problems.push(
+          `${where}: every silent change has a file, a line, a record and a kind (required or product-choice)`,
+        );
   });
   return problems;
 }

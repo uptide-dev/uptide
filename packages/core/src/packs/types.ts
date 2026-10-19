@@ -2,6 +2,7 @@ import type { ChangeKind } from '../domain/change.js';
 import type { Finding } from '../domain/report.js';
 import type { Usage } from '../domain/usage.js';
 import type { BehaviorNote } from './contract.js';
+import type { BehaviorRecord, RecordSite } from './records.js';
 
 export interface MigrationEvidence {
   path: string;
@@ -53,6 +54,13 @@ export interface PackContext {
   apiClients?: { file: string; line: number; version: string | null; resources: string[] }[];
   /** Places that depend on the dependency's default messages, which the target words differently. */
   defaultMessages?: DefaultMessageSite[];
+  /** The sites the pack's behavior records matched, repository-relative; `kept` once a session ran. */
+  recordSites?: RecordSite[];
+  /**
+   * Lines of the target's own CHANGELOG.md, between the two versions, that name something the
+   * repository uses and say a behavior changed: context for the agent, never findings.
+   */
+  changelog?: string[];
 }
 /** What a provider's API changelog says between the two pinned API versions, against this code. */
 export interface ApiChangeFacts {
@@ -127,6 +135,11 @@ export interface PackCompanion {
 
 export interface MigrationPack {
   readonly behavior?: readonly BehaviorNote[];
+  /**
+   * Silent behavior changes with a cited source and a trigger (ADR 0017): each match is a site of
+   * its own rule (the record id), never breaking, reported to the agent and under "Decisions for you".
+   */
+  readonly records?: readonly BehaviorRecord[];
   readonly name: string;
   /**
    * Rules whose edit no real upgrade in the ground truth exercised (`verification.json`):
