@@ -50,7 +50,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
       # Reads uptide.yml, runs Uptide, opens draft pull requests and uploads the results JSON.
-      - uses: uptide-dev/uptide@63e91ef2a52815ce5d75d3bd0fb53596956afb1c # v0.17.0
+      - uses: uptide-dev/uptide@9018eb7ffc14cc382f894d53788f08e96c4e501a # v0.18.0
         with:
           config: uptide.yml
           mode: ${{ inputs.mode || 'fix' }}
