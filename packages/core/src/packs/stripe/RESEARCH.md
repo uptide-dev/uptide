@@ -82,3 +82,12 @@ wrapper; the proven subscription caller uses the builder at :211. The other
 creation site remains provisioning.ts:355. Both are already in the frozen bench
 truth, derived from the human upgrade. No extra silent-change site is warranted
 by the cited source, and no Uptide output was used to add expected sites.
+
+The frozen unkey pack truth still lists two creation sites, but both clients pin
+`2023-10-16` in the source tree. A check of that unchanged tree now suppresses
+both silent findings, as required for a retained pin. Its silent tally therefore
+records 0 TP / 0 FP / 2 FN against the unchanged expectations; this is disclosed,
+not repaired by changing the oracle after scoring. In `fix`, selecting the
+API-version migration adds the corresponding creation sites to the agent's plan.
+Raw compiler findings are classified through the existing `ruleFor` helper,
+because their `rule` field is not necessarily set yet.

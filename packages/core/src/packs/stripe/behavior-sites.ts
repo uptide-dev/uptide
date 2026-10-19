@@ -8,6 +8,7 @@ import { type ApiClient, apiClients } from './relevance.js';
 export interface StripeBehaviorContext {
   apiVersions: { from: string; to: string };
   apiClients?: ApiClient[];
+  sitesBefore?: readonly RecordSite[];
   /** Clients whose explicit API pin is part of the selected API-version migration. */
   movingApiPins?: { file: string; line: number }[];
 }
@@ -249,10 +250,13 @@ export function stripeBehaviorSites(input: {
     }
     return undefined;
   }
+  let requestApiVersion: string | undefined;
   function requestVersion(
     node: ts.CallExpression,
     checkoutWrapper: boolean,
+    identity: string,
   ): 'crosses' | 'unchanged' | 'unknown' {
+    requestApiVersion = undefined;
     // A per-request override takes precedence over the client's configuration.
     const options = node.arguments[1];
     const overrideProperty = (expr: ts.Expression | undefined): Property => {
@@ -309,7 +313,15 @@ export function stripeBehaviorSites(input: {
           ? pinLiteral.text
           : undefined;
     if (pin !== undefined) {
-      const before = pin ?? defaults.from;
+      const before =
+        input.stripe?.sitesBefore?.find(
+          (s) =>
+            s.file === relative(input.root, node.getSourceFile().fileName) &&
+            s.identity === identity,
+        )?.requestApiVersion ??
+        pin ??
+        defaults.from;
+      requestApiVersion = before;
       const after =
         input.phase === 'after'
           ? (currentClient?.version ??
@@ -367,7 +379,7 @@ export function stripeBehaviorSites(input: {
               node.expression.name.text === (resource === 'Invoices' ? 'createPreview' : 'create')))
         ) {
           const identity = `${subscription ? 'subscriptions' : checkout ? 'checkout' : resource}.create:${ordinal++}`;
-          const version = requestVersion(node, checkoutWrapper);
+          const version = requestVersion(node, checkoutWrapper, identity);
           if (input.phase === 'before' && version === 'unchanged') {
             ts.forEachChild(node, visit);
             return;
@@ -475,6 +487,7 @@ export function stripeBehaviorSites(input: {
               line: line + 1,
               snippet: (lines[line] ?? '').trim(),
               identity,
+              ...(requestApiVersion ? { requestApiVersion } : {}),
               decision: state.state === 'unknown' || !!decisionReason,
               ...(decisionReason ? { decisionReason } : {}),
               edit: `${nesting ? `${nesting}.` : ''}billing_mode: { type: 'classic' }`,

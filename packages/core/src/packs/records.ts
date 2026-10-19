@@ -80,6 +80,8 @@ export interface RecordSite {
   kept?: boolean;
   /** The request API version did not cross the behavioral boundary. */
   unaffected?: boolean;
+  /** Effective pre-migration request version, retained for post-edit comparison. */
+  requestApiVersion?: string;
   /** Stable call identity for post-session verification. */
   identity?: string;
   /** Params cannot be resolved: ask the owner, never insert an edit. */

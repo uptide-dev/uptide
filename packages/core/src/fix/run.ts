@@ -37,7 +37,6 @@ import {
   applicable,
   type RecordSite,
   recordDecisions,
-  recordFindings,
   recordKept,
   recordSites,
 } from '../packs/records.js';
@@ -74,6 +73,7 @@ import { describeRootPin, planRootPins, writeRootPins } from './root-pins.js';
 import { assistWithSdk, sdkRequired, sdkUnavailable, type TaskRunner } from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
+import { stripeBehaviorPlan } from './stripe-behavior.js';
 import { formatFiles, lintFiles } from './style.js';
 import { type ResolvedTarget, resolveTarget } from './target.js';
 import type {
@@ -680,42 +680,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const selected = [pack.name, ...(sitePack === pack ? [] : companionPacks.map((c) => c.pack.name))]
     .flatMap((name) => selectedFindings(report, name, options.includeDeprecated ?? false))
     .filter((f) => !generic || f.severity === 'breaking');
-  // A pinned client's default changes only when its API-version migration is selected.
-  // Payload api_version fixtures (payloadApiVersions above) never move a request client.
-  const stripeBehavior =
-    pack.name === 'stripe' && packContext.apiVersions
-      ? {
-          apiVersions: packContext.apiVersions,
-          apiClients: packContext.apiClients,
-          movingApiPins: selected
-            .filter((f) => f.rule === 'api-version')
-            .map((f) => ({ file: f.usage.file, line: f.usage.line })),
-        }
-      : undefined;
-  if (stripeBehavior) {
-    for (const workspace of workspaces) {
-      for (const finding of recordFindings(pack.records ?? [], {
-        root,
-        workspace,
-        package: pack.name,
-        from: initialContext.from,
-        to: target,
-        stripe: stripeBehavior,
-      })) {
-        finding.usage.file =
-          workspace === '.' ? finding.usage.file : join(workspace, finding.usage.file);
-        if (
-          !selected.some(
-            (f) =>
-              f.rule === finding.rule &&
-              f.usage.file === finding.usage.file &&
-              f.usage.line === finding.usage.line,
-          )
-        )
-          selected.push(finding);
-      }
-    }
-  }
+  const stripeBehavior = stripeBehaviorPlan(pack, packContext, selected, {
+    root,
+    workspaces,
+    from: initialContext.from,
+    to: target,
+  });
   const affected = [...new Set(selected.map((f) => f.usage.file))];
   // Evidence at a site the compiler rejected is confirmed evidence: the change is real there.
   if (packContext.evidence)
@@ -1494,7 +1464,12 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const before = packContext.recordSites ?? [];
   if (before.length) {
     const open = workspaces.flatMap((workspace) =>
-      recordSites(records, { root, workspace, phase: 'after', stripe: stripeBehavior }),
+      recordSites(records, {
+        root,
+        workspace,
+        phase: 'after',
+        stripe: stripeBehavior ? { ...stripeBehavior, sitesBefore: before } : undefined,
+      }),
     );
     const same = (a: RecordSite, b: RecordSite) => a.file === b.file && a.record === b.record;
     const activeBefore = before.filter(

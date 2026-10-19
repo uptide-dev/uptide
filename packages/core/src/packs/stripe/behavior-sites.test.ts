@@ -2,6 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import type { Finding } from '../../domain/report.js';
+import { stripeBehaviorPlan } from '../../fix/stripe-behavior.js';
 import {
   applicable,
   recordDecisions,
@@ -231,6 +233,64 @@ stripe.quotes.create({ line_items: [{price: 'price'}] });`);
     expect(scan(root)).toHaveLength(1);
     expect(scan(root)[0]?.decision).toBe(true);
   });
+  it('adds quoted sites to the agent plan when a raw compiler finding moves the API pin', () => {
+    const root = fixture(`const client = new Stripe('test', {apiVersion: '2025-08-27.basil'});
+client.subscriptions.create({});`);
+    const selected: Finding[] = [
+      {
+        change: {
+          package: 'stripe',
+          from: '18.5.0',
+          to: '22.6.2',
+          path: 'Stripe.LatestApiVersion',
+          kind: 'type',
+          severity: 'breaking',
+          source: 'types',
+          confidence: 1,
+        },
+        usage: {
+          file: 'code.ts',
+          line: 3,
+          column: 1,
+          endLine: 3,
+          endColumn: 1,
+          symbolPath: 'Stripe.LatestApiVersion',
+          access: 'typeRef',
+          snippet: 'apiVersion',
+          via: 'direct',
+        },
+        severity: 'breaking',
+        confidence: 1,
+        fixability: 'assisted',
+        reason: 'type incompatible',
+      },
+    ];
+    expect(selected[0]?.rule).toBeUndefined();
+    const context = {
+      from: '18.5.0',
+      to: '22.6.2',
+      includeDeprecated: false,
+      apiVersions: { from: '2025-08-27.basil', to: '2026-08-26.dahlia' },
+      apiClients: apiClients(root, ['.']),
+    };
+    stripeBehaviorPlan(stripePack, context, selected, {
+      root,
+      workspaces: ['.'],
+      from: context.from,
+      to: context.to,
+    });
+    expect(selected).toHaveLength(2);
+    expect(selected[1]?.rule).toBe('stripe/billing-mode-default-flexible');
+    expect(selected[1]?.details?.join('\n')).toContain('Subscriptions you create through the API');
+    const retained: Finding[] = [];
+    stripeBehaviorPlan(
+      stripePack,
+      { ...context, payloadVersions: [{ file: 'code.ts', line: 3, value: '2026-08-26.dahlia' }] },
+      retained,
+      { root, workspaces: ['.'], from: context.from, to: context.to },
+    );
+    expect(retained).toEqual([]);
+  });
   it('uses the receiver client pin, not payload versions or another client', () => {
     const root = fixture(`const old = new Stripe('test', { apiVersion: '2025-08-27.basil' });
 const current = new Stripe('test', { apiVersion: '2025-09-30.clover' });
@@ -280,6 +340,32 @@ const pinned = new Stripe('test', options);
 pinned.subscriptions.create({});
 stripe.invoices.createPreview({subscription_details: {items: []}}, {apiVersion: '2025-08-27.basil'});`);
     expect(scan(root)).toHaveLength(0);
+  });
+  it('retains the pre-edit version for options bindings that the client inventory cannot resolve', () => {
+    const code = `const options = {apiVersion: '2025-08-27.basil'};
+const client = new Stripe('test', options);
+client.subscriptions.create({});`;
+    const root = fixture(code);
+    const stripe = {
+      apiVersions: { from: '2025-08-27.basil', to: '2025-09-30.clover' },
+      movingApiPins: [{ file: 'code.ts', line: 3 }],
+    };
+    const sitesBefore = recordSites(stripeRecords, {
+      root,
+      workspace: '.',
+      phase: 'before',
+      stripe,
+    });
+    expect(sitesBefore).toHaveLength(1);
+    const updated = `import Stripe from 'stripe';\nconst stripe = new Stripe();\n${code.replace('2025-08-27.basil', '2025-09-30.clover')}`;
+    writeFileSync(join(root, 'code.ts'), updated);
+    const after = recordSites(stripeRecords, {
+      root,
+      workspace: '.',
+      phase: 'after',
+      stripe: { ...stripe, sitesBefore },
+    });
+    expect(after[0]?.unaffected).toBe(false);
   });
   it('resolves factory clients and treats unknown request versions as decisions', () => {
     const root = fixture(`let client: Stripe | null = null;
