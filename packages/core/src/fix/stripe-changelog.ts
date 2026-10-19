@@ -124,7 +124,7 @@ export function stripeChangelog(
     // In order, new defaults first; the PR body fits them to its budget.
     unmatched: unmatched.map((e) => e.line),
     lines: [
-      `**${evidence.length} ${evidence.length === 1 ? 'change' : 'changes'} with evidence in your code**`,
+      `**${evidence.length} ${evidence.length === 1 ? 'change' : 'changes'} with ${report.packContext?.recordSites?.length ? 'field-name ' : ''}evidence in your code**${report.packContext?.recordSites?.length ? `; ${report.packContext.recordSites.length} cited behavior sites are reported above.` : ''}`,
       '',
       ...evidence,
     ],
