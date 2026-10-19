@@ -20,7 +20,14 @@ import { groupPeerBlockers, peerDescription } from './peer-preflight.js';
 import { agentDecisionLines, testOutput } from './review-evidence.js';
 import { stripeChangelog } from './stripe-changelog.js';
 import { isTestFile } from './test-edits.js';
-import type { FixDiagnostic, FixPhase, FixReport, FixSite, ReviewSection } from './types.js';
+import type {
+  FixDiagnostic,
+  FixPhase,
+  FixReport,
+  FixSite,
+  FixtureProperty,
+  ReviewSection,
+} from './types.js';
 import { failedTestFiles, missingPackages, newDiagnostics } from './verify.js';
 
 export function fixCounts(report: FixReport) {
@@ -1249,7 +1256,13 @@ export function renderMigration(
               (site.finding.usage.file === file || site.editedFiles?.includes(file)),
           )
           .map((site) => site.reason);
-        return `- ${file}: ${[...new Set([...agent, ...sites])].join('; ') || 'No explanation retained; review this test change before merging.'}`;
+        const added = fixtureProperties(report)
+          .filter((p) => p.file === file)
+          .map(
+            (p) =>
+              `\n  - Added \`${p.property}: ${p.value}\` at ${p.file}:${p.line}: the compiler reported it missing there; the value is the agent's choice.`,
+          );
+        return `- ${file}: ${[...new Set([...agent, ...sites])].join('; ') || 'No explanation retained; review this test change before merging.'}${added.join('')}`;
       }),
     );
   if (mode === 'compact')
@@ -1725,4 +1738,18 @@ export function editDiff(before: string, after: string): string {
     ...a.slice(start, endA).map((s) => `- ${s.trim()}`),
     ...b.slice(start, endB).map((s) => `+ ${s.trim()}`),
   ].join('\n');
+}
+
+/** Fixture properties accepted edits added because the compiler reported them missing (UPT-121). */
+function fixtureProperties(report: FixReport): FixtureProperty[] {
+  return [
+    ...(report.llm.tasks ?? [])
+      .filter((task) => task.gate === 'accepted')
+      .flatMap((task) => task.fixtureProperties ?? []),
+    ...report.sites.flatMap((site) =>
+      (site.attempts ?? [])
+        .filter((attempt) => attempt.outcome === 'accepted')
+        .flatMap((attempt) => attempt.fixtureProperties ?? []),
+    ),
+  ];
 }

@@ -63,6 +63,8 @@ export interface AssistedAttempt {
   costUsd: number;
   explanation: string;
   diff?: string;
+  /** Fixture properties the gate accepted because the compiler reported them missing. */
+  fixtureProperties?: FixtureProperty[];
 }
 export interface TestResult {
   /** The workspace the run is reported under; a shared configuration reports under its directory. */
@@ -144,6 +146,18 @@ export interface AgentSummary {
   assumptions: string[];
   couldNotDo: string[];
 }
+/**
+ * A property an agent added to a test fixture because the compiler reported it missing there
+ * (UPT-121): the value is the agent's choice, so a reviewer sees it.
+ */
+export interface FixtureProperty {
+  file: string;
+  /** In the file as the edit left it. */
+  line: number;
+  property: string;
+  /** The literal as written (`'ok'`). */
+  value: string;
+}
 /** One SDK session over the package's manual sites, measured, and the gate's verdict. */
 export interface AgentTaskRecord {
   id: string;
@@ -173,6 +187,8 @@ export interface AgentTaskRecord {
   batch?: number;
   /** Accepted file diffs captured before the task's working tree can change. */
   diffs?: Record<string, string>;
+  /** Fixture properties the gate accepted because the compiler reported them missing. */
+  fixtureProperties?: FixtureProperty[];
   summary?: AgentSummary;
 }
 export interface FixRequest {

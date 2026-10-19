@@ -12,8 +12,15 @@ import { applySitePatch } from './patch.js';
 import { git } from './process.js';
 import { siteKey } from './report.js';
 import { safeFile } from './settle.js';
-import { missingProperties, testEditObjection } from './test-edits.js';
-import type { AssistedAttempt, FixDiagnostic, Fixer, FixReport, FixSite } from './types.js';
+import { testEditObjection } from './test-edits.js';
+import type {
+  AssistedAttempt,
+  FixDiagnostic,
+  Fixer,
+  FixReport,
+  FixSite,
+  FixtureProperty,
+} from './types.js';
 import { diagnosticKey, lineMoves, moved, newDiagnostics } from './verify.js';
 
 /** Lines of using statements shown with an import site. */
@@ -377,13 +384,15 @@ export async function assist(
         if (response.halt) halted = true;
         if (response.failure) throw new Error(response.failure);
         const edits = applySitePatch(files, response.diff);
+        const fixtureProperties: FixtureProperty[] = [];
         for (const [path, patched] of edits) {
           const testObjection = testEditObjection(
             path,
             files.get(path)?.source ?? '',
             patched,
             response.explanation,
-            missingProperties(before, path),
+            before,
+            fixtureProperties,
           );
           if (testObjection) throw new Error(testObjection);
           const objection = pack.validateAssisted?.(
@@ -410,6 +419,7 @@ export async function assist(
         );
         if (removed && newErrors.length === 0) {
           log.outcome = 'accepted';
+          if (fixtureProperties.length) log.fixtureProperties = fixtureProperties;
           site.outcome = 'agent';
           site.diff = response.diff;
           site.reason = `${fixer.id}: removed TS${diagnostic.code}; no new diagnostics. ${log.explanation}`;

@@ -23,7 +23,7 @@ import {
   type TaskRun,
   taskPrompt,
 } from './sdk-agent.js';
-import type { AgentSummary, FixDiagnostic, FixSite, TestResult } from './types.js';
+import type { AgentSummary, FixDiagnostic, FixSite, FixtureProperty, TestResult } from './types.js';
 
 const git = (cwd: string, ...args: string[]) =>
   execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
@@ -775,5 +775,7 @@ it('accepts a fixture property the starting diagnostics report missing (UPT-121)
       "Property 'status' is missing in type '{ span_id: string; }' but required in type 'SpanJSON'.",
   };
   expect(editRules(root, task, said)).toContain('rejected');
-  expect(editRules(root, task, said, [missing])).toBeUndefined();
+  const added: FixtureProperty[] = [];
+  expect(editRules(root, task, said, [missing], added)).toBeUndefined();
+  expect(added).toEqual([{ file: 'span.test.ts', line: 1, property: 'status', value: "'ok'" }]);
 });

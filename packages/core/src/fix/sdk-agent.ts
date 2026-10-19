@@ -25,13 +25,14 @@ import type { MigrationPack, PackContext } from '../packs/types.js';
 import { command, git } from './process.js';
 import { commit, followedText, safeFile } from './settle.js';
 import { formatFiles, lintFiles } from './style.js';
-import { isTestFile, missingProperties, testEditObjection } from './test-edits.js';
+import { isTestFile, testEditObjection } from './test-edits.js';
 import type {
   AgentSummary,
   AgentTaskRecord,
   FixDiagnostic,
   FixReport,
   FixSite,
+  FixtureProperty,
   LintResult,
   TestResult,
 } from './types.js';
@@ -223,13 +224,15 @@ export function declaredFiles(root: string, summary: AgentSummary | undefined): 
 /**
  * What a task's own edits must satisfy before anything runs: only the task's files plus the
  * new files the agent declared, and no compiler escape hatches. Returns why not, or undefined.
- * `before` is the task's starting diagnostics: what they say a fixture lacks, a test may add.
+ * `before` is the task's starting diagnostics: what they say a fixture lacks, a test may add,
+ * and each such property lands in `fixtureProperties`.
  */
 export function editRules(
   root: string,
   task: AgentTask,
   summary: AgentSummary | undefined,
   before: readonly FixDiagnostic[] = [],
+  fixtureProperties: FixtureProperty[] = [],
 ): string | undefined {
   const { modified, added } = changedPaths(root);
   const outside = modified.filter((f) => !task.files.includes(f));
@@ -243,7 +246,8 @@ export function editRules(
       added.includes(file) ? '' : git(root, 'show', `HEAD:${file}`),
       existsSync(join(root, file)) ? readFileSync(join(root, file), 'utf8') : '',
       summary?.changed.find((change) => change.file === file)?.what,
-      missingProperties(before, file),
+      before,
+      fixtureProperties,
     );
     if (objection) return objection;
   }
@@ -693,8 +697,10 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     // Only declared additions enter the gate; scratch files must not forfeit otherwise valid edits.
     for (const file of discardedFiles) rmSync(join(root, file));
     const touched = [...modified, ...added.filter((file) => !discardedFiles.includes(file))];
+    const fixtureProperties: FixtureProperty[] = [];
     const rejection =
-      error ?? (touched.length ? editRules(root, task, run.summary, before) : undefined);
+      error ??
+      (touched.length ? editRules(root, task, run.summary, before, fixtureProperties) : undefined);
     const record: AgentTaskRecord = {
       id: task.id,
       rule: task.rule,
@@ -705,6 +711,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       gate: error ? 'error' : !touched.length ? 'no-change' : rejection ? 'rejected' : 'accepted',
       ...(rejection ? { rejection } : {}),
       ...(discardedFiles.length ? { discardedFiles } : {}),
+      ...(!rejection && fixtureProperties.length ? { fixtureProperties } : {}),
     };
     records.push(record);
     const said = run.summary
