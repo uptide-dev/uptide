@@ -33,7 +33,13 @@ import {
   withCompanionPacks,
 } from '../packs/index.js';
 import { leadName } from '../packs/leads.js';
-import { applicable, type RecordSite, recordDecisions, recordSites } from '../packs/records.js';
+import {
+  applicable,
+  type RecordSite,
+  recordDecisions,
+  recordKept,
+  recordSites,
+} from '../packs/records.js';
 import { payloadApiVersions, stripeUsageContext } from '../packs/stripe/relevance.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { resetSharedState } from '../shared-state.js';
@@ -67,6 +73,7 @@ import { describeRootPin, planRootPins, writeRootPins } from './root-pins.js';
 import { assistWithSdk, sdkRequired, sdkUnavailable, type TaskRunner } from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
+import { stripeBehaviorPlan } from './stripe-behavior.js';
 import { formatFiles, lintFiles } from './style.js';
 import { type ResolvedTarget, resolveTarget } from './target.js';
 import type {
@@ -673,24 +680,27 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const selected = [pack.name, ...(sitePack === pack ? [] : companionPacks.map((c) => c.pack.name))]
     .flatMap((name) => selectedFindings(report, name, options.includeDeprecated ?? false))
     .filter((f) => !generic || f.severity === 'breaking');
+  const stripeBehavior = stripeBehaviorPlan(pack, packContext, selected, {
+    root,
+    workspaces,
+    from: initialContext.from,
+    to: target,
+  });
   const affected = [...new Set(selected.map((f) => f.usage.file))];
   // Evidence at a site the compiler rejected is confirmed evidence: the change is real there.
   if (packContext.evidence)
     packContext = { ...packContext, evidence: confirmedEvidence(packContext.evidence, selected) };
   // The sites a behavior record matched: the agent is told each one, the PR body decides them.
   const records = applicable(pack.records ?? [], initialContext.from, target);
-  const matched = selected.flatMap((f) =>
-    records.some((r) => r.id === f.rule)
-      ? [
-          {
-            record: f.rule as string,
-            file: f.usage.file,
-            line: f.usage.line,
-            snippet: f.usage.snippet.trim(),
-          },
-        ]
-      : [],
-  );
+  const matched = workspaces
+    .flatMap((workspace) =>
+      recordSites(records, { root, workspace, phase: 'before', stripe: stripeBehavior }),
+    )
+    .filter((site) =>
+      selected.some(
+        (f) => f.rule === site.record && f.usage.file === site.file && f.usage.line === site.line,
+      ),
+    );
   if (matched.length) packContext = { ...packContext, recordSites: matched };
   const untracked = untrackedFiles(root);
   const baselineTests = await verify(`tests (${names(workspaces)})`, () =>
@@ -1454,12 +1464,27 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   const before = packContext.recordSites ?? [];
   if (before.length) {
     const open = workspaces.flatMap((workspace) =>
-      recordSites(records, { root, workspace, phase: 'after' }),
+      recordSites(records, {
+        root,
+        workspace,
+        phase: 'after',
+        stripe: stripeBehavior ? { ...stripeBehavior, sitesBefore: before } : undefined,
+      }),
     );
     const same = (a: RecordSite, b: RecordSite) => a.file === b.file && a.record === b.record;
+    const activeBefore = before.filter(
+      (site) => !open.some((o) => same(o, site) && o.identity === site.identity && o.unaffected),
+    );
     packContext = {
       ...packContext,
-      recordSites: before.map((site) => {
+      recordSites: activeBefore.map((site) => {
+        if (site.identity)
+          return {
+            ...site,
+            kept:
+              !site.decision &&
+              open.some((o) => same(o, site) && o.identity === site.identity && o.kept === true),
+          };
         const still = open.filter((o) => same(o, site));
         const kept =
           !still.length ||
@@ -1471,6 +1496,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     result.packContext = packContext;
   }
   const decisions = [
+    ...recordKept(records, packContext.recordSites ?? []),
     ...recordDecisions(records, packContext.recordSites ?? []),
     ...packDecisions(pack, packContext, rules, followed),
   ];

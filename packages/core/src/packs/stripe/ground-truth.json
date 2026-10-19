@@ -128,6 +128,20 @@
           "rule": "sdk-surface",
           "note": "compiler TS2866"
         }
+      ],
+      "silent": [
+        {
+          "file": "tools/migrate/migrate_subscription.ts",
+          "line": 45,
+          "record": "stripe/billing-mode-default-flexible",
+          "kind": "required"
+        },
+        {
+          "file": "apps/dashboard/lib/trpc/routers/stripe/createSubscription.ts",
+          "line": 104,
+          "record": "stripe/billing-mode-default-flexible",
+          "kind": "required"
+        }
       ]
     },
     {

@@ -1,0 +1,75 @@
+[
+  {
+    "id": "stripe/billing-mode-default-flexible",
+    "range": {
+      "from": "*",
+      "to": ">=19"
+    },
+    "sources": [
+      {
+        "url": "https://docs.stripe.com/changelog/clover/2025-09-30/billing-mode-default-flexible.md",
+        "read": "2026-10-18",
+        "sha256": "34ae0f6215639001f45747a73ef0b3b0484e266cdff1b383966f155814549487",
+        "quote": "Subscriptions you create through the API now default to [flexible billing mode](https://docs.stripe.com/billing/subscriptions/billing-mode.md). To use `classic`, set the `billing_mode.type` parameter to `classic`."
+      },
+      {
+        "url": "https://docs.stripe.com/billing/subscriptions/billing-mode/compare.md",
+        "read": "2026-10-18",
+        "sha256": "68dec6dbeefd44587bd9e1c72dab956f88e69c80e7bba90a80a53a718e0502ac",
+        "quote": "When a customer schedules a cancellation through the [Customer Portal](https://docs.stripe.com/customer-management/cancellation-page.md), flexible billing mode uses `cancel_at` directly rather than `cancel_at_period_end`."
+      },
+      {
+        "url": "https://docs.stripe.com/api/subscriptions/create.md?query=",
+        "read": "2026-10-18",
+        "sha256": "83d81cd010416efe59d99fe151b0a9213fbe91982f4b00be04b7b26b051a6b11",
+        "quote": "- `billing_mode` (object, optional)"
+      },
+      {
+        "url": "https://docs.stripe.com/api/invoices/create_preview.md?query=",
+        "read": "2026-10-18",
+        "sha256": "e41fa6e13aede291f8eda56437f42977ff798a4e405d91e739f8c89188a2ded9",
+        "quote": "  - `subscription_details.billing_mode` (object, optional)"
+      },
+      {
+        "url": "https://docs.stripe.com/api/invoices/create_preview.md?query=",
+        "read": "2026-10-18",
+        "sha256": "e41fa6e13aede291f8eda56437f42977ff798a4e405d91e739f8c89188a2ded9",
+        "quote": "  - `schedule_details.billing_mode` (object, optional)"
+      },
+      {
+        "url": "https://docs.stripe.com/api/subscription_schedules/create.md?query=",
+        "read": "2026-10-18",
+        "sha256": "4b908ca646a038f87ea92de0211e8a3c6519f53b3da3ae5ecda712df6895b1ae",
+        "quote": "- `billing_mode` (object, optional)"
+      },
+      {
+        "url": "https://docs.stripe.com/api/quotes/create.md?query=",
+        "read": "2026-10-18",
+        "sha256": "a173050e2728c98d230cc13d3168fc9b9684a958d690fe6333ec9c53058765c2",
+        "quote": "  - `subscription_data.billing_mode` (object, optional)"
+      },
+      {
+        "url": "https://docs.stripe.com/api/checkout/sessions/create.md?query=",
+        "read": "2026-10-18",
+        "sha256": "9f7d1e7b159e576d15fff2d3c113cf82d943194bbdc416e802fca099506674b1",
+        "quote": "  - `subscription_data.billing_mode` (object, optional)"
+      },
+      {
+        "url": "https://docs.stripe.com/changelog/clover/2025-09-30/billing-mode-default-flexible.md",
+        "read": "2026-10-18",
+        "sha256": "34ae0f6215639001f45747a73ef0b3b0484e266cdff1b383966f155814549487",
+        "quote": "- If the request API version is [2025-09-30.clover](https://docs.stripe.com/changelog.md#2025-09-30.clover) or newer, the default is `flexible` billing mode."
+      }
+    ],
+    "trigger": {
+      "kind": "omits-property",
+      "property": "billing_mode"
+    },
+    "effect": "New subscriptions default to flexible billing. Free-to-paid upgrades can defer the invoice; portal cancellations use cancel_at. Existing subscriptions keep their billing mode.",
+    "keepOld": {
+      "edit": "billing_mode: { type: 'classic' } at the site's specified API parameter path; decision-only sites must not be edited",
+      "exact": true
+    },
+    "adopt": "use flexible billing only after reviewing free-to-paid invoice timing and portal cancellation readers. Existing flexible subscriptions cannot be migrated back to classic; subscriptions.update and portal session creation have no general preserving billing_mode edit"
+  }
+]

@@ -1,0 +1,135 @@
+{
+  "$comment": "UpgradeBench v0 pilot (UPT-24): three held-out public repositories, each with a human's merged upgrade in the range of a verified pack. None is in any pack's ground-truth.json (bench/excluded.json). Committed before either arm ran. checks are the repository's own commands, run by bench/check.sh with lifecycle scripts off.",
+  "selected": "2026-10-15",
+  "repos": [
+    {
+      "id": "zod-calmcp",
+      "repo": "consetto/calmcp",
+      "license": "MIT",
+      "pack": "zod",
+      "package": "zod",
+      "from": "3.25.76",
+      "to": "4.6.5",
+      "parent": "741de4eba98eb96b4bed817d8974e9e8c6eec867",
+      "upgrade": "bdaef39c34705b2dfc1065a59ec683288a2e99d2",
+      "silent": [
+        {
+          "file": "src/tools/index.ts",
+          "line": 69,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 83,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 102,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 119,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 148,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "keep": "\\.strict\\(\\)|strictObject\\("
+        }
+      ],
+      "note": "npm, single package. The upgrade (merged in PR #22) changes 3 source files, a test and a script: z.string().uuid() to z.guid(), .strict() tool schemas, a _def walker rewritten for zod 4. Mostly behavior, little a compiler sees. The commit carries a Co-Authored-By: Claude trailer.",
+      "ci": ".github/workflows/ci.yml: build (lint, typecheck, test, build, test:e2e), btp-descriptors, docker; tool-surface.yml",
+      "checks": {
+        "install": "npm ci --ignore-scripts",
+        "typecheck": "npm run typecheck",
+        "lint": "npm run lint",
+        "test": "npm test"
+      }
+    },
+    {
+      "id": "stripe-dms-saas",
+      "repo": "uptide-bench/AntelopeJS--dms-saas",
+      "license": "Apache-2.0",
+      "pack": "stripe",
+      "package": "stripe",
+      "from": "18.5.0",
+      "to": "22.6.2",
+      "parent": "6390f434622db5d6e546854b435fb1017c3cc665",
+      "upgrade": "f992f335089cfb17ca2b86d8d9d6a908ddbaee2a",
+      "note": "pnpm 10.2.0 workspace of 2 packages plus a nested frontend-vue project with its own lockfile. The upgrade (PR #70) changes 14 source files: subscriptions.cancel options, schedule phase iterations to duration, allowed_payment_method_types, billing mode, apiVersion basil to dahlia. dms-saas type-checks only after the interface package is built.",
+      "ci": ".github/workflows/ci.yml: static (build, lint, typecheck, knip, check:exports), unit (vitest), frontend",
+      "checks": {
+        "install": "corepack pnpm install --frozen-lockfile --ignore-scripts && corepack pnpm --dir packages/dms-saas/frontend-vue install --frozen-lockfile --ignore-scripts",
+        "typecheck": "corepack pnpm --filter @antelopejs/interface-dms-saas build && corepack pnpm -r typecheck",
+        "lint": "corepack pnpm -r lint",
+        "test": "corepack pnpm --filter @antelopejs/dms-saas test:unit"
+      },
+      "silent": [
+        {
+          "file": "packages/dms-saas/src/workspaces/provisioning.ts",
+          "line": 355,
+          "record": "stripe/billing-mode-default-flexible",
+          "kind": "required",
+          "keep": "billing_mode\\s*:\\s*\\{\\s*type:\\s*['\"]classic['\"]",
+          "editLine": 292,
+          "editLineEnd": 303
+        },
+        {
+          "file": "packages/dms-saas/src/stripe/workspace-checkout.ts",
+          "line": 211,
+          "record": "stripe/billing-mode-default-flexible",
+          "kind": "required",
+          "keep": "billing_mode\\s*:\\s*\\{\\s*type:\\s*['\"]classic['\"]",
+          "editLine": 211,
+          "editLineEnd": 218
+        }
+      ]
+    },
+    {
+      "id": "react-enki",
+      "repo": "entur/enki",
+      "license": "EUPL-1.2",
+      "pack": "react",
+      "package": "react",
+      "from": "18.3.1",
+      "to": "19.2.0",
+      "parent": "08cf2a70267185a74c362c15bab3b3826e4be3f2",
+      "upgrade": "ed37dd231b49628b7611760dfcde750e9c5a8e02",
+      "note": "npm, single package (Vite). The upgrade is the merge of PR #1760 (scored against its first parent): react, react-dom and their types to 19, react-leaflet 4 to 5, MutableRefObject to RefObject, useRef arguments, useReducer generics, 11 source files.",
+      "ci": ".github/workflows/pull-request-build-external.yml: fork pull requests, npm ci, prettier check, vitest, build (tsc and vite)",
+      "checks": {
+        "install": "npm ci --ignore-scripts",
+        "typecheck": "./node_modules/.bin/tsc --noEmit",
+        "lint": "npm run check",
+        "test": "./node_modules/.bin/vitest run"
+      }
+    }
+  ],
+  "backups": [
+    {
+      "repo": "sukhmal/servicenow-mcp",
+      "package": "zod",
+      "parent": "9c71205e26752ecb5a14cf95b26fcbe475af1839",
+      "upgrade": "0406fba4baf28c9eba8d0690d70eab1b5e38f8e7"
+    },
+    {
+      "repo": "likecoin/likecoin-api-public",
+      "package": "stripe",
+      "parent": "4526998344fb4905034c9248bbed4b80e0fde242",
+      "upgrade": "12480cda61716226155dec06a98a9cd67737741b"
+    },
+    {
+      "repo": "Tietokilta/web",
+      "package": "next",
+      "parent": "f6f51b539594504d2d91adff3b5a14e5dc075b9f",
+      "upgrade": "d96361254033243cb8165bc3277f0be15649aba7"
+    }
+  ]
+}

@@ -531,7 +531,13 @@ const sentenceCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(
  * this way`: what was checked, never that nothing is affected. A field name can't see a new
  * default, which reaches the calls that leave the parameter out.
  */
-export function apiChangeSummary(c: NonNullable<FixReport['apiChanges']>, unmatched = 0): string {
+export function apiChangeSummary(
+  c: NonNullable<FixReport['apiChanges']>,
+  unmatched = 0,
+  behaviorSites = 0,
+): string {
+  if (behaviorSites)
+    return `${count(behaviorSites, 'cited behavior site')}; ${c.relevant} of ${count(c.total, 'API change')} matched by field name${unmatched ? `; ${count(unmatched, 'breaking change')} need review` : ''}`;
   if (c.total === 0) return 'no API changes';
   const matched = `${c.relevant} of ${count(c.total, 'API change')} matched your code by field name`;
   if (unmatched)
@@ -638,7 +644,7 @@ export function summaryCells(report: FixReport): {
   const behavior = bs.length
     ? `${bs.some(differs) ? '⚠️' : '✅'} ${count(identical, 'schema')} identical${bs.filter(unchecked).length ? ` · ${bs.filter(unchecked).length} not checked` : ''}${bs.some(differs) ? ` · ${bs.filter(differs).length} with differences` : ''}${messageSummary}`
     : report.apiChanges
-      ? `${report.apiChanges.relevant || unmatched ? '⚠️' : '✅'} ${apiChangeSummary(report.apiChanges, unmatched)}`
+      ? `${report.apiChanges.relevant || unmatched || report.packContext?.recordSites?.length ? '⚠️' : '✅'} ${apiChangeSummary(report.apiChanges, unmatched, report.packContext?.recordSites?.length)}`
       : report.mode === 'pin'
         ? `✅ unchanged: \`${report.apiVersion}\` is what the installed SDK already defaults to`
         : '⚠️ not checked';
@@ -853,7 +859,7 @@ function minimalBody(report: FixReport, title: string): string {
           `- Lockfile: ${lock.outOfScope?.length ?? 0} outside the upgrade, ${lock.parentChurn?.length ?? 0} the parent commit already has, ${lock.transitive?.reduce((n, m) => n + m.changes.length, 0) ?? 0} transitive.`,
         ]
       : []),
-    `- Changed files: ${report.changedFiles?.length ?? 0}. Decisions for you: ${(report.decisions?.length ?? 0) + (report.headline?.decision?.length ?? 0)}. Run notes: ${report.notes.length}.`,
+    `- Changed files: ${report.changedFiles?.length ?? 0}. Decisions for you: ${(report.decisions?.filter((d) => !d.startsWith('- **Kept (')).length ?? 0) + (report.headline?.decision?.length ?? 0)}. Run notes: ${report.notes.length}.`,
     '',
     `Branch: \`${report.branch}\`${report.head ? ` · Verified commit: \`${report.head}\`` : ''}`,
     '',
@@ -979,7 +985,7 @@ export function renderMigration(
         ? `The code was migrated to ${report.package} ${from.split('.')[0] === report.target.split('.')[0] ? report.target : report.target.split('.')[0]}${workspaces.length ? ` in ${listed(workspaces)}` : ''}.`
         : 'No code changes were needed; only versions and the lockfile changed.';
     lines.push(
-      `**${ready ? 'Ready for review.' : 'Review required before merging.'}** ${what} ${typeVerdict}${report.apiChanges ? ` ${sentenceCase(apiChangeSummary(report.apiChanges, stripeSection(report)?.unmatched.length))} between ${report.apiChanges.from} and ${report.apiChanges.to}.` : ''}`,
+      `**${ready ? 'Ready for review.' : 'Review required before merging.'}** ${what} ${typeVerdict}${report.apiChanges ? ` ${sentenceCase(apiChangeSummary(report.apiChanges, stripeSection(report)?.unmatched.length, report.packContext?.recordSites?.length))} between ${report.apiChanges.from} and ${report.apiChanges.to}.` : ''}`,
       '',
     );
   }
@@ -1141,7 +1147,8 @@ export function renderMigration(
       '',
     );
   }
-  if (groups(report).length) lines.push('### What changed', '');
+  const kept = (report.decisions ?? []).filter((d) => d.startsWith('- **Kept ('));
+  if (groups(report).length || kept.length) lines.push('### What changed', '', ...kept);
   groups(report).forEach((g, i) => {
     lines.push(heading(g, report, i));
     if (mode === 'compact') return;
@@ -1352,7 +1359,7 @@ export function renderMigration(
   decisions.push(
     ...(report.headline?.decision ?? []),
     ...agentDecisionLines(report),
-    ...(report.decisions ?? []),
+    ...(report.decisions ?? []).filter((d) => !d.startsWith('- **Kept (')),
   );
   if (decisions.length) lines.push('### Decisions for you', '', ...decisions, '');
   lines.push(

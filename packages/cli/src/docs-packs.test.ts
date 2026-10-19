@@ -45,7 +45,7 @@ it('generates both pack tables and rejects stale or missing tables without writi
     expect(current).toContain('| Rules |');
     expect(current).toContain('| `express` | 4 → 5 |');
     expect(current).toContain('| `redis` | 4.x/5.x → 5.x/6.x |');
-    expect(current).toContain('| `stripe` | 14+ → latest, API version pinning |');
+    expect(current).toContain('| `stripe` | 12+ → latest, API version pinning |');
     expect(current).toContain('| verified |');
     expect(current).not.toContain('| candidate |');
     expect(current.match(/deanmoses\/tacocat-gallery-sam/g)).toHaveLength(1);
@@ -54,7 +54,7 @@ it('generates both pack tables and rejects stale or missing tables without writi
     expect(matrix).toContain('| candidate |');
     expect(matrix).toContain('| verified |');
     expect(matrix).toContain('| `ioredis` | 5 → 6 |');
-    expect(matrix).toContain('| `stripe` | 14+ → latest, API version pinning |');
+    expect(matrix).toContain('| `stripe` | 12+ → latest, API version pinning |');
     expect(matrix).not.toContain('more in validation');
     expect(matrix).toContain('| Package | Rewrite rule | Precision |');
     expect(current).not.toContain('| Rewrite rule |');

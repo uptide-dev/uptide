@@ -65,7 +65,7 @@ See the [pack compatibility matrix](docs/compatibility.md) and the [migration pa
 | `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 85% | 75% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
 | `@sentry/browser` | 10 → 11 | 16 | 100% | 82% | 82% | 22 | Automancer-Ltd/automancer-site, sbomify/sbomify, MihaelaAghirculesei/Pokedex, Simple-With-Us/ContactLogo, getsentry/sentry-godot | verified |
 | `@sentry/nextjs` | 10 → 11 | 24 | 100% | 100% | 100% | 8 | cohstats/coh3-stats, xdoubleu/tools.xdoubleu.com, maximunited/yomu | verified |
-| `stripe` | 14+ → latest, API version pinning | 6 | 100% | 92% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
+| `stripe` | 12+ → latest, API version pinning | 6 | 100% | 92% | 92% | 21 | unkeyed/unkey, nextjs/saas-starter, starl3xx/wallet-to-social, AtlasDevHQ/atlas | verified |
 | `typescript` | 5 → 6 | 12 | 100% | 99% | 99% | 1399 | m-lyon/recipe, robrechtme/recipes, JosephMaynard/dependency-radar, CroffZ/github-release-notifier, SignalK/signalk-derived-data, shogo82148/typescript-action, Borewit/music-metadata | verified |
 | `vitest` | 4 → 5 | 6 | 100% | 97% | 97% | 32 | votingworks/vxsuite, vitorvasc/opentelemetry-ecosystem-explorer | verified |
 | `zod` | 3 → 4 | 11 | 100% | 87% | 48% | 224 | ugurkocde/AwesomeIntune, howardyang2009/PATH, band-ai/band-sdk-typescript, vzdc-artcc/website, CANShift/canshift-core, consetto/calmcp | verified |
