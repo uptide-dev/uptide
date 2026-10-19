@@ -19,6 +19,7 @@ import { workspacePackagesOf } from '../adapters/typescript/repo.js';
 import { errorCode, SafetyRefusal, UptideError } from '../errors.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import { activePack, assertCandidateLocal } from '../packs/index.js';
+import { projectForDependency } from '../projects.js';
 import { uptideVersionInfo } from '../version.js';
 import { assistedPeerPreflight, assistedRootPins } from './feedback.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
@@ -533,6 +534,14 @@ export async function isolatedFix(
   services?: FixServices,
 ): Promise<FixReport> {
   assertCandidateLocal(options);
+  const pack = options.pack ?? activePack(options.only, options.allowCandidate);
+  options = {
+    ...options,
+    cwd: projectForDependency(options.cwd, [
+      options.only,
+      ...(pack?.alternateLeads?.map((lead) => lead.name) ?? []),
+    ]),
+  };
   const selected = selectLlm(options.cwd, options);
   if (
     options.maxCostUsd !== undefined &&

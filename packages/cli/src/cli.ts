@@ -15,6 +15,7 @@ import {
   packageSelected,
   packLeading,
   priceFor,
+  projectForDependency,
   publicationFailureReason,
   ReportedError,
   registeredPacks,
@@ -1013,7 +1014,6 @@ ${runnable(PRIVACY)}`,
                 { next: 'uptide fix --help' },
               );
             const quiet = !flags.verbose && !flags.debug;
-            const loaded = settings(cwd, flags.config);
             if (packageName && flags.only && packageName !== flags.only)
               throw new CliError('choose one package for fix');
             const requested = packageName ?? flags.only;
@@ -1025,10 +1025,18 @@ ${runnable(PRIVACY)}`,
               throw new CliError(`--only ${requested}: fix upgrades one dependency at a time`, {
                 next: `uptide fix ${requested.split(',')[0]}`,
               });
+            // Select an independent install root before reading its settings or lockfile.
+            const packs = activePacks(flags.allowCandidate);
+            const only = leadName(requested, packs);
+            const pack = packs.find((candidate) => candidate.name === only);
+            cwd = projectForDependency(cwd, [
+              requested,
+              only,
+              ...(pack?.alternateLeads?.map((lead) => lead.name) ?? []),
+            ]);
+            const loaded = settings(cwd, flags.config);
             namedOutside(loaded, [requested]);
-            // An alternate lead's name (`react-router-dom`) fixes its pack's lead, and a target
-            // named after the alternate is the lead's.
-            const only = leadName(requested, activePacks(flags.allowCandidate));
+            // An alternate lead's target names the pack's lead too.
             const target =
               only === requested
                 ? flags.target

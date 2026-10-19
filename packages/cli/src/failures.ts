@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { ACCEPTED_KEYS, type CheckResult, errorCode } from '@uptide/core';
+import { ACCEPTED_KEYS, type CheckResult, errorCode, isIndependentProject } from '@uptide/core';
 import type { PackageManager, Repo } from './detect.js';
 import { CliError } from './errors.js';
 import { invocation } from './invocation.js';
@@ -199,7 +199,10 @@ export function requireFixable(repo: Repo, only: string, target?: string): void 
     dir.startsWith(realpathSync(top));
     dir = dirname(dir)
   ) {
-    if (existsSync(join(dir, 'package.json'))) {
+    if (
+      existsSync(join(dir, 'package.json')) &&
+      !isIndependentProject(realpathSync(repo.root), dir)
+    ) {
       const cwd = /^[\w./-]+$/.test(dir) ? dir : `'${dir.replaceAll("'", "'\"'\"'")}'`;
       throw new CliError('fix has to run at the project root', {
         why: 'Every workspace declaring the dependency is upgraded together.',

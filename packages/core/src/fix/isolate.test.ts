@@ -230,6 +230,41 @@ describe('fix runs in a private clone', () => {
     ).rejects.toThrow(`run fix at the project root, ${project}`);
   }, 30000);
 
+  it('discovers an independent nested project and scopes the entire migration to it (UPT-120)', async () => {
+    const { root: fixture, services } = zodFixture(scratch);
+    rmSync(join(fixture, '.git'), { recursive: true, force: true });
+    const top = realpathSync(mkdtempSync(join(scratch, 'nested-')));
+    const project = join(top, 'frontend');
+    renameSync(fixture, project);
+    const manifest = JSON.stringify({
+      name: 'repo-tools',
+      devDependencies: { commitlint: '1.0.0' },
+    });
+    writeFileSync(join(top, 'package.json'), manifest);
+    writeFileSync(join(top, 'package-lock.json'), '{}');
+    git(top, 'init');
+    git(top, 'config', 'user.email', 'test@example.test');
+    git(top, 'config', 'user.name', 'Test');
+    git(top, 'add', '.');
+    git(top, 'commit', '-m', 'baseline');
+    const before = snapshot(top);
+    const install = vi.spyOn(services, 'install');
+    const tests = vi.spyOn(services, 'tests');
+    const report = await isolatedFix({ cwd: top, only: 'zod', tool: TOOL }, services);
+    expect(report.verification.passed).toBe(true);
+    expect(report.source).toBe(top);
+    expect(snapshot(top)).toEqual(before);
+    expect(install.mock.calls.length).toBeGreaterThan(0);
+    expect(tests.mock.calls.length).toBeGreaterThan(0);
+    for (const [dir] of [...install.mock.calls, ...tests.mock.calls])
+      expect(dir).toMatch(/\/frontend$/);
+    expect(git(top, 'show', `${report.branch}:frontend/package.json`)).toContain('4.6.5');
+    expect(git(top, 'show', `${report.branch}:package.json`)).toBe(manifest);
+    expect(git(top, 'show', `${report.branch}:package-lock.json`)).toBe('{}');
+    const changed = git(top, 'diff', '--name-only', `HEAD...${report.branch}`).split('\n');
+    expect(changed.every((file) => file.startsWith('frontend/'))).toBe(true);
+  }, 30000);
+
   it('reports a checkout that changed during the run', async () => {
     const { root, services } = zodFixture(scratch);
     const tests = services.tests;

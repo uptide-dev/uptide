@@ -274,6 +274,7 @@ export {
   type UpgradePlan,
   type UpgradeStep,
 } from './plan/plan.js';
+export { isIndependentProject, projectForDependency } from './projects.js';
 export { diffRuntime, probeRuntime } from './runtime/runtime.js';
 export {
   UPTIDE_COMMAND,
