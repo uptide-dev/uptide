@@ -1,5 +1,13 @@
 # uptide
 
+## 0.17.1
+
+### Patch Changes
+
+- [#245](https://github.com/uptide-dev/uptide/pull/245) [`2945857`](https://github.com/uptide-dev/uptide/commit/2945857da1827c462590c2936f2822efbb60d328) Thanks [@lucasbraum](https://github.com/lucasbraum)! - `check` finds the migration pack of any member of an upgrade group: the member a pack covers now leads the group, so react 18 → 19 named together with react-dom (as the Uptide Action names every used dependency) is analyzed by the react pack and reported as `react`, verified, instead of `react-dom` with no pack.
+
+- [#249](https://github.com/uptide-dev/uptide/pull/249) [`5078510`](https://github.com/uptide-dev/uptide/commit/5078510ff94be52fa309c24b8fd19066cf79a5f1) Thanks [@lucasbraum](https://github.com/lucasbraum)! - setup PRs pin Action v0.17.0
+
 ## 0.17.0
 
 ### Minor Changes
