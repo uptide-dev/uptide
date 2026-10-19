@@ -1810,13 +1810,20 @@ async function checkGroup(
   // A member with nothing to analyze (up to date, unused, unanalyzable) leaves the group; a lone package reports as itself.
   if (prepared.length === 0)
     return early.length === 1 ? (early[0] as PackageReport) : mergeEarly(workspace, early);
-  // Led by the package asked for, when its companions are in the group: it names the report,
-  // and its versions are the upgrade's.
+  // Led by the member a pack covers, else by the package asked for, when its companions are in
+  // the group: it names the report, and its versions are the upgrade's.
   const plans = ctx.opts.companions ?? {};
   // A package asked for by name carries its plan even where it is analyzed alone: what moves
   // with it is one decision for the repository, whichever workspace the report comes from.
-  const leader = prepared.find((p) => plans[p.name] !== undefined);
-  const plan = leader ? plans[leader.name] : undefined;
+  const asked = prepared.find((p) => plans[p.name] !== undefined);
+  // The pack is found by the report's name, so the member it covers leads whichever member was
+  // asked for: `react-dom` 19 moves `react`, and the pack is react's (UPT-117).
+  const packs = packsOf(ctx.opts);
+  const leader =
+    prepared.find((p) =>
+      packs.some((pack) => pack.name === p.name && pack.supports(p.installedVersion, p.target)),
+    ) ?? asked;
+  const plan = (leader && plans[leader.name]) ?? (asked && plans[asked.name]);
   // A companion with no usages of its own still moves with the leader: the overlay links it at
   // the version the plan gives it, as the upgrade `fix` makes installs it, unless a member
   // already links it (`@types/react` is how `react` is typed).
