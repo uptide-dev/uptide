@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { Finding } from '../domain/report.js';
 import { satisfies, validRange } from '../fetch/range.js';
 import { flowsToConsumer } from './flows-to-consumer.js';
+import { dataCollectionSites } from './sentry/data-collection.js';
 import { type StripeBehaviorContext, stripeBehaviorSites } from './stripe/behavior-sites.js';
 
 /**
@@ -46,7 +47,9 @@ export interface FlowsToConsumer {
   value: 'zod-object-strip';
 }
 
-export type RecordTrigger = FlowsToConsumer | { kind: 'omits-property'; property: 'billing_mode' };
+export type RecordTrigger =
+  | FlowsToConsumer
+  | { kind: 'omits-property'; property: 'billing_mode' | 'dataCollection' };
 
 export interface BehaviorRecord {
   /** `<pack>/<slug>`: the rule id its sites are filed under. */
@@ -188,8 +191,9 @@ function triggerSites(
   },
 ): Omit<RecordSite, 'record'>[] {
   if (!record.sources.length || record.sources.some((s) => !s.quote.trim())) return [];
-  return record.trigger.kind === 'flows-to-consumer'
-    ? flowsToConsumer(record.trigger, input)
+  if (record.trigger.kind === 'flows-to-consumer') return flowsToConsumer(record.trigger, input);
+  return record.trigger.property === 'dataCollection'
+    ? dataCollectionSites(input)
     : stripeBehaviorSites(input);
 }
 

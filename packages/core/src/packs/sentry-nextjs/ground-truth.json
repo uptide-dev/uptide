@@ -1,5 +1,5 @@
 {
-  "$comment": "Expectations drafted with `pnpm packs:truth` (each repository's own TypeScript, target linked; and the old side of its own upgrade commit) and reviewed by hand on 2026-10-14, before the pack was scored. Pure insertions (the dataCollection blocks each repository added to keep v10's restrictive collection) are the data-collection decision, not sites; a line changed only to gain a trailing comma for such an insertion is part of it. Supporting import edits and file moves made in the same commit are not Sentry sites. See ../sentry/RESEARCH.md.",
+  "$comment": "Expectations drafted with `pnpm packs:truth` (each repository's own TypeScript, target linked; and the old side of its own upgrade commit) and reviewed by hand on 2026-10-14, before the pack was scored. Pure insertions (the dataCollection blocks each repository added to keep v10's restrictive collection) are the data-collection decision, not sites; a line changed only to gain a trailing comma for such an insertion is part of it. Supporting import edits and file moves made in the same commit are not Sentry sites. See ../sentry/RESEARCH.md. silent (UPT-123): each Sentry.init that left dataCollection unset with sendDefaultPii unset or false, read from its upgrade's diff on 2026-10-19 after the record was written: required where the upgrade set a restrictive dataCollection there to keep v10's collection (moved files and imported constants included), product-choice where it upgraded the init and accepted v11's defaults.",
   "package": "@sentry/nextjs",
   "repos": [
     {
@@ -21,6 +21,26 @@
           "line": 69,
           "rule": "build-options",
           "note": "disableLogger: true moves to webpack.treeshake.removeDebugLogging; the comment line above it is not a site."
+        }
+      ],
+      "silent": [
+        {
+          "file": "instrumentation-client.ts",
+          "line": 7,
+          "record": "@sentry/nextjs/data-collection-defaults",
+          "kind": "required"
+        },
+        {
+          "file": "sentry.edge.config.ts",
+          "line": 8,
+          "record": "@sentry/nextjs/data-collection-defaults",
+          "kind": "required"
+        },
+        {
+          "file": "sentry.server.config.ts",
+          "line": 7,
+          "record": "@sentry/nextjs/data-collection-defaults",
+          "kind": "required"
         }
       ]
     },
@@ -44,6 +64,26 @@
           "line": 10,
           "rule": "ignore-transactions",
           "note": "ignoreTransactions becomes ignoreSpans with the same pattern."
+        }
+      ],
+      "silent": [
+        {
+          "file": "instrumentation-client.ts",
+          "line": 5,
+          "record": "@sentry/nextjs/data-collection-defaults",
+          "kind": "required"
+        },
+        {
+          "file": "sentry.edge.config.ts",
+          "line": 3,
+          "record": "@sentry/nextjs/data-collection-defaults",
+          "kind": "required"
+        },
+        {
+          "file": "sentry.server.config.ts",
+          "line": 3,
+          "record": "@sentry/nextjs/data-collection-defaults",
+          "kind": "required"
         }
       ]
     },
@@ -78,6 +118,26 @@
           "line": 14,
           "rule": "send-default-pii",
           "note": "TS2353 sendDefaultPii; replaced by a restrictive dataCollection."
+        }
+      ],
+      "silent": [
+        {
+          "file": "sentry.edge.config.ts",
+          "line": 6,
+          "record": "@sentry/nextjs/data-collection-defaults",
+          "kind": "required"
+        },
+        {
+          "file": "sentry.server.config.ts",
+          "line": 6,
+          "record": "@sentry/nextjs/data-collection-defaults",
+          "kind": "required"
+        },
+        {
+          "file": "src/instrumentation-client.ts",
+          "line": 6,
+          "record": "@sentry/nextjs/data-collection-defaults",
+          "kind": "required"
         }
       ]
     }

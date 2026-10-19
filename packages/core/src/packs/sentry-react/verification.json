@@ -1,6 +1,6 @@
 {
   "status": "candidate",
-  "truth": "sha256-78d69717c74e2d35389e5b47362f835a2d19e33bc78e3f9364ce9b646a1e176a",
+  "truth": "sha256-ee0717e06e48ca73c6551780d1b7a7c5b17dc391c6b6793eb52e159c7cf4ab6a",
   "repos": 14,
   "breaking": {
     "precision": 0.875,
@@ -16,8 +16,18 @@
     "truePositives": 0,
     "falseNegatives": 0
   },
+  "silent": {
+    "precision": 0.7333,
+    "recall": 1,
+    "falsePositives": 4,
+    "truePositives": 11,
+    "falseNegatives": 0
+  },
   "class": "breaking",
   "breakingSites": 29,
+  "breakingFoundAny": 21,
+  "breakingFound": 21,
+  "breakingScored": 29,
   "behaviorSites": 0,
   "unexercised": [
     "enable-metrics",
