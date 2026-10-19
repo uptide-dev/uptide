@@ -4,7 +4,7 @@ import { ts } from 'ts-morph';
 import { projectFiles } from '../check/importers.js';
 import { satisfies } from '../fetch/range.js';
 import { installedManifest } from '../list/evidence.js';
-import type { FlowsToConsumer } from './records.js';
+import type { RecordTrigger } from './records.js';
 
 /** One site of a `flows-to-consumer` trigger, workspace-relative. */
 export interface ConsumerSite {
@@ -19,9 +19,10 @@ export interface ConsumerSite {
  * type is what the predicate asks for. An `any`, a spread, a value the checker cannot see is no site.
  */
 export function flowsToConsumer(
-  trigger: FlowsToConsumer,
+  trigger: RecordTrigger,
   input: { root: string; workspace: string; phase: 'before' | 'after' },
 ): ConsumerSite[] {
+  if (trigger.kind !== 'flows-to-consumer') return [];
   const version = installedManifest(input.root, input.workspace, trigger.consumer.package)?.version;
   if (!version || !satisfies(version, trigger.consumer.range)) return [];
   const dir = resolve(input.root, input.workspace);

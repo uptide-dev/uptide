@@ -1,0 +1,35 @@
+[
+  {
+    "id": "stripe/billing-mode-default-flexible",
+    "range": {
+      "from": ">=14 <19",
+      "to": ">=19"
+    },
+    "sources": [
+      {
+        "url": "https://docs.stripe.com/changelog/clover/2025-09-30/billing-mode-default-flexible.md",
+        "read": "2026-10-18",
+        "sha256": "34ae0f6215639001f45747a73ef0b3b0484e266cdff1b383966f155814549487",
+        "quote": "Subscriptions you create through the API now default to [flexible billing mode](https://docs.stripe.com/billing/subscriptions/billing-mode.md). To use `classic`, set the `billing_mode.type` parameter to `classic`.",
+        "snapshot": "sources/billing-mode-default-flexible.md"
+      },
+      {
+        "url": "https://docs.stripe.com/billing/subscriptions/billing-mode/compare.md",
+        "read": "2026-10-18",
+        "sha256": "68dec6dbeefd44587bd9e1c72dab956f88e69c80e7bba90a80a53a718e0502ac",
+        "quote": "When a customer schedules a cancellation through the [Customer Portal](https://docs.stripe.com/customer-management/cancellation-page.md), flexible billing mode uses `cancel_at` directly rather than `cancel_at_period_end`.",
+        "snapshot": "sources/billing-mode-compare.md"
+      }
+    ],
+    "trigger": {
+      "kind": "omits-property",
+      "property": "billing_mode"
+    },
+    "effect": "New subscriptions default to flexible billing. Free-to-paid upgrades can defer the invoice; portal cancellations use cancel_at. Existing subscriptions keep their billing mode.",
+    "keepOld": {
+      "edit": "billing_mode: { type: 'classic' } (inside subscription_data for Checkout)",
+      "exact": true
+    },
+    "adopt": "use flexible billing only after reviewing free-to-paid invoice timing and portal cancellation readers. Existing flexible subscriptions cannot be migrated back to classic; subscriptions.update and portal session creation have no general preserving billing_mode edit"
+  }
+]

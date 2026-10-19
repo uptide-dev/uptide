@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { Finding } from '../domain/report.js';
 import { satisfies, validRange } from '../fetch/range.js';
 import { flowsToConsumer } from './flows-to-consumer.js';
+import { stripeBehaviorSites } from './stripe/behavior-sites.js';
 
 /**
  * Behavior records (ADR 0017): a change the same code meets at runtime that no type, test or
@@ -45,7 +46,7 @@ export interface FlowsToConsumer {
   value: 'zod-object-strip';
 }
 
-export type RecordTrigger = FlowsToConsumer;
+export type RecordTrigger = FlowsToConsumer | { kind: 'omits-property'; property: 'billing_mode' };
 
 export interface BehaviorRecord {
   /** `<pack>/<slug>`: the rule id its sites are filed under. */
@@ -77,6 +78,10 @@ export interface RecordSite {
   snippet: string;
   /** Set after a `fix` session: the edit is in place (the trigger no longer matches the call). */
   kept?: boolean;
+  /** Stable call identity for post-session verification. */
+  identity?: string;
+  /** Params cannot be resolved: ask the owner, never insert an edit. */
+  decision?: boolean;
 }
 
 /** What is wrong with a pack's records, as sentences: `pack test` and the contract test refuse them. */
@@ -94,7 +99,7 @@ export function recordProblems(
     ids.add(r.id);
     if (!validRange(r.range.from) || !validRange(r.range.to))
       problems.push(`${where}: range.from and range.to are semver ranges`);
-    if (!validRange(r.trigger.consumer.range))
+    if (r.trigger.kind === 'flows-to-consumer' && !validRange(r.trigger.consumer.range))
       problems.push(`${where}: trigger.consumer.range is a semver range`);
     if (!r.sources.length) problems.push(`${where}: no source, no record`);
     if (!r.keepOld.exact && !r.keepOld.alsoChanges)
@@ -136,12 +141,22 @@ export function recordSites(
   input: { root: string; workspace: string; phase: 'before' | 'after' },
 ): RecordSite[] {
   return records.flatMap((record) =>
-    flowsToConsumer(record.trigger, input).map((site) => ({
+    triggerSites(record, input).map((site) => ({
       record: record.id,
       ...site,
       file: input.workspace === '.' ? site.file : join(input.workspace, site.file),
     })),
   );
+}
+
+function triggerSites(
+  record: BehaviorRecord,
+  input: { root: string; workspace: string; phase: 'before' | 'after' },
+) {
+  if (!record.sources.length || record.sources.some((s) => !s.quote.trim())) return [];
+  return record.trigger.kind === 'flows-to-consumer'
+    ? flowsToConsumer(record.trigger, input)
+    : stripeBehaviorSites(input);
 }
 
 /** A record's sites as `check` reports them, workspace-relative: their own rule, never breaking (ADR 0017 §5). */
@@ -152,7 +167,7 @@ export function recordFindings(
   const usable = applicable(records, input.from, input.to);
   if (!usable.length) return [];
   return usable.flatMap((record) =>
-    flowsToConsumer(record.trigger, { ...input, phase: 'before' }).map(
+    triggerSites(record, { ...input, phase: 'before' }).map(
       (site): Finding => ({
         change: {
           package: input.package,
@@ -209,7 +224,10 @@ export function recordPrompt(
     if (!own.length) continue;
     lines.push(
       `- ${record.id}: ${record.effect}`,
-      ...own.map((s) => `  site: ${s.file}:${s.line} \`${s.snippet}\``),
+      ...own.map(
+        (s) =>
+          `  site: ${s.file}:${s.line} \`${s.snippet}\`${s.decision ? ' — unresolved params: decision only; do not edit' : ''}`,
+      ),
       ...citations(record).map((c) => `  source: ${c}`),
       `  keeps the old behavior: ${record.keepOld.edit}${record.keepOld.exact ? ' (exactly)' : `; it also ${record.keepOld.alsoChanges}`}`,
     );
@@ -234,7 +252,9 @@ export function recordDecisions(
     const own = sites.filter((s) => s.record === record.id);
     if (!own.length) return [];
     const kept = own.filter((s) => s.kept);
-    const open = own.filter((s) => !s.kept);
+    if (record.keepOld.exact && kept.length === own.length) return [];
+    const open = own.filter((s) => !s.kept && !s.decision);
+    const unknown = own.filter((s) => s.decision);
     const sources = record.sources.map((s) => `"${s.quote}" ([source](${s.url}))`).join('; ');
     const done = kept.length
       ? `Applied \`${record.keepOld.edit}\` at ${at(kept)}${record.keepOld.exact ? ', which keeps the old behavior exactly.' : `: it keeps the old behavior, and it also ${record.keepOld.alsoChanges}. Keep it, or drop it${record.adopt ? ` to ${record.adopt}` : ''}.`}`
@@ -243,7 +263,21 @@ export function recordDecisions(
       ? `Not applied at ${at(open)}: recommended \`${record.keepOld.edit}\`${record.keepOld.exact ? '' : `, which also ${record.keepOld.alsoChanges}`}.`
       : '';
     return [
-      `- **Behavior change (${record.id}):** ${record.effect} Sources: ${sources}. ${[done, left].filter(Boolean).join(' ')}`,
+      `- **Behavior change (${record.id}):** ${record.effect} Sources: ${sources}. ${record.adopt ? `To adopt the new default: ${record.adopt}. ` : ''}${[done, left, unknown.length ? `Unresolved params at ${at(unknown)}: decision for you; inspect the runtime parameters before choosing classic or flexible. No automatic edit.` : ''].filter(Boolean).join(' ')}`,
+    ];
+  });
+}
+
+/** Exact, verified preserving edits belong in the existing What changed section. */
+export function recordKept(
+  records: readonly BehaviorRecord[],
+  sites: readonly RecordSite[],
+): string[] {
+  return records.flatMap((record) => {
+    const kept = sites.filter((s) => s.record === record.id && s.kept && !s.decision);
+    if (!record.keepOld.exact || !kept.length) return [];
+    return [
+      `- **Kept (${record.id}):** \`${record.keepOld.edit}\` at ${at(kept)}. ${record.sources.map((s) => `"${s.quote}" ([source](${s.url}))`).join('; ')}. ${record.adopt ? `Adopting the new default: ${record.adopt}.` : ''}`,
     ];
   });
 }

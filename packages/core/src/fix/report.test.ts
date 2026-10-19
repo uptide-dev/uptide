@@ -698,6 +698,9 @@ describe('runs are scoped to their own repository', () => {
       '0 of 1 API change matched your code by field name, additive',
     );
     expect(apiChangeSummary({ ...facts, total: 0 })).toBe('no API changes');
+    expect(apiChangeSummary(facts, 0, 2)).toBe(
+      '2 cited behavior sites; 0 of 12 API changes matched by field name',
+    );
   });
 
   it('describes a zod migration from its own files, never from another repository', () => {

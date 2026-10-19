@@ -6,9 +6,11 @@ import { createNpmFetcher, releasePackage } from '../../fetch/npm-fetcher.js';
 import { satisfies } from '../../fetch/range.js';
 import { UPTIDE_COMMAND } from '../../version.js';
 import type { Pack, PackMeta } from '../contract.js';
+import { type BehaviorRecord, recordFindings } from '../records.js';
 import type { PackContext, SharedHelper } from '../types.js';
 import { between, type StripeCatalog } from './changelog.js';
 import catalog from './changelog.v1.json' with { type: 'json' };
+import records from './records.json' with { type: 'json' };
 import {
   type ApiClient,
   apiClients,
@@ -302,6 +304,8 @@ const meta: PackMeta = {
   ],
   maintainer: 'uptide-dev',
 };
+export const stripeRecords = records as BehaviorRecord[];
+
 export const stripePack: Pack = {
   name: 'stripe',
   meta,
@@ -382,6 +386,7 @@ export const stripePack: Pack = {
       guide: 'Rewritten by rule: the same cast through unknown, in test files only.',
     },
   ],
+  records: stripeRecords,
   behavior: [
     {
       id: 'api-changelog',
@@ -608,31 +613,40 @@ export const stripePack: Pack = {
       `- \`api_version\` stays ${values} in ${kept.length} webhook payload fixture${kept.length === 1 ? '' : 's'}: ${where}. They reflect the API version configured on the webhook endpoint, which this upgrade does not change; update them when you roll the endpoint.`,
     ];
   },
-  runtimeFindings({ workspace, from, to, installedDir, targetDir, usages, read }) {
+  runtimeFindings({ root, workspace, from, to, installedDir, targetDir, usages, read }) {
     const api = { from: sdkApiVersion(installedDir), to: sdkApiVersion(targetDir) };
     if (api.from === api.to) return [];
     const path = 'Stripe.StripeConfig#apiVersion';
     const reason = `API version changes from ${api.from} to ${api.to} at runtime`;
-    return unpinnedClients(usages, (file) => read(join(workspace, file))).map((site) => ({
-      change: {
-        package: 'stripe',
-        from,
-        to,
-        path,
-        kind: 'type',
-        severity: 'breaking',
-        source: 'pack',
-        confidence: 1,
-        before: api.from,
-        after: api.to,
-      },
-      usage: { ...site, symbolPath: path, access: 'construct', via: 'direct' },
-      severity: 'breaking',
-      confidence: 1,
-      fixability: 'manual',
-      reason,
-      rule: 'api-version-unpinned',
-    }));
+    const behavior =
+      api.from < '2025-09-30.clover' && api.to >= '2025-09-30.clover'
+        ? recordFindings(stripeRecords, { root, workspace, package: 'stripe', from, to })
+        : [];
+    return [
+      ...behavior,
+      ...unpinnedClients(usages, (file) => read(join(workspace, file))).map(
+        (site): Finding => ({
+          change: {
+            package: 'stripe',
+            from,
+            to,
+            path,
+            kind: 'type',
+            severity: 'breaking',
+            source: 'pack',
+            confidence: 1,
+            before: api.from,
+            after: api.to,
+          },
+          usage: { ...site, symbolPath: path, access: 'construct', via: 'direct' },
+          severity: 'breaking',
+          confidence: 1,
+          fixability: 'manual',
+          reason,
+          rule: 'api-version-unpinned',
+        }),
+      ),
+    ];
   },
   describeFinding(finding, context) {
     if (finding.rule !== 'api-version-unpinned' || !context.apiVersions) return undefined;

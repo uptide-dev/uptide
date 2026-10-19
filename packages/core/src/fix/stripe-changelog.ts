@@ -37,6 +37,13 @@ export function stripeChangelog(
           line,
         );
       if (!match) return [];
+      if (
+        report.packContext?.recordSites?.some(
+          (s) => s.record === 'stripe/billing-mode-default-flexible',
+        ) &&
+        match[3]?.includes('/clover/2025-09-30/billing-mode-default-flexible')
+      )
+        return [];
       const [, version = '', title = '', url = '', kind, products = ''] = match;
       return [
         {
