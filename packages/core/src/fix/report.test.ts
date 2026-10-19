@@ -94,6 +94,29 @@ it('groups stripe API literals and period-end accesses, with actionable business
   expect(visible(body)).toContain('1 change with evidence in your code');
   expect(visible(body)).toContain('evidence: `src/billing.ts:18`');
 });
+it("says what the changelog check covered, and lists the breaking changes it can't match (dms-saas, round 4)", () => {
+  // The Stripe section uptide 0.16.0 stored for dms-saas: 230 entries, none with evidence.
+  const body = prBody({ ...fixture('stripe'), ...fixture('stripe-dms-saas-round-4') });
+  expect(body).not.toMatch(/none affects? your code/);
+  expect(body).toContain(
+    "0 of 230 API changes matched your code by field name; 12 breaking changes can't be matched this way between 2025-08-27.basil and 2026-08-26.dahlia.",
+  );
+  expect(body).toContain(
+    "| **Behavior** | ⚠️ 0 of 230 API changes matched your code by field name; 12 breaking changes can't be matched this way |",
+  );
+  // The billing-mode default flip is in plain view under its own heading, first, not collapsed.
+  const heading = "**12 breaking changes to resources you use that field names can't match**";
+  const top = visible(body);
+  const list = top.slice(top.indexOf(heading), top.indexOf("[Stripe's changelog]"));
+  expect(list.split('\n').find((l) => l.startsWith('- '))).toBe(
+    '- 2025-09-30.clover: [Makes flexible billing mode the default for new subscriptions](https://docs.stripe.com/changelog/clover/2025-09-30/billing-mode-default-flexible.md) — breaking; Billing, Checkout',
+  );
+  expect(list.match(/^- /gm)).toHaveLength(12);
+  const collapsed = body.slice(
+    body.indexOf('Other changes to resources you use (no code evidence)'),
+  );
+  expect(collapsed).not.toContain('billing-mode-default-flexible');
+});
 function ruleOnly(): FixReport {
   const report = fixture('storefront-zod');
   report.sites = report.sites.filter(
@@ -407,7 +430,7 @@ describe('runs are scoped to their own repository', () => {
       }),
     );
     expect(body).toContain(
-      '**Ready for review.** The code was migrated to stripe 22.6.2 in `api`. Types compile. 12 API changes, none affect your code, all additive between 2026-07-29.dahlia and 2026-08-26.dahlia.',
+      '**Ready for review.** The code was migrated to stripe 22.6.2 in `api`. Types compile. 0 of 12 API changes matched your code by field name, all additive between 2026-07-29.dahlia and 2026-08-26.dahlia.',
     );
     // Nothing in the body contradicts that: the risk, the rule summary and what is left to check.
     expect(body).toContain(
@@ -438,7 +461,7 @@ describe('runs are scoped to their own repository', () => {
     expect(risky).toContain('Runtime behavior was not checked');
     expect(risky).toContain('Coordinate the API-version rollout');
     expect(body).toContain(
-      '| **Behavior** | ✅ 12 API changes, none affect your code, all additive |',
+      '| **Behavior** | ✅ 0 of 12 API changes matched your code by field name, all additive |',
     );
     // One error is one error.
     expect(body).toContain('| **Types** | ✅ the upgrade broke 1 · Uptide left 0 |');
@@ -632,20 +655,22 @@ describe('runs are scoped to their own repository', () => {
     expect(withServices).not.toContain('integration test file');
   });
 
-  it('words the changelog count for every case', () => {
+  it('words the changelog count for every case, saying what was checked', () => {
     const facts = { from: 'a', to: 'b', total: 12, relevant: 0, breaking: 0 };
-    expect(apiChangeSummary(facts)).toBe('12 API changes, none affect your code, all additive');
+    expect(apiChangeSummary(facts)).toBe(
+      '0 of 12 API changes matched your code by field name, all additive',
+    );
     expect(apiChangeSummary({ ...facts, breaking: 2 })).toBe(
-      '12 API changes, none affect your code, 2 breaking for surfaces you do not use',
+      '0 of 12 API changes matched your code by field name',
     );
-    expect(apiChangeSummary({ ...facts, relevant: 3 })).toBe(
-      '3 of 12 API changes affect your code',
+    expect(apiChangeSummary({ ...facts, breaking: 2 }, 1)).toBe(
+      "0 of 12 API changes matched your code by field name; 1 breaking change can't be matched this way",
     );
-    expect(apiChangeSummary({ ...facts, relevant: 1 })).toBe(
-      '1 of 12 API changes affects your code',
+    expect(apiChangeSummary({ ...facts, relevant: 3, breaking: 3 }, 2)).toBe(
+      "3 of 12 API changes matched your code by field name; 2 breaking changes can't be matched this way",
     );
     expect(apiChangeSummary({ ...facts, total: 1 })).toBe(
-      '1 API change, none affects your code, additive',
+      '0 of 1 API change matched your code by field name, additive',
     );
     expect(apiChangeSummary({ ...facts, total: 0 })).toBe('no API changes');
   });
@@ -772,10 +797,10 @@ it("keeps a PR description under GitHub's limit: what matters first, the rest co
   expect(body).toContain('### What changed');
   expect(body).toContain('### Decisions for you');
   expect(body).toContain('evidence: `ui/src/webhook.ts:44`');
-  // The list of resource changes starts with breaking entries and says what it left out.
-  const list = body.slice(body.indexOf('Other changes to resources you use (no code evidence)'));
-  const firstNonBreaking = list.indexOf('— non-breaking;');
-  expect(list.slice(0, firstNonBreaking)).toContain('— breaking;');
+  // Breaking entries no field name can match stay in the open, above the collapsed rest.
+  const open = body.slice(0, body.indexOf('Other changes to resources you use (no code evidence)'));
+  expect(open).toContain("to resources you use that field names can't match**");
+  expect(open).toContain('— breaking;');
   expect(body).toMatch(
     /\[Stripe's changelog\]\(https:\/\/docs\.stripe\.com\/changelog\), 2023-10-16 → 2026-09-30\.endive\./,
   );

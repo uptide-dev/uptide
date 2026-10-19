@@ -58,7 +58,8 @@ export function entryTouches(entry: Pick<StripeEntry, 'title' | 'url'>): StripeT
   if (entry.url.includes('/deprecate-subscription-current-period-start-and-end'))
     fields.push('current_period_start', 'current_period_end');
   return {
-    resources: resources.filter((r) => text.includes(words(r))),
+    // From the start of a word: "parameter" is not a meter, "prevent" not an event.
+    resources: resources.filter((r) => new RegExp(`\\b${words(r)}`).test(text)),
     fields,
     params: fields,
     events: [...new Set(entry.title.match(/\b[a-z]+(?:\.[a-z_]+){2,}\b/g) ?? [])],

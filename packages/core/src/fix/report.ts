@@ -520,22 +520,22 @@ function testsRow(report: FixReport): string {
   return `✅ ${what}${scopes.length === 1 ? ` · ${scopes[0]}` : ''}${rerun}${left}${before}${missing.length ? ` · ⚠️ no tests for ${names(missing)}` : ''}`;
 }
 const sentenceCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
-/** `12 API changes, none affect your code, all additive`: the changelog against the code's evidence. */
-export function apiChangeSummary(c: NonNullable<FixReport['apiChanges']>): string {
-  const changes = count(c.total, 'API change');
+/**
+ * `0 of 230 API changes matched your code by field name; 12 breaking changes can't be matched
+ * this way`: what was checked, never that nothing is affected. A field name can't see a new
+ * default, which reaches the calls that leave the parameter out.
+ */
+export function apiChangeSummary(c: NonNullable<FixReport['apiChanges']>, unmatched = 0): string {
   if (c.total === 0) return 'no API changes';
-  const more = c.resources
-    ? ` · ${c.resources.total} touch resources you use (${c.resources.breaking} breaking)`
-    : '';
-  if (c.relevant > 0)
-    return `${c.relevant} of ${changes} affect${c.relevant === 1 ? 's' : ''} your code${more}`;
-  const nature =
-    c.breaking === 0
-      ? c.total === 1
-        ? 'additive'
-        : 'all additive'
-      : `${c.breaking} breaking for surfaces you do not use`;
-  return `${changes}, none affect${c.total === 1 ? 's' : ''} your code, ${nature}`;
+  const matched = `${c.relevant} of ${count(c.total, 'API change')} matched your code by field name`;
+  if (unmatched)
+    return `${matched}; ${count(unmatched, 'breaking change')} can't be matched this way`;
+  return c.breaking === 0 ? `${matched}, ${c.total === 1 ? 'additive' : 'all additive'}` : matched;
+}
+/** The Stripe changelog section as the PR body shows it, from what the report kept. */
+function stripeSection(report: FixReport) {
+  const stored = report.reviewSections?.find((s) => s.title === 'Stripe API changelog');
+  return stored && stripeChangelog(withLists(stored, report), report);
 }
 /**
  * What vouches for the run and how: the pack, the type-check, the build and the tests, each
@@ -628,10 +628,11 @@ export function summaryCells(report: FixReport): {
   const messageSummary = messages.length
     ? ` · ${messages.filter((c) => c.status === 'identical').length}/${messages.length} custom-message assertions`
     : '';
+  const unmatched = stripeSection(report)?.unmatched ?? 0;
   const behavior = bs.length
     ? `${bs.some(differs) ? '⚠️' : '✅'} ${count(identical, 'schema')} identical${bs.filter(unchecked).length ? ` · ${bs.filter(unchecked).length} not checked` : ''}${bs.some(differs) ? ` · ${bs.filter(differs).length} with differences` : ''}${messageSummary}`
     : report.apiChanges
-      ? `${report.apiChanges.relevant ? '⚠️' : '✅'} ${apiChangeSummary(report.apiChanges)}`
+      ? `${report.apiChanges.relevant || unmatched ? '⚠️' : '✅'} ${apiChangeSummary(report.apiChanges, unmatched)}`
       : report.mode === 'pin'
         ? `✅ unchanged: \`${report.apiVersion}\` is what the installed SDK already defaults to`
         : '⚠️ not checked';
@@ -951,7 +952,7 @@ export function renderMigration(
         ? `The code was migrated to ${report.package} ${from.split('.')[0] === report.target.split('.')[0] ? report.target : report.target.split('.')[0]}${workspaces.length ? ` in ${listed(workspaces)}` : ''}.`
         : 'No code changes were needed; only versions and the lockfile changed.';
     lines.push(
-      `**${ready ? 'Ready for review.' : 'Review required before merging.'}** ${what} ${typeVerdict}${report.apiChanges ? ` ${sentenceCase(apiChangeSummary(report.apiChanges))} between ${report.apiChanges.from} and ${report.apiChanges.to}.` : ''}`,
+      `**${ready ? 'Ready for review.' : 'Review required before merging.'}** ${what} ${typeVerdict}${report.apiChanges ? ` ${sentenceCase(apiChangeSummary(report.apiChanges, stripeSection(report)?.unmatched))} between ${report.apiChanges.from} and ${report.apiChanges.to}.` : ''}`,
       '',
     );
   }
@@ -1013,32 +1014,30 @@ export function renderMigration(
     lines.push(`> ${GENERIC_NOTE(report.package)}`, '');
   if (report.llm.disabled) lines.push('Assisted fixes disabled (--no-llm).', '');
   lines.push(...summaryRows(report), '');
-  if (mode === 'full' && budget !== undefined && report.package === 'stripe') {
-    for (const stored of report.reviewSections ?? []) {
-      if (stored.title !== 'Stripe API changelog') continue;
-      const section = stripeChangelog(withLists(stored, report), report);
-      // Evidence stays visible and rank zero; only resource overlap can yield to the budget.
-      lines.push('### Stripe API changelog', '', ...section.lines, '');
-      const label = 'Other changes to resources you use (no code evidence)';
-      lines.push(
-        {
-          kind: 'text',
-          rank: 6,
-          text: collapse(label, [
-            section.summary,
+  const section = stripeSection(report);
+  if (mode === 'full' && budget !== undefined && report.package === 'stripe' && section) {
+    // Evidence and unmatched breaking entries stay visible at rank zero; only resource
+    // overlap can yield to the budget.
+    lines.push('### Stripe API changelog', '', ...section.lines, '');
+    const label = 'Other changes to resources you use (no code evidence)';
+    lines.push(
+      {
+        kind: 'text',
+        rank: 6,
+        text: collapse(label, [
+          section.summary,
+          '',
+          ...(section.lists ?? []).flatMap((list) => [
+            `**${list.summary}**`,
             '',
-            ...(section.lists ?? []).flatMap((list) => [
-              `**${list.summary}**`,
-              '',
-              ...list.items,
-              '',
-            ]),
-          ]).join('\n'),
-          alt: collapse(label, [section.omitted]).join('\n'),
-        },
-        '',
-      );
-    }
+            ...list.items,
+            '',
+          ]),
+        ]).join('\n'),
+        alt: collapse(label, [section.omitted]).join('\n'),
+      },
+      '',
+    );
   }
 
   if (report.lockfile?.eresolveRetry)

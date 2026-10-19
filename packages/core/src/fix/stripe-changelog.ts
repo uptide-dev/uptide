@@ -1,14 +1,21 @@
-import { calledResources, resourceEntries, usedResources } from '../packs/stripe/relevance.js';
+import {
+  calledResources,
+  entryTouches,
+  resourceEntries,
+  usedResources,
+} from '../packs/stripe/relevance.js';
 import type { FixReport, ReviewSection } from './types.js';
 
 const PER_RESOURCE = 5;
 const TOTAL_ENTRIES = 20;
+/** "Makes flexible billing mode the default for new subscriptions". */
+const DEFAULT = /\bdefaults?\b/i;
 
 /** Project retained Stripe review text; never change the full report or fetch a changelog. */
 export function stripeChangelog(
   section: ReviewSection,
   report: FixReport,
-): ReviewSection & { summary: string; omitted: string } {
+): ReviewSection & { summary: string; omitted: string; unmatched: number } {
   const context = report.packContext;
   const names =
     report.apiChanges?.resources?.names ??
@@ -50,6 +57,26 @@ export function stripeChangelog(
       .find((name) => resourceEntries([entry], [], [name]).length > 0);
     if (resource) grouped.set(resource, [...(grouped.get(resource) ?? []), entry]);
   }
+  // Breaking entries that no name in the code can match get their own list, never the collapsed
+  // one: a new default reaches the calls that leave the parameter out, and an entry that names no
+  // field, parameter or event leaves nothing to look for.
+  const unmatched = [...grouped.values()]
+    .flat()
+    .filter((e) => {
+      const t = entryTouches(e);
+      return e.breaking && (DEFAULT.test(e.title) || (!t.fields.length && !t.events.length));
+    })
+    .sort(
+      (a, b) =>
+        Number(DEFAULT.test(b.title)) - Number(DEFAULT.test(a.title)) ||
+        b.version.localeCompare(a.version) ||
+        a.url.localeCompare(b.url),
+    );
+  for (const [resource, items] of grouped) {
+    const rest = items.filter((e) => !unmatched.includes(e));
+    if (rest.length) grouped.set(resource, rest);
+    else grouped.delete(resource);
+  }
   let available = TOTAL_ENTRIES;
   const lists: NonNullable<ReviewSection['lists']> = [];
   let shown = 0;
@@ -77,18 +104,32 @@ export function stripeChangelog(
   const range = report.apiChanges ?? context?.apiVersions;
   // Unknown legacy entry formats are disclosed as omitted, not silently lost.
   const other =
-    retained.filter((line) => line.startsWith('- ')).length - resourceCount - evidence.length;
+    retained.filter((line) => line.startsWith('- ')).length -
+    resourceCount -
+    unmatched.length -
+    evidence.length;
   const summary = (n: number) =>
     `Showing ${n} of ${resourceCount} other changes to resources you use, grouped by resource; ${resourceCount - n} resource changes and ${other} other changelog entries omitted. Full list in report.json.`;
   return {
     title: section.title,
     summary: summary(shown),
     omitted: summary(0),
+    unmatched: unmatched.length,
     lines: [
       `**${evidence.length} ${evidence.length === 1 ? 'change' : 'changes'} with evidence in your code**`,
       '',
       ...evidence,
       '',
+      ...(unmatched.length
+        ? [
+            `**${unmatched.length} breaking ${unmatched.length === 1 ? 'change' : 'changes'} to resources you use that field names can't match**`,
+            '',
+            "Each one changes a default or names no field, parameter or event, so Uptide can't tell whether your code is affected. A new default reaches every call that leaves the parameter out. Read each one against your code.",
+            '',
+            ...unmatched.map((e) => e.line),
+            '',
+          ]
+        : []),
       `[Stripe's changelog](https://docs.stripe.com/changelog)${range ? `, ${range.from} → ${range.to}` : ' for the recorded API version range'}.`,
     ],
     lists,

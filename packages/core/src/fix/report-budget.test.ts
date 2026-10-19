@@ -59,7 +59,7 @@ it('caps the total across resources and discloses unrecognized legacy entries', 
               Array.from(
                 { length: 6 },
                 (_, i) =>
-                  `- 2026-09-30.clover: [${name} change ${i}](https://docs.stripe.com/changelog/${name}-${i}) — breaking; All products`,
+                  `- 2026-09-30.clover: [${name} change ${i} to \`old_field\`](https://docs.stripe.com/changelog/${name}-${i}) — breaking; All products`,
               ),
             ),
             '- Legacy entry with an unknown format',
