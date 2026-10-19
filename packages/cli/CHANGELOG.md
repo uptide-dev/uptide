@@ -1,5 +1,15 @@
 # uptide
 
+## 0.17.0
+
+### Minor Changes
+
+- [#244](https://github.com/uptide-dev/uptide/pull/244) [`c9d839d`](https://github.com/uptide-dev/uptide/commit/c9d839da147b8132c419568d93507d363e25d281) Thanks [@lucasbraum](https://github.com/lucasbraum)! - Behavior records: a silent change with a cited source and a usage site the type checker resolved (ADR 0017). The first, for zod 3 → 4: a zod object passed to the MCP SDK as a tool's `inputSchema` loses `additionalProperties: false` in the schema clients see. `check` lists each site, `fix` tells the agent the quotes and the edit (`.strict()`) and puts the record under "Decisions for you", saying it also makes the server reject unknown keys. The agent also gets the lines of the target's own CHANGELOG.md that name what the repository uses and say a behavior changed, read from the copy already installed. `pack test` scores "silent changes caught" against a new `silent` ground truth and fails on any false positive there.
+
+### Patch Changes
+
+- [#243](https://github.com/uptide-dev/uptide/pull/243) [`f1c4a89`](https://github.com/uptide-dev/uptide/commit/f1c4a8918ab9c1fe1bb038876e3c228a6bdb15e1) Thanks [@lucasbraum](https://github.com/lucasbraum)! - A Stripe PR no longer says "none affect your code". It says how many API changes matched the code by field name and how many breaking changes can't be matched that way, and lists those breaking changes in the open, a new default first. The bundled Stripe changelog is regenerated, and "parameter" no longer tags an entry as a meter change.
+
 ## 0.16.1
 
 ### Patch Changes
