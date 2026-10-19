@@ -131,7 +131,12 @@ for (const p of BOTS ? [] : PACKS) {
 // Second source: merged pull requests whose title names the package; the commit is the one the
 // merge put on the base branch (a squash, or the merge commit, whose first parent is the base).
 for (const [p, author] of PACKS.flatMap((p) =>
-  BOTS ? [[p, 'app/renovate'], [p, 'app/dependabot']] : [[p, null]],
+  BOTS
+    ? [
+        [p, 'app/renovate'],
+        [p, 'app/dependabot'],
+      ]
+    : [[p, null]],
 )) {
   const name = p.pkg.replace(/^@sentry\//, 'sentry ');
   const word = p.pkg.replace(/^@sentry\/.*/, 'sentry').toLowerCase();
@@ -222,9 +227,7 @@ for (const cand of out) {
     );
     const fixed = human.some((c) =>
       (tryGh(`repos/${repo}/commits/${c.sha}`)?.files ?? []).some(
-        (f) =>
-          SOURCE.test(f.filename) &&
-          !/(^|\/)(package\.json|[^/]*lock[^/]*)$/.test(f.filename),
+        (f) => SOURCE.test(f.filename) && !/(^|\/)(package\.json|[^/]*lock[^/]*)$/.test(f.filename),
       ),
     );
     if (!fixed) {

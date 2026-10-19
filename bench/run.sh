@@ -69,7 +69,9 @@ uptide)
   mkdir -p "$dir/uptide-cache"
   UPTIDE_CACHE_DIR=$dir/uptide-cache UPTIDE_MODEL=$model npx -y "uptide@$uptide" fix "$pkg" \
     --target "$to" --yes --json --max-cost "${UPTIDE_CAP_USD:-1}" >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
-  branch=$(git for-each-ref --format='%(refname:short)' "refs/heads/uptide/$pkg-*" | head -1)
+  # Uptide names the branch after the pack's lead package (react-router for react-router-dom).
+  branch=$(jq -r '.branch // empty' "$dir/agent.json" 2>/dev/null)
+  [ -n "$branch" ] || branch=$(git for-each-ref --format='%(refname:short)' "refs/heads/uptide/*" | head -1)
   [ -n "$branch" ] && git checkout -q "$branch"
   cost=$(jq '.llm.costUsd // 0' "$dir/agent.json" 2>/dev/null || echo 0)
   cp "$(jq -r '.prBody // empty' "$dir/agent.json" 2>/dev/null)" "$dir/summary.md" 2>/dev/null ||
