@@ -1439,6 +1439,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     buildRuns,
     prBody: join(root, '.uptide/pr-body.md'),
     notes: [
+      ...(lockfile?.notes ?? []),
       ...pins.map((pin) => describeRootPin(pin).replace('it will be updated', 'updated')),
       ...fallback.map((reason) => `Agent-led fallback: ${reason}`),
       ...pack.reviewNotes(packContext),

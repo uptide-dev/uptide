@@ -37,6 +37,7 @@ export interface Upgrade {
 const INSTALLED = ['dependencies', 'devDependencies', 'optionalDependencies'] as const;
 export interface InstallReport extends LockDiff {
   manager: string;
+  notes?: string[];
   file: string;
   /** npm's lock-only install ERESOLVEd from the old lockfile; the smaller retry that resolved (UPT-107). */
   eresolveRetry?: EresolveRetry;
@@ -502,6 +503,7 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
   return {
     ...diff,
     manager: pm.kind,
+    ...(pm.note ? { notes: [pm.note] } : {}),
     file: pm.lockfile,
     ...(retry ? { eresolveRetry: retry } : {}),
     ...(undeclared.length ? { undeclared } : {}),
