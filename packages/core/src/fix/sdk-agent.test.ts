@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PERIOD_KNOWLEDGE, stripePack } from '../packs/stripe/index.js';
 import type { MigrationPack } from '../packs/types.js';
+import { zodPack } from '../packs/zod/index.js';
 import { fix } from './run.js';
 import {
   assistWithSdk,
@@ -671,6 +672,42 @@ describe('taskPrompt', () => {
     );
     expect(prompt).toMatch(/reads both shapes/);
     expect(prompt).not.toMatch(/import \{ subscriptionPeriod \} from/);
+  });
+
+  it("tells the agent a behavior record's sites in its files, with the quotes and the edit, and the changelog lines", () => {
+    const record = zodPack.records?.[0];
+    const prompt = taskPrompt({
+      pack: zodPack,
+      context: {
+        from: '3.25.76',
+        to: '4.6.5',
+        includeDeprecated: false,
+        recordSites: [
+          {
+            record: record?.id as string,
+            file: 'src/tools/index.ts',
+            line: 69,
+            snippet: 'inputSchema: a,',
+          },
+          {
+            record: record?.id as string,
+            file: 'src/other.ts',
+            line: 3,
+            snippet: 'inputSchema: b,',
+          },
+        ],
+        changelog: ['4.1.0: `object` now strips unknown keys silently'],
+      },
+      task: { id: 't', rule: record?.id as string, files: ['src/tools/index.ts'], sites: [] },
+      conventions: [],
+    });
+    expect(prompt).toContain('Behavior changes at these sites');
+    expect(prompt).toContain('site: src/tools/index.ts:69 `inputSchema: a,`');
+    expect(prompt).not.toContain('src/other.ts');
+    expect(prompt).toContain('"io: opts?.pipeStrategy ?? \'input\'"');
+    expect(prompt).toContain('naming the record id');
+    expect(prompt).toContain("Lines of zod's own CHANGELOG.md (3.25.76 → 4.6.5)");
+    expect(prompt).toContain('- 4.1.0: `object` now strips unknown keys silently');
   });
 });
 

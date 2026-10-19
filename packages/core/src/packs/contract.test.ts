@@ -19,6 +19,7 @@ import {
 } from './contract.js';
 import { withUnexercised } from './fixability.js';
 import { activePacks, registeredPacks, withCompanionPacks } from './index.js';
+import { recordProblems } from './records.js';
 import { runFixtures } from './tooling/fixtures.js';
 import { scoreSites } from './tooling/pack-test.js';
 import { parseRegistry, renderRegistry } from './tooling/registry-file.js';
@@ -55,6 +56,9 @@ describe('every registered pack meets the contract', () => {
     expect(pack.instructions).not.toBe('');
 
     const dir = join(packsDir, entry.dir);
+    // A behavior record's quote is verbatim in the page it cites, as read (ADR 0017).
+    expect(recordProblems(pack.records ?? [], dir, pack.name)).toEqual([]);
+    for (const record of pack.records ?? []) expect(ids, record.id).not.toContain(record.id);
     const fixtures = runFixtures(pack, dir);
     expect(fixtures.unknown).toEqual([]);
     expect(fixtures.rewriteFailures).toEqual([]);

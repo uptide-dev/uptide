@@ -157,6 +157,29 @@ even when it returns an empty list. Decision notes are not repeated as generic r
 
 A note found by `detect` is scored by `pack test` like a rule.
 
+### Behavior records: silent changes with a cited source
+
+A behavior record ([ADR 0017](decisions/0017-silent-behavior-changes.md)) is a change no type,
+test or compiler shows, written down so it can be found at a site and cited. It lives in the
+pack's `records.json`, with the pages it quotes under `sources/`, and is set on the pack as
+`records` (`packs/records.ts` has the format):
+
+- `sources`: each a `url`, the date it was `read`, a verbatim `quote`, and the `snapshot` of the
+  page as read with its `sha256`. The contract test fails when a quote is not in its snapshot or
+  a snapshot no longer matches its hash. No source, no record.
+- `trigger`: how a site is found, with the type checker. `flows-to-consumer`: a value of the
+  package's type passed to another package's function (`consumer`, with the range of its versions
+  the record holds for), named by receiver type, method, argument and property. zod's
+  `mcp-input-schema-additional-properties` matches a non-strict zod object passed as
+  `inputSchema` to `McpServer#registerTool` or `#tool`.
+- `effect`, and `keepOld`: the edit that keeps the old behavior, whether it is `exact`, and
+  when it is not, what else it changes (`alsoChanges`).
+
+A match is a site of its own rule, the record id: `check` lists it, never as breaking; `fix`
+gives the agent each site with its quotes and the edit, checks the branch afterwards for the
+sites the edit reached, and puts the record under "Decisions for you", with what was applied,
+where, and what else it changes.
+
 ### Agent instructions
 
 `instructions` is what the agent is told at a site no rule rewrites, after the rule's own
@@ -189,6 +212,12 @@ Each entry is a public repository at the commit **before** it made the upgrade, 
 findings the pack must report there: repository-relative file, 1-based line, and the rule
 or note id. `from` is the version the lockfile has at that commit, and `to` the version the
 repository upgraded to.
+
+`silent` lists the behavior changes the upgrade made that no check shows, `{ file, line,
+record, kind }`: `required` where the upgrade kept the old behavior and a record must find
+the site, `product-choice` where it changed behavior it did not have to, so that a record
+site there is a false positive. They come from the upgrade commit and the sources the record
+cites, never from what `check` reports, and are scored apart from `findings`.
 
 Where the expected findings come from: two sources that are not Uptide.
 
@@ -319,7 +348,10 @@ findings:
 - **overall**: at the line level, every severity;
 - **behavior notes**: at the line level, the sites of the pack's behavior notes, whatever
   their severity;
-- **breaking**: at the line level, breaking findings only.
+- **breaking**: at the line level, breaking findings only;
+- **silent changes caught**: behavior-record sites against the repository's `silent` ground
+  truth, apart from everything above. A site matches a `required` entry of the same record at
+  the same line; any other record site, a `product-choice` line among them, is a false positive.
 
 An expected site has the severity of the rule or note it is expected under: a rule's
 `severity`; a note's `severity`, or breaking when the note reports findings without one (as
@@ -342,7 +374,7 @@ predicted, or nothing expected), every false positive as `repo  file:line  rule 
 every false negative the same way with the severity it was expected at, and sites found under
 another rule. A `generic` expected site (one no rule covered when the truth was written)
 counts for whichever rule claims it now. It exits non-zero on any false positive among
-breaking findings, any fixture failure, or a `verification.json` that claims more than it
+breaking findings or silent changes, any fixture failure, or a `verification.json` that claims more than it
 measured: recorded `verified`, measured `candidate`. A record that claims less on purpose
 (recorded `candidate`, measured `verified`) passes with `recorded candidate by choice;
 measures verified`; one whose numbers merely differ passes with a note (`--write` records it).

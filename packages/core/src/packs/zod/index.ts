@@ -13,6 +13,7 @@ import type { Finding } from '../../domain/report.js';
 import { satisfies } from '../../fetch/range.js';
 import { onReset } from '../../shared-state.js';
 import { detected, type Pack, type PackMeta, ruleFor } from '../contract.js';
+import { type BehaviorRecord, recordFindings } from '../records.js';
 import type { PackContext, TransformResult } from '../types.js';
 import {
   errorMemberFindings,
@@ -24,6 +25,7 @@ import {
 } from './error-members.js';
 import { zodGuide } from './guide.js';
 import { defaultMessageSites } from './messages.js';
+import records from './records.json' with { type: 'json' };
 import { removedExportFindings, removedExportSites, siteFindings } from './removed-exports.js';
 import {
   deprecatedNameSites,
@@ -335,6 +337,8 @@ function transform(text: string, finding: Finding, context: PackContext): Transf
     return { text, applied: false, reason: 'no mechanical rule for this change kind and symbol' };
   return rule.rewrite(text, finding, context);
 }
+/** Silent behavior changes, each with its cited sources (`records.json`, `sources/`). */
+export const zodRecords = records as BehaviorRecord[];
 const meta: PackMeta = {
   package: 'zod',
   from: '>=3 <4',
@@ -473,6 +477,7 @@ export const zodPack: Pack = {
       reported: ['decision', 'test-follow-up'],
     },
   ],
+  records: zodRecords,
   instructions: zodGuide.generics,
   transform,
   guide: (f) => ruleFor(zodPack.rules, f)?.guide ?? zodGuide.generics,
@@ -499,6 +504,7 @@ export const zodPack: Pack = {
       ...siteRules.flatMap((spec) =>
         siteFindings({ root, workspace, from, to, usages, read }, spec),
       ),
+      ...recordFindings(zodRecords, { root, workspace, package: 'zod', from, to }),
     ];
     const key = (f: Finding) => `${f.rule}:${f.usage.file}:${f.usage.line}`;
     const seen = new Set(own.map(key));

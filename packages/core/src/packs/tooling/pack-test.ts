@@ -9,6 +9,7 @@ import {
   type GateResult,
   type GroundTruth,
   type GroundTruthRepo,
+  type GroundTruthSilent,
   type Pack,
   type PackStatus,
   type PackVerification,
@@ -19,6 +20,7 @@ import {
   verificationTally,
   verifiedGate,
 } from '../contract.js';
+import { recordProblems } from '../records.js';
 import { type FixtureResult, fixturesPass, runFixtures } from './fixtures.js';
 import {
   type EnsureOptions,
@@ -100,6 +102,18 @@ export interface RepoScore {
   falseNegatives: ScoredSite[];
   /** Real sites reported under another rule: `rule` is predicted, `expected` the truth's. */
   wrongRule: (ScoredSite & { expected: string })[];
+  /** Behavior-record sites against the `silent` ground truth, apart from everything above. */
+  silent?: SilentScore;
+}
+
+/** One repository's behavior-record sites (`rule` is the record id) against its `silent` truth. */
+export interface SilentScore {
+  predicted: ScoredSite[];
+  /** The `required` silent changes: what a record must find. */
+  expected: ScoredSite[];
+  /** Record sites no required change has, a `product-choice` line among them. */
+  falsePositives: ScoredSite[];
+  falseNegatives: ScoredSite[];
 }
 
 export interface PackTestReport {
@@ -129,6 +143,11 @@ export interface PackTestReport {
   breaking: Tally;
   /** Ground truth, at the line level, the sites of behavior notes, whatever their severity. */
   behavior: Tally;
+  /**
+   * Silent changes caught: behavior-record sites against the `silent` ground truth. Absent for a
+   * pack with neither records nor silent truth. Any false positive fails the test.
+   */
+  silent?: Tally;
   /** The verified gate's verdict, and the real-site counts and mechanical rules it read. */
   gate: GateResult & {
     breakingSites: number;
@@ -169,6 +188,7 @@ export function predictedSites(
 ): ScoredSite[] {
   const wanted = new Map(expected.map((e) => [key(e), e]));
   const own = new Set([...pack.rules.map((r) => r.id), ...pack.behavior.map((b) => b.id)]);
+  const records = new Set((pack.records ?? []).map((r) => r.id));
   const sites = new Map<string, ScoredSite>();
   for (const p of report.packages) {
     const names = p.members ? p.members.map((m) => m.name) : [p.name];
@@ -194,6 +214,8 @@ export function predictedSites(
     );
     for (const group of p.plan ?? [])
       for (const location of group.locations) {
+        // A behavior record's sites are scored apart (`silentSites`), never as a rule's.
+        if (records.has(group.rule)) break;
         const file = absolute(location.file);
         if (
           evidence.has(key({ file, line: location.line })) &&
@@ -219,6 +241,69 @@ export function predictedSites(
     }
   }
   return [...sites.values()].sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+}
+
+/** The plan's behavior-record sites for the package, repository-relative, the record id as rule. */
+export function silentSites(
+  report: CheckReport,
+  pack: Pick<Pack, 'name' | 'records'>,
+): ScoredSite[] {
+  const records = new Set((pack.records ?? []).map((r) => r.id));
+  const sites = new Map<string, ScoredSite>();
+  for (const p of report.packages) {
+    if (!(p.members ? p.members.map((m) => m.name) : [p.name]).includes(pack.name)) continue;
+    const prefix = p.workspace === '.' || p.workspace === '*' ? '' : `${p.workspace}/`;
+    for (const group of p.plan ?? []) {
+      if (!records.has(group.rule)) continue;
+      for (const { file, line } of group.locations) {
+        const site = {
+          file: file.startsWith(prefix) ? file : `${prefix}${file}`,
+          line,
+          rule: group.rule,
+        };
+        sites.set(key(site), site);
+      }
+    }
+  }
+  return [...sites.values()].sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+}
+
+/**
+ * Record sites against the silent truth: a true positive is a `required` change of the same
+ * record at the line; anything else predicted (a `product-choice` line, another record, a line
+ * the truth does not name) is a false positive.
+ */
+export function scoreSilent(
+  predicted: ScoredSite[],
+  truth: readonly GroundTruthSilent[],
+): SilentScore {
+  const expected = truth
+    .filter((t) => t.kind === 'required')
+    .map((t) => ({ file: t.file, line: t.line, rule: t.record }));
+  const want = new Set(expected.map((e) => `${key(e)}:${e.rule}`));
+  const got = new Set(predicted.map((p) => `${key(p)}:${p.rule}`));
+  return {
+    predicted,
+    expected,
+    falsePositives: predicted.filter((p) => !want.has(`${key(p)}:${p.rule}`)),
+    falseNegatives: expected.filter((e) => !got.has(`${key(e)}:${e.rule}`)),
+  };
+}
+
+/** Every scored repository's silent score together; undefined when nothing is recorded or expected. */
+export function silentTally(
+  pack: Pick<Pack, 'records'>,
+  scored: Pick<RepoScore, 'silent'>[],
+): Tally | undefined {
+  const all = scored.flatMap((r) => (r.silent ? [r.silent] : []));
+  if (!pack.records?.length && !all.some((s) => s.expected.length)) return undefined;
+  const fp = all.reduce((n, s) => n + s.falsePositives.length, 0);
+  const predicted = all.reduce((n, s) => n + s.predicted.length, 0);
+  return tally(
+    predicted - fp,
+    fp,
+    all.reduce((n, s) => n + s.falseNegatives.length, 0),
+  );
 }
 
 /** One repository: what was predicted against what the ground truth expects. */
@@ -389,11 +474,13 @@ async function scoreRepo(
       base.installedMismatch = `the lockfile has ${installed.join(', ')}, the ground truth says ${entry.from}`;
     const own = report.packages.filter((p) => p.name === pack.name);
     const predicted = predictedSites(report, pack, expected);
+    const silent = scoreSilent(silentSites(report, pack), entry.silent ?? []);
     return {
       ...base,
       ...companionOutcome(own, entry.with, (name) => dependsOn(project, dir, name, pack.name)),
       predicted,
       ...scoreSites(predicted, expected),
+      ...(silent.predicted.length || silent.expected.length || entry.silent ? { silent } : {}),
     };
   } catch (err) {
     return { ...base, timing, error: (err as Error).message };
@@ -515,6 +602,7 @@ export async function testPack(
       p.replace('companions[', 'alternateLeads['),
     ),
   );
+  problems.push(...recordProblems(pack.records ?? [], dir, pack.name));
   const fixtures = runFixtures(pack, dir, { update: options.updateFixtures === true });
   if (fixtures.cases.length === 0 && pack.rules.some((r) => r.rewrite || r.detect))
     problems.push('rules that rewrite or detect need fixtures (fixtures/<case>/before.ts)');
@@ -532,6 +620,10 @@ export async function testPack(
     repos.filter((r) => !r.error),
   );
 
+  const silent = silentTally(
+    pack,
+    repos.filter((r) => !r.error),
+  );
   const gate = gateOf(pack, truth, repos);
   // A pack whose upgrade leaves part of the group behind produces an inconsistent install.
   if (options.fixturesOnly) gate.reasons.unshift('ground truth not scored (--fixtures-only)');
@@ -549,6 +641,7 @@ export async function testPack(
     repos: publicRepos(truth).length,
     breaking: verificationTally(breaking),
     behavior: verificationTally(behavior),
+    ...(silent ? { silent: verificationTally(silent) } : {}),
     class: gate.class,
     breakingSites: gate.breakingSites,
     breakingFoundAny: coverage.any,
@@ -573,6 +666,7 @@ export async function testPack(
     scoredAll &&
     fixturesPass(fixtures) &&
     breaking.falsePositives === 0 &&
+    (silent?.falsePositives ?? 0) === 0 &&
     !repos.some((r) => r.leftBehind?.length) &&
     !overclaimed;
   return {
@@ -591,6 +685,7 @@ export async function testPack(
     overall,
     breaking,
     behavior,
+    ...(silent ? { silent } : {}),
     gate,
     passed,
   };

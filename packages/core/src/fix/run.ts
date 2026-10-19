@@ -9,6 +9,7 @@ import type { CheckReport, Finding } from '../domain/report.js';
 import { SafetyRefusal, UptideError } from '../errors.js';
 import { createNpmFetcher } from '../fetch/npm-fetcher.js';
 import { loadRegistryConfig } from '../fetch/npmrc.js';
+import { installedPackageDir } from '../list/evidence.js';
 import { ACCEPTED_KEYS, selectLlm } from '../llm/config.js';
 import {
   type CostSetting,
@@ -19,6 +20,7 @@ import {
   providerFixer,
 } from '../llm/fixer.js';
 import { nanos } from '../llm/pricing.js';
+import { packageChangelog, usedNames } from '../packs/changelog.js';
 import { decidedRules, decisionInventory, packDecisions } from '../packs/decisions.js';
 import { genericPack } from '../packs/generic.js';
 import {
@@ -30,6 +32,7 @@ import {
   withCompanionPacks,
 } from '../packs/index.js';
 import { leadName } from '../packs/leads.js';
+import { applicable, type RecordSite, recordDecisions, recordSites } from '../packs/records.js';
 import { payloadApiVersions, stripeUsageContext } from '../packs/stripe/relevance.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { resetSharedState } from '../shared-state.js';
@@ -673,6 +676,21 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
   // Evidence at a site the compiler rejected is confirmed evidence: the change is real there.
   if (packContext.evidence)
     packContext = { ...packContext, evidence: confirmedEvidence(packContext.evidence, selected) };
+  // The sites a behavior record matched: the agent is told each one, the PR body decides them.
+  const records = applicable(pack.records ?? [], initialContext.from, target);
+  const matched = selected.flatMap((f) =>
+    records.some((r) => r.id === f.rule)
+      ? [
+          {
+            record: f.rule as string,
+            file: f.usage.file,
+            line: f.usage.line,
+            snippet: f.usage.snippet.trim(),
+          },
+        ]
+      : [],
+  );
+  if (matched.length) packContext = { ...packContext, recordSites: matched };
   const untracked = untrackedFiles(root);
   const baselineTests = await verify(`tests (${names(workspaces)})`, () =>
     services.tests(root, workspaces, options.testTimeoutMs, affected, {
@@ -742,6 +760,26 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       `Install check: ${lockfile.outOfScope.length} lockfile resolution${lockfile.outOfScope.length === 1 ? '' : 's'} changed outside the upgrade's dependency subtree (listed for review)`,
     );
   assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
+  // The target's own CHANGELOG.md, from the copy just installed: no download of its own.
+  const installedTarget = installedPackageDir(root, workspaces[0] ?? '.', pack.name);
+  const changelog = installedTarget
+    ? packageChangelog(installedTarget, {
+        from: initialContext.from,
+        to: target,
+        names: [
+          ...new Set(
+            affected.flatMap((f) => {
+              try {
+                return usedNames(readFileSync(join(root, f), 'utf8'), pack.name);
+              } catch {
+                return [];
+              }
+            }),
+          ),
+        ],
+      })
+    : [];
+  if (changelog.length) packContext = { ...packContext, changelog };
   const moved = companions.map((c) => `${c.name} ${c.to}`).join(', ');
   const dropped = removals.map((r) => r.name).join(', ');
   commit(
@@ -1402,9 +1440,36 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     : packContext;
   const headline = pack.headline?.(settled);
   if (headline) result.headline = headline;
-  const decisions = packDecisions(pack, packContext, rules, followed);
-  if (decisions?.length) result.decisions = decisions;
-  const decided = decidedRules(pack, packContext, rules, followed);
+  // A record site the edit reached no longer matches on the branch: kept. ponytail: matched by
+  // file and snippet, so an edit that rewrites the line without the fix reads as kept.
+  const before = packContext.recordSites ?? [];
+  if (before.length) {
+    const open = workspaces.flatMap((workspace) =>
+      recordSites(records, { root, workspace, phase: 'after' }),
+    );
+    const same = (a: RecordSite, b: RecordSite) => a.file === b.file && a.record === b.record;
+    packContext = {
+      ...packContext,
+      recordSites: before.map((site) => {
+        const still = open.filter((o) => same(o, site));
+        const kept =
+          !still.length ||
+          (!still.some((o) => o.snippet === site.snippet) &&
+            still.length < before.filter((b) => same(b, site)).length);
+        return { ...site, kept };
+      }),
+    };
+    result.packContext = packContext;
+  }
+  const decisions = [
+    ...recordDecisions(records, packContext.recordSites ?? []),
+    ...packDecisions(pack, packContext, rules, followed),
+  ];
+  if (decisions.length) result.decisions = decisions;
+  const decided = [
+    ...decidedRules(pack, packContext, rules, followed),
+    ...new Set(before.map((s) => s.record)),
+  ];
   if (decided.length) result.decidedRules = decided;
   const remote = originOf(root);
   if (remote) result.remote = remote;

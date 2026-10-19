@@ -131,6 +131,8 @@ export function formatPackTest(report: PackTestReport, color = false, limit = In
     // Absent from a report written before behavior notes were scored on their own.
     if (report.behavior) out.push(row('behavior notes (sites)', report.behavior));
     out.push(c.bold(row('breaking (sites)', report.breaking)));
+    // Behavior records against the `silent` truth (ADR 0017): any false positive fails the test.
+    if (report.silent) out.push(row('silent changes caught', report.silent));
     const listed = (
       title: string,
       sites: { label: string; file: string; line: number; text: string }[],
@@ -161,6 +163,28 @@ export function formatPackTest(report: PackTestReport, color = false, limit = In
           file: s.file,
           line: s.line,
           text: s.severity ? `${s.rule} (${s.severity})` : s.rule,
+        })),
+      ),
+    );
+    listed(
+      'silent false positives',
+      report.repos.flatMap((r) =>
+        (r.silent?.falsePositives ?? []).map((s) => ({
+          label: r.label,
+          file: s.file,
+          line: s.line,
+          text: s.rule,
+        })),
+      ),
+    );
+    listed(
+      'silent changes missed',
+      report.repos.flatMap((r) =>
+        (r.silent?.falseNegatives ?? []).map((s) => ({
+          label: r.label,
+          file: s.file,
+          line: s.line,
+          text: s.rule,
         })),
       ),
     );
@@ -223,12 +247,16 @@ export function formatPackTest(report: PackTestReport, color = false, limit = In
       `verification.json differs from this run: \`uptide pack test ${report.package} --write\` records it`,
     );
   const breakingFp = report.breaking.falsePositives;
+  const silentFp = report.silent?.falsePositives ?? 0;
+  const fps = (n: number, among: string) =>
+    n ? `${n} false positive${n === 1 ? '' : 's'} among ${among}` : '';
+  const why = [fps(breakingFp, 'breaking findings'), fps(silentFp, 'silent changes')]
+    .filter(Boolean)
+    .join(', ');
   out.push(
     report.passed
       ? c.green(`PASS ${report.package}: ${report.status}`)
-      : c.red(
-          `FAIL ${report.package}${breakingFp ? `: ${breakingFp} false positive${breakingFp === 1 ? '' : 's'} among breaking findings` : ''}`,
-        ),
+      : c.red(`FAIL ${report.package}${why ? `: ${why}` : ''}`),
   );
   return `${out.join('\n')}\n`;
 }

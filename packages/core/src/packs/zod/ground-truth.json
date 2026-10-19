@@ -1551,6 +1551,100 @@
           "rule": "generic"
         }
       ]
+    },
+    {
+      "repo": "consetto/calmcp",
+      "commit": "741de4eba98eb96b4bed817d8974e9e8c6eec867",
+      "migration": "https://github.com/consetto/calmcp/commit/bdaef39c34705b2dfc1065a59ec683288a2e99d2",
+      "from": "3.25.76",
+      "to": "4.6.5",
+      "why": "MCP server whose tool input schemas are zod raw shapes passed to @modelcontextprotocol/sdk 1.30.1 registerTool: the UpgradeBench calmcp task (#169). Findings from its own upgrade bdaef39 and tsc at 4.6.5; silent: the five inputSchema sites where it added .strict() so tools/list keeps advertising additionalProperties: false (ADR 0017)",
+      "findings": [
+        {
+          "file": "src/tools/create.ts",
+          "line": 20,
+          "rule": "string-format",
+          "note": "z.string().uuid() becomes z.guid(): zod 4's uuid checks the RFC version and variant"
+        },
+        {
+          "file": "src/tools/zodDoc.ts",
+          "line": 20,
+          "rule": "deprecated-names"
+        },
+        {
+          "file": "src/tools/zodDoc.ts",
+          "line": 25,
+          "rule": "types"
+        },
+        {
+          "file": "src/tools/zodDoc.ts",
+          "line": 28,
+          "rule": "types"
+        },
+        {
+          "file": "src/tools/zodDoc.ts",
+          "line": 37,
+          "rule": "deprecated-names"
+        },
+        {
+          "file": "src/tools/zodDoc.ts",
+          "line": 43,
+          "rule": "deprecated-names"
+        },
+        {
+          "file": "src/tools/zodDoc.ts",
+          "line": 49,
+          "rule": "types"
+        },
+        {
+          "file": "src/tools/zodDoc.ts",
+          "line": 64,
+          "rule": "types"
+        },
+        {
+          "file": "src/tools/zodDoc.ts",
+          "line": 65,
+          "rule": "types",
+          "note": "property.description becomes z.globalRegistry.get(property)?.description"
+        }
+      ],
+      "silent": [
+        {
+          "file": "src/tools/index.ts",
+          "line": 69,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "kind": "required",
+          "note": "inputSchema: strictInput(shape), z.object(shape).strict()"
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 83,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "kind": "required",
+          "note": "inputSchema: strictInput(shape), z.object(shape).strict()"
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 102,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "kind": "required",
+          "note": "inputSchema: strictInput(shape), z.object(shape).strict()"
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 119,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "kind": "required",
+          "note": "inputSchema: strictInput(shape), z.object(shape).strict()"
+        },
+        {
+          "file": "src/tools/index.ts",
+          "line": 148,
+          "record": "zod/mcp-input-schema-additional-properties",
+          "kind": "required",
+          "note": "inputSchema: strictInput(shape), z.object(shape).strict()"
+        }
+      ]
     }
   ],
   "$comment": "Ground truth for the zod pack (docs/packs.md, \"Ground truth\"). Each public repository is pinned at the commit before its own zod 3 to 4 upgrade. Expected findings come from two sources that are not Uptide, drafted by pnpm packs:truth and read by hand: the diagnostics the repository's TypeScript reports with zod 4.6.5 linked in and not without it (errors, and deprecations 6385/6387), and the lines the upgrade commit changed for zod (one site per construct; comments and other packages' changes left out). Rules are assigned from each site's code and text. The storefront fixture is synthetic: scored, never counted toward verified; its breaking sites are the tsc errors of fixtures/truth/storefront.json."

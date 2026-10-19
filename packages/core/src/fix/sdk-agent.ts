@@ -20,6 +20,7 @@ import { defaultCacheDir } from '../cache/paths.js';
 import type { ProgressListener } from '../domain/progress.js';
 import { modelCapabilities } from '../llm/capabilities.js';
 import { packDecisions } from '../packs/decisions.js';
+import { recordPrompt } from '../packs/records.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { command, git } from './process.js';
 import { commit, followedText, safeFile } from './settle.js';
@@ -344,6 +345,10 @@ export function taskPrompt(input: {
     ...(s.lists ?? []).flatMap((l) => [l.summary, ...l.items.map((i) => `  - ${i}`)]),
   ]);
   const decisions = packDecisions(pack, context, ruleIds) ?? [];
+  const behavior = recordPrompt(
+    pack.records ?? [],
+    (context.recordSites ?? []).filter((s) => task.files.includes(s.file)),
+  );
   const site = (s: FixSite) => {
     const u = s.finding.usage;
     const c = s.finding.change;
@@ -373,6 +378,14 @@ export function taskPrompt(input: {
     ...rules.flatMap((rule) => ['', `What the pack knows about ${rule.id}: ${rule.guide}`]),
     ...(changelog.length ? ['', 'Changelog entries:', ...changelog] : []),
     ...(sources?.length ? ['', 'Sources:', ...sources.map((s) => `- ${s.title}: ${s.url}`)] : []),
+    ...(behavior.length ? ['', ...behavior] : []),
+    ...(context.changelog?.length
+      ? [
+          '',
+          `Lines of ${pack.name}'s own CHANGELOG.md (${context.from} → ${context.to}) that name what this repository uses and say a behavior changed. Context only: check each against the code before acting on it.`,
+          ...context.changelog.map((line) => `- ${line}`),
+        ]
+      : []),
     ...(decisions.length
       ? [
           '',

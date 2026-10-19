@@ -1,12 +1,12 @@
 {
   "status": "verified",
-  "truth": "sha256-d81c5d435d0dee86c75e9022674d2578ff9f04ed5651b5aeb0361d9f46ae5537",
-  "repos": 5,
+  "truth": "sha256-3d2f52d760ca26e33f869208b51caa83c545291a360ca35fc6e16e043113ff87",
+  "repos": 6,
   "breaking": {
     "precision": 1,
-    "recall": 0.7925,
+    "recall": 0.7988,
     "falsePositives": 0,
-    "truePositives": 126,
+    "truePositives": 131,
     "falseNegatives": 33
   },
   "behavior": {
@@ -16,11 +16,18 @@
     "truePositives": 0,
     "falseNegatives": 0
   },
+  "silent": {
+    "precision": 1,
+    "recall": 1,
+    "falsePositives": 0,
+    "truePositives": 5,
+    "falseNegatives": 0
+  },
   "class": "breaking",
-  "breakingSites": 219,
-  "breakingFoundAny": 216,
-  "breakingFound": 117,
-  "breakingScored": 249,
+  "breakingSites": 224,
+  "breakingFoundAny": 221,
+  "breakingFound": 121,
+  "breakingScored": 254,
   "behaviorSites": 0,
   "unexercised": ["error-members"],
   "mechanical": {
@@ -33,7 +40,7 @@
       "falsePositives": 0
     },
     "string-format": {
-      "truePositives": 21,
+      "truePositives": 22,
       "falsePositives": 0
     },
     "error-members": {

@@ -1,0 +1,45 @@
+[
+  {
+    "id": "zod/mcp-input-schema-additional-properties",
+    "range": { "from": ">=3.0.0 <4", "to": ">=4.0.0 <5" },
+    "sources": [
+      {
+        "url": "https://github.com/colinhacks/zod/blob/cc4cd4ee9c52fcaa10964e48cc144541e41a5ed9/packages/docs/content/json-schema.mdx",
+        "read": "2026-10-18",
+        "sha256": "634ac057e60ecc31e6998e4a0767b495f7fdb9879faa0aeaadecb31d0ab96ee0",
+        "quote": "When converting to JSON Schema in `\"input\"` mode, `additionalProperties` is not set.",
+        "snapshot": "sources/zod-json-schema.mdx.txt"
+      },
+      {
+        "url": "https://unpkg.com/@modelcontextprotocol/sdk@1.30.1/dist/esm/server/zod-json-schema-compat.js",
+        "read": "2026-10-18",
+        "sha256": "c639ae841e53d32479cd8e4df2f373400cfe9b44bba072cafdf34a7235990dfa",
+        "quote": "io: opts?.pipeStrategy ?? 'input'",
+        "snapshot": "sources/mcp-sdk-1.30.1-zod-json-schema-compat.js.txt"
+      },
+      {
+        "url": "https://github.com/colinhacks/zod/blob/cc4cd4ee9c52fcaa10964e48cc144541e41a5ed9/packages/docs/content/json-schema.mdx",
+        "read": "2026-10-18",
+        "sha256": "634ac057e60ecc31e6998e4a0767b495f7fdb9879faa0aeaadecb31d0ab96ee0",
+        "quote": "`z.strictObject()` will *always* set `additionalProperties: false`",
+        "snapshot": "sources/zod-json-schema.mdx.txt"
+      }
+    ],
+    "trigger": {
+      "kind": "flows-to-consumer",
+      "consumer": { "package": "@modelcontextprotocol/sdk", "range": ">=1.23.0 <2" },
+      "calls": [
+        { "type": "McpServer", "method": "registerTool", "argument": 1, "property": "inputSchema" },
+        { "type": "McpServer", "method": "tool" }
+      ],
+      "value": "zod-object-strip"
+    },
+    "effect": "On zod 4 the MCP SDK converts this tool's input schema in zod's `input` mode, so the JSON Schema clients see in `tools/list` no longer says `additionalProperties: false`, which zod 3 did; a parameter a model invents is dropped without a word, as before, but it is no longer told up front that it can't.",
+    "keepOld": {
+      "edit": ".strict() on the object (z.object(shape).strict() for a raw shape)",
+      "exact": false,
+      "alsoChanges": "makes the server reject a call with an unknown key (InvalidParams, naming the key) where both versions dropped it silently"
+    },
+    "adopt": "keep accepting unknown keys silently, with `additionalProperties` unset in the advertised schema"
+  }
+]
