@@ -103,14 +103,18 @@ export function upgradeBrokeBuild(parentBuild: BuildResult[] | undefined): boole
 
 /**
  * Builds that fail the same way they did before anything changed, marked `preexisting`, as
- * `markPreexisting` marks tests (UPT-122). Digits are ignored: durations and counts vary.
+ * `markPreexisting` marks tests (UPT-122). Only durations and clock times may differ: error
+ * codes, positions and counts are part of the failure.
  */
 export function markPreexistingBuilds(
   build: BuildResult[],
   baseline: BuildResult[] | undefined,
 ): BuildResult[] {
   const failing = (b: BuildResult) => b.status === 'failed' || b.status === 'timeout';
-  const text = (b: BuildResult) => b.output.replace(/\d+/g, '#');
+  const text = (b: BuildResult) =>
+    b.output
+      .replace(/\b\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?\b/g, '#:#')
+      .replace(/\b\d+(?:\.\d+)?\s?(?:ms|s|m|min|sec|seconds)\b/g, '#s');
   return build.map((b) =>
     failing(b) &&
     baseline?.some(
