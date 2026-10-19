@@ -55,7 +55,7 @@ it('rejects a classic binary for a Berry lockfile even without an explicit packa
 it('reports an unavailable npm version, and accepts the exact declared version', async () => {
   const root = fixture('npm@10.9.4', 'package-lock.json', '{"lockfileVersion":3,"packages":{}}');
   await expect(
-    assertManagerAvailable(root, async () => ({ code: 0, output: '9.0.0', timeout: false })),
+    assertManagerAvailable(root, async () => ({ code: 0, output: '8.0.0', timeout: false })),
   ).rejects.toThrow('corepack prepare npm@10.9.4 --activate');
   expect(
     (
@@ -165,5 +165,37 @@ describe('a pinned Yarn Berry on a machine with Yarn classic', () => {
     await expect(
       assertManagerAvailable(PINNED, answering('1.22.22', '0.34.0', '4.6.0')),
     ).rejects.toMatchObject({ code: 'PACKAGE_MANAGER_VERSION' });
+  });
+});
+
+describe('UPT-119: npm 10 pin on npm 11', () => {
+  const root = fixture('npm@10.9.0', 'package-lock.json', '{"lockfileVersion":3,"packages":{}}');
+  const answering = (pinned?: string) =>
+    vi.fn<typeof command>(async (_cwd, bin, args) => ({
+      code: bin === 'corepack' && !pinned ? 1 : 0,
+      output: bin === 'npm' ? '11.21.0' : args[0] === 'npm' ? (pinned ?? '') : '0.34.0',
+      timeout: false,
+    }));
+  it('uses the pin through Corepack for frozen and upgrade installs', async () => {
+    const pm = await assertManagerAvailable(root, answering('10.9.0'));
+    expect(pm).toMatchObject({ bin: 'corepack', actualVersion: '10.9.0' });
+    expect(pm.args).toEqual(['npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund']);
+    expect(updateArgs(pm, root, ['.'])).toEqual([
+      'npm',
+      'install',
+      '--package-lock-only',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      '--lockfile-version=3',
+    ]);
+  });
+  it('allows local npm with the same format and records the mismatch', async () => {
+    const pm = await assertManagerAvailable(root, answering());
+    expect(pm).toMatchObject({
+      bin: 'npm',
+      actualVersion: '11.21.0',
+      note: expect.stringContaining('npm@10.9.0'),
+    });
   });
 });
