@@ -59,8 +59,11 @@ evaluations (`UPTIDE_INTERNAL=1`).
 counted cache reads and writes. The per-session records (`llm.tasks`) carry the same fields.
 
 The SDK gives tokens per model but splits cache writes by TTL only for the main loop:
-those 1-hour writes are priced on the session's model, and any other model's writes as
-5-minute writes.
+those 1-hour writes are priced on the session's model. **Assumption:** every cache write by
+any other model (a subagent, compaction) is priced as a 5-minute write. Had it been a
+1-hour write, the computed cost is low by the difference (on Sonnet 5.5, $1.50 per million
+written tokens); the 5% check against the SDK's figure and the `--max-cost` rule below
+still apply.
 
 `--max-cost` counts the higher of the computed and the SDK-reported cost, so a wrong
 table never lets a run spend past the limit by Uptide's own accounting. When the two
