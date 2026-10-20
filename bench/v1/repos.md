@@ -115,6 +115,8 @@ Every candidate that matched the search and the GitHub-side checks, and was newe
 
 ## Full bench, phase 1: the 5 headline repositories
 
+**These 5 are the v1 dev set (2026-10-20).** Uptide 0.18.2's fixes (UPT-124 strut, UPT-125 ecommerce-store-api, UPT-126 support-dotcom-components, UPT-127/128 cost) were made by looking at their phase-1 runs. Results on them are reported only as dev set, never as headline numbers. The headline numbers come from the secondary set below, which the engine has never seen.
+
 **Timebox:** 60 minutes, from 2026-10-20T04:30Z. Selection closed at 04:58Z with 5 repositories.
 
 ### Rule, as given for the full bench

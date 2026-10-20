@@ -1,6 +1,6 @@
 # UpgradeBench v1 full bench, phase 1: results (2026-10-20)
 
-5 headline repositories from `../repos.md` (phase 1), two arms, once each, with the human commit checked the same way as the reference. Phase 1 only: no second or third run, no secondary set.
+5 headline repositories from `../repos.md` (phase 1), two arms, once each, with the human commit checked the same way as the reference. Phase 1 only: no second or third run, no secondary set. **These 5 are the v1 dev set:** Uptide 0.18.2 was fixed by looking at them, so they never give headline numbers.
 
 - **Arm A, Uptide:** `uptide@0.18.1` from npm, `claude-sonnet-5-5`, $1 cap (`--max-cost 1`).
 - **Arm B, Claude Code:** 2.1.283 (every run, per `meta.json`), `claude-opus-5-5` at medium effort, $5 cap (`--max-budget-usd 5`), with the prompt in `../arms.md` word for word.
@@ -19,33 +19,44 @@ Raw results are in `runs/`, one directory per run with `meta.json`, `checks.json
 
 ## Summary
 
-"Mergeable" is the bar in `ground-truth.md`:
+**Dev set.** These 5 repositories are the v1 dev set. Uptide 0.18.2's fixes (UPT-124, UPT-125, UPT-126, UPT-127/128) were made by looking at these runs, so no headline number comes from them. See `../repos.md`.
+
+**Mergeable** means all of the following, from `ground-truth.md`, plus two rules settled on 2026-10-20 after phase 1 and applied to both arms the same way:
 - Every check in `selection.json` passes, or fails exactly where the human commit fails.
 - Fork CI passes, or fails only where the human commit's fails.
+- **PR-template rule:** a check that only validates the pull request description's format against the repository's template is excluded from the bar. One check is affected: yea's `pr-body/description` (`scripts/check-pr-body.mjs`). The fork PR's body is the run's own output, not a description written to the repository's template.
+- **Unrelated-changes rule:** a run that makes a change the upgrade doesn't require, in code or dependencies, is "not mergeable without edits". The judgement is by hand, per file, in the "unrelated changes" column below.
 
 | repo | pack | Uptide 0.18.1 (Sonnet 5.5, $1) | Claude Code 2.1.283 (Opus 5.5, $5) |
 |---|---|---|---|
-| fortylove | zod 3→4 | **mergeable**; all checks ok, CI 2/2 as human; $0.04¹, 101 s | **mergeable**; all checks ok, CI 2/2 as human; $0.23, 78 s |
-| ecommerce-store-api | redis 5→6 | **not mergeable**: type-check and lint fail; CI adds Type Check and Code Quality failures; it moved typeorm 0.3 → 1.1 as a peer blocker; RESP3 named, not pinned²; $0.51¹, 531 s | **mergeable**; all checks ok, CI fails only the human's 6; RESP2 pinned (silent site caught by edit); $0.63, 215 s |
-| support-dotcom-components | typescript 5→6 | **mergeable**³; all checks ok (cdk lint fixed by tsconfig, not by turning rules off); also moved `@guardian/ophan-tracker-js` 2→3 unasked (issue 5); $0.10¹, 198 s | **mergeable**³; all checks ok, same tsconfig fix; $0.23, 143 s |
-| strut | ai 6→7 | **no PR**: refused ("Requested ai@7.0.105, but . resolved 7.0.146"); 0/4 silent sites; $0.00, 35 s | **mergeable**; all checks ok, CI pass; 4/4 silent sites fixed by edit, plus a regression test; $2.88, 392 s |
-| yea | stripe 22→23 | **code mergeable, CI not**⁴: all checks ok; CI fails `pr-body/description` only; $0.14¹, 92 s | **code mergeable, CI not**⁴: all checks ok; CI fails `pr-body/description` only; $0.60, 147 s |
-| **mergeable (written bar)** | | **2 / 5** (fortylove, support-dotcom-components) | **4 / 5** (all but yea) |
-| **mergeable on code (yea's PR-template check aside)** | | **3 / 5** | **5 / 5** |
-| **silent changes caught** | | 1 / 5 by the committed rule, 0 / 5 by edit (ecommerce named, not pinned; strut never ran) | **5 / 5**, all by edit |
-| **cost, total** | | **$0.791 SDK-reported, reconciliation pending**¹ | **$4.567, hand-verified** |
+| fortylove | zod 3→4 | **mergeable**; all checks ok, CI 2/2 as human; $0.04, 101 s | **mergeable**; all checks ok, CI 2/2 as human; $0.23, 78 s |
+| ecommerce-store-api | redis 5→6 | **not mergeable**: type-check and lint fail; CI adds Type Check and Code Quality failures; typeorm 0.3 → 1.1 as a peer blocker (UPT-125); RESP3 **missed**¹; $0.51, 531 s | **mergeable**; all checks ok, CI fails only the human's 6; RESP2 pinned in the options builder (caught); $0.63, 215 s |
+| support-dotcom-components | typescript 5→6 | **not mergeable without edits**: all checks ok², but it moved `@guardian/ophan-tracker-js` 2→3 unasked, with a wrong reason (UPT-126); $0.10, 198 s | **mergeable**²; all checks ok, same tsconfig fix; $0.23, 143 s |
+| strut | ai 6→7 | **no PR**: refused ("Requested ai@7.0.105, but . resolved 7.0.146", UPT-124); 0/4 silent sites; $0.00, 35 s | **mergeable**³; all checks ok, CI pass; 4/4 silent sites fixed by edit, plus a regression test; $2.88, 392 s |
+| yea | stripe 22→23 | **mergeable**; all checks ok; CI fails only `pr-body/description`, excluded by the PR-template rule; $0.14, 92 s | **mergeable**; all checks ok; CI fails only `pr-body/description`, excluded by the PR-template rule; $0.60, 147 s |
+| **mergeable** | | **2 / 5** (fortylove, yea) | **5 / 5** |
+| **silent sites caught** (5: ecommerce 1, strut 4) | | **0 / 5** (ecommerce missed at the location¹, strut never ran) | **5 / 5**, all by edit |
+| **cost, total** | | **$0.791487**, SDK-reported⁴ | **$4.5672386**, hand-verified |
+| **cost per mergeable run** | | **$0.396** ($0.791487 / 2) | **$0.913** ($4.5672386 / 5) |
 | **wall, total (median)** | | 957 s (101 s) | 975 s (147 s) |
 
-¹ **Arm A cost is SDK-reported and the reconciliation is pending.** It's `costUsd` from `uptide fix --json`, which 0.18.1 takes from the Agent SDK's `total_cost_usd`, with input and cache tokens merged into one `inputTokens` (issue 1). It can't be redone by hand from Uptide's output. The Console total for the bench key over the run window minus the hand-verified Arm B total gives the Arm A error. See "Cost" below.
+**Summary line (dev set, phase 1):** Uptide 0.18.1 2/5 mergeable, $0.79 total, $0.40 per mergeable run. Claude Code 5/5 mergeable, $4.57 total, $0.91 per mergeable run. Each of Uptide's 3 losses traces to one engine issue, fixed in 0.18.2:
+- strut → **UPT-124**: yarn resolved a newer 7.x than the target, and Uptide refused.
+- ecommerce-store-api → **UPT-125**: a peer blocker became typeorm's unpacked major.
+- support-dotcom-components → **UPT-126**: the companion planner dragged `@guardian/ophan-tracker-js` 2→3.
 
-² **ecommerce silent site:**
-- By the committed rule (any mention in the PR body), Uptide's run counts as caught. Its body says "redis 6 changes client defaults: RESP3 instead of RESP2 … To keep 5's behavior, set `RESP: 2`" and asks the owner to decide.
-- By the brief's stricter reading ("pins the protocol or mentions the change at that code location"), it's missed. The mention isn't at the options builder: it's a general bullet, and one more attached to the Postgres files it changed.
-- Claude Code pinned `RESP: 2` in `buildNodeRedisClientOptions` and added a test.
+**Before the corrections** (the first version of this file, `fe03975`): Uptide 2/5 and Claude Code 4/5 by the written bar. support-dotcom-components was then mergeable for Uptide, and yea failed for both arms on `pr-body/description`. Two rules changed that: the unrelated-changes rule takes support-dotcom-components from Uptide, and the PR-template rule gives yea to both arms.
 
-³ **support-dotcom-components' CI on a fork:** the build job is skipped (it doesn't run on forks), and only `CORE4 label enforcement / require-label` runs. It fails for all three, the human's included, so fork CI gives no code signal. The local CI set (`selection.json`) is the bar, and every check passes.
+¹ **ecommerce silent site, scored by the brief's criterion:** "pins the protocol or mentions the change *at that code location*". Uptide's run neither pins `RESP` nor mentions RESP3 at `buildNodeRedisClientOptions` (`redis-connection.options.ts:21-40`) or at either of its callers. Its mention is a general PR-body bullet, plus one more attached to the Postgres files it changed. So it is **missed**. Looser than the brief: by the committed rule in `ground-truth.md` and `score.mjs`, any mention in the summary or PR body counts, and by that rule Uptide's run is caught: "redis 6 changes client defaults: RESP3 instead of RESP2 … To keep 5's behavior, set `RESP: 2`". That looser result is the `1/1 (edit 0)` in the score.mjs table below, and it is not used in any count here. Claude Code pinned `RESP: 2` in `buildNodeRedisClientOptions` and added a test.
 
-⁴ **yea's `pr-body/description`:** it checks only a pull request description's shape: Summary, Evidence, and "Door" and "Blast radius" under Merge danger (`scripts/check-pr-body.mjs`). The fork PR's body is the run's summary or PR body, which doesn't follow the template. The human's PR body did. Every code job (typescript 20 and 22, python, site, CodeQL, osv) passes for both arms. By the written bar it's a CI failure the human doesn't have, so neither arm counts as mergeable there.
+² **support-dotcom-components' CI on a fork:** the build job is skipped (it doesn't run on forks), and only `CORE4 label enforcement / require-label` runs. It fails for all three runs, the human's included, so fork CI gives no code signal. The local CI set (`selection.json`) is the bar, and every check passes for both arms.
+
+³ **strut, Claude Code's test edits:** judged related, not unrelated. The upgrade needs `aieo` 0.1 → 0.2: 0.1.x pins ai 6, and `aieo@0.2.0` declares the peer `ai ^7.0.105`. The human made the same bump (`^0.2.0`, locked at 0.2.0). Claude Code wrote `^0.2.4`, the newest 0.2.x, and aieo 0.2.4 maps the `sonnet` and `opus` aliases to `claude-sonnet-5-5` and `claude-opus-5-5`. So the 5 expected model names in `src/llm.test.ts` and `src/chat-endpoints.test.ts` changed.
+- `aieo@0.2.0` was published at 2026-09-18 04:04Z and the human merged at 04:13Z. 0.2.1–0.2.4 didn't exist yet, and the human's own `^0.2.0` range resolves 0.2.4 on any fresh install. Taking the newest release of the required line is what the human did at their time.
+- Claude Code's summary names the runtime effect: "anything using the `sonnet`/`opus` aliases … now runs on the newer `-5-5` models".
+- The alternative reading, pinning aieo to 0.2.0 as the human's lock does, would make this run "not mergeable without edits" and Claude Code 4/5. It isn't taken, because the alias change comes from the required companion's current release, not from a package the upgrade doesn't need.
+
+⁴ **Arm A cost is SDK-reported.** It's `costUsd` from `uptide fix --json`, which 0.18.1 takes from the Agent SDK's `total_cost_usd`. The SDK uses the correct Sonnet 5.5 rates: in [uptide-dev/uptide#268](https://github.com/uptide-dev/uptide/pull/268) (UPT-127), a real Sonnet 5.5 run's cost, computed from the published per-class rates, matched the SDK's `total_cost_usd` exactly ($0.1622007). Console reconciliation was not done. See "Cost" below.
 
 ## Scores (score.mjs)
 
@@ -78,18 +89,20 @@ strut's Uptide row shows "ok" checks because its head is the parent: it changed 
 
 ## Per repository
 
-| repo | arm | mergeable | silent caught / missed | build / lint / test vs baseline | cost | wall | PR body explains decisions |
-|---|---|---|---|---|---|---|---|
-| fortylove | Uptide | yes | n/a (no sites) | all as baseline, all pass | $0.037 (SDK-reported) | 101 s | yes: "Decisions for you", `.prefault("false")` over `.default(false)`, with the reason |
-| fortylove | Claude Code | yes | n/a | all pass | $0.231 | 78 s | yes: the uuid → `z.guid()` choice and the `.email()` kept, each with a reason; says build not run |
-| ecommerce-store-api | Uptide | no | 1/1 by the committed rule (mention); missed at the location (strict) | **type-check FAIL, lint FAIL** (baseline pass); test, build pass | $0.514 (SDK-reported) | 531 s | yes: an agent-led draft that names the typeorm peer blocker, 3 test files left, and the RESP3 decision for the owner |
-| ecommerce-store-api | Claude Code | yes | 1/1 by edit (`RESP: 2` + test) | all pass | $0.626 | 215 s | yes: the protocol decision and `quit()` kept, with reasons |
-| support-dotcom-components | Uptide | yes | n/a | all pass | $0.096 (SDK-reported) | 198 s | yes: `moduleResolution` "bundler" over "nodenext", `types` pinned, with reasons |
-| support-dotcom-components | Claude Code | yes | n/a | all pass | $0.230 | 143 s | yes: the `rootDir` addition and no changeset, with reasons |
-| strut | Uptide | no (no change) | 0/4 | not applicable: unchanged parent | $0.000 | 35 s | no PR body: exit 2 before any change |
-| strut | Claude Code | yes | 4/4 by edit | all pass (813 → 814 tests) | $2.877 | 392 s | yes: every v7 rename, the final-step `response`, test changes and the sandbox workaround |
-| yea | Uptide | no (CI pr-body check) / yes on code | n/a | all pass | $0.144 (SDK-reported) | 92 s | yes: pinned to endive, with the changelog items listed |
-| yea | Claude Code | no (CI pr-body check) / yes on code | n/a | all pass | $0.603 | 147 s | yes: endive compared field by field, and the cut-off-body message change |
+| repo | arm | mergeable | silent caught / missed | unrelated changes (by hand: file, reason) | build / lint / test vs baseline | cost | wall | PR body explains decisions |
+|---|---|---|---|---|---|---|---|---|
+| fortylove | Uptide | yes | n/a (no sites) | none. `uuidSchema` → `z.guid()` and the 2 inline `.uuid()` calls are Zod 4 changes (informational in the ground truth), not unrelated | all as baseline, all pass | $0.037 (SDK-reported) | 101 s | yes: "Decisions for you", `.prefault("false")` over `.default(false)`, with the reason |
+| fortylove | Claude Code | yes | n/a | none (same `.uuid()` → `z.guid()` sites) | all pass | $0.231 | 78 s | yes: the uuid → `z.guid()` choice and the `.email()` kept, each with a reason; says build not run |
+| ecommerce-store-api | Uptide | no | **0/1, missed** at the location (looser committed rule: 1/1 by mention, footnote ¹) | **yes**: `package.json` and `package-lock.json` typeorm 0.3.31 → 1.1.0, and 4 Postgres repositories (`postgres-role.repository.ts`, `postgres-user.repository.ts`, `postgres.order-repository.ts`, `postgres.payment-repository.ts`) rewritten for typeorm 1.x. The upgrade needs only the `redis` peer resolved, which the human did with `overrides.typeorm.redis` (UPT-125) | **type-check FAIL, lint FAIL** (baseline pass); test, build pass | $0.514 (SDK-reported) | 531 s | yes: an agent-led draft that names the typeorm peer blocker, 3 test files left, and the RESP3 decision for the owner |
+| ecommerce-store-api | Claude Code | yes | 1/1 by edit (`RESP: 2` + test) | none. `eslint-suppressions.json` moves two unchanged entries to sorted order as eslint rewrites the file; the only count change is the human's (`redis.service.ts` 3 → 2) | all pass | $0.626 | 215 s | yes: the protocol decision and `quit()` kept, with reasons |
+| support-dotcom-components | Uptide | **no, not without edits** | n/a | **yes**: `package.json` `@guardian/ophan-tracker-js` 2.8.3 → 3.1.0 and `src/dotcom/package.json`'s widened peer range. TypeScript 6 doesn't need it, and the stated reason is wrong: `@guardian/libs@33.0.0` declares `^2.2.10` (UPT-126) | all pass | $0.096 (SDK-reported) | 198 s | yes: `moduleResolution` "bundler" over "nodenext", `types` pinned, with reasons; the ophan reason is wrong |
+| support-dotcom-components | Claude Code | yes | n/a | none. `tsconfig.types.json` `rootDir: "./src"` keeps the declaration output layout under TS 6's new `rootDir` default | all pass | $0.230 | 143 s | yes: the `rootDir` addition and no changeset, with reasons |
+| strut | Uptide | no (no change) | 0/4 | none (no change) | not applicable: unchanged parent | $0.000 | 35 s | no PR body: exit 2 before any change (UPT-124) |
+| strut | Claude Code | yes | 4/4 by edit | none. 5 expected model names in `src/llm.test.ts` and `src/chat-endpoints.test.ts` follow the required `aieo` 0.1 → 0.2 bump at its newest release (footnote ³) | all pass (813 → 814 tests) | $2.877 | 392 s | yes: every v7 rename, the final-step `response`, test changes, the alias change and the sandbox workaround |
+| yea | Uptide | yes (PR-template rule) | n/a | none | all pass | $0.144 (SDK-reported) | 92 s | yes: pinned to endive, with the changelog items listed |
+| yea | Claude Code | yes (PR-template rule) | n/a | none. `connectors/stripe/README.md` and `docs/framework/SPEC-connector-stripe.md` follow the new API version | all pass | $0.603 | 147 s | yes: endive compared field by field, and the cut-off-body message change |
+
+score.mjs's own `unrelated` count (the table above) is mechanical: hunks in files the human left alone that never name the package. The hand-judged column is the one the mergeable bar uses.
 
 Neither arm's cap was exceeded: `overCapUsd` is 0 on every run. The highest is strut's Claude Code run at $2.88 of $5.
 
@@ -129,28 +142,11 @@ Run `edfcd070` (fortylove), from `agent.json` `.usage`:
 - That equals run.sh's `costUsd` (0.2313612) and Claude Code's own `total_cost_usd` (0.2313612).
 - All 5 Arm B runs match Claude Code's own figure to the cent: $0.231, $0.626, $0.230, $2.877, $0.603. Total **$4.5672386**.
 
-**Arm A, SDK-reported, reconciliation pending.**
+**Arm A, SDK-reported.**
 - Total **$0.791487** by run: 0.0374048, 0.5142862, 0.0957694, 0.0000000, 0.1440119 (run `meta.json` `costUsd`).
-- Not hand-verifiable from Uptide's output. Run `4982601e` reports `inputTokens 38140`, `outputTokens 833`, `costUsd 0.0374048`. At Sonnet 5.5 list prices, 38,140 uncached input tokens alone would be $0.0763. The figure implies a cache split that the JSON doesn't show.
-
-**Reconciliation, pending the Console number:**
-- **Window:** 2026-10-20 05:04:00Z to 05:39:00Z.
-  - The first spend was Uptide's run `4982601e`, starting at 05:04:39Z.
-  - The last run, Claude Code on yea, ended at 05:38:27Z.
-- **Arm A cost error** = Console total for the bench key in the window − $4.5672386 (Arm B) − $0.791487 (Arm A, SDK-reported).
-
-Every request made with the bench key outside the 10 arm runs:
-
-| when (UTC) | what | billed |
-|---|---|---|
-| 2026-10-20 04:16:36 | `GET /v1/models` with the first, 10-character key in `~/.config/uptide-bench/env`: HTTP 401 | no: rejected, not the bench key |
-| 2026-10-20 04:25:10 | `GET /v1/models` with the bench key: HTTP 200 | no: a models list uses no tokens |
-| 04:29:51 and the 5 human-arm runs (05:04–05:34) | `run.sh human` loads the key file but runs no model | no requests |
-| selection and verification, 04:30–05:04 | local installs, type-checks and tests; the key was not in their environment | no requests |
-| the arms' and checks' test suites | strut's and yea's LLM tests point at local fake servers (`ANTHROPIC_BASE_URL=http://127.0.0.1:…`) with fake keys; yea's live Stripe smoke test needs `STRIPE_TEST_KEY` and was skipped | no requests |
-| this Claude Code session | its own authentication, not the bench key | no |
-
-So the window holds only the 10 arm runs. The 04:25Z check is outside it, and costs nothing either way.
+- 0.18.1's `costUsd` is the Agent SDK's `total_cost_usd`, with input and cache tokens merged into one `inputTokens`, so it can't be redone by hand from these runs' output.
+- The SDK uses the correct Sonnet 5.5 rates. In [uptide-dev/uptide#268](https://github.com/uptide-dev/uptide/pull/268) (UPT-127), a real Sonnet 5.5 run's cost, computed from the published per-class rates, matched the SDK's `total_cost_usd` exactly ($0.1622007).
+- **Console reconciliation was not done.** The bench key's Console total for 2026-10-20 05:04–05:39Z was never read. The only other requests made with the bench key were a `GET /v1/models` at 04:25:10Z, which uses no tokens, and one rejected with a 401 at 04:16:36Z. No other request used the key in the window: the human-arm runs, the checks and this session made no model calls with it.
 
 ## Isolation
 
@@ -246,6 +242,8 @@ No scoring or ground-truth change follows from these. The same disclosures are i
 - **The Claude Code arm's sandbox allows `github.com`**, as `../arms.md` sets it. No run's `agent.json`, `agent.log` or summary names a fetch of the upstream repository. The only upstream URL is ecommerce's own `package.json` `repository` field, quoted back by Uptide.
 
 ## Candidate Linear issues (not filed, not fixed)
+
+Filed and fixed since, in Uptide 0.18.2 (2026-10-20 18:08Z): 1 and 2 as UPT-127/128 ([uptide-dev/uptide#268](https://github.com/uptide-dev/uptide/pull/268)), 3 as UPT-124, 4 as UPT-125 and 5 as UPT-126. The text below is as written after phase 1.
 
 1. **`uptide fix --json` cost isn't auditable.**
    - In 0.18.1's SDK executor, `inputTokens` is `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`, and `costUsd` is the Agent SDK's `result.total_cost_usd`, not `pricing.ts`. `persistSession: false` leaves no transcript.
