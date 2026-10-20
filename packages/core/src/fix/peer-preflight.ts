@@ -36,6 +36,11 @@ export interface PeerBlocker {
    * then the installed version. The path npm takes to it: `['vitest 5.0.5']` for vite 8.3.4.
    */
   via?: string[];
+  /**
+   * The release that accepts the peer but is a major no pack migrates, not taken: the blocker
+   * keeps its version with a peer override scoped to it (UPT-125).
+   */
+  declined?: string;
 }
 export interface PeerBlockerGroup {
   name: string;
@@ -44,6 +49,14 @@ export interface PeerBlockerGroup {
   newer?: string;
   allowed: boolean;
   via?: string[];
+  declined?: string;
+  /**
+   * What the run did about it: a peer override (`override`), the override and verification
+   * failed while the only accepting release is an unpacked major (`blocked`), or nothing (`none`).
+   */
+  strategy?: 'override' | 'blocked' | 'none';
+  /** The package.json field the override is in (`overrides.typeorm.redis`). */
+  override?: string;
 }
 
 /** One row per package, retaining every rejected peer (including look-ahead versions). */
@@ -60,6 +73,9 @@ export function groupPeerBlockers(
         peers: [],
         allowed: p.allowed,
         ...(p.via ? { via: p.via } : {}),
+        ...(p.declined ? { declined: p.declined } : {}),
+        ...('strategy' in p && p.strategy ? { strategy: p.strategy } : {}),
+        ...('override' in p && p.override ? { override: p.override } : {}),
       };
       groups.set(p.name, group);
     }
@@ -135,15 +151,17 @@ function describe(p: PeerBlockerGroup, allowCandidate?: boolean): string {
   const installed = p.peers.map((r) => `${r.peer} ${r.target}`).join(', ');
   const major = majorMove(p.name, p.version, p.newer, allowCandidate);
   // --allow-peer is the fallback, never the first suggestion, when a release accepts the target.
-  const advice = p.allowed
-    ? 'Explicitly allowed; a manifest override will be written.'
-    : p.via
-      ? `rejects installed ${installed}: upgrade ${p.peers.map((r) => r.peer).join(', ')} into range first, or use --allow-peer ${p.name}`
-      : major
-        ? `no ${major.major}.x accepts ${accepts}; ${p.newer} does (major, ${major.pack ? `the ${p.name} pack runs in the same fix` : 'no migration pack: it needs its own migration'}): add ${p.name} to the command${major.pack ? '' : `, or keep ${major.major}.x with --allow-peer ${p.name}`}`
-        : p.newer
-          ? `upgrade to ${p.newer} (accepts ${accepts}): add ${p.name} to the command`
-          : `no release accepts ${accepts}: use --allow-peer ${p.name}`;
+  const advice = p.declined
+    ? `kept at ${p.version} with a peer override: ${p.declined} accepts ${accepts} but is a major with no migration pack`
+    : p.allowed
+      ? 'Explicitly allowed; a manifest override will be written.'
+      : p.via
+        ? `rejects installed ${installed}: upgrade ${p.peers.map((r) => r.peer).join(', ')} into range first, or use --allow-peer ${p.name}`
+        : major
+          ? `no ${major.major}.x accepts ${accepts}; ${p.newer} does (major, the ${p.name} pack runs in the same fix): add ${p.name} to the command`
+          : p.newer
+            ? `upgrade to ${p.newer} (accepts ${accepts}): add ${p.name} to the command`
+            : `no release accepts ${accepts}: use --allow-peer ${p.name}`;
   return `${p.name} ${p.version}${p.via?.length ? ` (peer of ${p.via.join(' → ')})` : ''}  ${p.peers.length === 1 ? 'peer' : 'peers'} ${peers}  →  ${advice}`;
 }
 
@@ -368,7 +386,33 @@ export async function peerPreflight(
       await add(moves, next);
     }
   };
-  const actual = await resolveExtras(requested);
+  // UPT-125: a blocker that only a major without a pack accepts keeps its version, with a peer
+  // override scoped to it. That major is a migration of its own that nothing here verifies.
+  const declined = new Map<string, string>();
+  const unpackedMajor = (p: PeerBlocker): boolean =>
+    !p.via &&
+    !requested.has(p.name) &&
+    p.newer !== undefined &&
+    majorMove(
+      p.name,
+      deps.find((d) => d.name === p.name)?.version ?? p.version,
+      p.newer,
+      options.allowCandidate,
+    )?.pack === false;
+  const decline = (peers: Iterable<PeerBlocker>): boolean => {
+    let more = false;
+    for (const p of peers)
+      if (!declined.has(p.name) && unpackedMajor(p)) {
+        declined.set(p.name, p.newer as string);
+        allowed.add(p.name);
+        more = true;
+      }
+    return more;
+  };
+  let actual = await resolveExtras(requested);
+  if (decline(actual.peers)) actual = await resolveExtras(requested);
+  const marked = (peers: PeerBlocker[]): PeerBlocker[] =>
+    peers.map((p) => (declined.has(p.name) ? { ...p, declined: declined.get(p.name) } : p));
   assertNoDowngrades(options.cwd, [...actual.moves.values()]);
   const invalid = [...requested].filter(
     (name) => !actual.moves.has(name) && !actual.peers.some((p) => p.name === name),
@@ -392,6 +436,10 @@ export async function peerPreflight(
     const allowances = new Set(allowed);
     for (;;) {
       const preview = await resolveExtras(extras);
+      if (decline(history.values())) {
+        for (const name of declined.keys()) allowances.add(name);
+        continue;
+      }
       // A suggested extra can pull another blocker in as a companion. Keep every advertised
       // upgrade explicit, then replay the whole command before considering it complete.
       const advertised = [...history.values()].filter(
@@ -419,7 +467,7 @@ export async function peerPreflight(
       ...(options.fixer === null ? ['--no-llm'] : []),
       ...[...allowances].flatMap((name) => ['--allow-peer', name]),
     ].join(' ');
-    const blockers = groupPeerBlockers([...history.values()]);
+    const blockers = groupPeerBlockers(marked([...history.values()]));
     throw new PeerPreflightError(
       blockers,
       command,
@@ -427,7 +475,7 @@ export async function peerPreflight(
       { also: [...extras], allowPeer: [...allowances] },
     );
   }
-  for (const peer of groupPeerBlockers(actual.peers))
+  for (const peer of groupPeerBlockers(marked(actual.peers)))
     options.onProgress?.({
       phase: 'resolve',
       state: 'done',
@@ -440,7 +488,7 @@ export async function peerPreflight(
     targetSource,
     ...(releaseAge ? { releaseAge } : {}),
     companions,
-    conflicts: actual.peers,
+    conflicts: marked(actual.peers),
   };
 }
 
@@ -481,6 +529,22 @@ export function allowPeerOverrides(
       manifest.resolutions[`${p.name}/${p.peer}`] = p.target;
     }
   }
+}
+
+/** Where `allowPeerOverrides` writes a blocker's override, as the reviewer finds it in package.json. */
+export function overrideFields(
+  manager: string,
+  p: Pick<PeerBlockerGroup, 'name' | 'peers'>,
+): string {
+  return [...new Set(p.peers.map((r) => r.peer))]
+    .map((peer) =>
+      manager === 'npm'
+        ? `overrides.${p.name}.${peer}`
+        : manager === 'pnpm'
+          ? `pnpm.peerDependencyRules.allowedVersions["${p.name}>${peer}"]`
+          : `resolutions["${p.name}/${peer}"]`,
+    )
+    .join(', ');
 }
 
 export function writePeerOverrides(root: string, peers: PeerBlocker[]): string[] {

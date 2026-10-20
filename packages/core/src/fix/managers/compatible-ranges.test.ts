@@ -5,6 +5,7 @@ import { expect, it } from 'vitest';
 import { parse, stringify } from 'yaml';
 import { parseNpm, parsePnpm, parseYarn } from '../../adapters/typescript/lockfile.js';
 import { installedManifest } from '../../list/evidence.js';
+import { allowPeerOverrides } from '../peer-preflight.js';
 import { command, git } from '../process.js';
 import { bumpVersions } from '../versions.js';
 import { assertManagerAvailable } from './availability.js';
@@ -270,4 +271,88 @@ it.runIf(process.env.UPTIDE_NETWORK === '1')(
     }
   },
   180_000,
+);
+
+// UPT-125: typeorm 0.3.31 peers on redis ^5; only typeorm 1, a major no pack migrates,
+// accepts redis 6. The scoped override Uptide writes lets each manager install redis 6 with
+// typeorm kept, and the lockfile scope check still holds.
+it.runIf(process.env.UPTIDE_NETWORK === '1').each([
+  { manager: 'npm', pin: undefined },
+  { manager: 'pnpm', pin: 'pnpm@10.17.1' },
+  { manager: 'yarn', pin: 'yarn@1.22.22' },
+  { manager: 'yarn', pin: 'yarn@4.9.2' },
+])(
+  '$manager ($pin) installs redis 6 next to typeorm 0.3 with the peer override',
+  async ({ manager, pin }) => {
+    const root = mkdtempSync(join(tmpdir(), 'uptide-peer-override-'));
+    const read = (file: string) => readFileSync(join(root, file), 'utf8');
+    const put = (file: string, text: string) => writeFileSync(join(root, file), text);
+    const run = async (bin: string, args: string[]) => {
+      const result = await command(root, bin, args, 180_000, {
+        YARN_ENABLE_IMMUTABLE_INSTALLS: 'false',
+        COREPACK_ENABLE_DOWNLOAD_PROMPT: '0',
+        COREPACK_ENABLE_AUTO_PIN: '0',
+      });
+      expect(result.code, result.output).toBe(0);
+    };
+    try {
+      put(
+        'package.json',
+        JSON.stringify({
+          name: 'peer-override',
+          private: true,
+          ...(pin ? { packageManager: pin } : {}),
+          dependencies: { redis: '^5.8.0', typeorm: '0.3.31' },
+        }),
+      );
+      put('.gitignore', 'node_modules\n.yarn\n');
+      if (pin === 'yarn@4.9.2')
+        put('.yarnrc.yml', 'nodeLinker: node-modules\nenableGlobalCache: true\n');
+      await run(
+        pin?.startsWith('yarn') ? 'corepack' : manager,
+        pin?.startsWith('yarn') ? ['yarn', 'install'] : ['install', '--ignore-scripts'],
+      );
+      const pm = await assertManagerAvailable(root);
+      git(root, 'init');
+      git(root, 'add', '.');
+      git(
+        root,
+        '-c',
+        'user.name=Test',
+        '-c',
+        'user.email=test@example.test',
+        'commit',
+        '-m',
+        'baseline',
+      );
+      const files = bumpVersions(root, 'redis', '6.3.0').files.map((f) => relative(root, f));
+      const upgrade = { name: 'redis', version: '6.3.0', files, workspaces: ['.'] };
+      if (pm.kind === 'npm')
+        // Without the override npm refuses: the override is what makes the upgrade install.
+        await expect(isolatedUpgrade(root, upgrade)).rejects.toThrow(/ERESOLVE/);
+      const manifest = JSON.parse(read('package.json'));
+      allowPeerOverrides(manifest, pm.kind, [
+        {
+          name: 'typeorm',
+          version: '0.3.31',
+          peer: 'redis',
+          range: '^3.1.1 || ^4.0.0 || ^5.0.14',
+          target: '6.3.0',
+          allowed: true,
+          declined: '1.1.0',
+        },
+      ]);
+      put('package.json', `${JSON.stringify(manifest, null, 2)}\n`);
+      const report = await isolatedUpgrade(root, { ...upgrade, allowedPeers: ['typeorm'] });
+      expect(report.outOfScope).toBeUndefined();
+      expect(installedManifest(root, '.', 'redis')?.version).toBe('6.3.0');
+      expect(installedManifest(root, '.', 'typeorm')?.version).toBe('0.3.31');
+      const upgradedLock = read(pm.lockfile);
+      await run(pm.bin, pm.args);
+      expect(read(pm.lockfile)).toBe(upgradedLock);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+  300_000,
 );

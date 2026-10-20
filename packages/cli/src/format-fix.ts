@@ -110,7 +110,7 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
     lines.push(colors.bold('Peer risks'));
     for (const peer of groupPeerBlockers(report.peerConflicts))
       lines.push(
-        `  ${peer.name} ${peer.version}: ${peer.peers.map((p) => `${p.peer} ${p.range} rejects ${p.target}`).join('; ')}${peer.allowed ? ' · explicitly allowed in package.json' : ''}`,
+        `  ${peer.name} ${peer.version}: ${peer.peers.map((p) => `${p.peer} ${p.range} rejects ${p.target}`).join('; ')}${peer.declined ? ` · kept with a peer override (${peer.declined} is a major with no migration pack)${peer.strategy === 'blocked' ? '; verification failed: blocker' : ''}` : peer.allowed ? ' · explicitly allowed in package.json' : ''}`,
       );
     lines.push('');
   }
