@@ -176,3 +176,27 @@ vitest	3	chanzuckerberg/edu-design-system#2707	2026-10-20 16:09	dropped	Renovate
 vitest	3	komapc/phonomorph#349	2026-10-20 15:29	dropped	no license; Dependabot PR with no human commit
 vitest	3	sebastian-software/ardo#364	2026-10-20 15:19	dropped	bundles tsdown 0.22 → 0.23, a breaking 0.x release that isn't a vitest companion (also `engines.node >=22.22`, above the bench's 22.20)
 vitest	3	AKogut/ai-flaky-test-triage#206	2026-10-20 14:32	**kept**	MIT; human (Andrii Kohut), no AI trailer; vitest and @vitest/coverage-v8 4.1.10 → 5.0.5, @playwright/test 1.62 → 1.64 (minor); 14 files; base with the API keys unset: install, typecheck, lint, format, 1966 tests, demo, build pass; e2e (continue-on-error in CI, deliberately flaky) out of the bar
+jest	3	vbaarchitecttool-wq/inhouse-detail-search#8	2026-10-19 06:17	dropped	no license; Dependabot PR with no human commit; @types/jest only
+jest	3	gundestrup/knowledge-base-mcp-server#8	2026-10-18 22:33	dropped	fork; Unlicense; the human commit carries a Devin trailer
+jest	3	Tharun-code-08/Inventory-control#89	2026-10-18 20:42	dropped	no license; commit authored by `claude`; bundles jsdom 30, tailwind-merge 3, uuid 14
+jest	3	salish-sea/salishsea-io#711	2026-10-18 15:12	dropped	bundles TypeScript 6
+jest	3	Bolt-Silverfox/storytime_be#637	2026-10-18 13:55	dropped	no license
+jest	3	NextSpark-js/nextspark#288	2026-10-18 05:59	dropped	bundles a TypeScript major in the mobile template; 25 files
+jest	3	DaisukeHori/homegohan-app#1879	2026-10-17 19:26	dropped	no license; bundles Expo SDK 58 and React Native 0.88; 60 files
+jest	3	ahlgren1234/react-elegant-toasts#71	2026-10-17 13:23	dropped	merged into `v2`, not the default branch; a consumer fixture, not the repo's own jest
+next	3	huynguyennang-agilityio/stride-quest-admin#15	2026-10-20 07:05	dropped	no license; docs only
+next	3	huynguyennang-agilityio/stride-quest-admin#12	2026-10-20 07:00	dropped	no license; docs only
+next	3	Akaash-S/NexOpsFrontend#1	2026-10-20 06:22	dropped	no license; no package move (ESLint config)
+next	3	Himanshu-Sorathiya-Simform/daybook#1	2026-10-20 04:40	dropped	no license; no upgrade (a new app)
+next	3	nanaboo17/crl-app#90	2026-10-20 04:15	dropped	no license; Dependabot PR with no human commit
+next	3	krishdembla/Sonder#1	2026-10-20 01:24	dropped	no license; 69 files, a rebuild
+next	3	harishm17/study_buddy#3	2026-10-20 00:33	dropped	no lockfile at the repository root (`frontend/package-lock.json`). Otherwise MIT, human, no AI trailer
+next	3	Samuel-Glasscock/portfolio-website#8	2026-10-20 00:33	dropped	no license
+mongoose	3	jfrazx/mongoose-transient#68	2026-09-20 18:45	dropped	out of range: mongoose 5.12 → 9.9, not 8 → 9; its base test suite "has not run since 2022"
+mongoose	3	seoko97/SEOKO-server#69	2026-09-15 16:39	dropped	no license; merged into `dev`; 87 files; bundles NestJS 12
+mongoose	3	UoaWDCC/uaic#407	2026-09-14 03:30	dropped	no license; Dependabot PR with no human commit
+mongoose	3	MoathDawahreh/logistics-management#106	2026-09-04 18:09	dropped	no license; Dependabot PR with no human commit
+mongoose	3	SciCatProject/backend#2906	2026-08-31 11:28	dropped	not mongoose (@casl/mongoose 8 → 9, @casl/ability 6 → 7)
+mongoose	3	benjeater/autographcraft#20	2026-08-29 07:34	dropped	bundles GraphQL 17
+mongoose	3	esclickteam/invistimo-events#72	2026-08-12 21:19	dropped	no license; commit authored by `cursoragent`
+mongoose	3	payloadcms/payload#17747	2026-08-12 11:06	**pending**	GitHub-side rule met: MIT; human (r1tsuu), no AI trailer; mongoose 8.22/8.24 → 9.9.2 with its companion mongodb driver 6 → 7; 11 files, 6 source; root pnpm-lock.yaml. Base check not run: `db-mongodb` has no test script, and the repository's tests are Payload's sharded integration suite against MongoDB. Stopped for the user's call
