@@ -52,3 +52,12 @@ Fixed before any phase-1 run. Everything above holds except these:
 - **Clone:** each arm's repository is `git init` plus a depth-1 fetch of the parent sha, then `reset --hard`: one commit, no remote, no other branch or tag. `isolation.txt` in each run holds `git log --all --oneline | head` and `git remote -v` from before the arm starts. The human's commit is fetched in only after the arm ends, for scoring.
 - **TZ:** `run.sh` exports `TZ=UTC`, so both arms, their commands and Uptide's own baseline and after verification inherit it. `meta.json` records `tz`.
 - **Pricing:** Opus 5.5 at $4 / $20 / $0.20 / $5 per million tokens (input, output, cache read, 5m write).
+
+## Full bench, phase 2 (2026-10-20)
+
+Fixed before any phase-2 run. Everything in phase 1 holds except these:
+
+- **Uptide:** `uptide@0.18.2` from npm, installed pinned (`npm install --ignore-scripts --save-exact uptide@0.18.2`, integrity `sha512-GJ6HjUzB…cc5Pg==`) and run through `UPTIDE_BIN`. Still `claude-sonnet-5-5`, $1 cap.
+- **Uptide's cost:** `meta.json` `costUsd` is 0.18.2's computed `llm.costUsd`: pricing.ts rates per model and token class (UPT-127). `sdkReportedCostUsd` is the Agent SDK's own total, recorded apart. `cost.json` keeps `llm.models`, each model's uncached input, cache read, 5m and 1h write and output tokens with the rates applied, so any run can be redone by hand.
+- **Claude Code:** 2.1.283, the same as phase 1, installed pinned (`npm install --ignore-scripts --save-exact @anthropic-ai/claude-code@2.1.283`, integrity `sha512-/8Y1pe7M…si7TwA==`, then its own `install.cjs`), and run through `CLAUDE_BIN` with `CLAUDE_VERSION=2.1.283` checked per run and `DISABLE_AUTOUPDATER=1`. Still `claude-opus-5-5` at medium effort, $5 cap, with the same prompt, word for word.
+- **Budget:** $40 for all of phase 2, both arms.

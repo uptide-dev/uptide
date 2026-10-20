@@ -52,11 +52,18 @@ export npm_config_ignore_scripts=true YARN_ENABLE_SCRIPTS=0
 # A developer's checkout is installed; Uptide refuses one that is not. Untimed, both arms.
 bash -c "$(sel .checks.install)" >"$dir/setup.log" 2>&1
 
-uptide=${UPTIDE_VERSION:-0.18.1}
+uptide=${UPTIDE_VERSION:-0.18.2}
 # UPTIDE_BIN: a pinned install of uptide@$uptide from npm; else npx fetches that version.
 uptide_cli() { if [ -n "${UPTIDE_BIN:-}" ]; then "$UPTIDE_BIN" "$@"; else npx -y "uptide@$uptide" "$@"; fi; }
+# CLAUDE_BIN: a pinned install of Claude Code; the auto-updater stays off so it can't move mid-bench.
+export DISABLE_AUTOUPDATER=1
+claude() { "${CLAUDE_BIN:-claude}" "$@"; }
 case $arm in
-claude) version=$(claude --version | cut -d' ' -f1) ;;
+claude)
+  version=$(claude --version | cut -d' ' -f1)
+  [ -z "${CLAUDE_VERSION:-}" ] || [ "$version" = "$CLAUDE_VERSION" ] ||
+    { echo "claude is $version, not $CLAUDE_VERSION" >&2 && exit 2; }
+  ;;
 uptide)
   version=$(uptide_cli --version)
   [ "$version" = "$uptide" ] || { echo "uptide is $version, not $uptide" >&2 && exit 2; }
@@ -99,7 +106,11 @@ uptide)
   branch=$(jq -r '.branch // empty' "$dir/agent.json" 2>/dev/null)
   [ -n "$branch" ] || branch=$(git for-each-ref --format='%(refname:short)' "refs/heads/uptide/*" | head -1)
   [ -n "$branch" ] && git checkout -q "$branch"
+  # 0.18.2 (UPT-127): costUsd is computed from pricing.ts per model and token class
+  # (.llm.models); the Agent SDK's own total is .llm.sdkReportedCostUsd, kept apart.
   cost=$(jq '.llm.costUsd // 0' "$dir/agent.json" 2>/dev/null || echo 0)
+  jq '.llm | {costUsd, sdkReportedCostUsd, costUnverified, inputTokens, outputTokens, models, warnings}' \
+    "$dir/agent.json" >"$dir/cost.json" 2>/dev/null || rm -f "$dir/cost.json"
   cp "$(jq -r '.prBody // empty' "$dir/agent.json" 2>/dev/null)" "$dir/summary.md" 2>/dev/null ||
     tail -5 "$dir/agent.log" >"$dir/summary.md"
   ;;
@@ -121,12 +132,14 @@ jq -n --arg id "$id" --arg head "$(git rev-parse HEAD)" --argjson status "$statu
   --arg arm "$arm" --arg version "$version" --arg model "$([ "$arm" = human ] || echo "$model")" \
   --arg executor "$([ "$arm" = uptide ] && jq -r '.llm.executor // .llm.agent // "none"' "$dir/agent.json" 2>/dev/null)" \
   --arg own "$([ "$arm" = claude ] && jq -r '.total_cost_usd // empty' "$dir/agent.json" 2>/dev/null)" \
+  --arg sdkcost "$([ "$arm" = uptide ] && jq -r '.llm.sdkReportedCostUsd // empty' "$dir/agent.json" 2>/dev/null)" \
   --arg sdk "$([ "$arm" = uptide ] && grep -m1 'Agent SDK' "$dir/agent.log" 2>/dev/null)" \
   '{id: $id, head: $head, exit: $status, costUsd: $cost, wallSeconds: $wall, uncommittedFiles: $dirty, tz: $tz}
     + if $cap == "" then {} else {capUsd: ($cap | tonumber), overCapUsd: ([$cost - ($cap | tonumber), 0] | max)} end
     + if $version == "" then {} else {version: {($arm): $version}} end
     + if $model == "" then {} else {model: $model} end
     + if $own == "" then {} else {claudeCodeCostUsd: ($own | tonumber)} end
+    + if $sdkcost == "" then {} else {sdkReportedCostUsd: ($sdkcost | tonumber)} end
     + if $executor == "" then {} else {executor: $executor} end
     + if $sdk == "" then {} else {sdkDownload: $sdk} end' \
   >"$dir/meta.json"
