@@ -11,6 +11,10 @@
 // - unrelated: run hunks in files the human left alone that never name the package.
 // - regressions: local checks and CI checks that fail on the run and pass on the reference.
 // - unverified: whether the run's summary or PR body says what it did not verify.
+// - silent changes (ADR 0017): the selection's `silent` sites, behavior the upgrade must keep that
+//   no check shows. Caught when the run's diff touches the site's line and the file at the run's
+//   head has the `keep` edit, or when the PR body names the record. A silent false positive is a
+//   site a PR body's "Behavior change (<record>)" line names that the selection does not.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -51,6 +55,28 @@ export function compare(human, agent) {
   return { covered: human.length - missed.length, missed };
 }
 
+/** Silent sites caught by an edit or by a decision citing the record, and silent false positives. */
+export function silent(entry, agent, summary, headText) {
+  const truth = entry.silent ?? [];
+  const touched = new Set(agent.flatMap((h) => lines(h).map((l) => `${h.file}:${l}`)));
+  const edited = truth.filter(
+    (s) => touched.has(`${s.file}:${s.line}`) && new RegExp(s.keep).test(headText(s.file)),
+  );
+  const decided = truth.filter((s) => !edited.includes(s) && summary.includes(s.record));
+  const known = new Set(truth.map((s) => `${s.record} ${s.file}:${s.line}`));
+  const named = [...summary.matchAll(/\*\*Behavior change \(([^)\s]+)\):\*\*([^\n]*)/g)].flatMap(
+    ([, record, line]) =>
+      [...line.matchAll(/`([^`\s]+):(\d+)`/g)].map(([, file, n]) => `${record} ${file}:${n}`),
+  );
+  const at = (s) => `${s.file}:${s.line}`;
+  return {
+    silentSites: truth.length,
+    silentEdited: edited.map(at),
+    silentDecided: decided.map(at),
+    silentFalsePositives: [...new Set(named.filter((n) => !known.has(n)))],
+  };
+}
+
 function score(out, selection, run) {
   const dir = join(out, 'runs', run);
   const meta = read(join(dir, 'meta.json'));
@@ -71,6 +97,13 @@ function score(out, selection, run) {
   });
   const summaryFile = join(dir, 'summary.md');
   const summary = existsSync(summaryFile) ? readFileSync(summaryFile, 'utf8') : '';
+  const headText = (file) => {
+    try {
+      return git(repo, 'show', `${meta.head}:${file}`);
+    } catch {
+      return '';
+    }
+  };
   return {
     run,
     id: meta.id,
@@ -87,6 +120,7 @@ function score(out, selection, run) {
     agentFiles: new Set(agent.map((h) => h.file)).size,
     unrelated: unrelated.map((h) => `${h.file}:${h.start}`),
     unverified: UNVERIFIED.exec(summary)?.[0] ?? null,
+    ...silent(entry, agent, summary, headText),
     checks: read(join(dir, 'checks.json'), {}),
     ci: read(join(dir, 'ci.json'), []).map((c) => ({
       name: `${c.workflow}/${c.name}`,
@@ -117,15 +151,19 @@ function table(rows, arms) {
       .map(([s, c]) => `${s} ${c === 0 ? 'ok' : 'FAIL'}`)
       .join(', ') || 'not run';
   const lines = [
-    '| repo | arm | exit | coverage | missed | unrelated | regressions vs human | states unverified | local checks | fork CI | cost | wall |',
-    '|---|---|---|---|---|---|---|---|---|---|---|---|',
+    '| repo | arm | exit | coverage | missed | unrelated | regressions vs human | silent changes caught | silent FP | states unverified | local checks | fork CI | cost | wall |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
   ];
+  const caught = (r) =>
+    r.silentSites
+      ? `${r.silentEdited.length + r.silentDecided.length}/${r.silentSites} (edit ${r.silentEdited.length})`
+      : 'n/a';
   const sorted = [...rows].sort(
     (a, b) => a.id.localeCompare(b.id) || arms[a.run].localeCompare(arms[b.run]),
   );
   for (const r of sorted)
     lines.push(
-      `| ${r.id} | ${arms[r.run]} | ${r.exit} | ${r.covered}/${r.humanHunks} | ${r.missed.length} | ${r.unrelated.length} | ${r.regressions.join(', ') || 'none'} | ${r.unverified ? 'yes' : 'no'} | ${checks(r)} | ${ci(r)} | $${Number(r.costUsd).toFixed(2)} | ${Math.round(r.wallSeconds / 60)} min |`,
+      `| ${r.id} | ${arms[r.run]} | ${r.exit} | ${r.covered}/${r.humanHunks} | ${r.missed.length} | ${r.unrelated.length} | ${r.regressions.join(', ') || 'none'} | ${caught(r)} | ${r.silentFalsePositives.length} | ${r.unverified ? 'yes' : 'no'} | ${checks(r)} | ${ci(r)} | $${Number(r.costUsd).toFixed(2)} | ${Math.round(r.wallSeconds / 60)} min |`,
     );
   return lines.join('\n');
 }
