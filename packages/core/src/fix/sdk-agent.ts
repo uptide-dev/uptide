@@ -19,6 +19,7 @@ import { ts } from 'ts-morph';
 import { defaultCacheDir } from '../cache/paths.js';
 import type { ProgressListener } from '../domain/progress.js';
 import { modelCapabilities } from '../llm/capabilities.js';
+import { addSpend, type ModelCost, modelCost, type Spend } from '../llm/pricing.js';
 import { packDecisions } from '../packs/decisions.js';
 import { recordPrompt } from '../packs/records.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
@@ -66,11 +67,9 @@ export interface AgentTask {
   files: string[];
 }
 /** One session's result, from the SDK or from a test double. */
-export interface TaskRun {
+export interface TaskRun extends Spend {
   summary?: AgentSummary;
   turns: number;
-  inputTokens: number;
-  outputTokens: number;
   costUsd: number;
   unreportedCostUsd?: number;
   durationMs: number;
@@ -792,18 +791,70 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     } else accept(pending);
   }
 
-  const sum = (key: 'inputTokens' | 'outputTokens' | 'costUsd') =>
-    records.reduce((n, r) => n + r[key], 0);
+  const spent: Spend & { costUsd: number } = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
+  for (const record of records) addSpend(spent, record);
   return {
     provider: 'anthropic',
     model: input.model,
     available: true,
-    inputTokens: sum('inputTokens'),
-    outputTokens: sum('outputTokens'),
-    costUsd: sum('costUsd'),
+    ...spent,
     unreportedCostUsd: records.reduce((sum, r) => sum + (r.unreportedCostUsd ?? 0), 0),
     agent: 'sdk',
     tasks: records,
+  };
+}
+
+type SdkResult = Extract<SDKMessage, { type: 'result' }>;
+/** Cost and SDK cost disagree by more than this share before the run says so. */
+export const SDK_COST_TOLERANCE = 0.05;
+/**
+ * The session's spend from the SDK result: tokens per model and class (`modelUsage`), priced
+ * from pricing.ts. `total_cost_usd` comes from the SDK's own table and is kept apart.
+ * `modelUsage` has no cache TTL split; `usage.cache_creation` (main loop only) has one, so its
+ * 1-hour writes go to the session model and every other write is priced as 5-minute.
+ */
+// ponytail: other models' 1-hour writes price as 5-minute; the 5% check and max() cap cover it.
+export function sdkSpend(result: SdkResult, model: string): Spend & { costUsd: number } {
+  const hour =
+    (result.usage as { cache_creation?: { ephemeral_1h_input_tokens?: number } }).cache_creation
+      ?.ephemeral_1h_input_tokens ?? 0;
+  const warnings: string[] = [];
+  const models: ModelCost[] = Object.entries(result.modelUsage ?? {}).map(([name, m]) => {
+    const hourWrites = name === model ? Math.min(hour, m.cacheCreationInputTokens) : 0;
+    const row = modelCost('anthropic', name, {
+      inputTokens: m.inputTokens,
+      outputTokens: m.outputTokens,
+      cacheReadTokens: m.cacheReadInputTokens,
+      cacheWriteTokens: m.cacheCreationInputTokens - hourWrites,
+      cacheWriteHourTokens: hourWrites,
+    });
+    if (!row.unverified) return { ...row, sdkReportedCostUsd: m.costUSD };
+    // Never guess a rate: the SDK's figure stands, marked unverified.
+    warnings.push(
+      `Cost of ${name}: no rate in Uptide's pricing table; using the SDK's $${m.costUSD.toFixed(4)}, unverified.`,
+    );
+    const { rates: _, ...unpriced } = row;
+    return { ...unpriced, costUsd: m.costUSD, sdkReportedCostUsd: m.costUSD };
+  });
+  const sdk = result.total_cost_usd;
+  const unverified = models.some((m) => m.unverified) || (!models.length && sdk > 0);
+  const costUsd = models.length ? models.reduce((n, m) => n + m.costUsd, 0) : sdk;
+  if (!models.length && sdk > 0)
+    warnings.push(
+      `Cost: the SDK reported no per-model usage; using its $${sdk.toFixed(4)}, unverified.`,
+    );
+  else if (Math.abs(costUsd - sdk) > SDK_COST_TOLERANCE * Math.max(costUsd, sdk))
+    warnings.push(
+      `Cost check: computed $${costUsd.toFixed(4)} from Uptide's pricing table, the SDK reported $${sdk.toFixed(4)}; --max-cost counts the higher.`,
+    );
+  return {
+    inputTokens: models.reduce((n, m) => n + m.inputTokens, 0),
+    outputTokens: models.reduce((n, m) => n + m.outputTokens, 0),
+    costUsd: Math.round(costUsd * 1e9) / 1e9,
+    sdkReportedCostUsd: sdk,
+    ...(unverified ? { costUnverified: true as const } : {}),
+    models,
+    ...(warnings.length ? { warnings } : {}),
   };
 }
 
@@ -1053,15 +1104,9 @@ const sdkRunner: TaskRunner = async ({
     if (!result) throw err;
   }
   if (!result) throw new Error('the SDK session ended without a result');
-  const usage = result.usage as unknown as Record<string, number | undefined>;
   return {
     turns: result.num_turns,
-    inputTokens:
-      (usage.input_tokens ?? 0) +
-      (usage.cache_read_input_tokens ?? 0) +
-      (usage.cache_creation_input_tokens ?? 0),
-    outputTokens: usage.output_tokens ?? 0,
-    costUsd: result.total_cost_usd,
+    ...sdkSpend(result, model),
     durationMs: Date.now() - started,
     toolCalls,
     ...(result.subtype !== 'success'

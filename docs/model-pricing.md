@@ -35,10 +35,39 @@ rates end on 2026-12-31; from 2027-01-01 the table automatically uses 1.50 input
 
 ## Agent SDK budget
 
-`fix` runs only with the Agent SDK executor. Its reported session cost comes from the SDK;
-the package's session receives its budget, and enforcement after each turn can overshoot
-by one turn. The reservation model below applies to the patch executor and the OpenAI and
-Gemini rates, which remain for Uptide's own evaluations (`UPTIDE_INTERNAL=1`).
+`fix` runs only with the Agent SDK executor. The package's session receives its budget, and
+the SDK's enforcement after each turn can overshoot by one turn. The reservation model below
+applies to the patch executor and the OpenAI and Gemini rates, which remain for Uptide's own
+evaluations (`UPTIDE_INTERNAL=1`).
+
+`llm.costUsd` is computed by Uptide from the table above, so anyone can redo it by hand.
+`report.json` and `fix --json` list each model under `llm.models`:
+
+| Field | Meaning |
+| --- | --- |
+| `inputTokens` | uncached input |
+| `cacheReadTokens` | cache hits and refreshes |
+| `cacheWriteTokens` / `cacheWriteHourTokens` | 5-minute / 1-hour cache writes |
+| `outputTokens` | output, thinking included |
+| `rates` | the USD per million tokens applied to each class |
+| `costUsd` | the sum of tokens x rate / 1,000,000, rounded up to the nanodollar |
+| `sdkReportedCostUsd` | the SDK's own figure for that model |
+
+`llm.costUsd` is the total of the rows, and `llm.sdkReportedCostUsd` is the SDK's
+`total_cost_usd`, from the SDK's built-in price table, kept apart and never mixed in.
+`llm.inputTokens` counts uncached input only, summed over models; before UPT-127 it also
+counted cache reads and writes. The per-session records (`llm.tasks`) carry the same fields.
+
+The SDK gives tokens per model but splits cache writes by TTL only for the main loop:
+those 1-hour writes are priced on the session's model, and any other model's writes as
+5-minute writes.
+
+`--max-cost` counts the higher of the computed and the SDK-reported cost, so a wrong
+table never lets a run spend past the limit by Uptide's own accounting. When the two
+differ by more than 5% of the higher, the run prints both on the terminal and lists the
+line in `llm.warnings` (never in the PR body). A model with no row in the table gets no
+guessed rate: its cost is the SDK's figure, the row has no `rates` and is marked
+`unverified`, `llm.costUnverified` is set, and the run warns.
 
 ## Reservation and actual spend
 

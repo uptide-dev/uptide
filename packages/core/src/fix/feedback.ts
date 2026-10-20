@@ -128,6 +128,8 @@ export function feedbackPatchRunner(fixer: Fixer, finding: Finding): TaskRunner 
         unreportedCostUsd,
         inputTokens: answer.inputTokens,
         outputTokens: answer.outputTokens,
+        ...(answer.costUnverified ? { costUnverified: true as const } : {}),
+        ...(answer.models ? { models: answer.models } : {}),
         summary: {
           changed: [...edits.keys()].map((file) => ({
             file,

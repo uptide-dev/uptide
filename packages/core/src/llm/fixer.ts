@@ -1,7 +1,7 @@
 import type { Fixer, FixRequest, FixResponse } from '../fix/types.js';
 import { adapters } from './adapters.js';
 import { KEY_ENV, type Selection } from './config.js';
-import { nanos, reserveCost, usageCost } from './pricing.js';
+import { modelCost, nanos, reserveCost, usageCost } from './pricing.js';
 import { messages } from './prompt.js';
 import type { Call, Provider } from './types.js';
 
@@ -215,12 +215,21 @@ export function providerFixer(
         );
       const u = result.usage;
       const billedInput = u.inputTokens + u.cacheWriteTokens + u.cacheWriteHourTokens;
+      const row = modelCost(selection.provider, selection.model, {
+        inputTokens: u.inputTokens - u.cachedInputTokens,
+        outputTokens: u.outputTokens,
+        cacheReadTokens: u.cachedInputTokens,
+        cacheWriteTokens: u.cacheWriteTokens,
+        cacheWriteHourTokens: u.cacheWriteHourTokens,
+      });
       const base = {
         reservationUsd: reserved,
         ...(result.model ? { responseModel: result.model } : {}),
-        inputTokens: billedInput,
+        inputTokens: row.inputTokens,
         outputTokens: u.outputTokens,
-        costUsd: usageCost(selection.provider, selection.model, u),
+        costUsd: row.costUsd,
+        ...(row.unverified ? { costUnverified: true as const } : {}),
+        models: [row],
       };
       if (billedInput > inputBound || u.outputTokens > prepared.maxTokens)
         return {
