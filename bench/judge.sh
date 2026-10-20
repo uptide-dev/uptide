@@ -7,6 +7,7 @@
 #   BENCH_OUT=<dir> bench/judge.sh <run>            fork, push, open the pull request
 #   BENCH_OUT=<dir> bench/judge.sh <run> --collect  wait for its checks to finish, store them
 set -euo pipefail
+unset ANTHROPIC_API_KEY OPENAI_API_KEY ANTHROPIC_BASE_URL GEMINI_API_KEY
 run=$1
 here=$(cd "$(dirname "$0")" && pwd)
 dir=${BENCH_OUT:?}/runs/$run

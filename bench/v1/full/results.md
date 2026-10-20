@@ -92,6 +92,22 @@ Run outputs are in the session scratchpad, not the repository, as in phase 1.
 - **Hand check, run `c4e7f538`** (`runs-0.18.2/c4e7f538/cost.json`, Sonnet 5.5 at $2 / $10 / $0.10 / $2.50 per million: input, output, cache read, 5m write). 10 × 2 + 865 × 10 + 37,908 × 0.10 + 10,515 × 2.50 = 38,748.3 → **$0.0387483**, equal to `costUsd` and `sdkReportedCostUsd`.
 - Per-run records are in `runs-0.18.2/`.
 
+## Key isolation proof (phase 2, before any secondary run)
+
+`bench/keyprobe.sh`, 2026-10-20 ~21:45Z. The calling shell had `ANTHROPIC_API_KEY=set OPENAI_API_KEY=set`. Each arm ran a local probe repository whose only test prints this, never a value:
+
+```text
+--- Uptide arm, inside the repository's test process (Uptide's baseline and after verification):
+probe: ANTHROPIC_API_KEY=unset OPENAI_API_KEY=unset PGHOST=127.0.0.1 postgres=reachable
+probe: ANTHROPIC_API_KEY=unset OPENAI_API_KEY=unset PGHOST=127.0.0.1 postgres=reachable
+--- Claude Code arm, inside the repository's test process (run by Claude Code's Bash tool):
+probe: ANTHROPIC_API_KEY=unset OPENAI_API_KEY=unset PGHOST=127.0.0.1 postgres=reachable
+--- costs: uptide 0, claude 0.042075
+```
+
+- Uptide reported `llm.available: true`, so it had the key itself. Claude Code authenticated through `apiKeyHelper`.
+- **Gap:** Uptide's parent type-check fallback runs the repository's TypeScript compiler with the key in its environment (`../arms.md`, phase 2 amendment).
+
 ## Scores (score.mjs)
 
 `BENCH_OUT=<out> BENCH_SELECTION=bench/v1/full/selection.json node bench/score.mjs --unblind`

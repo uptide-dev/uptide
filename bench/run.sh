@@ -9,15 +9,18 @@
 # every score is measured against. After an arm finishes, the upgrade commit is fetched into
 # its repository for score.mjs, still without a remote.
 #
-# Without ANTHROPIC_API_KEY in the environment, the KEY=value file named by $UPTIDE_BENCH_ENV is
-# sourced. Every run, the arms and Uptide's own verification run with TZ=UTC.
+# The API keys never come from the calling shell: both are unset first, and the bench key is read
+# from the KEY=value file named by $UPTIDE_BENCH_ENV into an unexported variable. Each arm gets it
+# only through its own channel (bench/v1/arms.md, phase 2): Uptide in its process environment,
+# which its verification filters out of every repository command; Claude Code from apiKeyHelper,
+# never in an environment. Every run, the arms and Uptide's own verification run with TZ=UTC.
 # The run gets an opaque id; $BENCH_OUT/key.tsv is the only place its arm is written, so
 # check.sh, judge.sh and score.mjs never see it.
 set -euo pipefail
-if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -n "${UPTIDE_BENCH_ENV:-}" ]; then
-  set -a && . "$UPTIDE_BENCH_ENV" && set +a
-fi
-: "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY, or UPTIDE_BENCH_ENV to a file that sets it}"
+unset ANTHROPIC_API_KEY OPENAI_API_KEY ANTHROPIC_BASE_URL GEMINI_API_KEY
+: "${UPTIDE_BENCH_ENV:?set UPTIDE_BENCH_ENV to the file that sets ANTHROPIC_API_KEY}"
+bench_key=$(set -a && . "$UPTIDE_BENCH_ENV" && printf '%s' "${ANTHROPIC_API_KEY:-}")
+[ -n "$bench_key" ] || { echo "no ANTHROPIC_API_KEY in $UPTIDE_BENCH_ENV" >&2 && exit 2; }
 export TZ=UTC
 arm=$1 id=$2
 here=$(cd "$(dirname "$0")" && pwd)
@@ -49,6 +52,8 @@ rm -f .git/FETCH_HEAD
   echo "\$ date (TZ=$TZ)" && date
 } >"$dir/isolation.txt"
 export npm_config_ignore_scripts=true YARN_ENABLE_SCRIPTS=0
+# A repository that needs Postgres gets a fresh one for this run (bench/services.sh).
+. "$here/services.sh" && fresh_postgres "${BENCH_SELECTION:-$here/selection.json}" "$id"
 # A developer's checkout is installed; Uptide refuses one that is not. Untimed, both arms.
 bash -c "$(sel .checks.install)" >"$dir/setup.log" 2>&1
 
@@ -79,8 +84,12 @@ claude)
   # --bare: none of this machine's hooks, plugins, memory or CLAUDE.md; --add-dir loads the
   # repository's own CLAUDE.md as a plain `claude -p` in it would. Bash runs only inside
   # Claude Code's sandbox (claude-sandbox.json); anything that would prompt is denied.
-  claude -p --bare --add-dir "$PWD" --model "$model" --effort "$effort" \
-    --settings "$here/claude-sandbox.json" --permission-mode acceptEdits --permission-prompts none \
+  # The sandbox settings plus the key helper; the sandbox also denies reading the key file.
+  jq --arg helper "$here/claude-key.sh" --arg envfile "$UPTIDE_BENCH_ENV" \
+    '.apiKeyHelper = $helper | .sandbox.filesystem.denyRead = [$envfile]' \
+    "$here/claude-sandbox.json" >"$dir/claude-settings.json"
+  UPTIDE_BENCH_ENV=$UPTIDE_BENCH_ENV claude -p --bare --add-dir "$PWD" --model "$model" --effort "$effort" \
+    --settings "$dir/claude-settings.json" --permission-mode acceptEdits --permission-prompts none \
     --no-session-persistence --output-format json --max-budget-usd "${CLAUDE_CAP_USD:-5}" \
     "$prompt" >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
   # Claude Code does not know this model's price and reports it at an older Sonnet's; price its
@@ -100,7 +109,7 @@ uptide)
   # The published CLI as a user runs it, not this checkout's build, with an empty cache so
   # the first fix downloads the Agent SDK as a new user's does (--yes approves it).
   mkdir -p "$dir/uptide-cache"
-  UPTIDE_CACHE_DIR=$dir/uptide-cache UPTIDE_MODEL=$model uptide_cli fix "$pkg" \
+  ANTHROPIC_API_KEY=$bench_key UPTIDE_CACHE_DIR=$dir/uptide-cache UPTIDE_MODEL=$model uptide_cli fix "$pkg" \
     --target "$to" --yes --json --max-cost "${UPTIDE_CAP_USD:-1}" >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
   # Uptide names the branch after the pack's lead package (react-router for react-router-dom).
   branch=$(jq -r '.branch // empty' "$dir/agent.json" 2>/dev/null)

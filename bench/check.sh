@@ -11,11 +11,12 @@ id=$(jq -r .id "$dir/meta.json") head=$(jq -r .head "$dir/meta.json")
 export npm_config_ignore_scripts=true YARN_ENABLE_SCRIPTS=0 CI=1 TZ=UTC
 # The machine's shell exports API keys; a repository's tests must not reach a live model with them
 # (AKogut/ai-flaky-test-triage's eval tests call the API when a key is set).
-unset ANTHROPIC_API_KEY OPENAI_API_KEY ANTHROPIC_BASE_URL
+unset ANTHROPIC_API_KEY OPENAI_API_KEY ANTHROPIC_BASE_URL GEMINI_API_KEY
 rm -rf "$dir/check"
 git -C "$dir/repo" worktree prune
 git -C "$dir/repo" worktree add -q --detach "$dir/check" "$head"
 cd "$dir/check"
+. "$here/services.sh" && fresh_postgres "${BENCH_SELECTION:-$here/selection.json}" "$id"
 result='{}'
 for step in install typecheck lint test build; do
   cmd=$(jq -r --arg id "$id" --arg s "$step" '.repos[] | select(.id == $id) | .checks[$s] // ""' "${BENCH_SELECTION:-$here/selection.json}")

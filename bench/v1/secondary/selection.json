@@ -16,44 +16,19 @@
       "pr": 300,
       "merged": "2026-10-19T21:40:38Z",
       "source": "human (Zach Martin), Claude Fable 5.1 co-author trailer; supersedes Dependabot #275 and #295",
-      "services": "Postgres: pgvector/pgvector:pg16 with POSTGRES_DB=cl_test POSTGRES_USER=cl POSTGRES_PASSWORD=test on localhost:55432, as CI's service. Without it 360 of 867 tests skip.",
       "checks": {
         "install": "npm ci --ignore-scripts",
         "build": "npm run build",
-        "test": "PGHOST=localhost PGPORT=55432 PGDATABASE=cl_test PGUSER=cl PGPASSWORD=test npm test"
+        "test": "npm test"
       },
-      "silent": []
-    },
-    {
-      "id": "tailwindcss-matrimonio",
-      "repo": "davide-pi/matrimonio-elena-e-davide",
-      "license": "MIT",
-      "pack": null,
-      "packVerified": false,
-      "package": "tailwindcss",
-      "from": "3.4.19",
-      "to": "4.3.3",
-      "parent": "c7a32a1290c8fad49eb9a10ca465e776be234082",
-      "upgrade": "44a6e28f2bac6db0204d8c396a5b727100839453",
-      "pr": 30,
-      "merged": "2026-10-14T21:01:54Z",
-      "source": "human (Davide Piccinini), `Co-Authored-By: Claude AI` trailer and a `Claude-Session:` link",
-      "checks": {
-        "install": "npm ci --ignore-scripts",
-        "lint": "npm run lint",
-        "test": "npm run test:coverage",
-        "build": "npm run build"
-      },
-      "silent": [
-        { "record": "tailwind4-scale-rename", "file": "src/components/CountdownTimer.tsx", "line": 111, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|shadow-xs|scale rename|renamed (the )?(blur|shadow)", "note": "v4's backdrop-blur-sm is v3's backdrop-blur (8px); v3's backdrop-blur-sm (4px) is v4's backdrop-blur-xs." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/RSVP.tsx", "line": 10, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|shadow-xs|scale rename|renamed (the )?(blur|shadow)", "note": "backdrop-blur-sm renders twice as strong in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/EventDetails.tsx", "line": 42, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|shadow-xs|scale rename|renamed (the )?(blur|shadow)", "note": "backdrop-blur-sm renders twice as strong in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/EventDetails.tsx", "line": 102, "keep": "shadow-xs", "mention": "backdrop-blur-xs|blur-xs|shadow-xs|scale rename|renamed (the )?(blur|shadow)", "note": "v4's shadow-sm is v3's shadow; v3's shadow-sm is v4's shadow-xs." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/LanguageSelector.tsx", "line": 21, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|shadow-xs|scale rename|renamed (the )?(blur|shadow)", "note": "backdrop-blur-sm renders twice as strong in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/Gift.tsx", "line": 22, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|shadow-xs|scale rename|renamed (the )?(blur|shadow)", "note": "backdrop-blur-sm renders twice as strong in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/Gift.tsx", "line": 29, "keep": "backdrop-blur-xs.*shadow-xs|shadow-xs.*backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|shadow-xs|scale rename|renamed (the )?(blur|shadow)", "note": "backdrop-blur-sm and shadow-sm on one line, both one step larger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/SpouseContactCard.tsx", "line": 7, "keep": "shadow-xs", "mention": "backdrop-blur-xs|blur-xs|shadow-xs|scale rename|renamed (the )?(blur|shadow)", "note": "shadow-sm renders one step larger in v4; src/test/SpouseContactCard.test.tsx:77 asserts the class name, not the shadow, so it passes either way." }
-      ]
+      "silent": [],
+      "postgres": {
+        "image": "pgvector/pgvector:pg16",
+        "port": 55432,
+        "user": "cl",
+        "database": "cl_test",
+        "note": "CI service pgvector/pgvector:pg16 (POSTGRES_DB=cl_test, POSTGRES_USER=cl). Recreated fresh for every run and every check by bench/services.sh, trust auth, PGHOST/PGPORT/PGUSER/PGDATABASE exported to both arms. The tests fall back to PGPASSWORD=test, which trust auth ignores."
+      }
     },
     {
       "id": "jest-riseup-mcp",
@@ -76,50 +51,6 @@
         "build": "npm run build"
       },
       "silent": []
-    },
-    {
-      "id": "tailwindcss-wedding-uploads",
-      "repo": "davide-pi/wedding-uploads-elena-e-davide",
-      "license": "MIT",
-      "pack": null,
-      "packVerified": false,
-      "package": "tailwindcss",
-      "from": "3.4.19",
-      "to": "4.3.3",
-      "parent": "7409fe36a87e40777d1bd47053001dd47c430b21",
-      "upgrade": "c0fbfaeabe597215a47d22ded8e19689eef216b8",
-      "pr": 15,
-      "merged": "2026-10-14T20:58:56Z",
-      "source": "human (Davide Piccinini), `Co-Authored-By: Claude AI` trailer; same author and day as tailwindcss-matrimonio",
-      "checks": {
-        "install": "npm ci --ignore-scripts",
-        "lint": "npm run lint",
-        "test": "npm run test:coverage",
-        "build": "npm run build"
-      },
-      "silent": [
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaCard.tsx", "line": 67, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaCard.tsx", "line": 102, "keep": "blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "blur-sm (loading placeholder) is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaCard.tsx", "line": 111, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaCard.tsx", "line": 123, "keep": "blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaCard.tsx", "line": 132, "keep": "blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaCard.tsx", "line": 141, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaModal.tsx", "line": 43, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaModal.tsx", "line": 50, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaModal.tsx", "line": 62, "keep": "rounded-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "v3's rounded-sm (2px) is v4's rounded-xs; v4's rounded-sm is 4px." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaCardSkeleton.tsx", "line": 36, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaCardSkeleton.tsx", "line": 58, "keep": "rounded-sm", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "v3's bare rounded (4px) is v4's rounded-sm; the human renamed it." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/MediaCardSkeleton.tsx", "line": 63, "keep": "rounded-sm", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "v3's bare rounded is v4's rounded-sm." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/LanguageSelector.tsx", "line": 63, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/LanguageSelector.tsx", "line": 72, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/EmptyMediaState.tsx", "line": 10, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-scale-rename", "file": "src/components/Header.tsx", "line": 9, "keep": "backdrop-blur-xs", "mention": "backdrop-blur-xs|blur-xs|rounded-xs|outline-hidden|scale rename", "note": "backdrop-blur-sm is one step stronger in v4." },
-        { "record": "tailwind4-outline-none", "file": "src/components/buttons/ActionButton.tsx", "line": 25, "keep": "outline-hidden", "mention": "outline-hidden|outline-none", "note": "v3's outline-none was a transparent 2px outline, still visible in forced-colors mode; v4's outline-none is outline-style: none. v4's outline-hidden keeps v3's behavior." },
-        { "record": "tailwind4-outline-none", "file": "src/components/Notification.tsx", "line": 44, "keep": "outline-hidden", "mention": "outline-hidden|outline-none", "note": "Same: the focus outline disappears in forced-colors mode." },
-        { "record": "tailwind4-outline-none", "file": "src/components/buttons/FloatingActionButton.tsx", "line": 91, "keep": "outline-hidden", "mention": "outline-hidden|outline-none", "note": "Same." },
-        { "record": "tailwind4-outline-none", "file": "src/components/upload/MediaUploadForm.tsx", "line": 141, "keep": "outline-hidden", "mention": "outline-hidden|outline-none", "note": "Same." },
-        { "record": "tailwind4-outline-none", "file": "src/components/upload/MediaUploadForm.tsx", "line": 158, "keep": "outline-hidden", "mention": "outline-hidden|outline-none", "note": "Same." }
-      ]
     },
     {
       "id": "vitest-flaky-triage",

@@ -298,3 +298,14 @@ The most common reasons to drop: no license; a Dependabot or Renovate PR with no
 - **Personal data:** picks 2 and 4 are a private couple's wedding sites. Their public source has names, phone numbers and a bank account number (`src/config/WeddingInfo.ts`, translations). Forking them into `uptide-bench` for fork CI copies that data into the org. Decide before step 5.
 - **Pick 1 needs Postgres** for its tests (CI's `pgvector/pgvector:pg16` service). The base checks ran against a local container.
 - **No run of either arm has been made on these 5.**
+
+### Amendment, 2026-10-20 (after the selection gate, before any secondary run)
+
+Given by the user at the gate, and applied to every candidate from here on:
+
+- **(a) Personal data:** a private individual's site whose source has personal data (phone numbers, bank details, home addresses) is excluded. It is never forked or published.
+- **(b) One data point:** same author, same migration and same day counts as one data point. A second such repository can't be picked.
+
+Picks 2 and 4 (davide-pi/matrimonio-elena-e-davide#30, davide-pi/wedding-uploads-elena-e-davide#15) are **dropped** under (a), and 4 under (b) as well. Neither was forked: `gh repo list uptide-bench` lists no `davide-pi--*` repository, so nothing needed deleting.
+
+The 2 slots are filled by continuing the committed procedure where it stopped: turn 3, after vitest's pick, in the same order, round-robin and limit of 2 per dependency.
