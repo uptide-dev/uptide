@@ -1,0 +1,18 @@
+{
+  "id": "stripe-yea",
+  "head": "f89751a144c77dc5a91934dc1cd292a2e7e6b134",
+  "exit": 0,
+  "costUsd": 0.135457,
+  "wallSeconds": 106,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 1,
+  "overCapUsd": 0,
+  "version": {
+    "uptide": "0.18.2"
+  },
+  "model": "claude-sonnet-5-5",
+  "sdkReportedCostUsd": 0.135457,
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into /private/tmp/claude-502/-Users-Deskfy-Desktop-code-uptide/713dbc85-8511-4dfe-97c3-aa8c8fc2fcb9/scratchpad/dev/runs/32d46893/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

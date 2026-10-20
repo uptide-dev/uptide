@@ -247,3 +247,54 @@ The same as phase 1: public, permissive license (MIT, Apache-2.0, BSD, ISC, MIT-
 - **Screening, in this order, stopping at the first failure:** excluded or fork; license; author (human or bot-with-human-fix, never a coding agent); the merged diff moves the package across the major in a `package.json` or catalog; the diff changes a file other than manifests and lockfiles; the diff doesn't bundle other work (no other non-companion major, at most 40 files); lockfile at the root, a test script and CI; a frozen install, type-check, lint, tests and build pass at the base with TZ=UTC and scripts off.
 - **Recorded for every candidate screened:** repo, PR, merge date, and kept or why dropped.
 - **For each pick:** whether Uptide 0.18.2 has a verified pack for that upgrade, the human PR's merge date, license and author check.
+
+### Amendments made while searching (before any secondary run), applied to every dependency
+
+- **20:34Z: the search query.** The fixed query `gh search prs <package>` with `--limit 100` returned only the 100 newest hits, under a day for common names. It became `"<package> in:title"` with `--limit 300`, and older pages were fetched by ending `--merged-at` at each page's oldest merge (`page.sh` logic, recorded below). Order stays newest merge first.
+- **Prisma:** `"@prisma/client in:title"` returns nothing, because search drops the `@`. It became `"prisma in:title"`, with the title filter `@prisma/client|prisma` from 6 to 7.
+- **The author clause, as the brief states it:** a commit authored by a coding agent drops, while a human author with an AI trailer, or with a "Generated with Claude Code" PR footer, is human and disclosed. One early drop (kvasir#16) had used the PR footer. It was re-screened under this reading and still drops, for another reason (no test script).
+- **Title filter:** a title must move the package from its from-major to its to-major: `<from>.x to <to>`, `<package> v<to>`, `<package> <to>` not followed by a minor, `to v<to>`, or `<package>@<to>`. Titles naming a minor within the target major are left out (`4.6.6 to 4.6.7`). One batch run with a shell word-splitting bug had no filter, and its results were discarded unrecorded.
+- **The API keys:** this machine's `~/.zshrc` exports `ANTHROPIC_API_KEY` (the bench key) and `OPENAI_API_KEY`, so every check inherited them. They are unset for every base check from 21:00Z on, and in `check.sh`.
+
+### Screened
+
+177 candidates in 3 round-robin turns, every one with its reason: `secondary/screened.tsv`. Exclusions: `secondary/excluded.txt` (134).
+
+| dependency | screened | kept |
+|---|---|---|
+| zod | 24 | 1 (turn 2) |
+| tailwindcss | 17 | 2 (turns 2 and 3; the cap) |
+| express | 24 | 0 |
+| eslint | 22 | 0 |
+| vitest | 22 | 1 (turn 3) |
+| jest | 5 | 1 (turn 2) |
+| next | 15 | 0 |
+| mongoose | 16 | 0 |
+| react-router | 16 | 0 |
+| @prisma/client | 16 | 0 |
+
+The most common reasons to drop: no license; a Dependabot or Renovate PR with no human commit; a commit authored by `claude` or another agent; other majors bundled; no package move (a follow-up fix). Three dropped late, on repository-side checks:
+- nuxt-content-mermaid#143: tests fail with scripts off (better-sqlite3's native build).
+- ardo#364: bundles tsdown 0.23.
+- joplin-web#80 and habitikami#48: no lockfile at the root.
+
+**Timebox:** 20:30Z to 21:10Z, inside the 90 minutes.
+
+### The 5
+
+| # | repo | dependency | from → to | pack in 0.18.2 | PR, merged (UTC) | license | author check |
+|---|---|---|---|---|---|---|---|
+| 1 | onideus/context-library | zod | 3.25.76 → 4.6.7 | **yes, verified** | #300, 2026-10-19 21:40 | MIT | human (Zach Martin); Claude Fable 5.1 trailer; PR body "Generated with Claude Code" |
+| 2 | davide-pi/matrimonio-elena-e-davide | tailwindcss | 3.4.19 → 4.3.3 | no | #30, 2026-10-14 21:01 | MIT | human (Davide Piccinini); `Claude AI` trailer and a `Claude-Session:` link |
+| 3 | riseup-oss/mcp | jest | 29.7.0 → 30.5.2 | no | #13, 2026-10-19 09:00 | MIT | human (Revital Oren); Claude Opus 5.5 trailers |
+| 4 | davide-pi/wedding-uploads-elena-e-davide | tailwindcss | 3.4.19 → 4.3.3 | no | #15, 2026-10-14 20:58 | MIT | human (Davide Piccinini); `Claude AI` trailer |
+| 5 | AKogut/ai-flaky-test-triage | vitest | 4.1.10 → 5.0.5 | **yes, verified** | #206, 2026-10-20 14:32 | MIT | human (Andrii Kohut); no AI trailer |
+
+**Split:** 2 with a verified pack (zod, vitest), 3 without (tailwindcss ×2, jest).
+
+**Disclosures:**
+- **AI trailers:** 4 of the 5 human authors carry an AI co-author trailer. By the brief's clause they're human.
+- **Same author:** picks 2 and 4 are one author's two sites, migrated the same day. The procedure allows 2 per dependency and took both in order. Their repositories, code and tests are separate.
+- **Personal data:** picks 2 and 4 are a private couple's wedding sites. Their public source has names, phone numbers and a bank account number (`src/config/WeddingInfo.ts`, translations). Forking them into `uptide-bench` for fork CI copies that data into the org. Decide before step 5.
+- **Pick 1 needs Postgres** for its tests (CI's `pgvector/pgvector:pg16` service). The base checks ran against a local container.
+- **No run of either arm has been made on these 5.**

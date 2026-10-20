@@ -1,0 +1,18 @@
+{
+  "id": "typescript-support-dotcom-components",
+  "head": "ce7666576b158298dafe5c699ec8e403aadf32ce",
+  "exit": 1,
+  "costUsd": 0.283652,
+  "wallSeconds": 383,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 1,
+  "overCapUsd": 0,
+  "version": {
+    "uptide": "0.18.2"
+  },
+  "model": "claude-sonnet-5-5",
+  "sdkReportedCostUsd": 0.283652002,
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into /private/tmp/claude-502/-Users-Deskfy-Desktop-code-uptide/713dbc85-8511-4dfe-97c3-aa8c8fc2fcb9/scratchpad/dev/runs/96eccb38/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

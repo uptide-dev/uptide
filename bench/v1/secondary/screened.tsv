@@ -1,0 +1,178 @@
+dependency	turn	candidate	merged (UTC)	result	reason
+zod	1	food-hygiene-uk/data-site-builder#293	2026-10-20 20:23	dropped	Renovate PR with no human commit; also GPL-3.0 and a Deno project
+zod	1	WiniciusNeves/kvasir#16	2026-10-20 19:41	dropped	no test script (scripts: build, dev, start, typecheck). First dropped as agent-written (PR body "Generated with Claude Code"); that reading was withdrawn, since the brief tests the commit author, which is human
+tailwindcss	1	OSM-Piatnica/pi-plane#259	2026-10-20 20:28	dropped	fork, AGPL-3.0; 4.x → 4.3.3 is not a major
+tailwindcss	1	aMediocreDad/stonetop-keeper#33	2026-10-20 19:55	dropped	46 files (over 40), merged into a feature branch (stacked on a TypeScript 6 PR), not the default branch
+tailwindcss	1	pyrodex/arc-tracker#137	2026-10-20 19:11	dropped	no license
+tailwindcss	1	SharathSPhD/neo-fm#443	2026-10-20 19:09	dropped	every source commit authored by `claude`
+tailwindcss	1	MKej88/RideSense#64	2026-10-20 18:13	dropped	no license
+tailwindcss	1	kiyocy24/toolkit-site#328	2026-10-20 16:48	dropped	4.2.2 → 4.3.3 is not a major (Dependabot)
+tailwindcss	1	JohnFilhmar/my-portfolio#27	2026-10-20 15:01	dropped	no license
+tailwindcss	1	tylerbarnard23-PM/atlas-proposal-engine#2	2026-10-20 14:50	dropped	bundles other majors (Next.js 16, puppeteer-core 25)
+zod	1	tjmeltesen/thomas-meltesen-site#22	2026-10-20 19:52	dropped	Dependabot PR with no human commit
+zod	1	fjpulidop/specrails-desktop#783	2026-10-20 16:10	dropped	bundles other majors (Babel 8, Tauri 2.12)
+zod	1	Sanidhya14321/undertone#7	2026-10-20 13:26	dropped	Dependabot PR; the only human commit is a merge of main
+zod	1	Keglev/inventory-service#403	2026-10-20 12:02	dropped	no package move: a follow-up refactor after zod 4 was already in
+zod	1	matzekFloyd/EvoLift#275	2026-10-20 10:42	dropped	Dependabot PR with no human commit
+zod	1	Zonos/amino#886	2026-10-20 10:26	dropped	bundles other majors (Storybook 10, vitest 5, TS 6, rollup 4)
+express	1	siribeesu/EventPilot#16	2026-10-20 20:26	dropped	no license; Dependabot PR with no human commit
+express	1	kambei/habitikami#48	2026-10-20 20:24	dropped	no lockfile at the repository root (it's in `habitikami-web/`). Otherwise MIT, Dependabot plus a human fix commit (`server.js` SPA route), with a Claude Fable 5.1 co-author trailer
+express	1	willmendesneto/ngx-skeleton-loader#302	2026-10-20 17:59	dropped	no package move: an SSR fix after Express 5 was already in
+express	1	kingsloob1/bun-node#431	2026-10-20 17:39	dropped	no express move in a manifest (path-to-regexp 8 in a Bun framework), 45 files
+express	1	reactome/WebsiteAngular#568	2026-10-20 15:30	dropped	no package move: spec documents only
+express	1	kingsloob1/bun-node#434	2026-10-20 12:54	dropped	no package move: docs only
+express	1	Bigocb/stcommand#18	2026-10-20 01:12	dropped	no license; no package move
+express	1	mozilla/fxa#21565	2026-10-19 23:27	dropped	authored by `fxa-agent[bot]`
+eslint	1	aMediocreDad/stonetop-keeper#31	2026-10-20 19:55	dropped	merged into a feature branch, not the default branch; lockfile in `app/`, not the root
+eslint	1	tjmeltesen/thomas-meltesen-site#23	2026-10-20 19:48	dropped	Dependabot PR with no human commit
+eslint	1	mbenfowler/bird-alert#69	2026-10-20 19:32	dropped	bundles other majors (React 19, React Router 8, Vite 8, Vitest 5, Cypress 15)
+eslint	1	Adii-Khandelwal/sys101#72	2026-10-20 18:45	dropped	no license; Dependabot PR with no human commit
+eslint	1	daniel17903/golist2#366	2026-10-20 18:42	dropped	bundles other majors (vite 8 and pending Dependabot updates)
+eslint	1	LuanRT/googlevideo#64	2026-10-20 18:40	dropped	Dependabot PR with no human commit
+eslint	1	Wasif478484/ReviewDesk#3	2026-10-20 17:56	dropped	Dependabot PR with no human commit
+eslint	1	RyanAI-Automated/RYANAI-Automous-Reasioning-Plat#228	2026-10-20 17:44	dropped	no license; Dependabot PR with no human commit
+vitest	1	youo1/Orderak.APP#193	2026-10-20 19:58	dropped	no package move: holds Vitest 5 in `dependabot.yml`; license NOASSERTION
+vitest	1	musicteachj/brand-content-studio#74	2026-10-20 19:51	dropped	no license; merged into `dev`
+vitest	1	mbenfowler/bird-alert#69	2026-10-20 19:32	dropped	bundles other majors (React 19, React Router 8, Vite 8, ESLint 10, Cypress 15)
+vitest	1	Marvae/douban-cli#5	2026-10-20 19:27	dropped	Dependabot PR with no human commit
+vitest	1	tough-dev-school/lms-frontend-v2#506	2026-10-20 19:14	dropped	no license; bundles a switch to another snapshot library and CI changes
+vitest	1	himynameisdave/davestack#99	2026-10-20 18:25	dropped	Dependabot PR with no human commit
+vitest	1	luciocabrera/lcabrera-stack#1464	2026-10-20 18:10	dropped	no package move (a follow-up cleanup), 125 files
+vitest	1	elgansayer/elgl#9472	2026-10-20 17:42	dropped	no license; Dependabot PR with no human commit
+jest	1	ice3x2/TTTGate#193	2026-10-20 03:55	dropped	no license
+jest	1	james-gibson/local-time#165	2026-10-20 03:37	dropped	AGPL-3.0
+jest	1	lachvit/outlook-template-addin#6	2026-10-19 14:43	dropped	no license; Dependabot PR with no human commit
+jest	1	Wolfe-Jam/faf-taf-git#7	2026-10-19 13:38	dropped	changes only `package.json` and the lockfile
+next	1	HigorAlves/orc#124	2026-10-20 20:18	dropped	no upgrade: a new website on Next.js 16, 73 files
+next	1	drairanfi/Cashy#6	2026-10-20 20:12	dropped	no license; 262 files
+next	1	VJL0/betterssb#32	2026-10-20 18:54	dropped	no license; 96 files
+next	1	MKej88/RideSense#63	2026-10-20 18:07	dropped	no license
+next	1	pedrodarma/game-quicktactoe#2	2026-10-20 16:59	dropped	no license
+next	1	kitthiphatn/audio-guide#1	2026-10-20 16:41	dropped	no license; commits authored by `claude`
+next	1	teerakanotklan/kea-ui#1	2026-10-20 15:53	dropped	no license
+mongoose	1	tbauman88/nest-graphql-mongo#43	2026-10-20 17:31	dropped	no license; commit authored by `claude`; bundles NestJS 12, Apollo 5, TS 6
+mongoose	1	CaoMeiYouRen/nest-template#2430	2026-10-18 21:04	dropped	Dependabot PR with no human commit
+mongoose	1	HCIstudio/N-WAVE#136	2026-10-17 13:48	dropped	commit authored by `claude`
+mongoose	1	SimpsonLWH/eultc-website#34	2026-10-14 10:32	dropped	no license; bundles Node 24, ESLint 10, Vitest 5
+mongoose	1	lonix/koolbot#1109	2026-10-12 08:16	dropped	no license; commits authored by `claude`; no package move
+mongoose	1	NavanethaKrishnan-14/SM_Associate_Dealer_backend#8	2026-10-12 01:42	dropped	no license; Dependabot PR with no human commit
+mongoose	1	buiduyhieu1/autowrx#18	2026-10-08 07:06	dropped	fork; Dependabot PR with no human commit
+mongoose	1	iamsomraj/MERN-Shopping-App#12	2026-10-05 17:28	dropped	97 files: a v2 rewrite bundling React 19.3, Vite 8, Express 5
+react-router	1	cruzemaps/cruzewebsite#119	2026-10-20 17:41	dropped	no license; bundles 4 unrelated code fixes
+react-router	1	jherney/new-crm#12	2026-10-20 16:45	dropped	no license; changes only manifests and the lockfile
+react-router	1	444jean/wallet-management-frontend#4	2026-10-20 16:06	dropped	no license; Dependabot PR with no human commit, merged into `dev`
+react-router	1	tmanmidwest/automation-dashboard#4	2026-10-20 15:54	dropped	commit authored by `claude`; bundles NestJS 12, nodemailer 10, Vite 8
+react-router	1	kenmccarthy/setu_academic_unit_review#8	2026-10-19 20:42	dropped	NOASSERTION license; Dependabot PR with no human commit, merged into a `claude/` branch
+react-router	1	nebula-systems-slu/nebulasystems.ci.web#30	2026-10-19 20:24	dropped	Dependabot PR with no human commit
+react-router	1	Altronic-LLC/altronic-arc#96	2026-10-19 20:11	dropped	no license; 204 files, bundles Vite 8 and Tailwind 4
+react-router	1	pimcore/studio-ui-bundle#4234	2026-10-19 12:51	dropped	license not permissive (Pimcore's POCL / GPL-3.0 dual license, NOASSERTION on GitHub); merged into the `2025.4` maintenance branch
+@prisma/client	1	RyanAI-Automated/RYANAI-Automous-Reasioning-Plat#221	2026-10-20 17:38	dropped	no license; Dependabot PR with no human commit
+@prisma/client	1	prisma/orm#30788	2026-10-20 17:16	dropped	no upgrade: a change in Prisma itself
+@prisma/client	1	HikaruEgashira/tutorial-nextjs-prisma-postgres#53	2026-10-20 08:59	dropped	no license; opened by `hikaevi[bot]`
+@prisma/client	1	agbochenuv-bit/flowfi#183	2026-10-20 06:20	dropped	no license; Dependabot PR with no human commit
+@prisma/client	1	ludakhris/interview-differently#123	2026-10-20 02:13	dropped	no license
+@prisma/client	1	MarcosRBjunior/StudyCase#5	2026-10-20 01:22	dropped	no license; no upgrade (a new schema)
+@prisma/client	1	cauacampos/football-senai-project#1	2026-10-19 23:31	dropped	no license; 221 files
+@prisma/client	1	DocForum/docforum-core#165	2026-10-19 19:41	dropped	no package move: type fixes after Prisma 7 was already in
+zod	2	Markg981/WebFlowMaster#466	2026-10-20 09:49	dropped	license NOASSERTION; bundles drizzle-zod 0.8
+zod	2	Davidb3l/Guignet#2	2026-10-20 04:44	dropped	bundles other majors (TypeScript 7, Bun 1.4)
+zod	2	cornchiplick/minimoku#27	2026-10-20 03:02	dropped	bundles other majors (Next 16, ESLint 10, TypeScript 6)
+zod	2	jtlapenna/little-hero-books#38	2026-10-20 02:47	dropped	license NOASSERTION; no package move (a follow-up fix)
+zod	2	gojiplus/reader#104	2026-10-20 02:43	dropped	no license; Dependabot PR with no human commit
+zod	2	linz/argo-tasks#1394	2026-10-20 01:55	dropped	license NOASSERTION; Dependabot PR with no human commit
+zod	2	pakson/ai-techleaders-devmentors#2	2026-10-19 22:16	dropped	no license; commits authored by `openmercato[bot]`; 79 files
+zod	2	onideus/context-library#300	2026-10-19 21:40	**kept**	MIT; human (Zach Martin) with a Claude Fable 5.1 co-author trailer; zod 3.25 → 4.6.7 plus `@modelcontextprotocol/sdk` 1.27 → 1.32 (minor) and an override patch; 5 files; base: install, build (`tsc`), 507 tests pass, 360 Postgres tests skip without `DATABASE_URL`
+tailwindcss	2	Bamboosato/sudoku-ai-app#22	2026-10-19 00:06	dropped	no license
+tailwindcss	2	tocoss14/santeplus#5	2026-10-18 13:41	dropped	no license
+tailwindcss	2	aws-samples/bedrock-chat#1178	2026-10-17 15:02	dropped	55 files (over 40)
+tailwindcss	2	mctlhq/mctl-design#91	2026-10-16 07:54	dropped	commits authored by `mctl-claude-remote[bot]`; bundles eslint-plugin-vue 10
+tailwindcss	2	anabelle/acars.pub#218	2026-10-15 21:10	dropped	no package move: ignores tailwindcss 4 in `dependabot.yml`
+tailwindcss	2	bencoton/build-in-public-studio#14	2026-10-15 16:36	dropped	no test script (CI is gitleaks only); PR body "Generated with Claude Code", human commit author
+tailwindcss	2	hansogj/discogs-nextjs-viewer#103	2026-10-15 07:48	dropped	no license
+tailwindcss	2	davide-pi/matrimonio-elena-e-davide#30	2026-10-14 21:01	**kept**	MIT; human (Davide Piccinini) with a `Co-Authored-By: Claude AI` trailer and a `Claude-Session:` link; tailwindcss 3 → 4; 14 files; base: install, lint, tsc, 69 tests, build pass
+express	2	haniyousrii18/NASEEJ#39	2026-10-19 23:07	dropped	no license; bundles vite 8 and plugin-react 6
+express	2	alcash55/Little-Town#136	2026-10-19 21:35	dropped	no license; bundles React 19; merged into `dev`
+express	2	iftype/who-tech-backend#206	2026-10-19 18:35	dropped	no license
+express	2	blackrook-io/taskmesh#136	2026-10-19 16:53	dropped	GPL-3.0
+express	2	nourdean22/MAINnicks-tire-autoNEW#3172	2026-10-19 12:33	dropped	no license
+express	2	bsalas77/crestera-pulse#37	2026-10-19 04:40	dropped	license NOASSERTION; bundles Node 26, React 19, Vite 8
+express	2	mlaflamm/ffmpeg-batch#30	2026-10-19 03:47	dropped	no license; 43 files
+express	2	qernelkit/weakcrypto#2556	2026-10-19 01:22	dropped	authored by `weakcrypto-scanner[bot]`; no upgrade
+eslint	2	pawelpukszta/frontend-knowledge#5	2026-10-20 16:59	dropped	no license
+eslint	2	chanzuckerberg/edu-design-system#2702	2026-10-20 16:20	dropped	merged into `next`, not the default branch
+eslint	2	komeilmehranfar/sudoku-core#10	2026-10-20 15:56	dropped	not eslint (eslint-config-prettier 9 → 10); Dependabot PR with no human commit
+eslint	2	master-lacertosus/crm-office-manager#101	2026-10-20 15:26	dropped	no license; bundles TypeScript 6 and motion 14
+eslint	2	giosci1994/floor3d-card#32	2026-10-20 14:11	dropped	fork; commits authored by `claude`; 73 files
+eslint	2	supreeth-kashyap/pada#14	2026-10-20 13:18	dropped	commit authored by `claude`; bundles Vite 8, Vitest 5, TypeScript 6
+react-router	2	pimcore/studio-ui-bundle#4233	2026-10-19 12:51	dropped	license not permissive (POCL / GPL-3.0, NOASSERTION); merged into the `2026.3` maintenance branch
+react-router	2	unpod-ai/livekit-console#3	2026-10-18 22:11	dropped	Dependabot PR with no human commit
+react-router	2	tocoss14/santeplus#1	2026-10-18 13:04	dropped	no license; changes only manifests and the lockfile
+react-router	2	epolus/nfl-tipping-game#11	2026-10-18 10:29	dropped	Dependabot PR with no human commit
+react-router	2	1stFola/dtpafrica#267	2026-10-18 00:22	dropped	no license; Dependabot PR with no human commit
+react-router	2	datazip-inc/olake-ui#488	2026-10-17 14:37	dropped	merged into `staging`, not the default branch; 42 files
+react-router	2	cloudpunks/backstage-plugins#14	2026-10-17 13:04	dropped	Renovate PR with no human commit
+react-router	2	ntindle/gridfinity-space-optimizer#107	2026-10-17 12:11	dropped	Dependabot PR with no human commit
+mongoose	2	ericfaris/meal-mate#25	2026-10-05 13:41	dropped	no license; Renovate commit only
+mongoose	2	eduair94/cambio-uruguay#52	2026-10-04 03:55	dropped	no license; no package move (a follow-up fix)
+@prisma/client	2	RyanAI-Automated/RYANAI-Automous-Reasioning-Plat#226	2026-10-20 17:45	dropped	no license; Dependabot PR with no human commit
+@prisma/client	2	RyanAI-Automated/RYANAI-Automous-Reasioning-Plat#224	2026-10-20 17:44	dropped	no license; Dependabot PR with no human commit
+@prisma/client	2	ADS-Unifacthus-Uberaba-MG/programacao-banco-dados-ap1#3	2026-10-19 18:23	dropped	no license; commit authored by `claude`; no upgrade (course material)
+@prisma/client	2	RyanAI-Automated/RYANAI-Automous-Reasioning-Plat#201	2026-10-19 09:44	dropped	no license; Dependabot PR with no human commit
+@prisma/client	2	RyanAI-Automated/RYANAI-Automous-Reasioning-Plat#204	2026-10-19	dropped	no license; Dependabot PR with no human commit
+@prisma/client	2	RyanAI-Automated/RYANAI-Automous-Reasioning-Plat#203	2026-10-19	dropped	no license; Dependabot PR with no human commit
+vitest	2	elgansayer/elgl#9474	2026-10-20 17:42	dropped	no license; not vitest (@vitest/coverage-v8); Dependabot PR with no human commit
+vitest	2	elgansayer/elgl#9478	2026-10-20 17:41	dropped	no license; Dependabot PR with no human commit
+vitest	2	elgansayer/elgl#9479	2026-10-20 17:41	dropped	no license; Dependabot PR with no human commit
+vitest	2	selemontewelde/praxis-buchung#102	2026-10-20 17:36	dropped	no license; Dependabot PR with no human commit
+vitest	2	christopher-buss/bedrock#710	2026-10-20 17:17	dropped	341 files; bundles vite-plus 1.3 and eslint-config 6.1
+vitest	2	selemontewelde/praxis-buchung#100	2026-10-20 17:16	dropped	no license; Dependabot PR with no human commit
+vitest	2	elonehoo/typescript-algorithm#17	2026-10-20 17:15	dropped	commit authored by `cursoragent`; bundles TypeScript 7 and Vite 8
+vitest	2	andy820621/nuxt-content-mermaid#143	2026-10-20 17:06	dropped	base fails its tests with lifecycle scripts off: 14 e2e test files fail with "Could not locate the bindings file" (better-sqlite3's native build is an install script). Otherwise MIT, human (BarZ) with a Claude Opus 5.5 trailer, 4 files, pnpm catalog move
+jest	2	riseup-oss/mcp#13	2026-10-19 09:00	**kept**	MIT; human (Revital Oren) with a Claude Opus 5.5 trailer; jest and @types/jest 29 → 30, `@modelcontextprotocol/sdk` 1.29 → 1.32.1 (minor), hono override `^4.13.7`; 4 files, no source change (CI action SHA pins and `dependabot.yml`); base: install, lint (`tsc --noEmit`), 34 tests, build pass
+next	2	parthSata/RepairTrack#73	2026-10-20 15:13	dropped	no license; no package move
+next	2	LucasMCFidelis/lafaeth-claudio-portfolio#1	2026-10-20 14:07	dropped	no license; merged into `develop`
+next	2	mokhtarizahra/My_Aura#4	2026-10-20 14:00	dropped	no license; 238 files, bundles React 19
+next	2	tmorius-eng/UNENMEDEE#1	2026-10-20 11:52	dropped	commits authored by `claude`; 175 files
+next	2	Chermann-KING/portfolio-ck#8	2026-10-20 10:09	dropped	no license; 75 files
+next	2	Cynfinitely/Control#5	2026-10-20 08:49	dropped	346 files
+next	2	skovtun/coherent-design-method#164	2026-10-20 08:00	dropped	no package move (version bumps of its own packages)
+next	2	INTAFACED/intafaced#5413	2026-10-20 07:23	dropped	no license; commits authored by `claude`
+mongoose	2	YaleComputerSociety/ylabs#4408	2026-10-02 23:05	dropped	no license; fork; merged into `beta`; bundles mongodb driver 7; 65 files
+mongoose	2	manuelbenitez/t3-mb-template#2	2026-10-02 09:02	dropped	license NOASSERTION; bundles Nest 12, zod 4, ESLint 10, TS 6; merged into a feature branch
+mongoose	2	escobar0304/PDS#49	2026-10-01 16:02	dropped	no license; commits authored by `claude`; bundles React 19, Tailwind 4
+mongoose	2	mdabufaysaljoy/multipos-saas#11	2026-09-30 13:01	dropped	no license; Dependabot PR with no human commit
+mongoose	2	95tuanle/joinin-be#45	2026-09-28 05:44	dropped	no license; Dependabot PR with no human commit
+mongoose	2	Pabblusansky/Pelegram#29	2026-09-24 15:21	dropped	commits authored by `claude`; bundles Angular 22; 59 files
+@prisma/client	2	Flores-rivera-24/krakenos#132	2026-10-19 01:15	dropped	AGPL-3.0; 61 files
+@prisma/client	2	selemontewelde/praxis-buchung#53	2026-10-18 23:15	dropped	no license; docs only
+zod	3	dnobj/mail-letter-irl#821	2026-10-19 16:45	dropped	no license; merged into `dev`
+zod	3	dagfinn2000/MyReads#48	2026-10-19 12:54	dropped	commit authored by `claude`; bundles Next 16, React 19.3, TypeScript 6
+zod	3	Sanoy24/safe-fetch-mcp-server#16	2026-10-19 07:20	dropped	bundles ESLint 10; changes only manifests and the lockfile
+zod	3	School-of-Company/Gwangsan-Crossplatform#819	2026-10-19 06:51	dropped	no license; Dependabot PR with no human commit
+zod	3	esaueng/OpenFEA#181	2026-10-19 01:58	dropped	bundles other majors (better-sqlite3 13, lucide-react 1, @fastify/cors 11, vitest 5)
+zod	3	jdramirezl/finance-app#84	2026-10-19 01:23	dropped	no license; bundles a new MCP server
+zod	3	irahardianto/pi-mcp-extension#95	2026-10-19 00:34	dropped	Dependabot PR whose only human commit touches `CHANGELOG.md`, no source
+zod	3	Jwiggiff/cashflow#80	2026-10-18 23:58	dropped	no license
+tailwindcss	3	davide-pi/wedding-uploads-elena-e-davide#15	2026-10-14 20:58	**kept**	MIT; human (Davide Piccinini) with a `Co-Authored-By: Claude AI` trailer; tailwindcss 3 → 4; 21 files; base: install, lint, 52 tests (3 skipped), build pass. Same author and same day as pick 2: a sibling repository with the same migration
+express	3	jubasse/seampact#90	2026-10-18 23:49	dropped	71 files; adds Fastify and NestJS targets
+express	3	grometis/gromesh-gateway#79	2026-10-18 20:07	dropped	no license; NestJS 11.2 bump
+express	3	niclydon/nexus-public#6	2026-10-18 18:50	dropped	excluded (phase-1 list); Dependabot PR with no human commit
+express	3	romaprok/habit-tracker#5	2026-10-18 18:23	dropped	no license; no upgrade (a new skeleton)
+express	3	KamiNeko/joplin-web#80	2026-10-18 03:11	dropped	no lockfile at the repository root (`server/package-lock.json`, `client/`). Otherwise MIT, human with a Claude Opus 5.5 trailer, 15 files
+express	3	OpulusProject/opulus-mono#210	2026-10-18 02:52	dropped	no license
+express	3	dadadan23/world-pulse#428	2026-10-18 01:54	dropped	commits authored by `claude`
+express	3	FreekMencke/claude-kb#214	2026-10-17 21:53	dropped	license NOASSERTION; docs only
+eslint	3	fm1randa/mdcli#99	2026-10-20 12:26	dropped	no license; bundles chalk 6, commander 15, @inquirer majors
+eslint	3	Amy-di-Aricci/gear-optimiser#58	2026-10-20 12:25	dropped	AGPL-3.0; commit authored by `claude`; bundles MUI 9, Vite 8
+eslint	3	khezan10/tmail-zanara#6	2026-10-20 12:09	dropped	Dependabot PR with no human commit
+eslint	3	leodds21/Website-reviewer#72	2026-10-20 12:05	dropped	no package move: pauses the update in `dependabot.yml`
+eslint	3	Caspeco/eslint-config#301	2026-10-20 10:35	dropped	no license; not an eslint move (eslint-plugin-react-hooks)
+eslint	3	joseagi/Online-Form-Reminder#2	2026-10-20 09:20	dropped	no license; Dependabot PR with no human commit
+eslint	3	emergence-project/emergence-workbench#202	2026-10-20 09:15	dropped	commit authored by `claude`; changes only manifests and the lockfile
+eslint	3	robertpezdirc8-prog/monter3d#17	2026-10-20 08:26	dropped	no license; authored by `cline-cloud[bot]` / `cline-agent`
+vitest	3	cnzakii/e5-renewal#48	2026-10-20 16:41	dropped	Dependabot PR with no human commit
+vitest	3	kanso-labs/kanso-ui#1748	2026-10-20 16:22	dropped	commit authored by `claude`; changes only the lockfile and `renovate.json`
+vitest	3	chanzuckerberg/edu-design-system#2707	2026-10-20 16:09	dropped	Renovate PR merged into `next`, not the default branch
+vitest	3	komapc/phonomorph#349	2026-10-20 15:29	dropped	no license; Dependabot PR with no human commit
+vitest	3	sebastian-software/ardo#364	2026-10-20 15:19	dropped	bundles tsdown 0.22 → 0.23, a breaking 0.x release that isn't a vitest companion (also `engines.node >=22.22`, above the bench's 22.20)
+vitest	3	AKogut/ai-flaky-test-triage#206	2026-10-20 14:32	**kept**	MIT; human (Andrii Kohut), no AI trailer; vitest and @vitest/coverage-v8 4.1.10 → 5.0.5, @playwright/test 1.62 → 1.64 (minor); 14 files; base with the API keys unset: install, typecheck, lint, format, 1966 tests, demo, build pass; e2e (continue-on-error in CI, deliberately flaky) out of the bar

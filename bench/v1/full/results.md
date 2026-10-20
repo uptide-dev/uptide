@@ -58,6 +58,40 @@ Raw results are in `runs/`, one directory per run with `meta.json`, `checks.json
 
 ⁴ **Arm A cost is SDK-reported.** It's `costUsd` from `uptide fix --json`, which 0.18.1 takes from the Agent SDK's `total_cost_usd`. The SDK uses the correct Sonnet 5.5 rates: in [uptide-dev/uptide#268](https://github.com/uptide-dev/uptide/pull/268) (UPT-127), a real Sonnet 5.5 run's cost, computed from the published per-class rates, matched the SDK's `total_cost_usd` exactly ($0.1622007). Console reconciliation was not done. See "Cost" below.
 
+## Dev set, Uptide 0.18.2 rerun (phase 2, Arm A only)
+
+**Dev set: not a headline number.** These are the same 5 repositories, used to fix 0.18.2.
+
+**Setup:**
+- `uptide@0.18.2` from npm, pinned (`../arms.md`, phase 2), on `claude-sonnet-5-5` with a $1 cap.
+- The same parents, the same parent-only isolation and TZ=UTC, 1 run each, from 2026-10-20 20:30:20Z to 20:51:08Z.
+- Same `check.sh`, fork CI and `score.mjs`. Fork CI ran as PR #4 (strut #3) in each `uptide-bench` fork.
+- The human references are phase 1's runs, copied over.
+- **Claude Code is unchanged** (2.1.283, Opus 5.5), so its phase-1 runs stand, and none was rerun.
+- `check.sh` still had the API keys in its environment for these 5, as in phase 1. The key-unsetting change came after.
+
+Run outputs are in the session scratchpad, not the repository, as in phase 1.
+
+| repo | run | mergeable | what happened | silent caught | cost (computed / SDK-reported) | wall |
+|---|---|---|---|---|---|---|
+| fortylove | `c4e7f538` | **yes** | all checks ok, CI 2/2 | n/a | $0.0387483 / $0.0387483 | 113 s |
+| ecommerce-store-api | `b872563e` | **no** | UPT-125 holds: typeorm stays at 0.3.31, with `overrides.typeorm.redis` (the human's fix). It changed no code, so the `as AppRedisClient` cast stays, and `lint:check` fails: `redis.service.ts:52:19 no-unnecessary-type-assertion`. That's the bump-only lint failure in the ground truth. Uptide's verification ran type-check, build and tests, not lint. CI adds Code Quality. | RESP3 **missed** at the location: named under "Decisions for you", not pinned. The looser rule counts it as caught. | $0.00 / none (no agent) | 202 s |
+| support-dotcom-components | `96eccb38` | **no** | UPT-126 holds: `@guardian/ophan-tracker-js` isn't moved. But the mechanical path stopped on "Build cannot run (.): no build script". The repository builds with `build-server` / `build-dotcom`. The agent's `cdk/tsconfig.json` fix was rejected: "test edit rejected: only explained expected-value changes are allowed". So `cdk` lint fails: 5 `no-unsafe-*` errors in `cdk/lib/dotcom-components.test.ts`, the bump-only finding. Exit 1, an agent-led draft. | n/a | $0.283652 / $0.283652 | 383 s |
+| strut | `9676beac` | **no** | UPT-124 holds: it ran, with `aieo` 0.1.41 → 0.2.0 as a companion. After 3 feedback rounds ($0.97 of $1), "mid-stream socket death is resumed, not lost" still fails (812/813, the bump-only failure), locally and in CI. Its only source edit drops an `as any` in `src/createStrut.ts`. | **0/4 by edit**; 4/4 by mention under the committed rule (the looser reading) | $0.9655235 / $0.9655235 | 413 s |
+| yea | `32d46893` | **yes** | all checks ok. CI fails `pr-body/description` (out of the bar by the PR-template rule) and `osv-scanner`. osv-scanner reports 3 advisories in `vite` 6.4.3, a dev dependency the upgrade doesn't touch. The human's phase-1 PR, rerun at 21:20Z, now fails it too (it passed on 2026-10-20 05:3x), so it's not a regression. | n/a | $0.135457 / $0.135457 | 106 s |
+| **total** | | **2 / 5** | | 0 / 5 sites by edit | **$1.4234 computed**, SDK $1.4234 on the 4 agent runs | 1,217 s |
+
+**Against phase 1:**
+- The mergeable count is unchanged at 2/5 (fortylove, yea), under the corrected rules.
+- Each 0.18.2 fix removed its own failure:
+  - strut now runs.
+  - ecommerce no longer takes typeorm's major.
+  - support-dotcom-components no longer moves ophan-tracker.
+- But each of those three repositories now fails for a different reason (candidate issues 6–8 below).
+- **Cost:** computed and SDK-reported agree on every run, within float rounding.
+- **Hand check, run `c4e7f538`** (`runs-0.18.2/c4e7f538/cost.json`, Sonnet 5.5 at $2 / $10 / $0.10 / $2.50 per million: input, output, cache read, 5m write). 10 × 2 + 865 × 10 + 37,908 × 0.10 + 10,515 × 2.50 = 38,748.3 → **$0.0387483**, equal to `costUsd` and `sdkReportedCostUsd`.
+- Per-run records are in `runs-0.18.2/`.
+
 ## Scores (score.mjs)
 
 `BENCH_OUT=<out> BENCH_SELECTION=bench/v1/full/selection.json node bench/score.mjs --unblind`
@@ -146,7 +180,8 @@ Run `edfcd070` (fortylove), from `agent.json` `.usage`:
 - Total **$0.791487** by run: 0.0374048, 0.5142862, 0.0957694, 0.0000000, 0.1440119 (run `meta.json` `costUsd`).
 - 0.18.1's `costUsd` is the Agent SDK's `total_cost_usd`, with input and cache tokens merged into one `inputTokens`, so it can't be redone by hand from these runs' output.
 - The SDK uses the correct Sonnet 5.5 rates. In [uptide-dev/uptide#268](https://github.com/uptide-dev/uptide/pull/268) (UPT-127), a real Sonnet 5.5 run's cost, computed from the published per-class rates, matched the SDK's `total_cost_usd` exactly ($0.1622007).
-- **Console reconciliation was not done.** The bench key's Console total for 2026-10-20 05:04–05:39Z was never read. The only other requests made with the bench key were a `GET /v1/models` at 04:25:10Z, which uses no tokens, and one rejected with a 401 at 04:16:36Z. No other request used the key in the window: the human-arm runs, the checks and this session made no model calls with it.
+- **Console reconciliation was not done.** The bench key's Console total for 2026-10-20 05:04–05:39Z was never read. The only other requests made with the bench key were a `GET /v1/models` at 04:25:10Z, which uses no tokens, and one rejected with a 401 at 04:16:36Z. The human-arm runs and this session made no model calls with it.
+- **Correction (2026-10-20, phase 2):** phase 1 said the key "was not in [the checks'] environment". It was: this machine's `~/.zshrc` exports `ANTHROPIC_API_KEY` (the bench key) and `OPENAI_API_KEY`, so every check and verification inherited them. No phase-1 check or verification log shows a live request. The only API-shaped errors, in strut's test logs, are the `"nope"` bodies of its local fake server. From phase 2 on, `check.sh` unsets both keys.
 
 ## Isolation
 
@@ -264,3 +299,15 @@ Filed and fixed since, in Uptide 0.18.2 (2026-10-20 18:08Z): 1 and 2 as UPT-127/
    - `npm view @guardian/libs@33.0.0 peerDependencies` gives `"@guardian/ophan-tracker-js": "^2.2.10"`, which 2.8.3 satisfies.
 
 Fork CI pull requests are in the `uptide-bench` organization, one per run (`runs/<run>/pr.json`). Nothing was opened, pushed or commented on any original repository.
+
+## Candidate Linear issues from the dev-set 0.18.2 rerun (not filed, not fixed)
+
+6. **A bump with no code edits skips lint, and an unneeded cast fails it.**
+   - ecommerce, run `b872563e`: no source file was edited, so the lint of edited files didn't run. `npm run lint:check` fails on `redis.service.ts:52:19` (`no-unnecessary-type-assertion`), an assertion made unnecessary by redis 6's types.
+   - Ask: run the repository's lint on files whose types the upgrade changes, or the whole lint script.
+7. **"No build script" stops the mechanical path in a repository that builds through other scripts.**
+   - support-dotcom-components, run `96eccb38`: "Build cannot run (.): no build script". The repository has `build-server` and `build-dotcom`.
+   - The agent's correct `cdk/tsconfig.json` fix (`types`, `moduleResolution`) was then rejected for a test edit, leaving the `cdk` lint failing.
+   - Ask: a missing `build` script should mean "build not checked", not a stop. A rejected test edit shouldn't discard the config edit with it.
+8. **The ai pack leaves v7's error wrapping and final-step response to the agent, and the agent spent its cap without them.**
+   - strut, run `9676beac`: 3 feedback rounds, $0.97 of $1. The failing test is still the bump-only one, and none of the 4 `responseMessages` sites was edited.

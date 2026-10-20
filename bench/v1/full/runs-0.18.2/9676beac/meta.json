@@ -1,0 +1,18 @@
+{
+  "id": "ai-strut",
+  "head": "3684b6d65904069cd8b7233c85773253a5f65950",
+  "exit": 1,
+  "costUsd": 0.9655235,
+  "wallSeconds": 413,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 1,
+  "overCapUsd": 0,
+  "version": {
+    "uptide": "0.18.2"
+  },
+  "model": "claude-sonnet-5-5",
+  "sdkReportedCostUsd": 0.965523501,
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into /private/tmp/claude-502/-Users-Deskfy-Desktop-code-uptide/713dbc85-8511-4dfe-97c3-aa8c8fc2fcb9/scratchpad/dev/runs/9676beac/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}
