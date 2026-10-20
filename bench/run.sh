@@ -3,12 +3,22 @@
 #
 #   BENCH_OUT=<dir outside this repo> bench/run.sh <claude|uptide|human> <id>
 #
-# Both arms start from the same fresh clone of the parent commit, with installs' lifecycle
-# scripts off and pushes to the original repository disabled. `human` checks out the human's
-# upgrade commit instead: the reference every score is measured against.
+# Both arms start from a fresh repository holding the parent commit alone: a depth-1 fetch of
+# its sha, no remote, no other branch or tag, so no arm can see the human's upgrade. Installs run
+# with lifecycle scripts off. `human` fetches the human's upgrade commit instead: the reference
+# every score is measured against. After an arm finishes, the upgrade commit is fetched into
+# its repository for score.mjs, still without a remote.
+#
+# Without ANTHROPIC_API_KEY in the environment, the KEY=value file named by $UPTIDE_BENCH_ENV is
+# sourced. Every run, the arms and Uptide's own verification run with TZ=UTC.
 # The run gets an opaque id; $BENCH_OUT/key.tsv is the only place its arm is written, so
 # check.sh, judge.sh and score.mjs never see it.
 set -euo pipefail
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -n "${UPTIDE_BENCH_ENV:-}" ]; then
+  set -a && . "$UPTIDE_BENCH_ENV" && set +a
+fi
+: "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY, or UPTIDE_BENCH_ENV to a file that sets it}"
+export TZ=UTC
 arm=$1 id=$2
 here=$(cd "$(dirname "$0")" && pwd)
 out=${BENCH_OUT:?set BENCH_OUT to a directory outside this repository}
@@ -17,40 +27,54 @@ repo=$(sel .repo) parent=$(sel .parent) upgrade=$(sel .upgrade) pkg=$(sel .packa
 from=$(sel .from) to=$(sel .to)
 # Uptide's default executor model and effort (packages/core/src/llm/pricing.ts DEFAULT_MODELS,
 # capabilities.ts defaultEffort), used by both arms.
-# BENCH_MODEL swaps the Claude Code arm's model; Uptide always runs its default.
-model=${BENCH_MODEL:-claude-sonnet-5-5} effort=medium
+# BENCH_MODEL swaps the Claude Code arm's model (bench/v1/arms.md: Opus 5.5); Uptide always
+# runs its default.
+model=${BENCH_MODEL:-claude-opus-5-5} effort=medium
 [ "$arm" = uptide ] && model=claude-sonnet-5-5
 
 run=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
 dir=$out/runs/$run
 mkdir -p "$dir"
 printf '%s\t%s\t%s\n' "$run" "$id" "$arm" >>"$out/key.tsv"
-git clone -q "https://github.com/$repo.git" "$dir/repo"
+fetch() { git fetch -q --depth=1 --no-tags "https://github.com/$repo.git" "$1"; }
+git init -q -b bench-base "$dir/repo"
 cd "$dir/repo"
-git checkout -q -b bench-base "$parent"
-git remote set-url --push origin no-push
 git config user.name "UpgradeBench" && git config user.email bench@uptide.invalid
+if [ "$arm" = human ]; then fetch "$upgrade"; else fetch "$parent"; fi
+git reset -q --hard FETCH_HEAD
+rm -f .git/FETCH_HEAD
+{
+  echo "\$ git log --all --oneline | head" && git log --all --oneline | head
+  echo "\$ git remote -v" && git remote -v
+  echo "\$ date (TZ=$TZ)" && date
+} >"$dir/isolation.txt"
 export npm_config_ignore_scripts=true YARN_ENABLE_SCRIPTS=0
 # A developer's checkout is installed; Uptide refuses one that is not. Untimed, both arms.
 bash -c "$(sel .checks.install)" >"$dir/setup.log" 2>&1
 
-uptide=${UPTIDE_VERSION:-0.17.1}
+uptide=${UPTIDE_VERSION:-0.18.1}
+# UPTIDE_BIN: a pinned install of uptide@$uptide from npm; else npx fetches that version.
+uptide_cli() { if [ -n "${UPTIDE_BIN:-}" ]; then "$UPTIDE_BIN" "$@"; else npx -y "uptide@$uptide" "$@"; fi; }
 case $arm in
 claude) version=$(claude --version | cut -d' ' -f1) ;;
-uptide) version=$(npx -y "uptide@$uptide" --version) ;;
+uptide)
+  version=$(uptide_cli --version)
+  [ "$version" = "$uptide" ] || { echo "uptide is $version, not $uptide" >&2 && exit 2; }
+  ;;
 *) version= ;;
 esac
 
 start=$(date +%s) status=0 cost=0
 case $arm in
 claude)
-  prompt="Upgrade $pkg from $from to $to. Make the code compile and work with the new version, keep behavior correct, and make sure type-check, lint and tests pass. Commit and summarize what to review.${CLAUDE_PROMPT_EXTRA:+ $CLAUDE_PROMPT_EXTRA}"
+  # The prompt in bench/v1/arms.md, word for word.
+  prompt="Upgrade $pkg from $from to $to. Make the code compile and work with the new version, keep behavior correct, and make sure type-check, lint and tests pass. Commit and summarize what to review. When done, commit all your changes on the current branch. Do not ask for review."
   # --bare: none of this machine's hooks, plugins, memory or CLAUDE.md; --add-dir loads the
   # repository's own CLAUDE.md as a plain `claude -p` in it would. Bash runs only inside
   # Claude Code's sandbox (claude-sandbox.json); anything that would prompt is denied.
   claude -p --bare --add-dir "$PWD" --model "$model" --effort "$effort" \
     --settings "$here/claude-sandbox.json" --permission-mode acceptEdits --permission-prompts none \
-    --no-session-persistence --output-format json --max-budget-usd "${CLAUDE_CAP_USD:-6}" \
+    --no-session-persistence --output-format json --max-budget-usd "${CLAUDE_CAP_USD:-5}" \
     "$prompt" >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
   # Claude Code does not know this model's price and reports it at an older Sonnet's; price its
   # tokens with Uptide's table (pricing.ts, per million: input, output, cache read, 5m write),
@@ -69,7 +93,7 @@ uptide)
   # The published CLI as a user runs it, not this checkout's build, with an empty cache so
   # the first fix downloads the Agent SDK as a new user's does (--yes approves it).
   mkdir -p "$dir/uptide-cache"
-  UPTIDE_CACHE_DIR=$dir/uptide-cache UPTIDE_MODEL=$model npx -y "uptide@$uptide" fix "$pkg" \
+  UPTIDE_CACHE_DIR=$dir/uptide-cache UPTIDE_MODEL=$model uptide_cli fix "$pkg" \
     --target "$to" --yes --json --max-cost "${UPTIDE_CAP_USD:-1}" >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
   # Uptide names the branch after the pack's lead package (react-router for react-router-dom).
   branch=$(jq -r '.branch // empty' "$dir/agent.json" 2>/dev/null)
@@ -87,13 +111,19 @@ human)
 esac
 wall=$(($(date +%s) - start)) cost=${cost:-0}
 dirty=$(git status --porcelain --untracked-files=no -- . ':!.uptide' | wc -l | tr -d ' ')
+# For score.mjs only, after the arm is done: the human's commit and its parent, no remote.
+[ "$arm" = human ] || git fetch -q --depth=2 --no-tags "https://github.com/$repo.git" "$upgrade"
+[ "$arm" = human ] && git fetch -q --depth=1 --no-tags "https://github.com/$repo.git" "$parent"
+rm -f .git/FETCH_HEAD
 jq -n --arg id "$id" --arg head "$(git rev-parse HEAD)" --argjson status "$status" \
-  --argjson cost "$cost" --argjson wall "$wall" --argjson dirty "$dirty" \
+  --argjson cost "$cost" --argjson wall "$wall" --argjson dirty "$dirty" --arg tz "$TZ" \
+  --arg cap "$([ "$arm" = claude ] && echo "${CLAUDE_CAP_USD:-5}"; [ "$arm" = uptide ] && echo "${UPTIDE_CAP_USD:-1}")" \
   --arg arm "$arm" --arg version "$version" --arg model "$([ "$arm" = human ] || echo "$model")" \
   --arg executor "$([ "$arm" = uptide ] && jq -r '.llm.executor // .llm.agent // "none"' "$dir/agent.json" 2>/dev/null)" \
   --arg own "$([ "$arm" = claude ] && jq -r '.total_cost_usd // empty' "$dir/agent.json" 2>/dev/null)" \
   --arg sdk "$([ "$arm" = uptide ] && grep -m1 'Agent SDK' "$dir/agent.log" 2>/dev/null)" \
-  '{id: $id, head: $head, exit: $status, costUsd: $cost, wallSeconds: $wall, uncommittedFiles: $dirty}
+  '{id: $id, head: $head, exit: $status, costUsd: $cost, wallSeconds: $wall, uncommittedFiles: $dirty, tz: $tz}
+    + if $cap == "" then {} else {capUsd: ($cap | tonumber), overCapUsd: ([$cost - ($cap | tonumber), 0] | max)} end
     + if $version == "" then {} else {version: {($arm): $version}} end
     + if $model == "" then {} else {model: $model} end
     + if $own == "" then {} else {claudeCodeCostUsd: ($own | tonumber)} end

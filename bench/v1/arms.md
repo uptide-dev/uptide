@@ -41,3 +41,14 @@ claude -p --bare --add-dir <repo> --model claude-fable-5-1 --effort medium \
 - **Cost:** priced with Uptide's table (`packages/core/src/llm/pricing.ts`). The Claude Code arm also records Claude Code's own price.
 - **Reruns:** only for infrastructure failures, and every rerun is reported.
 - **Scope:** forks only in `uptide-bench`. Nothing is pushed to, commented on or opened against the original repositories.
+
+## Full bench, phase 1 (2026-10-19)
+
+Fixed before any phase-1 run. Everything above holds except these:
+
+- **Uptide:** `uptide@0.18.1` from npm, installed pinned (`npm install --ignore-scripts --save-exact uptide@0.18.1`, integrity `sha512-AQLSmEab…a0Dg==`) and run through `UPTIDE_BIN`. Still `claude-sonnet-5-5`, $1 cap.
+- **Claude Code:** 2.1.283 on `claude-opus-5-5` at medium effort, $5 cap (`--max-budget-usd 5`). The cap is Claude Code's own check between turns, so a run can end above it: `meta.json` records `capUsd` and `overCapUsd`, and an overrun is reported, not hidden. Same prompt, word for word.
+- **Auth:** both arms use `ANTHROPIC_API_KEY`, never a logged-in Claude Code session. `--bare` keeps Claude Code on the key.
+- **Clone:** each arm's repository is `git init` plus a depth-1 fetch of the parent sha, then `reset --hard`: one commit, no remote, no other branch or tag. `isolation.txt` in each run holds `git log --all --oneline | head` and `git remote -v` from before the arm starts. The human's commit is fetched in only after the arm ends, for scoring.
+- **TZ:** `run.sh` exports `TZ=UTC`, so both arms, their commands and Uptide's own baseline and after verification inherit it. `meta.json` records `tz`.
+- **Pricing:** Opus 5.5 at $4 / $20 / $0.20 / $5 per million tokens (input, output, cache read, 5m write).
