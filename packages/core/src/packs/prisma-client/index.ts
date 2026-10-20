@@ -442,9 +442,19 @@ function foldStaleClient(input: {
   };
   const inventory = packInventory(input.root, input.workspace, ['**/*.prisma']);
   const generated = generatedDirs(inventory, read);
-  const anchor = inventory
-    .filter((file) => !generated.some((g) => file.startsWith(`${g}/`)))
-    .flatMap((file) => generators(read(file) ?? '').map((g) => ({ file, ...g })))[0];
+  // The schema's generator block; a workspace whose schema lives elsewhere (a monorepo's root)
+  // gets its client from the `@prisma/client` line of its package.json.
+  const anchor =
+    inventory
+      .filter((file) => !generated.some((g) => file.startsWith(`${g}/`)))
+      .flatMap((file) => generators(read(file) ?? '').map((g) => ({ file, ...g })))[0] ??
+    (read('package.json') ?? '')
+      .split('\n')
+      .flatMap((text, i) =>
+        /^\s*"@prisma\/client"\s*:/.test(text)
+          ? [{ file: 'package.json', line: i + 1, snippet: text.trim() }]
+          : [],
+      )[0];
   if (!anchor) return input.findings;
   const first = stale[0] as Finding;
   const { compileError: _error, compileCode: _code, ...usage } = first.usage;
