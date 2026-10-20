@@ -86,6 +86,15 @@ describe('decisions', () => {
     );
   });
 
+  it('lists the scripts that relied on migrate dev generating or seeding, and nothing without one', () => {
+    const manifest =
+      '{\n  "scripts": {\n    "db:dev": "prisma migrate dev",\n    "build": "next build"\n  }\n}\n';
+    expect(decide('cli-implicit-steps', '7.10.1', { 'package.json': manifest })).toMatch(
+      /`package.json:3` \(db:dev\)/,
+    );
+    expect(decide('cli-implicit-steps', '7.10.1', { 'package.json': '{}' })).toBe(false);
+  });
+
   it('warns about mapped enums only for a target that changes them', () => {
     expect(decide('mapped-enum-values', '7.2.0', { 'prisma/schema.prisma': schema })).toMatch(
       /prisma\/schema.prisma:7/,

@@ -261,12 +261,21 @@ const behavior: BehaviorNote[] = [
     reported: ['finding', 'decision'],
     severity: 'deprecated',
     detect: implicitStepSites,
+    applies: (context) => {
+      const sites = files(context).flatMap(({ file, text }) =>
+        implicitStepSites(text, file).map((s) => `\`${file}:${s.line}\` (${s.name})`),
+      );
+      return sites.length
+        ? `\`prisma migrate dev\`/\`migrate reset\` no longer seed and \`migrate dev\`/\`db push\` no longer generate in 7: ${sites.join(', ')}. Add \`prisma generate\` or \`prisma db seed\` where the workflow relied on them`
+        : false;
+    },
   },
   {
     id: 'connection-url-params',
     summary:
       'the v6 connection URL parameters `connection_limit`, `pool_timeout`, `connect_timeout`, `max_idle_connection_lifetime` and `max_connection_lifetime` are not read by the 7 driver adapters: set the pool on the adapter (`max`, `connectionTimeoutMillis`, `idleTimeoutMillis` for pg), whose defaults differ (pg: no connection timeout, where 6 had 5 s)',
-    reported: ['finding', 'decision'],
+    // Its sites are source strings the decision context does not hold: the finding names them.
+    reported: ['finding'],
     severity: 'deprecated',
     detect: urlParamSites,
   },
