@@ -19,16 +19,19 @@ export interface Price {
 }
 // USD per million tokens, standard text inference. No built-in paid tools or explicit caching.
 export const PRICES: Record<Provider, Record<string, Price>> = {
+  // Every Anthropic cell checked 2026-10-20 against https://platform.claude.com/docs/en/about-claude/pricing
+  // (model table: base input, 5m write, 1h write, cache hits, output). Sonnet/Opus 5.5 cache hits are
+  // 0.05x input, Fable 5.1 0.025x, the rest 0.1x. pricing.test.ts pins each cell.
   anthropic: {
     'claude-sonnet-4-6': { input: 3, output: 15, cached: 0.3, write: 3.75, writeHour: 6 },
     'claude-sonnet-5-5': {
       input: 2,
       output: 10,
-      cached: 0.2,
+      cached: 0.1,
       write: 2.5,
       writeHour: 4,
-      source: 'https://platform.claude.com/docs/en/models/sonnet-5-5/overview',
-      checkedAt: PRICE_DATE,
+      source: PRICE_SOURCES.anthropic,
+      checkedAt: '2026-10-20',
     },
     'claude-opus-5-5': { input: 4, output: 20, cached: 0.2, write: 5, writeHour: 8 },
     'claude-fable-5-1': { input: 10, output: 50, cached: 0.25, write: 12.5, writeHour: 20 },

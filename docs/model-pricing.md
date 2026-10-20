@@ -1,13 +1,15 @@
 # Model pricing and budget accounting
 
-Reviewed **2026-10-04**. USD per million tokens, standard text inference. Source of
+Reviewed **2026-10-04**; every Anthropic cell re-checked against the
+[Anthropic pricing page](https://platform.claude.com/docs/en/about-claude/pricing) on
+**2026-10-20**. USD per million tokens, standard text inference. Source of
 truth in code: `packages/core/src/llm/pricing.ts`. No paid built-in tools, batch,
 priority processing, explicit prompt caching or service-tier upgrades are requested.
 
 | Provider/model | Input | Output | Cached input | Cache write (5m / 1h where applicable) |
 | --- | ---: | ---: | ---: | ---: |
 | Anthropic Sonnet 4.6 | 3 | 15 | 0.30 | 3.75 / 6 |
-| Anthropic Sonnet 5.5 | 2 | 10 | 0.20 | 2.50 / 4 |
+| Anthropic Sonnet 5.5 | 2 | 10 | 0.10 | 2.50 / 4 |
 | Anthropic Opus 5.5 | 4 | 20 | 0.20 | 5 / 8 |
 | Anthropic Fable 5.1 | 10 | 50 | 0.25 | 12.50 / 20 |
 | Anthropic Haiku 4.5 (`20251001`) | 1 | 5 | 0.10 | 1.25 / 2 |
