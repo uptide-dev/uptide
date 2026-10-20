@@ -99,6 +99,22 @@ Run outputs are in the session scratchpad, not the repository, as in phase 1.
 - **Picks 2 and 4 of the first selection were replaced** under the user's amendment (personal data; one data point per author, migration and day). They were never forked.
 - **Feasibility rule** (amendment 2): every pick's suite runs locally in under 2 minutes. Only context-library needs a service (Postgres), recreated per run and check for both arms.
 
+## Key isolation proof, secondary-set config (Arm B unsandboxed)
+
+`KEYPROBE_CLAUDE_SANDBOX=false bench/keyprobe.sh`, 2026-10-20 ~23:35Z, after `fbba13f`. The calling shell had `ANTHROPIC_API_KEY=set OPENAI_API_KEY=set`.
+
+```text
+--- Uptide arm, inside the repository's test process (Uptide's baseline and after verification):
+probe: ANTHROPIC_API_KEY=unset OPENAI_API_KEY=unset PGHOST=127.0.0.1 postgres=reachable tsx-server=started
+probe: ANTHROPIC_API_KEY=unset OPENAI_API_KEY=unset PGHOST=127.0.0.1 postgres=reachable tsx-server=started
+Claude Code settings: sandbox false, apiKeyHelper /Users/Deskfy/Desktop/code/uptide-bench-v1-full/bench/claude-key.sh
+--- Claude Code arm, inside the repository's test process (run by Claude Code's Bash tool):
+probe: ANTHROPIC_API_KEY=unset OPENAI_API_KEY=unset PGHOST=127.0.0.1 postgres=reachable tsx-server=started
+--- costs: uptide 0, claude 0.0242134
+```
+
+`tsx-server=started` means a `tsx` process bound a local port and reported it: the step the sandbox blocked with `listen EPERM`.
+
 ## Superseded sandboxed Arm B runs (secondary set)
 
 **Arm B's sandbox:** phase 1 and the dev set ran Arm B inside Claude Code's sandbox (since the pilot, `920512f`). The secondary set's Arm B does not (`../arms.md`, phase 2 amendment 2).
