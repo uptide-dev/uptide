@@ -138,6 +138,7 @@ export {
 } from './fix/managers/lock-guard.js';
 export {
   describeEresolveRetry,
+  describeResolved,
   describeUndeclared,
   InstallBlockedError,
 } from './fix/managers/upgrade.js';

@@ -1863,3 +1863,44 @@ it('keeps npm fallback notes in the fix report and review body (UPT-119)', async
   expect(report.notes).toContain(note);
   expect(prBody(report)).toContain(note);
 });
+
+// UPT-124: a resolved version the pack does not cover stops a pack-led run; an agent-led one
+// (a fallback reason already set) skips that check on purpose and records the version.
+describe('a resolved version outside the pack', () => {
+  const run = (outOfScope: boolean) => {
+    const { root, services } = zodFixture(scratch);
+    const pack = { ...zodPack, supports: (_from: string, to: string) => to === '4.6.5' };
+    return fix(
+      { cwd: root, only: 'zod', target: '4.6.5', pack, fixer: null },
+      {
+        ...services,
+        install: async (dir, upgrade) => {
+          await services.install(dir, upgrade && { ...upgrade, version: '4.6.9' });
+          return {
+            manager: 'pnpm',
+            file: 'pnpm-lock.yaml',
+            added: [],
+            removed: [],
+            changed: [],
+            allowed: [],
+            resolved: [{ name: 'zod', requested: '4.6.5', version: '4.6.9' }],
+            ...(outOfScope ? { outOfScope: [{ name: 'other', from: '1.0.0', to: '1.1.0' }] } : {}),
+          };
+        },
+      },
+    );
+  };
+
+  it('stops a pack-led run, naming the pack', async () => {
+    await expect(run(false)).rejects.toMatchObject({
+      code: 'INSTALL_FAILED',
+      message:
+        'Requested zod@4.6.5, but the package manager resolved 4.6.9: outside what the zod pack covers; verification cannot use a different target.',
+    });
+  });
+
+  it('skips the pack check when the run is already agent-led', async () => {
+    const result = run(true);
+    await expect(result).resolves.toMatchObject({ target: '4.6.5', resolvedVersion: '4.6.9' });
+  });
+});

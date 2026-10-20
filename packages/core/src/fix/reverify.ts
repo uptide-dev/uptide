@@ -100,7 +100,12 @@ export async function reverify(
       (s) => typeof p[s]?.[pack.name] === 'string',
     );
   });
-  const moves = [{ name: report.package, to: report.target }, ...(report.companions ?? [])];
+  const moves = [{ name: report.package, to: report.target }, ...(report.companions ?? [])].map(
+    (m) => ({
+      ...m,
+      to: report.lockfile?.resolved?.find((r) => r.name === m.name)?.version ?? m.to,
+    }),
+  );
   assertInstalledVersions(root, moves);
   const from = report.from ?? report.sites[0]?.finding.change.from ?? '';
   const context: PackContext = {

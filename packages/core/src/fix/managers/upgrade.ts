@@ -43,7 +43,17 @@ export interface InstallReport extends LockDiff {
   eresolveRetry?: EresolveRetry;
   /** Packages the repo imports without declaring them that the new lockfile would drop (UPT-109). */
   undeclared?: Undeclared[];
+  /** Packages the package manager could not resolve to the exact version asked for (UPT-124). */
+  resolved?: Resolved[];
 }
+/** A moved package resolved to another version in the same major, inside the manifest range. */
+export interface Resolved {
+  name: string;
+  requested: string;
+  version: string;
+}
+export const describeResolved = (r: Resolved): string =>
+  `${r.name}: asked for ${r.requested}; the package manager resolved ${r.version} (same major, inside the manifest range). Verification ran against ${r.version}; the breaking-change analysis used ${r.requested}.`;
 export interface Undeclared {
   name: string;
   /** The version the new lockfile keeps, or the one the old lockfile had when it is gone. */
@@ -304,6 +314,51 @@ async function installPinned(
   }
 }
 /**
+ * Yarn classic applies root `resolutions` to transitive dependencies only: a direct `^7.0.105`
+ * resolves its newest match (7.0.146) next to the pinned `ai@7.0.105` entry, and does again
+ * once the manifest is restored (UPT-124). Each range's pattern moves onto the entry at the
+ * target version, which the reconcile keeps; the entry it leaves empty is dropped.
+ */
+export function pinClassicPatterns(
+  text: string,
+  patterns: { pattern: string; name: string; version: string }[],
+): string {
+  const lines = text.split('\n');
+  const unquote = (p: string) => p.trim().replace(/^"|"$/g, '');
+  const headers = lines.flatMap((line, i) => (/^[^\s#].*:$/.test(line) ? [i] : []));
+  const tokens = (i: number) => (lines[i] as string).slice(0, -1).split(', ');
+  const versionOf = (i: number) => /^ {2}version "?([^"\s]+)"?$/.exec(lines[i + 1] ?? '')?.[1];
+  const dropped = new Set<number>();
+  for (const { pattern, name, version } of patterns) {
+    const from = headers.find(
+      (i) => !dropped.has(i) && tokens(i).some((t) => unquote(t) === pattern),
+    );
+    const to = headers.find(
+      (i) =>
+        !dropped.has(i) &&
+        versionOf(i) === version &&
+        tokens(i).some((t) => unquote(t).startsWith(`${name}@`)),
+    );
+    if (from === undefined || to === undefined || from === to) continue;
+    const raw = tokens(from).find((t) => unquote(t) === pattern) as string;
+    const rest = tokens(from).filter((t) => t !== raw);
+    if (rest.length) lines[from] = `${rest.join(', ')}:`;
+    else dropped.add(from);
+    lines[to] = `${[...tokens(to), raw].join(', ')}:`;
+  }
+  const kept: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!dropped.has(i)) {
+      kept.push(lines[i] as string);
+      continue;
+    }
+    // The entry's indented lines, and the blank line before it.
+    while (/^\s+\S/.test(lines[i + 1] ?? '')) i++;
+    if (kept.at(-1) === '') kept.pop();
+  }
+  return kept.join('\n');
+}
+/**
  * The lockfile the same install writes at the parent commit (HEAD of the isolated worktree):
  * the plan's files at HEAD, the original lockfile, the same manager, flags and steps, with each
  * moved package pinned to the version it already has. A plain install would be a no-op: pnpm
@@ -379,11 +434,12 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
   );
   const { start, retry, imports } = await resolving(pm, lockfile, beforeText, names, async () => {
     await installPinned(root, pm, upgrade.workspaces, names, (_, name) => version.get(name));
-    if (pm.kind === 'yarn-berry') {
+    if (pm.kind.startsWith('yarn')) {
       // Restoring a broad range drops Yarn's temporary resolution; pin its descriptor in the
       // lockfile instead. A range the plan rewrote (`^14.0.0` → `^16.1.0`) is as broad as one it
       // kept: left alone, Yarn resolves its newest match (16.3.3), not the planned version.
       const descriptors = new Map<string, string>();
+      const patterns: { pattern: string; name: string; version: string }[] = [];
       for (const [, text] of originals) {
         const json = JSON.parse(text);
         for (const section of INSTALLED)
@@ -394,20 +450,24 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
             const range = alias?.[2] ?? spec;
             // Exact self-resolutions make Yarn's resolver recurse into itself.
             if (range === move.version || !satisfies(move.version, range)) continue;
+            patterns.push({ pattern: `${move.name}@${spec}`, ...move });
             descriptors.set(
               `${move.name}@${spec.startsWith('npm:') ? spec : `npm:${spec}`}`,
               `${alias?.[1] ?? 'npm:'}${move.version}`,
             );
           }
       }
-      for (const [descriptor, resolution] of descriptors)
-        await run(root, pm, [
-          ...(pm.via === 'corepack' ? ['yarn'] : []),
-          'set',
-          'resolution',
-          descriptor,
-          resolution,
-        ]);
+      if (pm.kind === 'yarn-classic')
+        writeFileSync(lockfile, pinClassicPatterns(readFileSync(lockfile, 'utf8'), patterns));
+      else
+        for (const [descriptor, resolution] of descriptors)
+          await run(root, pm, [
+            ...(pm.via === 'corepack' ? ['yarn'] : []),
+            'set',
+            'resolution',
+            descriptor,
+            resolution,
+          ]);
     }
     // Let the real manager reconcile the final manifest, including its original range operator.
     await reconcile(root, pm, upgrade.workspaces);
@@ -462,7 +522,9 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
     throw error;
   }
   if (afterText !== written) writeFileSync(lockfile, afterText);
-  // Every package that moved resolved the version asked for, in every workspace declaring it.
+  // Every package that moved resolved the version asked for, in every workspace declaring it;
+  // else one version in its major that the manifest range admits, reported (UPT-124).
+  const resolvedTo = new Map<string, string>();
   for (const workspace of upgrade.workspaces) {
     const json = JSON.parse(readFileSync(join(root, workspace, 'package.json'), 'utf8'));
     const ranges = new Map<string, string>();
@@ -473,11 +535,25 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
     for (const m of moves) {
       if (!ranges.has(m.name)) continue;
       const installed = resolved.get(m.name);
-      if (installed !== m.version)
+      if (installed === m.version) continue;
+      const spec = ranges.get(m.name) as string;
+      const range = /^npm:(?:@[^/\s]+\/)?[^@\s]+@(.+)$/.exec(spec)?.[1] ?? spec;
+      const other = resolvedTo.get(m.name);
+      const reason = !installed
+        ? 'nothing is installed'
+        : installed.split('.')[0] !== m.version.split('.')[0]
+          ? `a different major than ${m.version}`
+          : !satisfies(installed, range)
+            ? `outside the manifest range ${spec}`
+            : other && other !== installed
+              ? `another workspace resolved ${other}`
+              : undefined;
+      if (reason)
         throw new UptideError(
           'INSTALL_FAILED',
-          `Requested ${m.name}@${m.version}, but ${workspace} resolved ${installed ?? 'nothing'}; verification cannot use a different target.`,
+          `Requested ${m.name}@${m.version}, but ${workspace} resolved ${installed ?? 'nothing'}: ${reason}; verification cannot use a different target.`,
         );
+      resolvedTo.set(m.name, installed as string);
     }
   }
   await run(root, pm, pm.args);
@@ -507,5 +583,14 @@ export async function upgradeInstall(root: string, upgrade: Upgrade): Promise<In
     file: pm.lockfile,
     ...(retry ? { eresolveRetry: retry } : {}),
     ...(undeclared.length ? { undeclared } : {}),
+    ...(resolvedTo.size
+      ? {
+          resolved: [...resolvedTo].map(([name, v]) => ({
+            name,
+            requested: version.get(name) as string,
+            version: v,
+          })),
+        }
+      : {}),
   };
 }

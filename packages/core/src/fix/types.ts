@@ -265,6 +265,8 @@ export interface FixReport {
   repo: string;
   package: string;
   target: string;
+  /** The version the lockfile resolved when it is not `target`: same major, inside the manifest range (UPT-124). */
+  resolvedVersion?: string;
   /** Where the target came from: asked for, the npm `latest` dist-tag, or the pack's tested target offline. */
   targetSource?: 'requested' | 'latest on npm' | 'release-age policy' | "the pack's tested target";
   /** Why the target is older than the newest release: the repository's release-age policy. */
