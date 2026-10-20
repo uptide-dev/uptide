@@ -1044,6 +1044,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ? assistWithSdk({
           root,
           workspaces,
+          scope: [pack.name, ...companions.map((c) => c.name)],
           sites,
           pack: sitePack,
           context: packContext,
@@ -1255,7 +1256,10 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     maxCostUsd,
   };
   llm.feedback = feedbackLimits;
-  let previousAttempt = '';
+  // A dependency edit refused in the first pass goes back with the first round (UPT-126).
+  let previousAttempt = (llm.tasks ?? [])
+    .flatMap((t) => (t.outOfScopeDependencyEdits?.length && t.rejection ? [t.rejection] : []))
+    .join('\n');
   for (let round = 1; canAssist && round <= feedbackLimits.maxRounds; round++) {
     const feedback = verificationFeedback(
       newDiagnostics(baseline, after, gitLineMoves(root, baseHead)),
@@ -1286,6 +1290,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     const next = await assistWithSdk({
       root,
       workspaces,
+      scope: [pack.name, ...companions.map((c) => c.name)],
       sites,
       pack,
       context: packContext,

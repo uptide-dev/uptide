@@ -22,6 +22,12 @@ import { modelCapabilities } from '../llm/capabilities.js';
 import { packDecisions } from '../packs/decisions.js';
 import { recordPrompt } from '../packs/records.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
+import {
+  dependencyEdits,
+  dependencyObjection,
+  isManifest,
+  packageManagerFile,
+} from './dependency-edits.js';
 import { command, git } from './process.js';
 import { commit, followedText, safeFile } from './settle.js';
 import { formatFiles, lintFiles } from './style.js';
@@ -29,6 +35,7 @@ import { isTestFile, testEditObjection } from './test-edits.js';
 import type {
   AgentSummary,
   AgentTaskRecord,
+  DependencyEdit,
   FixDiagnostic,
   FixReport,
   FixSite,
@@ -88,6 +95,8 @@ export type TaskRunner = (input: {
 
 export interface SdkAssistInput {
   root: string;
+  /** The upgraded package and its planned companions: dependencies the engine set (UPT-126). */
+  scope?: readonly string[];
   workspaces: string[];
   sites: FixSite[];
   pack: MigrationPack;
@@ -194,6 +203,9 @@ export function guard(
       return (err as Error).message;
     }
   if (READ_TOOLS.has(tool)) return undefined;
+  // Uptide's install owns these: the agent declares new dependencies in an existing manifest only.
+  if (packageManagerFile(rel) || (isManifest(rel) && !existsSync(join(root, rel))))
+    return `${rel} is read-only: lockfiles, package-manager configuration and new package.json files belong to Uptide's install; say what it needs in couldNotDo`;
   if (allowed.includes(rel)) return undefined;
   if (tool === 'Write' && !existsSync(join(root, rel)) && !parts.includes('node_modules'))
     return undefined;
@@ -233,8 +245,23 @@ export function editRules(
   summary: AgentSummary | undefined,
   before: readonly FixDiagnostic[] = [],
   fixtureProperties: FixtureProperty[] = [],
+  dependencies: DependencyGate = { scope: [], refused: [], added: [] },
 ): string | undefined {
   const { modified, added } = changedPaths(root);
+  // Dependencies first, wherever the manifest is: each refused edit is named and recorded.
+  for (const file of [...modified, ...added]) {
+    if (packageManagerFile(file) || (isManifest(file) && added.includes(file))) {
+      dependencies.refused.push({ file, reverted: true });
+      continue;
+    }
+    if (!isManifest(file)) continue;
+    const now = existsSync(join(root, file)) ? readFileSync(join(root, file), 'utf8') : '{}';
+    const edits = dependencyEdits(file, git(root, 'show', `HEAD:${file}`), now, dependencies.scope);
+    dependencies.refused.push(...edits.refused);
+    dependencies.added.push(...edits.added);
+  }
+  const refusedDependencies = dependencyObjection(dependencies.refused);
+  if (refusedDependencies) return refusedDependencies;
   const outside = modified.filter((f) => !task.files.includes(f));
   if (outside.length) return `edited files outside the task: ${outside.join(', ')}`;
   const declared = new Set(declaredFiles(root, summary));
@@ -267,6 +294,13 @@ export function editRules(
   );
   if (silenced) return `silences the compiler: ${silenced.replace(/^\+/, '').trim()}`;
   return undefined;
+}
+
+/** What the dependency gate is given (`scope`) and what it found, for the task's record. */
+export interface DependencyGate {
+  scope: readonly string[];
+  refused: DependencyEdit[];
+  added: DependencyEdit[];
 }
 
 /** Feedback protects verification inputs; test expectations have a separate review guard. */
@@ -698,9 +732,12 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     for (const file of discardedFiles) rmSync(join(root, file));
     const touched = [...modified, ...added.filter((file) => !discardedFiles.includes(file))];
     const fixtureProperties: FixtureProperty[] = [];
+    const dependencies: DependencyGate = { scope: input.scope ?? [], refused: [], added: [] };
     const rejection =
       error ??
-      (touched.length ? editRules(root, task, run.summary, before, fixtureProperties) : undefined);
+      (touched.length
+        ? editRules(root, task, run.summary, before, fixtureProperties, dependencies)
+        : undefined);
     const record: AgentTaskRecord = {
       id: task.id,
       rule: task.rule,
@@ -712,6 +749,10 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       ...(rejection ? { rejection } : {}),
       ...(discardedFiles.length ? { discardedFiles } : {}),
       ...(!rejection && fixtureProperties.length ? { fixtureProperties } : {}),
+      ...(dependencies.refused.length ? { outOfScopeDependencyEdits: dependencies.refused } : {}),
+      ...(!rejection && dependencies.added.length
+        ? { agentAddedDependencies: dependencies.added }
+        : {}),
     };
     records.push(record);
     const said = run.summary
