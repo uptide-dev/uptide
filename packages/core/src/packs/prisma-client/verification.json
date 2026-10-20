@@ -1,31 +1,31 @@
 {
-  "status": "candidate",
-  "truth": "sha256-b16bb874a2ced0eaa8a7a537655bcfb5f8584e406087a4234401ab5df9c1b43f",
-  "repos": 0,
+  "status": "verified",
+  "truth": "sha256-9ae79f811388f21d660fe6ae1cb72bb7b9e766cfd99f0d10340668489a98de25",
+  "repos": 7,
   "breaking": {
     "precision": 1,
     "recall": 1,
     "falsePositives": 0,
-    "truePositives": 0,
+    "truePositives": 29,
     "falseNegatives": 0
   },
   "behavior": {
-    "precision": 1,
-    "recall": 1,
-    "falsePositives": 0,
-    "truePositives": 0,
-    "falseNegatives": 0
+    "precision": 0.25,
+    "recall": 0.6,
+    "falsePositives": 9,
+    "truePositives": 3,
+    "falseNegatives": 2
   },
   "class": "breaking",
-  "breakingSites": 0,
-  "breakingFoundAny": 0,
-  "breakingFound": 0,
-  "breakingScored": 0,
-  "behaviorSites": 0,
-  "unexercised": ["example-rename"],
+  "breakingSites": 29,
+  "breakingFoundAny": 29,
+  "breakingFound": 29,
+  "breakingScored": 29,
+  "behaviorSites": 6,
+  "unexercised": [],
   "mechanical": {
-    "example-rename": {
-      "truePositives": 0,
+    "cli-skip-flags": {
+      "truePositives": 1,
       "falsePositives": 0
     }
   }
