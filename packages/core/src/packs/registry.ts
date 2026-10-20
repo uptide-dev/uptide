@@ -16,6 +16,8 @@ import { nextPack } from './next/index.js';
 import nextVerification from './next/verification.json' with { type: 'json' };
 import { openaiPack } from './openai/index.js';
 import openaiVerification from './openai/verification.json' with { type: 'json' };
+import { prismaClientPack } from './prisma-client/index.js';
+import prismaClientVerification from './prisma-client/verification.json' with { type: 'json' };
 import { reactPack } from './react/index.js';
 import reactVerification from './react/verification.json' with { type: 'json' };
 import { reactRouterPack } from './react-router/index.js';
@@ -49,6 +51,11 @@ export const REGISTRY: readonly RegisteredPack[] = [
   },
   { dir: 'next', pack: nextPack, verification: nextVerification as PackVerification },
   { dir: 'openai', pack: openaiPack, verification: openaiVerification as PackVerification },
+  {
+    dir: 'prisma-client',
+    pack: prismaClientPack,
+    verification: prismaClientVerification as PackVerification,
+  },
   { dir: 'react', pack: reactPack, verification: reactVerification as PackVerification },
   {
     dir: 'react-router',
