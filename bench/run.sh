@@ -84,9 +84,13 @@ claude)
   # --bare: none of this machine's hooks, plugins, memory or CLAUDE.md; --add-dir loads the
   # repository's own CLAUDE.md as a plain `claude -p` in it would. Bash runs only inside
   # Claude Code's sandbox (claude-sandbox.json); anything that would prompt is denied.
-  # The sandbox settings plus the key helper; the sandbox also denies reading the key file.
-  jq --arg helper "$here/claude-key.sh" --arg envfile "$UPTIDE_BENCH_ENV" \
-    '.apiKeyHelper = $helper | .sandbox.filesystem.denyRead = [$envfile]' \
+  # claude-sandbox.json plus the key helper. A selection with "claudeSandbox": false (the v1
+  # secondary set) drops the sandbox: it blocked local servers (listen EPERM) and the system
+  # certificate store, which Uptide's verification is not limited by. Otherwise the sandbox also
+  # denies reading the key file.
+  sandboxed=$(jq -r '.claudeSandbox // true' "${BENCH_SELECTION:-$here/selection.json}")
+  jq --arg helper "$here/claude-key.sh" --arg envfile "$UPTIDE_BENCH_ENV" --argjson sandboxed "$sandboxed" \
+    '.apiKeyHelper = $helper | if $sandboxed then .sandbox.filesystem.denyRead = [$envfile] else del(.sandbox) end' \
     "$here/claude-sandbox.json" >"$dir/claude-settings.json"
   UPTIDE_BENCH_ENV=$UPTIDE_BENCH_ENV claude -p --bare --add-dir "$PWD" --model "$model" --effort "$effort" \
     --settings "$dir/claude-settings.json" --permission-mode acceptEdits --permission-prompts none \
@@ -141,6 +145,7 @@ jq -n --arg id "$id" --arg head "$(git rev-parse HEAD)" --argjson status "$statu
   --arg arm "$arm" --arg version "$version" --arg model "$([ "$arm" = human ] || echo "$model")" \
   --arg executor "$([ "$arm" = uptide ] && jq -r '.llm.executor // .llm.agent // "none"' "$dir/agent.json" 2>/dev/null)" \
   --arg own "$([ "$arm" = claude ] && jq -r '.total_cost_usd // empty' "$dir/agent.json" 2>/dev/null)" \
+  --arg claudesandbox "${sandboxed:-}" \
   --arg sdkcost "$([ "$arm" = uptide ] && jq -r '.llm.sdkReportedCostUsd // empty' "$dir/agent.json" 2>/dev/null)" \
   --arg sdk "$([ "$arm" = uptide ] && grep -m1 'Agent SDK' "$dir/agent.log" 2>/dev/null)" \
   '{id: $id, head: $head, exit: $status, costUsd: $cost, wallSeconds: $wall, uncommittedFiles: $dirty, tz: $tz}
@@ -149,6 +154,7 @@ jq -n --arg id "$id" --arg head "$(git rev-parse HEAD)" --argjson status "$statu
     + if $model == "" then {} else {model: $model} end
     + if $own == "" then {} else {claudeCodeCostUsd: ($own | tonumber)} end
     + if $sdkcost == "" then {} else {sdkReportedCostUsd: ($sdkcost | tonumber)} end
+    + if $arm == "claude" then {claudeSandbox: ($claudesandbox == "true")} else {} end
     + if $executor == "" then {} else {executor: $executor} end
     + if $sdk == "" then {} else {sdkDownload: $sdk} end' \
   >"$dir/meta.json"

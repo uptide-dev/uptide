@@ -2,8 +2,9 @@
 # Dry check of the phase-2 key isolation: one probe per arm, launched with run.sh's own key and
 # environment lines, in a local repository whose only test prints whether ANTHROPIC_API_KEY and
 # OPENAI_API_KEY are set inside the test process (set/unset, never a value) and whether the
-# per-run Postgres is reachable from it. Uptide's probe is a mechanical zod bump (no agent);
-# Claude Code's is a short "run npm test" prompt.
+# per-run Postgres is reachable from it, and whether a tsx server can start (bind a local port).
+# Uptide's probe is a mechanical zod bump (no agent); Claude Code's is a short "run npm test"
+# prompt. KEYPROBE_CLAUDE_SANDBOX=false drops Claude Code's sandbox, as the secondary set does.
 #
 #   UPTIDE_BENCH_ENV=<key file> UPTIDE_BIN=<uptide> CLAUDE_BIN=<claude> bench/keyprobe.sh <out dir>
 set -euo pipefail
@@ -21,7 +22,7 @@ make_repo() { # <dir>
   cat >package.json <<'JSON'
 { "name": "keyprobe", "private": true, "type": "module",
   "scripts": { "test": "node probe.test.mjs", "typecheck": "tsc --noEmit" },
-  "dependencies": { "zod": "3.25.76" }, "devDependencies": { "typescript": "5.9.3" } }
+  "dependencies": { "zod": "3.25.76" }, "devDependencies": { "typescript": "5.9.3", "tsx": "4.21.0" } }
 JSON
   cat >tsconfig.json <<'JSON'
 { "compilerOptions": { "strict": true, "module": "nodenext", "moduleResolution": "nodenext", "noEmit": true }, "include": ["src"] }
@@ -30,6 +31,7 @@ JSON
   cat >probe.test.mjs <<'JS'
 import { appendFileSync } from 'node:fs';
 import net from 'node:net';
+import { execFileSync } from 'node:child_process';
 const s = (k) => (process.env[k] ? 'set' : 'unset');
 const pg = await new Promise((r) => {
   const c = net.connect(Number(process.env.PGPORT || 5432), process.env.PGHOST || '127.0.0.1');
@@ -37,7 +39,15 @@ const pg = await new Promise((r) => {
   c.on('error', (e) => r(`unreachable (${e.code})`));
   setTimeout(() => r('timeout'), 3000);
 });
-const line = `probe: ANTHROPIC_API_KEY=${s('ANTHROPIC_API_KEY')} OPENAI_API_KEY=${s('OPENAI_API_KEY')} PGHOST=${process.env.PGHOST ?? '-'} postgres=${pg}`;
+let tsx;
+try {
+  const script = "import('node:http').then((h) => { const srv = h.createServer().listen(0, '127.0.0.1', () => { console.log('listening ' + srv.address().port); process.exit(0); }); })";
+  const out = execFileSync('node_modules/.bin/tsx', ['-e', script], { encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] });
+  tsx = /listening \d+/.test(out) ? 'started' : 'no output';
+} catch (e) {
+  tsx = 'failed (' + (String(e.stderr || e.message).split('\n').find((l) => /EPERM|Error/.test(l)) || 'error') + ')';
+}
+const line = `probe: ANTHROPIC_API_KEY=${s('ANTHROPIC_API_KEY')} OPENAI_API_KEY=${s('OPENAI_API_KEY')} PGHOST=${process.env.PGHOST ?? '-'} postgres=${pg} tsx-server=${tsx}`;
 console.log(line);
 if (process.env.PROBE_OUT) appendFileSync(process.env.PROBE_OUT, line + '\n');
 JS
@@ -58,9 +68,10 @@ cat "$out/uptide-probe.txt" 2>/dev/null || echo "(no probe line written)"
 
 # Claude Code: the key from apiKeyHelper, never in an environment, as run.sh passes it.
 make_repo "$out/claude" && fresh_postgres "$probe_selection" probe
-jq --arg helper "$here/claude-key.sh" --arg envfile "$UPTIDE_BENCH_ENV" \
-  '.apiKeyHelper = $helper | .sandbox.filesystem.denyRead = [$envfile]' \
+jq --arg helper "$here/claude-key.sh" --arg envfile "$UPTIDE_BENCH_ENV" --argjson sandboxed "${KEYPROBE_CLAUDE_SANDBOX:-true}" \
+  '.apiKeyHelper = $helper | if $sandboxed then .sandbox.filesystem.denyRead = [$envfile] else del(.sandbox) end' \
   "$here/claude-sandbox.json" >"$out/claude-settings.json"
+echo "Claude Code settings: sandbox $(jq 'has("sandbox")' "$out/claude-settings.json"), apiKeyHelper $(jq -r '.apiKeyHelper' "$out/claude-settings.json")"
 PROBE_OUT=$out/claude/.probe-out "${CLAUDE_BIN:?}" -p --bare --add-dir "$PWD" --model claude-opus-5-5 --effort low \
   --settings "$out/claude-settings.json" --permission-mode acceptEdits --permission-prompts none \
   --no-session-persistence --output-format json --max-budget-usd 1 \

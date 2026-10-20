@@ -1,6 +1,7 @@
 {
   "set": "UpgradeBench v1 secondary set (phase 2): the headline repositories, never seen by the engine",
   "selected": "2026-10-20T21:10Z, by the procedure in ../repos.md (timebox from 20:30Z)",
+  "claudeSandbox": false,
   "repos": [
     {
       "id": "zod-context-library",

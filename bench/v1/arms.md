@@ -70,3 +70,14 @@ Fixed before any phase-2 run. Everything in phase 1 holds except these:
 - **Claude Code:** the key comes from `apiKeyHelper` (`bench/claude-key.sh`), which Claude Code itself calls, so it is never in an environment its tools inherit. The per-run settings are `claude-sandbox.json` plus `apiKeyHelper`, and `sandbox.filesystem.denyRead` on the key file. `--bare` honors `apiKeyHelper` from `--settings`.
 - **Postgres** (context-library): `bench/services.sh` recreates one container, `pgvector/pgvector:pg16` (CI's image), with `POSTGRES_DB=cl_test` and `POSTGRES_USER=cl`. It uses trust auth on `127.0.0.1:55432`, fresh before every run and every final check. `PGHOST`, `PGPORT`, `PGUSER` and `PGDATABASE` are exported to both arms. Trust auth is needed because Uptide drops `PGPASSWORD` from its commands; the tests fall back to `test`, which trust ignores. Claude Code's sandbox reaches it with `allowLocalBinding`.
 - **Proof:** `bench/keyprobe.sh`, run 2026-10-20, with both keys set in the calling shell (results.md, "Key isolation proof").
+
+### Phase 2 amendment 2: no Claude Code sandbox in the secondary set (2026-10-20, the user's decision)
+
+- **Phase 1 and the dev set ran Arm B sandboxed.** That has been true since the pilot: `bench/claude-sandbox.json`, introduced in `920512f` (2026-10-15).
+- **The secondary set's Arm B runs without it.** `secondary/selection.json` has `"claudeSandbox": false`, and `run.sh` drops the `sandbox` block from the per-run settings, `denyRead` included.
+- **Kept:** `apiKeyHelper`, so the key still never enters an environment Claude Code's tools inherit, and the `permissions` block (WebFetch/WebSearch denied).
+- **Why:** the sandbox blocked local servers (`listen EPERM` on tsx's IPC pipe and on test servers) and the system certificate store. Uptide's verification is not limited by either, so the sandbox biased the comparison against Arm B.
+  - Example: on context-library, Claude Code could not run 353 server-backed tests that Uptide's verification ran.
+- **The dev set keeps its sandboxed Arm B numbers.** They are not rerun.
+- **The 9 Arm B secondary runs made sandboxed are superseded, not incomplete.** Their records are kept (`results.md`, "Superseded sandboxed Arm B runs"), they're out of every table, and Arm B is run 3 times per repository fresh under the new configuration. These reruns don't use the infrastructure-rerun allowance.
+- **Arm A is unchanged**, and its runs stand.
