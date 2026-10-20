@@ -1,0 +1,16 @@
+{
+  "id": "redis-ecommerce-store-api",
+  "head": "e65113f7733755f1ba109823c8913b933c92844d",
+  "exit": 0,
+  "costUsd": 0.62616,
+  "wallSeconds": 215,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 5,
+  "overCapUsd": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-opus-5-5",
+  "claudeCodeCostUsd": 0.6261599999999999
+}

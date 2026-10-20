@@ -1,0 +1,17 @@
+{
+  "id": "ai-strut",
+  "head": "41fb96780e2ceb06a0d1d3cb120d60766413c180",
+  "exit": 2,
+  "costUsd": 0,
+  "wallSeconds": 35,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 1,
+  "overCapUsd": 0,
+  "version": {
+    "uptide": "0.18.1"
+  },
+  "model": "claude-sonnet-5-5",
+  "executor": "none",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into <run>/8f8615ab/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

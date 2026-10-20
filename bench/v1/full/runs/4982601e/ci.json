@@ -1,0 +1,4 @@
+[
+  { "bucket": "pass", "name": "verify", "state": "SUCCESS", "workflow": "CI" },
+  { "bucket": "pass", "name": "database", "state": "SUCCESS", "workflow": "CI" }
+]

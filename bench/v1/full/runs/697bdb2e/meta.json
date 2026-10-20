@@ -1,0 +1,16 @@
+{
+  "id": "stripe-yea",
+  "head": "583ae6ab1501546367ceda781981c0b184353681",
+  "exit": 0,
+  "costUsd": 0.603475,
+  "wallSeconds": 147,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 5,
+  "overCapUsd": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-opus-5-5",
+  "claudeCodeCostUsd": 0.6034750000000001
+}

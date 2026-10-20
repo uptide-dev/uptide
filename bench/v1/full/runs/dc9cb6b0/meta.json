@@ -1,0 +1,16 @@
+{
+  "id": "ai-strut",
+  "head": "7a7e98ca173f0e5be6f9ce9e4ae34c31da399ac0",
+  "exit": 0,
+  "costUsd": 2.876563,
+  "wallSeconds": 392,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 5,
+  "overCapUsd": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-opus-5-5",
+  "claudeCodeCostUsd": 2.8765630000000004
+}

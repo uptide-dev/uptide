@@ -1,0 +1,17 @@
+{
+  "id": "redis-ecommerce-store-api",
+  "head": "6eb3e204d2c46b06ac2cd0278c9b2d06f3f4b927",
+  "exit": 1,
+  "costUsd": 0.514296901,
+  "wallSeconds": 531,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 1,
+  "overCapUsd": 0,
+  "version": {
+    "uptide": "0.18.1"
+  },
+  "model": "claude-sonnet-5-5",
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into <run>/270da38a/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

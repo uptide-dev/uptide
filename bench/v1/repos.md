@@ -188,3 +188,23 @@ Three repositories came with the brief and were re-verified here: fortylove, eco
   - Its bot mode had read 611 bot pull requests, newest first, back to 2026-10-19 22:05Z. None had a human source commit.
   - Its human mode returned nothing in that time.
 - The picks came from GitHub pull-request search instead. It covered human upgrade titles, Stripe's `endive` API version, Next 16's middleware-to-proxy rename and AI SDK v7, plus 96 bot bump PRs for stripe, next and joi. None of those 96 had a human, non-merge commit touching source.
+
+### Disclosures (added 2026-10-20, after the phase-1 runs started; no scoring or ground-truth change)
+
+- **AI co-author trailers:** strut (#11) and yea (#268) are counted as human. Each commit's author is a human (Evanfeenstra; solomonjames), and the commits carry a `Co-Authored-By: Claude` / `Claude Opus 5.5` trailer. The clause above was settled before any run. A stricter reading, human-only commits, would drop both.
+- **fortylove, Zod 4's stricter `.uuid()` and `.email()`:** listed in the ground truth as informational, not scored. The reasons:
+  - `.uuid()` (`uuidSchema`, `lib/input-validation.ts:27`, plus inline `z.string().uuid()` in `faq-actions.ts:158` and `chatbot/preview/route.ts:18`):
+    - It validates ids that the app's own pages send back: event, FAQ, category, submission and user ids. Every table makes them with `gen_random_uuid()` (`supabase/schema.sql`, `supabase/migrations/*`), and user ids come from Supabase auth. Both are RFC 4122 v4 UUIDs, which Zod 4 accepts.
+    - Behavior changes only for an id that isn't RFC-versioned, such as the all-zero or `00000000-0000-0000-0000-000000000001` fixtures. Those are now rejected where v3 accepted them. No id the app generates is one.
+    - The human left it as it was.
+  - `.email()` (`lib/ops-policy.ts:4`, `lib/server-action-validation.ts:84`):
+    - It validates an admin's notification and escalation address in settings forms. Zod 4's pattern is stricter: unusual local parts and some unicode domains that v3 accepted are rejected.
+    - The input is a settings form an admin fills in, so a rejection shows there.
+    - One read path also parses the stored value (`lib/server/ops-notifications.ts:7`, `notificationSettingsSchema.parse`). An address saved under v3 that v4 rejects would make that read throw. Whether such an address exists depends on production data, which the bench can't see.
+    - The human left it as it was.
+  - Neither is scored: the human's merged change is the reference, and it kept both. A run that changes either one is neither credited nor penalized beyond the coverage and unrelated-hunk columns.
+- **ecommerce-store-api's Node:** `package.json` declares `engines.node >=24.0.0`, and CI runs Node 24. Every phase-1 run used Node 22.20.0, the machine's default for all arms. The parent passes all 1,724 tests on Node 22 (and on 24.22.0).
+- **support-dotcom-components' mergeable bar:** the CI set.
+  - The checks are root lint and prettier, root tsc and tests, the production server build and the dotcom build, plus `cdk` lint, prettier and synth.
+  - Out of the bar: `cdk`'s own `tsc` build (TS5107 at the parent's tsconfig on TS 6, and TS5107 + TS2688 on the human commit) and `cdk`'s jest snapshot (fails at the parent and on the human commit). CI never runs the `cdk` tsc build.
+  - The bump-only finding in `cdk` anyway: `pnpm --dir cdk lint` fails with 5 errors, all in `cdk/lib/dotcom-components.test.ts`: 4 `@typescript-eslint/no-unsafe-call` ("Unsafe call of a type that could not be resolved", at 5:1, 6:2 and 15:3 twice) and 1 `no-unsafe-member-access` (`.toMatchSnapshot`, 15:29). The jest globals' types no longer resolve without `"types": ["jest", "node"]`. The human turned that rule and `no-unsafe-member-access` off in `cdk/eslint.config.mjs`.

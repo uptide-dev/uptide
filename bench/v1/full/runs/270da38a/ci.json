@@ -1,0 +1,21 @@
+[
+  { "bucket": "skipping", "name": "Docker Publish", "state": "SKIPPED", "workflow": "CI" },
+  { "bucket": "skipping", "name": "Docker Validate", "state": "SKIPPED", "workflow": "CI" },
+  { "bucket": "fail", "name": "CI Status Check", "state": "FAILURE", "workflow": "CI" },
+  { "bucket": "skipping", "name": "Restore Drill", "state": "SKIPPED", "workflow": "CI" },
+  { "bucket": "skipping", "name": "Restore Drill Smoke", "state": "SKIPPED", "workflow": "CI" },
+  { "bucket": "skipping", "name": "Smoke Tests", "state": "SKIPPED", "workflow": "CI" },
+  { "bucket": "skipping", "name": "Integration Tests", "state": "SKIPPED", "workflow": "CI" },
+  { "bucket": "skipping", "name": "Redis Chaos Tests", "state": "SKIPPED", "workflow": "CI" },
+  { "bucket": "skipping", "name": "E2E Tests", "state": "SKIPPED", "workflow": "CI" },
+  { "bucket": "fail", "name": "OpenAPI Audit", "state": "FAILURE", "workflow": "CI" },
+  { "bucket": "pass", "name": "Resolve env (.env.example)", "state": "SUCCESS", "workflow": "CI" },
+  { "bucket": "pass", "name": "Dependency Audit", "state": "SUCCESS", "workflow": "CI" },
+  { "bucket": "fail", "name": "Dependency Review", "state": "FAILURE", "workflow": "CI" },
+  { "bucket": "pass", "name": "Architecture Tests", "state": "SUCCESS", "workflow": "CI" },
+  { "bucket": "pass", "name": "Build", "state": "SUCCESS", "workflow": "CI" },
+  { "bucket": "fail", "name": "Code Quality", "state": "FAILURE", "workflow": "CI" },
+  { "bucket": "pass", "name": "Unit Tests (2/2)", "state": "SUCCESS", "workflow": "CI" },
+  { "bucket": "pass", "name": "Unit Tests (1/2)", "state": "SUCCESS", "workflow": "CI" },
+  { "bucket": "fail", "name": "Type Check", "state": "FAILURE", "workflow": "CI" }
+]

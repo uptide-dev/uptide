@@ -1,0 +1,1071 @@
+[
+  {
+    "run": "0f400de4",
+    "id": "redis-ecommerce-store-api",
+    "head": "857bbbdc764d68f6dae976750f72fee3758f19e5",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 7,
+    "missed": [],
+    "agentHunks": 7,
+    "agentFiles": 2,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 1,
+    "silentEdited": ["src/infrastructure/redis/redis-connection.options.ts:21"],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Docker Publish",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/Docker Validate",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/CI Status Check",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Restore Drill",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Redis Chaos Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Smoke Tests",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/E2E Tests",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Integration Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Restore Drill Smoke",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/OpenAPI Audit",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Unit Tests (1/2)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Type Check",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit Tests (2/2)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Build",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Dependency Review",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Dependency Audit",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Architecture Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Resolve env (.env.example)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Code Quality",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "270da38a",
+    "id": "redis-ecommerce-store-api",
+    "head": "6eb3e204d2c46b06ac2cd0278c9b2d06f3f4b927",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.514296901,
+    "wallSeconds": 531,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 0,
+    "missed": [
+      "src/infrastructure/redis/redis-connection.options.ts:24",
+      "src/infrastructure/redis/redis.service.ts:7",
+      "src/infrastructure/redis/redis.service.ts:11",
+      "src/infrastructure/redis/redis.service.ts:28",
+      "src/infrastructure/redis/redis.service.ts:36",
+      "src/infrastructure/redis/redis.service.ts:54",
+      "src/infrastructure/redis/redis.service.ts:336"
+    ],
+    "agentHunks": 20,
+    "agentFiles": 4,
+    "unrelated": [
+      "src/modules/authorization/secondary-adapter/repositories/postgres-role-repository/postgres-role.repository.ts:3",
+      "src/modules/authorization/secondary-adapter/repositories/postgres-role-repository/postgres-role.repository.ts:14",
+      "src/modules/authorization/secondary-adapter/repositories/postgres-role-repository/postgres-role.repository.ts:33",
+      "src/modules/authorization/secondary-adapter/repositories/postgres-role-repository/postgres-role.repository.ts:50",
+      "src/modules/authorization/secondary-adapter/repositories/postgres-role-repository/postgres-role.repository.ts:65",
+      "src/modules/authorization/secondary-adapter/repositories/postgres-role-repository/postgres-role.repository.ts:154",
+      "src/modules/authorization/secondary-adapter/repositories/postgres-role-repository/postgres-role.repository.ts:161",
+      "src/modules/identity/secondary-adapters/repositories/postgres-user-repository/postgres-user.repository.ts:43",
+      "src/modules/identity/secondary-adapters/repositories/postgres-user-repository/postgres-user.repository.ts:120",
+      "src/modules/identity/secondary-adapters/repositories/postgres-user-repository/postgres-user.repository.ts:177",
+      "src/modules/identity/secondary-adapters/repositories/postgres-user-repository/postgres-user.repository.ts:193",
+      "src/modules/identity/secondary-adapters/repositories/postgres-user-repository/postgres-user.repository.ts:209",
+      "src/modules/orders/secondary-adapters/repositories/postgres-order-repository/postgres.order-repository.ts:78",
+      "src/modules/orders/secondary-adapters/repositories/postgres-order-repository/postgres.order-repository.ts:158",
+      "src/modules/orders/secondary-adapters/repositories/postgres-order-repository/postgres.order-repository.ts:183",
+      "src/modules/payments/secondary-adapters/repositories/postgres-payment-repository/postgres.payment-repository.ts:34",
+      "src/modules/payments/secondary-adapters/repositories/postgres-payment-repository/postgres.payment-repository.ts:53",
+      "src/modules/payments/secondary-adapters/repositories/postgres-payment-repository/postgres.payment-repository.ts:71",
+      "src/modules/payments/secondary-adapters/repositories/postgres-payment-repository/postgres.payment-repository.ts:93",
+      "src/modules/payments/secondary-adapters/repositories/postgres-payment-repository/postgres.payment-repository.ts:122"
+    ],
+    "unverified": "unverified",
+    "silentSites": 1,
+    "silentEdited": [],
+    "silentDecided": ["src/infrastructure/redis/redis-connection.options.ts:21"],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 2,
+      "lint": 1,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Docker Publish",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/Docker Validate",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/CI Status Check",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Restore Drill",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/Restore Drill Smoke",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/Smoke Tests",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/Integration Tests",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/Redis Chaos Tests",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/E2E Tests",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/OpenAPI Audit",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Resolve env (.env.example)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Dependency Audit",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Dependency Review",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Architecture Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Build",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Code Quality",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Unit Tests (2/2)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit Tests (1/2)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Type Check",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": ["local typecheck", "local lint", "ci CI/Code Quality", "ci CI/Type Check"]
+  },
+  {
+    "run": "2fa0b0db",
+    "id": "stripe-yea",
+    "head": "985e6b2224deca460c283ace95637be2bbb3bb19",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.1440119,
+    "wallSeconds": 92,
+    "uncommittedFiles": 0,
+    "humanHunks": 8,
+    "covered": 4,
+    "missed": [
+      "connectors/stripe/test/api.test.ts:142",
+      "connectors/stripe/test/fake-stripe.ts:125",
+      "connectors/stripe/test/fake-stripe.ts:299",
+      "connectors/stripe/test/fake-stripe.ts:869"
+    ],
+    "agentHunks": 4,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": "not checked",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "/osv-scanner",
+        "bucket": "pass"
+      },
+      {
+        "name": "security/osv-scanner / osv-scan",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/site",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/typescript (22)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/typescript (20)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/typescript (22)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.10)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.13)",
+        "bucket": "pass"
+      },
+      {
+        "name": "/CodeQL",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/site",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.10)",
+        "bucket": "pass"
+      },
+      {
+        "name": "pr-body/description",
+        "bucket": "fail"
+      },
+      {
+        "name": "ci/typescript (20)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.13)",
+        "bucket": "pass"
+      },
+      {
+        "name": "security/codeql",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": ["ci pr-body/description"]
+  },
+  {
+    "run": "43f9733b",
+    "id": "typescript-support-dotcom-components",
+    "head": "459156207a0ed20493a22c4d6571f8ff1abdafdc",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.0957735,
+    "wallSeconds": 198,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 0,
+    "missed": [
+      "cdk/eslint.config.mjs:27",
+      "eslint.config.mjs:15",
+      "eslint.config.mjs:33",
+      "eslint.config.mjs:37"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CORE4 label enforcement/require-label / require-label",
+        "bucket": "fail"
+      },
+      {
+        "name": "Build dotcom-components/Release",
+        "bucket": "skipping"
+      },
+      {
+        "name": "Build dotcom-components/dotcom-components",
+        "bucket": "skipping"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "4982601e",
+    "id": "zod-fortylove",
+    "head": "9c626efa80a6553379fe8d73a42dfbba039ff871",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.0374048,
+    "wallSeconds": 101,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 1,
+    "missed": [
+      "lib/server-action-validation.test.ts:6",
+      "lib/server-action-validation.test.ts:32",
+      "lib/server/action-input.ts:4"
+    ],
+    "agentHunks": 4,
+    "agentFiles": 4,
+    "unrelated": [],
+    "unverified": "not checked",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/verify",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/database",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "60b0ce09",
+    "id": "ai-strut",
+    "head": "eda56a5f011f92db056f920da1274c04d9128e4d",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 39,
+    "covered": 39,
+    "missed": [],
+    "agentHunks": 39,
+    "agentFiles": 6,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 4,
+    "silentEdited": [
+      "src/createStrut.ts:1796",
+      "src/steps/core/agent.ts:1104",
+      "src/steps/core/agent.ts:1168",
+      "src/steps/core/agent.ts:1261"
+    ],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "tests/test",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "697bdb2e",
+    "id": "stripe-yea",
+    "head": "583ae6ab1501546367ceda781981c0b184353681",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.603475,
+    "wallSeconds": 147,
+    "uncommittedFiles": 0,
+    "humanHunks": 8,
+    "covered": 4,
+    "missed": [
+      "connectors/stripe/test/api.test.ts:142",
+      "connectors/stripe/test/fake-stripe.ts:125",
+      "connectors/stripe/test/fake-stripe.ts:299",
+      "connectors/stripe/test/fake-stripe.ts:869"
+    ],
+    "agentHunks": 4,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "/osv-scanner",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.13)",
+        "bucket": "pass"
+      },
+      {
+        "name": "security/osv-scanner / osv-scan",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.10)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/site",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/typescript (22)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/typescript (22)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/site",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.10)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.13)",
+        "bucket": "pass"
+      },
+      {
+        "name": "/CodeQL",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/typescript (20)",
+        "bucket": "pass"
+      },
+      {
+        "name": "pr-body/description",
+        "bucket": "fail"
+      },
+      {
+        "name": "ci/typescript (20)",
+        "bucket": "pass"
+      },
+      {
+        "name": "security/codeql",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": ["ci pr-body/description"]
+  },
+  {
+    "run": "738292a7",
+    "id": "stripe-yea",
+    "head": "a06262ce335de26dae7cdbaea3656a57dce41555",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 8,
+    "covered": 8,
+    "missed": [],
+    "agentHunks": 8,
+    "agentFiles": 4,
+    "unrelated": [],
+    "unverified": "Not run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ci/typescript (22)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.13)",
+        "bucket": "pass"
+      },
+      {
+        "name": "/CodeQL",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/typescript (20)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.10)",
+        "bucket": "pass"
+      },
+      {
+        "name": "/osv-scanner",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/typescript (22)",
+        "bucket": "pass"
+      },
+      {
+        "name": "pr-body/description",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.13)",
+        "bucket": "pass"
+      },
+      {
+        "name": "security/osv-scanner / osv-scan",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/site",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/python (3.10)",
+        "bucket": "pass"
+      },
+      {
+        "name": "security/codeql",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/typescript (20)",
+        "bucket": "pass"
+      },
+      {
+        "name": "ci/site",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "7e4dc771",
+    "id": "zod-fortylove",
+    "head": "f11bf7a9042a0b3e7fa5bee6c0610c1e3ce4b7bd",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 4,
+    "missed": [],
+    "agentHunks": 4,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/database",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/verify",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "8f8615ab",
+    "id": "ai-strut",
+    "head": "41fb96780e2ceb06a0d1d3cb120d60766413c180",
+    "reference": false,
+    "exit": 2,
+    "costUsd": 0,
+    "wallSeconds": 35,
+    "uncommittedFiles": 0,
+    "humanHunks": 39,
+    "covered": 0,
+    "missed": [
+      "src/createStrut.ts:1615",
+      "src/createStrut.ts:1733",
+      "src/createStrut.ts:1743",
+      "src/createStrut.ts:1758",
+      "src/createStrut.ts:1796",
+      "src/pricing.ts:31",
+      "src/pricing.ts:34",
+      "src/steps/core/agent.test.ts:839",
+      "src/steps/core/agent.ts:735",
+      "src/steps/core/agent.ts:924",
+      "src/steps/core/agent.ts:964",
+      "src/steps/core/agent.ts:972",
+      "src/steps/core/agent.ts:973",
+      "src/steps/core/agent.ts:1009",
+      "src/steps/core/agent.ts:1029",
+      "src/steps/core/agent.ts:1047",
+      "src/steps/core/agent.ts:1052",
+      "src/steps/core/agent.ts:1058",
+      "src/steps/core/agent.ts:1071",
+      "src/steps/core/agent.ts:1086",
+      "src/steps/core/agent.ts:1090",
+      "src/steps/core/agent.ts:1104",
+      "src/steps/core/agent.ts:1107",
+      "src/steps/core/agent.ts:1112",
+      "src/steps/core/agent.ts:1141",
+      "src/steps/core/agent.ts:1145",
+      "src/steps/core/agent.ts:1149",
+      "src/steps/core/agent.ts:1168",
+      "src/steps/core/agent.ts:1234",
+      "src/steps/core/agent.ts:1238",
+      "src/steps/core/agent.ts:1242",
+      "src/steps/core/agent.ts:1261",
+      "src/steps/core/agent.ts:1268",
+      "src/steps/core/agent.ts:1303",
+      "src/steps/core/llm.test.ts:8",
+      "src/steps/core/llm.ts:54",
+      "src/steps/core/llm.ts:68",
+      "src/steps/core/llm.ts:71",
+      "src/steps/core/llm.ts:74"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 4,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [],
+    "regressions": []
+  },
+  {
+    "run": "a01d5711",
+    "id": "typescript-support-dotcom-components",
+    "head": "042100e6b57a56514449c789ba2402f5368ac0c4",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.2296794,
+    "wallSeconds": 143,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 0,
+    "missed": [
+      "cdk/eslint.config.mjs:27",
+      "eslint.config.mjs:15",
+      "eslint.config.mjs:33",
+      "eslint.config.mjs:37"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CORE4 label enforcement/require-label / require-label",
+        "bucket": "fail"
+      },
+      {
+        "name": "Build dotcom-components/dotcom-components",
+        "bucket": "skipping"
+      },
+      {
+        "name": "Build dotcom-components/Release",
+        "bucket": "skipping"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "dc9cb6b0",
+    "id": "ai-strut",
+    "head": "7a7e98ca173f0e5be6f9ce9e4ae34c31da399ac0",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 2.876563,
+    "wallSeconds": 392,
+    "uncommittedFiles": 0,
+    "humanHunks": 39,
+    "covered": 27,
+    "missed": [
+      "src/pricing.ts:31",
+      "src/pricing.ts:34",
+      "src/steps/core/agent.ts:1058",
+      "src/steps/core/agent.ts:1086",
+      "src/steps/core/agent.ts:1090",
+      "src/steps/core/agent.ts:1149",
+      "src/steps/core/agent.ts:1242",
+      "src/steps/core/llm.test.ts:8",
+      "src/steps/core/llm.ts:54",
+      "src/steps/core/llm.ts:68",
+      "src/steps/core/llm.ts:71",
+      "src/steps/core/llm.ts:74"
+    ],
+    "agentHunks": 35,
+    "agentFiles": 6,
+    "unrelated": [
+      "src/chat-endpoints.test.ts:244",
+      "src/chat-endpoints.test.ts:307",
+      "src/chat-endpoints.test.ts:312",
+      "src/llm.test.ts:71",
+      "src/llm.test.ts:111"
+    ],
+    "unverified": "couldn't run",
+    "silentSites": 4,
+    "silentEdited": [
+      "src/createStrut.ts:1796",
+      "src/steps/core/agent.ts:1104",
+      "src/steps/core/agent.ts:1168",
+      "src/steps/core/agent.ts:1261"
+    ],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "tests/test",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "ea8bd362",
+    "id": "typescript-support-dotcom-components",
+    "head": "e74c9dc341715dc747798828ab07dc46566a07b5",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 4,
+    "missed": [],
+    "agentHunks": 4,
+    "agentFiles": 2,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CORE4 label enforcement/require-label / require-label",
+        "bucket": "fail"
+      },
+      {
+        "name": "Build dotcom-components/dotcom-components",
+        "bucket": "skipping"
+      },
+      {
+        "name": "Build dotcom-components/Release",
+        "bucket": "skipping"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "edfcd070",
+    "id": "zod-fortylove",
+    "head": "7218d43d3e39c04b1eb696c6976b15bf09893e7e",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.23136120000000002,
+    "wallSeconds": 78,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 1,
+    "missed": [
+      "lib/server-action-validation.test.ts:6",
+      "lib/server-action-validation.test.ts:32",
+      "lib/server/action-input.ts:4"
+    ],
+    "agentHunks": 4,
+    "agentFiles": 4,
+    "unrelated": [],
+    "unverified": "didn't run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/verify",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/database",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "f38f08f1",
+    "id": "redis-ecommerce-store-api",
+    "head": "e65113f7733755f1ba109823c8913b933c92844d",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.62616,
+    "wallSeconds": 215,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 2,
+    "missed": [
+      "src/infrastructure/redis/redis-connection.options.ts:24",
+      "src/infrastructure/redis/redis.service.ts:7",
+      "src/infrastructure/redis/redis.service.ts:11",
+      "src/infrastructure/redis/redis.service.ts:36",
+      "src/infrastructure/redis/redis.service.ts:336"
+    ],
+    "agentHunks": 9,
+    "agentFiles": 3,
+    "unrelated": [
+      "src/infrastructure/redis/redis-connection.options.spec.ts:18",
+      "src/infrastructure/redis/redis-connection.options.spec.ts:36"
+    ],
+    "unverified": "didn't run",
+    "silentSites": 1,
+    "silentEdited": ["src/infrastructure/redis/redis-connection.options.ts:21"],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Docker Publish",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/Docker Validate",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/CI Status Check",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Integration Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/E2E Tests",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Smoke Tests",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Restore Drill",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Redis Chaos Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Restore Drill Smoke",
+        "bucket": "skipping"
+      },
+      {
+        "name": "CI/OpenAPI Audit",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Build",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Resolve env (.env.example)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Dependency Review",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Dependency Audit",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit Tests (2/2)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit Tests (1/2)",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Architecture Tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Type Check",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Code Quality",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  }
+]

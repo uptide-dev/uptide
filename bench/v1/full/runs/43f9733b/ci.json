@@ -1,0 +1,20 @@
+[
+  {
+    "bucket": "fail",
+    "name": "require-label / require-label",
+    "state": "FAILURE",
+    "workflow": "CORE4 label enforcement"
+  },
+  {
+    "bucket": "skipping",
+    "name": "Release",
+    "state": "SKIPPED",
+    "workflow": "Build dotcom-components"
+  },
+  {
+    "bucket": "skipping",
+    "name": "dotcom-components",
+    "state": "SKIPPED",
+    "workflow": "Build dotcom-components"
+  }
+]
