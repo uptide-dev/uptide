@@ -210,3 +210,40 @@ Three repositories came with the brief and were re-verified here: fortylove, eco
   - The checks are root lint and prettier, root tsc and tests, the production server build and the dotcom build, plus `cdk` lint, prettier and synth.
   - Out of the bar: `cdk`'s own `tsc` build (TS5107 at the parent's tsconfig on TS 6, and TS5107 + TS2688 on the human commit) and `cdk`'s jest snapshot (fails at the parent and on the human commit). CI never runs the `cdk` tsc build.
   - The bump-only finding in `cdk` anyway: `pnpm --dir cdk lint` fails with 5 errors, all in `cdk/lib/dotcom-components.test.ts`: 4 `@typescript-eslint/no-unsafe-call` ("Unsafe call of a type that could not be resolved", at 5:1, 6:2 and 15:3 twice) and 1 `no-unsafe-member-access` (`.toMatchSnapshot`, 15:29). The jest globals' types no longer resolve without `"types": ["jest", "node"]`. The human turned that rule and `no-unsafe-member-access` off in `cdk/eslint.config.mjs`.
+
+## Full bench, phase 2: the secondary set
+
+The headline set: 5 repositories the engine has never seen. Picked by the procedure below, written and committed before any search was run.
+
+**Timebox:** 90 minutes, from 2026-10-20T20:30Z.
+
+### Rule
+
+The same as phase 1: public, permissive license (MIT, Apache-2.0, BSD, ISC, MIT-0 or MPL-2.0), a real upgrade of a dependency with breaking changes (a major), from a human PR or a Renovate/Dependabot PR a human fixed with commits, and a base that installs, builds and passes its tests under TZ=UTC with lifecycle scripts off. The human clause is phase 1's: an upgrade commit authored by a coding agent (`claude`, `mistral-vibe`, `copilot`, `codex`, `devin`, `cursor`, any `*[bot]`) drops; a human author with an AI `Co-Authored-By:` trailer counts as human and is disclosed.
+
+### Exclusions
+
+`secondary/excluded.txt`, 134 entries, lower case, built from:
+- phase 1's list (120): every pack's `ground-truth.json` and `verification.json` as of phase 1, `bench/excluded.json`, the 30 OSS-sample repositories, the pilot's 3 (calmcp, dms-saas, enki), the pre5 repositories and the `alanagoyal` owner;
+- every `repo` field and every `github.com/<owner>/<name>` in every `packages/core/src/packs/*/ground-truth.json` and `verification.json` on `main` (`c64fb88`), in PR #269 (Prisma: AlexAgo83/cr-league, BearStudio/start-ui-web, MarvinLeRouge/HexaRot, basaltkit/basalt, bcgov/nr-permitconnect-navigator-service, jqlang/playground, openwallet-foundation-labs/ehr-wallet) and in PR #105 (recharts: hyperdxio/hyperdx, shadcn-ui/ui), the only open pack PRs;
+- the pre5 and dev-set repositories (`pre5/selection.json`, `full/selection.json`).
+
+### Search procedure (fixed before looking)
+
+- **Dependencies, in this order,** alternating a verified Uptide 0.18.2 pack and a dependency with no pack:
+  1. zod 3 → 4 (pack, verified)
+  2. tailwindcss 3 → 4 (no pack)
+  3. express 4 → 5 (pack, verified)
+  4. eslint 9 → 10 (no pack)
+  5. vitest 4 → 5 (pack, verified)
+  6. jest 29 → 30 (no pack)
+  7. next 15 → 16 (pack, verified)
+  8. mongoose 8 → 9 (no pack)
+  9. react-router / react-router-dom 6 → 7 (pack, verified)
+  10. @prisma/client 6 → 7 (no pack in 0.18.2: the pack is draft PR #269)
+- **Window:** pull requests merged 2026-07-01T00:00Z to 2026-10-20T20:30Z.
+- **Source, per dependency:** `gh search prs <package> --merged --merged-at 2026-07-01..2026-10-20 --language typescript --sort created --order desc --limit 100`, kept when the title names the package and the target major (`v4`, `@4`, ` 4`, `to 4`, `4.x`, or a `<from> to <to>` version pair). Candidates are screened newest merge first.
+- **Taking picks:** round-robin over the list in order. Each dependency's first qualifying candidate is taken in turn, until 5 are picked. A second repository for a dependency comes only after every dependency has had its turn, and never a third. A dependency gets at most 8 screened candidates per turn; with none qualifying, it gives up its turn.
+- **Screening, in this order, stopping at the first failure:** excluded or fork; license; author (human or bot-with-human-fix, never a coding agent); the merged diff moves the package across the major in a `package.json` or catalog; the diff changes a file other than manifests and lockfiles; the diff doesn't bundle other work (no other non-companion major, at most 40 files); lockfile at the root, a test script and CI; a frozen install, type-check, lint, tests and build pass at the base with TZ=UTC and scripts off.
+- **Recorded for every candidate screened:** repo, PR, merge date, and kept or why dropped.
+- **For each pick:** whether Uptide 0.18.2 has a verified pack for that upgrade, the human PR's merge date, license and author check.
