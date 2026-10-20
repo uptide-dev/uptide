@@ -54,10 +54,12 @@ claude)
     "$prompt" >"$dir/agent.json" 2>"$dir/agent.log" || status=$?
   # Claude Code does not know this model's price and reports it at an older Sonnet's; price its
   # tokens with Uptide's table (pricing.ts, per million: input, output, cache read, 5m write),
-  # the one Uptide's own cost uses.
+  # the one Uptide's own cost uses. Opus 5.5 is $4 / $20 / $0.20 / $5, as pricing.ts and
+  # https://platform.claude.com/docs/en/about-claude/pricing (read 2026-10-19) both give it.
   cost=$(jq '[.modelUsage // {} | to_entries[]
     | (if (.key | test("haiku")) then [1, 5, 0.1, 1.25]
-      elif (.key | test("fable")) then [10, 50, 0.25, 12.5] else [2, 10, 0.2, 2.5] end) as $p
+      elif (.key | test("fable")) then [10, 50, 0.25, 12.5]
+      elif (.key | test("opus-5-5")) then [4, 20, 0.2, 5] else [2, 10, 0.2, 2.5] end) as $p
     | (.value.inputTokens * $p[0] + .value.outputTokens * $p[1]
       + .value.cacheReadInputTokens * $p[2] + .value.cacheCreationInputTokens * $p[3]) / 1e6]
     | add // 0' "$dir/agent.json" 2>/dev/null || echo 0)
