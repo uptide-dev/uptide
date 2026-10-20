@@ -1,11 +1,11 @@
 generator client {
-  provider        = "prisma-client-js" // @uptide client-js-generator
+  provider        = "prisma-client-js"
   engineType      = "binary" // @uptide engine-type
   previewFeatures = ["metrics", "views"] // @uptide metrics-removed
 }
 
 generator docs {
-  provider = "prisma-docs-generator" // @uptide client-js-generator keep
+  provider = "prisma-docs-generator"
 }
 
 datasource db {

@@ -92,6 +92,22 @@ export function schemaEnvReads(text: string): { line: number; name: string }[] {
     });
 }
 
+/** Each generator's `output` and the `generator x {` line, as the schema writes them. */
+export function generators(text: string): { line: number; snippet: string; output?: string }[] {
+  const out: { line: number; snippet: string; output?: string }[] = [];
+  const lines = text.split('\n');
+  lines.forEach((raw, i) => {
+    if (/^\s*generator\s+\w+\s*\{/.test(raw)) out.push({ line: i + 1, snippet: raw.trim() });
+  });
+  for (const p of schemaProperties(text))
+    if (p.block === 'generator' && p.key === 'output') {
+      const owner = [...out].reverse().find((g) => g.line < p.line);
+      const value = /^"([^"]+)"$/.exec(p.value)?.[1];
+      if (owner && value) owner.output = value;
+    }
+  return out;
+}
+
 /** Enum members with `@map`: their runtime value changed in 7.0.0–7.2.x only. */
 export function mappedEnumMembers(text: string): number[] {
   const lines: number[] = [];
@@ -319,14 +335,23 @@ function loadedModule(source: ts.SourceFile, node: ts.Expression): string | unde
   return isRequire || isImport ? specifierText(source, e.arguments[0]) : undefined;
 }
 
-/** Local names bound to a Prisma `PrismaClient` class: imported, required or dynamically imported. */
+/**
+ * Local names bound to a Prisma `PrismaClient` class: imported, required or dynamically imported.
+ * A module the file mocks (`jest.mock('@prisma/client', …)`, `vi.mock`) gives a fake: never a site.
+ */
 function clientNames(source: ts.SourceFile): Set<string> {
   const names = new Set<string>();
+  const mocked = new Set(
+    [...source.text.matchAll(/\b(?:jest|vi)\.(?:do)?[mM]ock\(\s*['"]([^'"]+)['"]/g)].map(
+      (m) => m[1],
+    ),
+  );
+  const client = (specifier: string) => CLIENT_MODULE.test(specifier) && !mocked.has(specifier);
   walk(source, (node) => {
     if (
       ts.isImportDeclaration(node) &&
       ts.isStringLiteral(node.moduleSpecifier) &&
-      CLIENT_MODULE.test(node.moduleSpecifier.text)
+      client(node.moduleSpecifier.text)
     ) {
       const bindings = node.importClause?.namedBindings;
       if (bindings && ts.isNamedImports(bindings))
@@ -339,7 +364,7 @@ function clientNames(source: ts.SourceFile): Set<string> {
       ts.isObjectBindingPattern(node.name)
     ) {
       const from = loadedModule(source, node.initializer);
-      if (from === undefined || !CLIENT_MODULE.test(from)) return;
+      if (from === undefined || !client(from)) return;
       for (const el of node.name.elements) {
         const imported = el.propertyName ?? el.name;
         if (
@@ -487,8 +512,11 @@ export function adapterRenameSites(text: string, file: string): SourceSite[] {
 const URL_PARAM =
   /[?&](?:connection_limit|pool_timeout|connect_timeout|max_idle_connection_lifetime|max_connection_lifetime)=/;
 
+/** A test asserts a URL; the app configures its pool elsewhere. */
+const TEST_FILE = /(?:^|\/)(?:__tests__|tests?)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/;
+
 export function urlParamSites(text: string, file: string): SourceSite[] {
-  if (!SOURCE.test(file) || !URL_PARAM.test(text)) return [];
+  if (!SOURCE.test(file) || TEST_FILE.test(file) || !URL_PARAM.test(text)) return [];
   return text.split('\n').flatMap((line, i) => {
     const at = line.search(URL_PARAM);
     return at >= 0 && !/^\s*(?:\/\/|\*)/.test(line) ? [site(i + 1, at + 1, line)] : [];
