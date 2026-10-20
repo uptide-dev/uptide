@@ -112,3 +112,79 @@ Every candidate that matched the search and the GitHub-side checks, and was newe
 
 - **Timebox:** the selection was time-boxed to 30 more minutes on 2026-10-19 at about 00:15 PDT. The last searches spent most of their time waiting out GitHub's search and API rate limits and finished at 02:58 PDT, about 2.5 hours later. Selection was then closed with what they had found, without more search tuning.
 - **Rule clauses settled before any run:** the bot-merge clause, the no-build reading of "tsc clean", and the license reading were all fixed during selection, before either arm ran, and are written above.
+
+## Full bench, phase 1: the 5 headline repositories
+
+**Timebox:** 60 minutes, from 2026-10-20T04:30Z. Selection closed at 04:58Z with 5 repositories.
+
+### Rule, as given for the full bench
+
+> Public repos, permissive license, a real upgrade of a dependency that has a pack or breaking changes, sourced from either (a) a human PR or (b) a bot PR (Renovate/Dependabot) that a human then fixed by pushing commits. Base commit must build and pass tests before the upgrade. Do not reuse any pre5 repo.
+
+Three repositories came with the brief and were re-verified here: fortylove, ecommerce-store-api and support-dotcom-components. The two others were picked from stripe, next, react, ai and joi.
+
+### Clauses settled before any run
+
+- **Permissive license:** MIT, Apache-2.0, BSD, ISC, MIT-0 or MPL-2.0. That drops waitron, the pre-run's 8th pick (Elastic-2.0, source-available), along with AGPL, CC-BY-NC and "all rights reserved".
+- **Human:**
+  - A commit whose author is a coding agent is not a human's, so it drops: `claude`, `mistral-vibe`, or any `*[bot]`.
+  - A commit by a human with a `Co-Authored-By:` trailer naming an AI assistant is the human's. strut and yea are in on this reading.
+- **Builds and passes tests:**
+  - At the parent, with lifecycle scripts off, the repository's own CI commands for type-check, lint, tests and build all pass.
+  - A build step CI runs before its tests counts (yea).
+  - Generated code that only a lifecycle script makes doesn't count (CircleSfera's Prisma client).
+- **Same Node for all:** Node 22.20.0, the machine's default. ecommerce-store-api asks for Node ≥24 (CI runs 24), and its 1,724 tests pass on 22 too.
+
+### The 5
+
+| # | repo | pack | from → to | PR, merged (UTC) | parent | source | license |
+|---|---|---|---|---|---|---|---|
+| 1 | kukukucode/fortylove | zod | 3.25.76 → 4.6.7 | #55, 2026-10-18 09:33 | `fe27ace3` | human | MIT |
+| 2 | raouf-b-dev/ecommerce-store-api | redis | 5.8.0 → 6.3.0 | #310, 2026-10-17 20:31 | `c9cd358a` | Dependabot + 3 human commits | MIT |
+| 3 | guardian/support-dotcom-components | typescript | 5.9.3 → 6.0.3 | #1856, 2026-10-19 13:59 | `4a256bfe` | Dependabot + 11 human commits | Apache-2.0 |
+| 4 | stakwork/strut | ai | 6.0.235 → 7.0.105 | #11, 2026-09-18 04:13 | `41fb9678` | human, Claude co-author trailer | Apache-2.0 |
+| 5 | yea-protocol/yea | stripe | 22.6.2 → 23.0.0 | #268, 2026-10-16 00:22 | `e1e4b7b0` | human, supersedes Dependabot #259; Claude co-author trailer | Apache-2.0 |
+
+- Full SHAs and check commands are in `full/selection.json`.
+- Diffs, silent changes and "mergeable" are in `full/ground-truth.md`.
+- None of the 5 is in a pack's `ground-truth.json` or `verification.json`, in `bench/excluded.json`, in the OSS sample, in the pilot or in pre5.
+
+### Re-verifying the three given
+
+- **fortylove:**
+  - The claim holds: no silent change, and tsc catches the `.default` change (TS2769 at `lib/server-action-validation.ts:29` on the bump-only tree).
+  - Zod 4's stricter `.uuid()` and `.email()` also apply, but the human kept them, so they aren't scored.
+- **ecommerce-store-api:**
+  - The claim holds: 1 silent change (RESP3), and the human accepted it with a doc line at the options builder. The bump-only tree passes all 1,724 tests.
+  - It fails lint (an unnecessary assertion), once the eslint cache is cold.
+- **support-dotcom-components:**
+  - The claim holds: the human change is tsconfig and eslint only, and root jest needs TZ=UTC (8 of 620 fail in America/Los_Angeles).
+  - The human's change is needed for `cdk` lint, which the bump-only tree fails.
+
+### Candidates looked at and dropped (stripe, next, react, ai, joi)
+
+| repo | pack | why dropped |
+|---|---|---|
+| clintongormley/waitron | stripe | Elastic-2.0, not permissive (pre-run pick 8) |
+| icco/etu-web#230 | stripe | CC-BY-NC-4.0 |
+| coding4vinayak/aw-leadgenius#13 | stripe | "All rights reserved" |
+| The-Obstacle-Is-The-Way/naltrexone-university#400 | stripe | proprietary license |
+| Soluciones-Alexendros/saas-afiladocs#47 | stripe | "Todos los derechos reservados" |
+| RubenOussoren/roms-finance#112, ghostfolio/ghostfolio#8182 | stripe | AGPL-3.0 |
+| hideokamoto/kotodayori#107 | stripe | every commit authored by `claude` |
+| JIGLE/situs#206 | stripe | authored by `claude`, no license file |
+| hideokamoto/pricectl#43 | stripe | 35 commits, 56 files: review fixes mixed with the upgrade |
+| CircleSfera/CircleSfera#253 | stripe | the backend's tsc and tests need `prisma generate`, which only a lifecycle script runs: 1,903 TS errors at the parent |
+| FlorentDub/BouffePourTous#38 | next | every commit authored by `mistral-vibe` |
+| workos/next-b2b-starter-kit#16 | next | no test script; also moves React 19, AuthKit 4 and ESLint 9 together |
+| ncuyyGans/By-Sy#16, Ljupce11/next-food-delivery-app#9 | next | no license |
+| anyuer678/lumen#19 | react | the React app in `web/` has no test script |
+| MAXOUXAX/Isabelle#347 | ai | AGPL-3.0 |
+| ringotypowriter/yachiyo#70 | ai | 65 files across two apps; strut is newer to check and smaller |
+| (joi) | joi | no human 17 → 18 upgrade in the window: only Snyk patch bumps within 18 |
+
+**Search:**
+- `bench/v1/find-candidates.mjs` (`ONLY=stripe,next,react,ai,joi`, both modes) ran for 17 minutes and was stopped.
+  - Its bot mode had read 611 bot pull requests, newest first, back to 2026-10-19 22:05Z. None had a human source commit.
+  - Its human mode returned nothing in that time.
+- The picks came from GitHub pull-request search instead. It covered human upgrade titles, Stripe's `endive` API version, Next 16's middleware-to-proxy rename and AI SDK v7, plus 96 bot bump PRs for stripe, next and joi. None of those 96 had a human, non-merge commit touching source.

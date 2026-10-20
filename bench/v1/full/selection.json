@@ -1,0 +1,168 @@
+{
+  "$comment": "UpgradeBench v1 full bench, phase 1 (bench/v1/repos.md). Ground truth for each repository is bench/v1/full/ground-truth.md; `silent` lists the behavior changes no check catches, scored by bench/score.mjs.",
+  "repos": [
+    {
+      "id": "zod-fortylove",
+      "repo": "kukukucode/fortylove",
+      "license": "MIT",
+      "pack": "zod",
+      "package": "zod",
+      "from": "3.25.76",
+      "to": "4.6.7",
+      "parent": "fe27ace3ac8d2457362747eebd16b5b5d9760ca9",
+      "upgrade": "f11bf7a9042a0b3e7fa5bee6c0610c1e3ce4b7bd",
+      "pr": 55,
+      "merged": "2026-10-18T09:33:28Z",
+      "source": "human",
+      "checks": {
+        "install": "pnpm install --frozen-lockfile --ignore-scripts",
+        "typecheck": "pnpm typecheck",
+        "lint": "pnpm lint",
+        "test": "pnpm test",
+        "build": "pnpm build"
+      },
+      "silent": []
+    },
+    {
+      "id": "redis-ecommerce-store-api",
+      "repo": "raouf-b-dev/ecommerce-store-api",
+      "license": "MIT",
+      "pack": "redis",
+      "package": "redis",
+      "from": "5.8.0",
+      "to": "6.3.0",
+      "parent": "c9cd358a709603033cff390068dc3e97b12b34be",
+      "upgrade": "857bbbdc764d68f6dae976750f72fee3758f19e5",
+      "pr": 310,
+      "merged": "2026-10-17T20:31:33Z",
+      "source": "Dependabot + 3 human commits",
+      "checks": {
+        "install": "npm ci --ignore-scripts",
+        "typecheck": "npm run typecheck",
+        "lint": "npm run lint:check",
+        "test": "npm test",
+        "build": "npm run build"
+      },
+      "silent": [
+        {
+          "record": "redis-resp3-default",
+          "file": "src/infrastructure/redis/redis-connection.options.ts",
+          "line": 21,
+          "end": 40,
+          "at": [
+            { "file": "src/infrastructure/redis/redis.service.ts", "from": 52, "to": 54 },
+            {
+              "file": "src/infrastructure/websocket/adapters/redis-io.adapter.ts",
+              "from": 25,
+              "to": 27
+            }
+          ],
+          "keep": "RESP",
+          "mention": "RESP ?3|RESP3|RESP: ?[23]\\b|protocol (version )?(2|3)",
+          "note": "redis 6 connects with RESP3 by default; redis 5 used RESP2. Every client is built from buildNodeRedisClientOptions. Caught if the run pins RESP there or at either createClient call, or names the RESP3 change."
+        }
+      ]
+    },
+    {
+      "id": "typescript-support-dotcom-components",
+      "repo": "guardian/support-dotcom-components",
+      "license": "Apache-2.0",
+      "pack": "typescript",
+      "package": "typescript",
+      "from": "5.9.3",
+      "to": "6.0.3",
+      "parent": "4a256bfe25626067f4548cbd121aa4bf62ecbe79",
+      "upgrade": "e74c9dc341715dc747798828ab07dc46566a07b5",
+      "pr": 1856,
+      "merged": "2026-10-19T13:59:21Z",
+      "source": "Dependabot + 11 human commits",
+      "note": "Root and cdk/ both pin typescript. Root jest needs TZ=UTC (8 of 620 fail otherwise); run.sh exports it. cdk's jest snapshot fails at the parent and on the human commit, so it is not a check; CI's cdk lint, prettier and synth are.",
+      "checks": {
+        "install": "pnpm install --frozen-lockfile --ignore-scripts",
+        "typecheck": "pnpm tsc",
+        "lint": "pnpm lint && pnpm prettier:check && pnpm --dir cdk lint && pnpm --dir cdk prettier:check",
+        "test": "pnpm test",
+        "build": "NODE_ENV=production pnpm build-server && pnpm build-dotcom && pnpm --dir cdk synth"
+      },
+      "silent": []
+    },
+    {
+      "id": "ai-strut",
+      "repo": "stakwork/strut",
+      "license": "Apache-2.0",
+      "pack": "ai",
+      "package": "ai",
+      "from": "6.0.235",
+      "to": "7.0.105",
+      "parent": "41fb96780e2ceb06a0d1d3cb120d60766413c180",
+      "upgrade": "eda56a5f011f92db056f920da1274c04d9128e4d",
+      "pr": 11,
+      "merged": "2026-09-18T04:13:00Z",
+      "source": "human (commits carry Co-Authored-By: Claude)",
+      "checks": {
+        "install": "yarn install --frozen-lockfile --ignore-scripts",
+        "typecheck": "yarn tsc --noEmit",
+        "test": "npm test",
+        "build": "yarn tsc"
+      },
+      "silent": [
+        {
+          "record": "ai-response-final-step",
+          "file": "src/createStrut.ts",
+          "line": 1796,
+          "end": 1797,
+          "keep": "responseMessages",
+          "mention": "final[- ]step|last step|responseMessages",
+          "note": "ai 7's result.response is the final step only (deprecated); chat history keeps only the last step's messages."
+        },
+        {
+          "record": "ai-response-final-step",
+          "file": "src/steps/core/agent.ts",
+          "line": 1104,
+          "at": [{ "file": "src/steps/core/agent.ts", "from": 1068, "to": 1075 }],
+          "keep": "responseMessages",
+          "mention": "final[- ]step|last step|responseMessages",
+          "note": "The agent step's returned messages come from res.response, set from attempt.response."
+        },
+        {
+          "record": "ai-response-final-step",
+          "file": "src/steps/core/agent.ts",
+          "line": 1168,
+          "keep": "responseMessages",
+          "mention": "final[- ]step|last step|responseMessages",
+          "note": "The schema nudge continuation's messages."
+        },
+        {
+          "record": "ai-response-final-step",
+          "file": "src/steps/core/agent.ts",
+          "line": 1261,
+          "keep": "responseMessages",
+          "mention": "final[- ]step|last step|responseMessages",
+          "note": "The final-answer nudge continuation's messages."
+        }
+      ]
+    },
+    {
+      "id": "stripe-yea",
+      "repo": "yea-protocol/yea",
+      "license": "Apache-2.0",
+      "pack": "stripe",
+      "package": "stripe",
+      "from": "22.6.2",
+      "to": "23.0.0",
+      "parent": "e1e4b7b0d9a693e1626f5e72bec4f12fb4780422",
+      "upgrade": "a06262ce335de26dae7cdbaea3656a57dce41555",
+      "pr": 268,
+      "merged": "2026-10-16T00:22:43Z",
+      "source": "human, superseding Dependabot #259 (commit carries Co-Authored-By: Claude Opus 5.5)",
+      "note": "npm workspaces; stripe is a dependency of connectors/stripe. Tests read ts/dist, so the test step builds first, as CI does.",
+      "checks": {
+        "install": "npm ci --ignore-scripts",
+        "lint": "npm run lint && npm run lint:style && npm run lint:structure",
+        "test": "npm run build && npm test",
+        "build": "npm run build"
+      },
+      "silent": []
+    }
+  ]
+}
