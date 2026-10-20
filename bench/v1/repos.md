@@ -309,3 +309,14 @@ Given by the user at the gate, and applied to every candidate from here on:
 Picks 2 and 4 (davide-pi/matrimonio-elena-e-davide#30, davide-pi/wedding-uploads-elena-e-davide#15) are **dropped** under (a), and 4 under (b) as well. Neither was forked: `gh repo list uptide-bench` lists no `davide-pi--*` repository, so nothing needed deleting.
 
 The 2 slots are filled by continuing the committed procedure where it stopped: turn 3, after vitest's pick, in the same order, round-robin and limit of 2 per dependency.
+
+### Amendment 2, 2026-10-20 (the user's decision, recorded before screening further)
+
+- **Feasibility rule:** "the base test suite that defines mergeable must run locally in at most 20 minutes, with any services it needs provided by the harness via docker (as Postgres for context-library). Suites that need sharded or multi-service integration infrastructure are out."
+  - Applied to every candidate, the current picks included. **None of the current picks is affected:**
+    - context-library: 866 tests against one docker Postgres, about 10 s.
+    - riseup-oss/mcp: 34 tests in seconds, no service.
+    - ai-flaky-test-triage: 1966 tests plus the demo, about 1 minute, no service.
+  - payloadcms/payload#17747 drops under it.
+- **Parent type-check gap:** Uptide's parent type-check runs the repository's TypeScript compiler with the key visible (`arms.md`, phase 2). The user accepted it on 2026-10-20 ("it cannot affect results") and will open it as an engine hygiene issue. No engine change.
+- **Extension:** 60 minutes more of screening, from 22:05Z. The procedure continues where it stopped: react-router turn 3, then Prisma turn 3, then turn 4. With 5 picks, proceed. With 4, proceed and say so. With 3 or fewer, stop.

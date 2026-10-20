@@ -199,4 +199,4 @@ mongoose	3	MoathDawahreh/logistics-management#106	2026-09-04 18:09	dropped	no li
 mongoose	3	SciCatProject/backend#2906	2026-08-31 11:28	dropped	not mongoose (@casl/mongoose 8 → 9, @casl/ability 6 → 7)
 mongoose	3	benjeater/autographcraft#20	2026-08-29 07:34	dropped	bundles GraphQL 17
 mongoose	3	esclickteam/invistimo-events#72	2026-08-12 21:19	dropped	no license; commit authored by `cursoragent`
-mongoose	3	payloadcms/payload#17747	2026-08-12 11:06	**pending**	GitHub-side rule met: MIT; human (r1tsuu), no AI trailer; mongoose 8.22/8.24 → 9.9.2 with its companion mongodb driver 6 → 7; 11 files, 6 source; root pnpm-lock.yaml. Base check not run: `db-mongodb` has no test script, and the repository's tests are Payload's sharded integration suite against MongoDB. Stopped for the user's call
+mongoose	3	payloadcms/payload#17747	2026-08-12 11:06	dropped	feasibility rule (amendment 2): the suite that defines mergeable is Payload's sharded integration suite against MongoDB; `db-mongodb` has no test script of its own. GitHub-side rule met otherwise (MIT, human, no AI trailer, mongoose 8 → 9 with mongodb 6 → 7)
