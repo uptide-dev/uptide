@@ -12,8 +12,9 @@
 // - regressions: local checks and CI checks that fail on the run and pass on the reference.
 // - unverified: whether the run's summary or PR body says what it did not verify.
 // - silent changes (ADR 0017): the selection's `silent` sites, behavior the upgrade must keep that
-//   no check shows. Caught when the run's diff touches the site's line and the file at the run's
-//   head has the `keep` edit, or when the PR body names the record. A silent false positive is a
+//   no check shows. Caught when the run's diff touches the site's lines (or one of its `at` places)
+//   and that file at the run's head has the `keep` edit, or when the PR body names the record or
+//   matches the site's `mention`. A silent false positive is a
 //   site a PR body's "Behavior change (<record>)" line names that the selection does not.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -59,10 +60,22 @@ export function compare(human, agent) {
 export function silent(entry, agent, summary, headText) {
   const truth = entry.silent ?? [];
   const touched = new Set(agent.flatMap((h) => lines(h).map((l) => `${h.file}:${l}`)));
-  const edited = truth.filter(
-    (s) => touched.has(`${s.file}:${s.line}`) && new RegExp(s.keep).test(headText(s.file)),
+  // A site may also name `at`: other places the same fix can go, each a file and a line range.
+  const places = (s) => [{ file: s.file, from: s.line, to: s.end ?? s.line }, ...(s.at ?? [])];
+  const edited = truth.filter((s) =>
+    places(s).some(
+      (p) =>
+        Array.from({ length: p.to - p.from + 1 }, (_, i) => p.from + i).some((l) =>
+          touched.has(`${p.file}:${l}`),
+        ) && new RegExp(s.keep).test(headText(p.file)),
+    ),
   );
-  const decided = truth.filter((s) => !edited.includes(s) && summary.includes(s.record));
+  // Decided: the PR body or summary names the record, or matches the site's `mention`.
+  const decided = truth.filter(
+    (s) =>
+      !edited.includes(s) &&
+      (summary.includes(s.record) || (s.mention && new RegExp(s.mention, 'i').test(summary))),
+  );
   const known = new Set(truth.map((s) => `${s.record} ${s.file}:${s.line}`));
   const named = [...summary.matchAll(/\*\*Behavior change \(([^)\s]+)\):\*\*([^\n]*)/g)].flatMap(
     ([, record, line]) =>

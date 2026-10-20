@@ -71,3 +71,25 @@ test('silent changes: caught by the keep edit at the site or a decision naming t
   });
   assert.equal(silent({}, agent, body, head).silentSites, 0);
 });
+
+test('silent changes: a site caught at another place it names, or by a mention in the summary', () => {
+  const entry = {
+    silent: [
+      {
+        record: 'redis-resp3',
+        file: 'src/options.ts',
+        line: 21,
+        end: 40,
+        at: [{ file: 'src/service.ts', from: 52, to: 54 }],
+        keep: 'RESP',
+        mention: 'RESP ?3',
+      },
+    ],
+  };
+  const pinned = hunks(diff('diff --git a/src/service.ts b/src/service.ts', '@@ -53,0 +54 @@'));
+  const head = (file) => (file === 'src/service.ts' ? 'createClient({ RESP: 2 })' : '');
+  assert.deepEqual(silent(entry, pinned, '', head).silentEdited, ['src/options.ts:21']);
+  const said = silent(entry, [], 'redis 6 defaults to RESP3 here', () => '');
+  assert.deepEqual([said.silentEdited, said.silentDecided], [[], ['src/options.ts:21']]);
+  assert.deepEqual(silent(entry, [], 'bumped redis', () => '').silentDecided, []);
+});
