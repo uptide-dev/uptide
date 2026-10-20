@@ -421,3 +421,85 @@ it.each([
     );
   },
 );
+
+it('refuses an out-of-scope dependency bump every round, says so in the next prompt, and stops at the round limit (UPT-126)', async () => {
+  const { root, services } = await fixture();
+  const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  manifest.dependencies = { ...manifest.dependencies, 'left-pad': '1.0.0' };
+  writeFileSync(join(root, 'package.json'), JSON.stringify(manifest));
+  git(root, 'commit', '-qam', 'an unrelated dependency');
+  const prompts: string[] = [];
+  const runner: TaskRunner = async ({ prompt }) => {
+    prompts.push(prompt);
+    const now = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    now.dependencies['left-pad'] = '2.0.0';
+    writeFileSync(join(root, 'package.json'), JSON.stringify(now));
+    return runResult;
+  };
+  const result = await fix(
+    { ...options(root), maxCostUsd: 1 },
+    { ...services, agentRunner: runner },
+  );
+  expect(prompts).toHaveLength(3);
+  expect(prompts[0]).not.toContain('left-pad');
+  for (const prompt of prompts.slice(1))
+    expect(prompt).toContain(
+      "out of the agent's scope: Uptide's install sets every existing version and range, the upgraded package's and its companions' included; only adding a new dependency is allowed, and a stated reason does not change that: package.json dependencies left-pad: 1.0.0 → 2.0.0",
+    );
+  expect(result.llm.tasks?.map((t) => t.gate)).toEqual(['rejected', 'rejected', 'rejected']);
+  for (const task of result.llm.tasks ?? [])
+    expect(task.outOfScopeDependencyEdits).toEqual([
+      {
+        file: 'package.json',
+        field: 'dependencies',
+        name: 'left-pad',
+        before: '1.0.0',
+        after: '2.0.0',
+        reverted: true,
+      },
+    ]);
+  // The engine's own bump of zod stays; the agent's bump of left-pad never lands.
+  expect(
+    JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies['left-pad'],
+  ).toBe('1.0.0');
+  expect(prBody(result)).toContain('left-pad: 1.0.0 → 2.0.0');
+});
+
+it('sends a dependency bump refused in the first agent pass back with the first round (UPT-126)', async () => {
+  const { root, services, report } = await fixture();
+  const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  manifest.dependencies = { ...manifest.dependencies, 'left-pad': '1.0.0' };
+  writeFileSync(join(root, 'package.json'), JSON.stringify(manifest, null, 2));
+  git(root, 'commit', '-qam', 'an unrelated dependency');
+  // A site the pack leaves manual in package.json (the sentry pack's script lines): the
+  // first pass may edit that file.
+  const [pkg] = report.packages;
+  pkg?.findings.push({
+    change: { package: 'zod', from: '3.25.76', to: '4.6.5', path: 'scripts', kind: 'removed' },
+    usage: { file: 'package.json', line: 2, column: 1, snippet: '"name": "consumer",' },
+    severity: 'breaking',
+    confidence: 'high',
+    fixability: 'assisted',
+    reason: 'a script the upgrade changes',
+  } as never);
+  const prompts: string[] = [];
+  const runner: TaskRunner = async ({ prompt }) => {
+    prompts.push(prompt);
+    if (prompts.length === 1) {
+      const now = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+      now.dependencies['left-pad'] = '2.0.0';
+      writeFileSync(join(root, 'package.json'), JSON.stringify(now, null, 2));
+    }
+    return runResult;
+  };
+  const result = await fix(
+    { ...options(root), maxCostUsd: 1 },
+    { ...services, agentRunner: runner },
+  );
+  expect(result.llm.tasks?.[0]).toMatchObject({
+    gate: 'rejected',
+    outOfScopeDependencyEdits: [{ name: 'left-pad', before: '1.0.0', after: '2.0.0' }],
+  });
+  expect(prompts.length).toBeGreaterThan(1);
+  expect(prompts[1]).toContain('package.json dependencies left-pad: 1.0.0 → 2.0.0');
+});

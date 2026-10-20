@@ -1279,6 +1279,17 @@ export function renderMigration(
         return `- ${file}: ${[...new Set([...agent, ...sites])].join('; ') || 'No explanation retained; review this test change before merging.'}${added.join('')}`;
       }),
     );
+  // New dependencies an accepted agent edit declared: kept, never a reason to hold the PR (UPT-126).
+  const agentAdded = (report.llm.tasks ?? [])
+    .filter((task) => task.gate === 'accepted')
+    .flatMap((task) => task.agentAddedDependencies ?? []);
+  if (agentAdded.length)
+    lines.push(
+      '',
+      '**Added by the agent**',
+      '',
+      ...agentAdded.map((d) => `- \`${d.name}\` ${d.after} in ${d.file} (${d.field})`),
+    );
   if (mode === 'compact')
     return `${lines
       .filter((l): l is string => typeof l === 'string')

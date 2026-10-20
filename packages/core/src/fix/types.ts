@@ -163,6 +163,19 @@ export interface FixtureProperty {
   /** The literal as written (`'ok'`). */
   value: string;
 }
+/**
+ * A dependency declaration an agent session changed in a `package.json` (UPT-126): refused and
+ * reverted when it changes or removes an existing one, or touches overrides, resolutions, `pnpm`
+ * or a package-manager file (no `name` then); kept when it adds a new one.
+ */
+export interface DependencyEdit {
+  file: string;
+  field?: string;
+  name?: string;
+  before?: string;
+  after?: string;
+  reverted?: true;
+}
 /** One SDK session over the package's manual sites, measured, and the gate's verdict. */
 export interface AgentTaskRecord {
   id: string;
@@ -194,6 +207,10 @@ export interface AgentTaskRecord {
   diffs?: Record<string, string>;
   /** Fixture properties the gate accepted because the compiler reported them missing. */
   fixtureProperties?: FixtureProperty[];
+  /** Dependency edits the gate refused and reverted: out of the upgrade's scope (UPT-126). */
+  outOfScopeDependencyEdits?: DependencyEdit[];
+  /** New dependencies the agent declared in an accepted edit, listed under "Added by the agent". */
+  agentAddedDependencies?: DependencyEdit[];
   summary?: AgentSummary;
 }
 export interface FixRequest {
