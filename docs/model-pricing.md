@@ -1,13 +1,15 @@
 # Model pricing and budget accounting
 
-Reviewed **2026-10-04**. USD per million tokens, standard text inference. Source of
+Reviewed **2026-10-04**; every Anthropic cell re-checked against the
+[Anthropic pricing page](https://platform.claude.com/docs/en/about-claude/pricing) on
+**2026-10-20**. USD per million tokens, standard text inference. Source of
 truth in code: `packages/core/src/llm/pricing.ts`. No paid built-in tools, batch,
 priority processing, explicit prompt caching or service-tier upgrades are requested.
 
 | Provider/model | Input | Output | Cached input | Cache write (5m / 1h where applicable) |
 | --- | ---: | ---: | ---: | ---: |
 | Anthropic Sonnet 4.6 | 3 | 15 | 0.30 | 3.75 / 6 |
-| Anthropic Sonnet 5.5 | 2 | 10 | 0.20 | 2.50 / 4 |
+| Anthropic Sonnet 5.5 | 2 | 10 | 0.10 | 2.50 / 4 |
 | Anthropic Opus 5.5 | 4 | 20 | 0.20 | 5 / 8 |
 | Anthropic Fable 5.1 | 10 | 50 | 0.25 | 12.50 / 20 |
 | Anthropic Haiku 4.5 (`20251001`) | 1 | 5 | 0.10 | 1.25 / 2 |
@@ -33,10 +35,42 @@ rates end on 2026-12-31; from 2027-01-01 the table automatically uses 1.50 input
 
 ## Agent SDK budget
 
-`fix` runs only with the Agent SDK executor. Its reported session cost comes from the SDK;
-the package's session receives its budget, and enforcement after each turn can overshoot
-by one turn. The reservation model below applies to the patch executor and the OpenAI and
-Gemini rates, which remain for Uptide's own evaluations (`UPTIDE_INTERNAL=1`).
+`fix` runs only with the Agent SDK executor. The package's session receives its budget, and
+the SDK's enforcement after each turn can overshoot by one turn. The reservation model below
+applies to the patch executor and the OpenAI and Gemini rates, which remain for Uptide's own
+evaluations (`UPTIDE_INTERNAL=1`).
+
+`llm.costUsd` is computed by Uptide from the table above, so anyone can redo it by hand.
+`report.json` and `fix --json` list each model under `llm.models`:
+
+| Field | Meaning |
+| --- | --- |
+| `inputTokens` | uncached input |
+| `cacheReadTokens` | cache hits and refreshes |
+| `cacheWriteTokens` / `cacheWriteHourTokens` | 5-minute / 1-hour cache writes |
+| `outputTokens` | output, thinking included |
+| `rates` | the USD per million tokens applied to each class |
+| `costUsd` | the sum of tokens x rate / 1,000,000, rounded up to the nanodollar |
+| `sdkReportedCostUsd` | the SDK's own figure for that model |
+
+`llm.costUsd` is the total of the rows, and `llm.sdkReportedCostUsd` is the SDK's
+`total_cost_usd`, from the SDK's built-in price table, kept apart and never mixed in.
+`llm.inputTokens` counts uncached input only, summed over models; before UPT-127 it also
+counted cache reads and writes. The per-session records (`llm.tasks`) carry the same fields.
+
+The SDK gives tokens per model but splits cache writes by TTL only for the main loop:
+those 1-hour writes are priced on the session's model. **Assumption:** every cache write by
+any other model (a subagent, compaction) is priced as a 5-minute write. Had it been a
+1-hour write, the computed cost is low by the difference (on Sonnet 5.5, $1.50 per million
+written tokens); the 5% check against the SDK's figure and the `--max-cost` rule below
+still apply.
+
+`--max-cost` counts the higher of the computed and the SDK-reported cost, so a wrong
+table never lets a run spend past the limit by Uptide's own accounting. When the two
+differ by more than 5% of the higher, the run prints both on the terminal and lists the
+line in `llm.warnings` (never in the PR body). A model with no row in the table gets no
+guessed rate: its cost is the SDK's figure, the row has no `rates` and is marked
+`unverified`, `llm.costUnverified` is set, and the run warns.
 
 ## Reservation and actual spend
 

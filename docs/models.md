@@ -96,7 +96,10 @@ it can overshoot by one turn.
 The summary's `Phases` row and the PR's run details give wall time per phase (analyze,
 baseline, install, rules, agent, verify, feedback) and the agent's spend in each.
 
-Unknown models use Anthropic's highest listed rates with a warning. See
+`llm.costUsd` is computed from Uptide's price table per model and token class; the SDK's
+own figure is `llm.sdkReportedCostUsd`, and `--max-cost` counts the higher of the two.
+With the SDK, an unknown model's cost is the SDK's figure, marked unverified; with the
+patch executor, unknown models use Anthropic's highest listed rates with a warning. See
 [model pricing](model-pricing.md) for rates, token estimation and the scope of accounting.
 
 ## Privacy

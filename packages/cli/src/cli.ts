@@ -1262,6 +1262,8 @@ ${runnable(PRIVACY)}`,
                 `\n${formatFixSummary(report, { color: ui.color, invocation: INVOCATION, suggest, cwd, ms: io.now() - started })}`,
               );
             io.err(whereItRan(report));
+            // Cost accounting warnings: the terminal's (and --json's), never the PR body's.
+            for (const warning of report.llm.warnings ?? []) io.err(`${warning}\n`);
             // The plan and its warnings, now that no spinner is drawing.
             if (report.publicationLog && !flags.json) io.err(`\n${report.publicationLog}\n`);
             if (report.publication?.refused.length)

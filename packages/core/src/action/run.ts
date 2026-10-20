@@ -5,6 +5,7 @@ import { isMajorUpgrade, NO_PACK_YET, noPackBlockers } from '../fix/no-pack.js';
 import { sdkRequired } from '../fix/sdk-agent.js';
 import type { FixReport } from '../fix/types.js';
 import type { ListedDependency, ListReport } from '../list/list.js';
+import { chargedUsd } from '../llm/pricing.js';
 import { loadUptideConfig } from '../onboarding/node.js';
 import { DEFAULT_CONFIG, UPTIDE_CONFIG_FILE, type UptideConfig } from '../onboarding/schema.js';
 import { packStatus, registeredPacks } from '../packs/index.js';
@@ -421,7 +422,7 @@ export async function runAction(
       );
       continue;
     }
-    budget -= (fixed.llm?.costUsd ?? 0) + (fixed.llm?.unreportedCostUsd ?? 0);
+    budget -= (fixed.llm ? chargedUsd(fixed.llm) : 0) + (fixed.llm?.unreportedCostUsd ?? 0);
     let pr: { number: number; url: string } | null = null;
     let error: string | undefined;
     // `uptide pr` refuses these too; asking it would only turn the reason into a failure. A

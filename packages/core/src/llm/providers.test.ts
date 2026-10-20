@@ -38,10 +38,22 @@ for (const provider of PROVIDERS) {
     const reply = await fixer?.fix(request);
     expect(reply?.diff).toContain('+++ b/src/a.ts');
     expect(reply?.failure).toBeUndefined();
-    expect(reply?.inputTokens).toBe(100);
     expect(reply?.outputTokens).toBe(20);
     const normalized = required(adapters[provider].parse(recorded(provider)).usage);
     expect(reply?.costUsd).toBe(usageCost(provider, model, normalized));
+    // Uncached input only; each class in the per-model row (UPT-127).
+    expect(reply?.inputTokens).toBe(normalized.inputTokens - normalized.cachedInputTokens);
+    expect(reply?.models).toEqual([
+      expect.objectContaining({
+        model,
+        inputTokens: normalized.inputTokens - normalized.cachedInputTokens,
+        cacheReadTokens: normalized.cachedInputTokens,
+        cacheWriteTokens: normalized.cacheWriteTokens,
+        cacheWriteHourTokens: normalized.cacheWriteHourTokens,
+        outputTokens: 20,
+        costUsd: reply?.costUsd,
+      }),
+    ]);
     const [url, options] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).not.toContain('test-only');
     expect(JSON.stringify(options.headers)).toContain('test-only');
@@ -341,7 +353,7 @@ it('uses Chat Completions only for an explicit base URL and accounts for returne
   expect(body.input).toBeUndefined();
   expect(body.instructions).toBeUndefined();
   expect(reply.failure).toBeUndefined();
-  expect(reply.inputTokens).toBe(100);
+  expect(reply.inputTokens).toBe(90);
   expect(reply.outputTokens).toBe(20);
   expect(reply.costUsd).toBeCloseTo((90 * 2 + 10 * 0.1 + 20 * 10) / 1e6, 8);
   expect(reply.responseModel).toBe('gpt-6.1-sol');

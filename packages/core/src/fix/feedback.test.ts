@@ -101,6 +101,22 @@ it('starts no session the remaining budget is below a typical session for (UPT-1
   );
 });
 
+it('counts the higher of computed and SDK-reported cost against --max-cost (UPT-127)', async () => {
+  for (const [costUsd, sdkReportedCostUsd] of [
+    [0.05, 0.1],
+    [0.1, 0.05],
+  ] as const) {
+    const { root, services } = await fixture();
+    const runner = vi.fn<TaskRunner>(async () => ({ ...runResult, costUsd, sdkReportedCostUsd }));
+    const result = await fix(options(root), { ...services, agentRunner: runner });
+    // Either way $0.10 a session counts: the second gets $0.15, and no third starts.
+    expect(runner.mock.calls.map(([input]) => input.maxBudgetUsd)).toEqual([0.25, 0.15]);
+    expect(result.llm.feedback?.stopped).toEqual({ remainingUsd: 0.05, typicalUsd: 0.1 });
+    expect(result.llm.costUsd).toBeCloseTo(2 * costUsd, 9);
+    expect(result.llm.sdkReportedCostUsd).toBeCloseTo(2 * sdkReportedCostUsd, 9);
+  }
+});
+
 it('does not send failures already present at the parent to the agent', async () => {
   const { root, services } = await fixture();
   services.tests = async () => [{ workspace: '.', status: 'failed', output: 'old failure' }];

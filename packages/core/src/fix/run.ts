@@ -20,7 +20,7 @@ import {
   providerFixer,
   sdkCostEstimate,
 } from '../llm/fixer.js';
-import { nanos } from '../llm/pricing.js';
+import { addSpend, chargedUsd, nanos } from '../llm/pricing.js';
 import { packageChangelog, usedNames } from '../packs/changelog.js';
 import { decidedRules, decisionInventory, packDecisions } from '../packs/decisions.js';
 import { genericPack } from '../packs/generic.js';
@@ -1269,14 +1269,14 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     );
     if (!feedback && !(round === 1 && fallback.length)) break;
     const remaining =
-      (nanos(maxCostUsd) - nanos(llm.costUsd) - nanos(llm.unreportedCostUsd ?? 0)) / 1e9;
+      (nanos(maxCostUsd) - nanos(chargedUsd(llm)) - nanos(llm.unreportedCostUsd ?? 0)) / 1e9;
     if (remaining < 0.02 || llm.unreportedCostUsd) break;
     // A session that would likely cross the limit is not started: one that does stops at the
     // limit mid-edit, and its spend buys nothing (UPT-111).
     // ponytail: the mean of this run's sessions; a per-pack history if sessions vary widely.
-    const sessions = (llm.tasks ?? []).filter((t) => t.costUsd > 0);
+    const sessions = (llm.tasks ?? []).filter((t) => chargedUsd(t) > 0);
     const typicalUsd = sessions.length
-      ? sessions.reduce((n, t) => n + t.costUsd, 0) / sessions.length
+      ? sessions.reduce((n, t) => n + chargedUsd(t), 0) / sessions.length
       : 0;
     if (remaining < typicalUsd) {
       feedbackLimits.stopped = { remainingUsd: remaining, typicalUsd };
@@ -1325,9 +1325,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     feedbackLimits.roundsUsed++;
     const lastAttempt = next.tasks?.at(-1);
     previousAttempt = lastAttempt?.rejection ?? lastAttempt?.stop ?? '';
-    llm.inputTokens += next.inputTokens;
-    llm.outputTokens += next.outputTokens;
-    llm.costUsd = (nanos(llm.costUsd) + nanos(next.costUsd)) / 1e9;
+    addSpend(llm, next);
     if (next.unreportedCostUsd)
       llm.unreportedCostUsd =
         (nanos(llm.unreportedCostUsd ?? 0) + nanos(next.unreportedCostUsd)) / 1e9;

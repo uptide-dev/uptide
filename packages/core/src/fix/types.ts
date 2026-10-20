@@ -1,5 +1,6 @@
 import type { Finding, ImportersNotAnalyzed, Tier, TypeCoverage } from '../domain/report.js';
 import type { CostEstimate } from '../llm/fixer.js';
+import type { Spend } from '../llm/pricing.js';
 import type { Provider } from '../llm/types.js';
 import type { ApiChangeFacts, Headline, PackContext } from '../packs/types.js';
 import type { BaselineHealth } from './baseline.js';
@@ -177,15 +178,13 @@ export interface DependencyEdit {
   reverted?: true;
 }
 /** One SDK session over the package's manual sites, measured, and the gate's verdict. */
-export interface AgentTaskRecord {
+export interface AgentTaskRecord extends Spend {
   id: string;
   rule: string;
   files: string[];
   sites: number;
   fixed: number;
   turns: number;
-  inputTokens: number;
-  outputTokens: number;
   costUsd: number;
   unreportedCostUsd?: number;
   durationMs: number;
@@ -223,7 +222,7 @@ export interface FixRequest {
   sharedDiagnostics?: Pick<FixDiagnostic, 'file' | 'line' | 'code' | 'message'>[];
   retry?: string;
 }
-export interface FixResponse {
+export interface FixResponse extends Spend {
   responseModel?: string;
   reservationUsd?: number;
   failureKind?: LlmFailureKind;
@@ -234,9 +233,6 @@ export interface FixResponse {
   unreportedCostUsd?: number;
   diff: string;
   explanation?: string;
-  inputTokens: number;
-  outputTokens: number;
-  costUsd?: number;
 }
 export interface Fixer {
   readonly id: string;
@@ -371,13 +367,15 @@ export interface FixReport {
     /** The repository before the upgrade (`fix/baseline.ts`): unhealthy means compare, not prove. */
     baselineHealth?: BaselineHealth;
   };
-  llm: {
+  /**
+   * `costUsd` is computed from pricing.ts per model and token class (`models`); the SDK's own
+   * total is `sdkReportedCostUsd`. `inputTokens` counts uncached input only.
+   */
+  llm: Spend & {
     provider?: Provider;
     model?: string;
     /** Worst-case reservation for calls with no trustworthy usage. Not reported spend. */
     unreportedCostUsd?: number;
-    inputTokens: number;
-    outputTokens: number;
     costUsd: number;
     available: boolean;
     disabled?: boolean;

@@ -5,7 +5,7 @@ import { Node, Project, SyntaxKind } from 'ts-morph';
 import type { ProgressListener } from '../domain/progress.js';
 import { ACCEPTED_KEYS } from '../llm/config.js';
 import { CostLimitError, DEFAULT_MAX_COST_USD } from '../llm/fixer.js';
-import { nanos } from '../llm/pricing.js';
+import { addSpend, nanos } from '../llm/pricing.js';
 import type { MigrationPack, PackContext } from '../packs/types.js';
 import { resetSharedState } from '../shared-state.js';
 import { applySitePatch } from './patch.js';
@@ -375,9 +375,7 @@ export async function assist(
         log.costUsd = response.costUsd ?? 0;
         log.explanation = response.explanation ?? '';
         log.diff = response.diff;
-        llm.inputTokens += response.inputTokens;
-        llm.outputTokens += response.outputTokens;
-        llm.costUsd = (nanos(llm.costUsd) + nanos(response.costUsd ?? 0)) / 1e9;
+        addSpend(llm, response);
         if (response.unreportedCostUsd)
           llm.unreportedCostUsd =
             (nanos(llm.unreportedCostUsd ?? 0) + nanos(response.unreportedCostUsd)) / 1e9;
