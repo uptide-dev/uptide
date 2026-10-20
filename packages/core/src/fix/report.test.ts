@@ -1042,6 +1042,25 @@ it('says in the PR body which imported packages the repo does not declare (UPT-1
   }
 });
 
+it('says in the PR body when the lockfile resolved another version than the target (UPT-124)', () => {
+  const report = fixture('storefront-zod');
+  report.lockfile = {
+    manager: 'yarn-classic',
+    file: 'yarn.lock',
+    added: [],
+    removed: [],
+    changed: [],
+    allowed: [],
+    resolved: [{ name: 'zod', requested: '4.1.0', version: '4.1.3' }],
+  };
+  for (const body of [prBody(report), migrationBody(report)]) {
+    expect(body).toContain('### Resolved version differs from the target');
+    expect(body).toContain(
+      '- zod: asked for 4.1.0; the package manager resolved 4.1.3 (same major, inside the manifest range). Verification ran against 4.1.3; the breaking-change analysis used 4.1.0.',
+    );
+  }
+});
+
 it('renders scoped declarative behavior decisions in the PR body', async () => {
   const { nextPack } = await import('../packs/next/index.js');
   const { packDecisions } = await import('../packs/decisions.js');

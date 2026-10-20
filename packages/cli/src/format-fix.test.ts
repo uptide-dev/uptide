@@ -194,6 +194,22 @@ it('names an imported undeclared package the re-resolve kept or dropped (UPT-109
   );
 });
 
+it('names a resolved version that differs from the target (UPT-124)', () => {
+  const report = fixReport(true);
+  report.lockfile = {
+    manager: 'yarn-classic',
+    file: 'yarn.lock',
+    added: [],
+    removed: [],
+    changed: [],
+    allowed: [],
+    resolved: [{ name: 'zod', requested: '4.1.0', version: '4.1.3' }],
+  };
+  expect(formatFixSummary(report, { color: false })).toContain(
+    'Resolved version differs from the target\n  zod: asked for 4.1.0; the package manager resolved 4.1.3',
+  );
+});
+
 it('lists transitive changes under the package that moved them, two at a time', () => {
   const report = fixReport(true);
   report.lockfile = {

@@ -775,7 +775,23 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     fallback.push(
       `Install check: ${lockfile.outOfScope.length} lockfile resolution${lockfile.outOfScope.length === 1 ? '' : 's'} changed outside the upgrade's dependency subtree (listed for review)`,
     );
-  assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
+  const resolvedAt = (name: string, to: string) =>
+    lockfile?.resolved?.find((r) => r.name === name)?.version ?? to;
+  const resolvedVersion = lockfile?.resolved?.find((r) => r.name === pack.name)?.version;
+  if (
+    resolvedVersion &&
+    !fallback.length &&
+    packages.some((p) => !pack.supports(p.installed, resolvedVersion))
+  )
+    throw new UptideError(
+      'INSTALL_FAILED',
+      `Requested ${pack.name}@${target}, but the package manager resolved ${resolvedVersion}: outside what the ${pack.name} pack covers; verification cannot use a different target.`,
+    );
+  const installedMoves = [
+    { name: pack.name, to: resolvedAt(pack.name, target) },
+    ...companions.map((c) => ({ ...c, to: resolvedAt(c.name, c.to) })),
+  ];
+  assertInstalledVersions(root, installedMoves);
   // The target's own CHANGELOG.md, from the copy just installed: no download of its own.
   const installedTarget = installedPackageDir(root, workspaces[0] ?? '.', pack.name);
   const changelog = installedTarget
@@ -1347,7 +1363,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     }
     lap('build');
   }
-  assertInstalledVersions(root, [{ name: pack.name, to: target }, ...companions]);
+  assertInstalledVersions(root, installedMoves);
   const tests = markPreexisting(ran, baselineTests);
   build = markPreexistingBuilds(build, baselineBuild);
   // An agent-led draft must still install from scratch, as the repository's CI would (UPT-102).
@@ -1394,6 +1410,7 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       : {}),
     from: initialContext.from,
     target,
+    ...(resolvedVersion ? { resolvedVersion } : {}),
     targetSource: resolved.source,
     ...(resolved.releaseAge ? { releaseAge: resolved.releaseAge } : {}),
     ...(companions.length ? { companions } : {}),

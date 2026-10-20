@@ -210,3 +210,64 @@ it.runIf(process.env.UPTIDE_NETWORK === '1').each(['2.4.3', '3.2.1', '4.9.2'])(
   },
   180_000,
 );
+
+// UPT-124: Yarn classic ignores `resolutions` for a direct dependency, so a restored range
+// resolved its newest match instead of the target.
+it.runIf(process.env.UPTIDE_NETWORK === '1')(
+  'yarn classic installs the exact target from ^19.0.0',
+  async () => {
+    const root = mkdtempSync(join(tmpdir(), 'uptide-classic-install-'));
+    const read = (file: string) => readFileSync(join(root, file), 'utf8');
+    const put = (file: string, text: string) => writeFileSync(join(root, file), text);
+    try {
+      put(
+        'package.json',
+        JSON.stringify({ name: 'classic', private: true, dependencies: { react: old } }),
+      );
+      put('.gitignore', 'node_modules\n');
+      expect((await command(root, 'yarn', ['install', '--ignore-scripts'], 120_000)).code).toBe(0);
+      // A lockfile that has the old version under the range, as an older install left it.
+      put(
+        'package.json',
+        JSON.stringify({ name: 'classic', private: true, dependencies: { react: '^19.0.0' } }),
+      );
+      put('yarn.lock', read('yarn.lock').replace(`react@${old}:`, 'react@^19.0.0:'));
+      const pm = await assertManagerAvailable(root);
+      expect(pm.kind).toBe('yarn-classic');
+      expect((await command(root, pm.bin, pm.args, 120_000)).code).toBe(0);
+      git(root, 'init');
+      git(root, 'add', '.');
+      git(
+        root,
+        '-c',
+        'user.name=Test',
+        '-c',
+        'user.email=test@example.test',
+        'commit',
+        '-m',
+        'baseline',
+      );
+      const report = await isolatedUpgrade(root, {
+        name: 'react',
+        version: target,
+        files: [],
+        workspaces: ['.'],
+      });
+      expect(report.resolved).toBeUndefined();
+      expect(
+        parseYarn(read('yarn.lock'), {
+          importer: '.',
+          declared: new Map([['react', '^19.0.0']]),
+        }).get('react'),
+      ).toBe(target);
+      expect(installedManifest(root, '.', 'react')?.version).toBe(target);
+      expect(JSON.parse(read('package.json')).dependencies.react).toBe('^19.0.0');
+      const upgradedLock = read('yarn.lock');
+      expect((await command(root, pm.bin, pm.args, 120_000)).code).toBe(0);
+      expect(read('yarn.lock')).toBe(upgradedLock);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+  180_000,
+);

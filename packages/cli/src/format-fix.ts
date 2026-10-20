@@ -6,6 +6,7 @@ import {
   describeEresolveRetry,
   describeOutOfScope,
   describePhases,
+  describeResolved,
   describeTransitive,
   describeUndeclared,
   type FixReport,
@@ -129,6 +130,11 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
       `  ${describeEresolveRetry(report.lockfile.eresolveRetry)}`,
       '',
     );
+  }
+  if (report.lockfile?.resolved?.length) {
+    lines.push(colors.bold('Resolved version differs from the target'));
+    for (const r of report.lockfile.resolved) lines.push(`  ${describeResolved(r)}`);
+    lines.push('');
   }
   if (report.lockfile?.undeclared?.length) {
     lines.push(colors.bold('Imported but not declared'));
