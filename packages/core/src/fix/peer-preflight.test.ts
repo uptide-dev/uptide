@@ -187,7 +187,13 @@ it('allowed peers are committed with the upgrade and listed under PR risks with 
     { cwd: root, only: 'zod', target: '4.6.5', fixer: null, allowPeer: ['plugin'] },
     { ...services, install },
   );
-  expect(result.peerConflicts).toEqual(groupPeerBlockers([blocker]));
+  expect(result.peerConflicts).toEqual(
+    groupPeerBlockers([blocker]).map((g) => ({
+      ...g,
+      override: 'pnpm.peerDependencyRules.allowedVersions["plugin>zod"]',
+      strategy: 'override',
+    })),
+  );
   expect(prBody(result)).toContain('### Peer risks');
   expect(prBody(result)).toContain('plugin 1.0.0 declares zod ^3');
   expect(git(root, 'show', 'HEAD:package.json')).toContain('plugin>zod');
@@ -742,15 +748,6 @@ it.each([
       'no 4.x accepts zod 4; 5.0.0 does (major, the express pack runs in the same fix): add express to the command',
     migration: 'pack',
   },
-  {
-    covered: 'no pack covers the major',
-    name: 'plugin',
-    from: '1.0.0',
-    to: '2.0.0',
-    advice:
-      'no 1.x accepts zod 4; 2.0.0 does (major, no migration pack: it needs its own migration): add plugin to the command, or keep 1.x with --allow-peer plugin',
-    migration: 'own',
-  },
 ])(
   'names the first major that accepts the target when $covered',
   async ({ name, from, to, advice, migration }) => {
@@ -793,9 +790,9 @@ it('keeps --allow-peer when no major accepts the target', async () => {
 });
 
 it('--no-llm still stops before the clone, with the major as the next command', async () => {
-  const { root, services } = majorBlocker('plugin', '1.0.0', {
-    '1.0.0': { peerDependencies: { zod: '^3' } },
-    '2.0.0': { peerDependencies: { zod: '^3 || ^4' } },
+  const { root, services } = majorBlocker('express', '4.0.0', {
+    '4.0.0': { peerDependencies: { zod: '^3' } },
+    '5.0.0': { peerDependencies: { zod: '^3 || ^4' } },
   });
   const install = vi.fn(services.install);
   const error = await isolatedFix(
@@ -804,16 +801,16 @@ it('--no-llm still stops before the clone, with the major as the next command', 
   ).catch((e: unknown) => e);
   // The CLI exits 2 on a PeerPreflightError (cli.test.ts).
   expect(error).toBeInstanceOf(PeerPreflightError);
-  expect((error as PeerPreflightError).next).toMatch(/fix zod plugin --target 4\.6\.5 --no-llm$/);
+  expect((error as PeerPreflightError).next).toMatch(/fix zod express --target 4\.6\.5 --no-llm$/);
   expect(install).not.toHaveBeenCalled();
 });
 
 it('an agent-led run names the first release that accepts the target, even when later ones do not (UPT-102)', async () => {
   // 3.1.0 asks for a newer zod than the target, as @entur/react-component-toggle 1.1.x does for react 19.2.0.
-  const { root, services } = majorBlocker('plugin', '1.0.0', {
-    '1.0.0': { peerDependencies: { zod: '^3' } },
-    '3.0.0': { peerDependencies: { zod: '^4.1.0' } },
-    '3.1.0': { peerDependencies: { zod: '^4.7.0' } },
+  const { root, services } = majorBlocker('express', '4.0.0', {
+    '4.0.0': { peerDependencies: { zod: '^3' } },
+    '5.0.0': { peerDependencies: { zod: '^4.1.0' } },
+    '5.1.0': { peerDependencies: { zod: '^4.7.0' } },
   });
   const planned = await assistedPeerPreflight(
     { cwd: root, only: 'zod', target: '4.6.5' },
@@ -822,9 +819,9 @@ it('an agent-led run names the first release that accepts the target, even when 
     true,
   );
   expect(planned.reason).toMatch(
-    /^Peer blockers: plugin 1\.0\.0 → 3\.0\.0, the first release that accepts zod 4\.6\.5; continued as `.*fix zod plugin --target 4\.6\.5`$/,
+    /^Peer blockers: express 4\.0\.0 → 5\.0\.0, the first release that accepts zod 4\.6\.5; continued as `.*fix zod express --target 4\.6\.5`$/,
   );
-  expect(planned.plan?.companions).toMatchObject([{ name: 'plugin', to: '3.0.0' }]);
+  expect(planned.plan?.companions).toMatchObject([{ name: 'express', to: '5.0.0' }]);
 });
 
 it('an agent-led run says when no release accepts the target (UPT-102)', async () => {

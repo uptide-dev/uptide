@@ -1231,10 +1231,15 @@ export function renderMigration(
         [
           '### Peer risks',
           '',
-          ...groupPeerBlockers(report.peerConflicts).map(
-            (p) =>
-              `- ${peerDescription(p)}. ${p.allowed ? 'Explicitly allowed with `--allow-peer`; the manager override is in package.json.' : 'Not overridden; the package manager may warn.'} Runtime compatibility needs review.`,
-          ),
+          ...groupPeerBlockers(report.peerConflicts).map((p) => {
+            const fields = `\`${p.override}\``;
+            const declined = `${p.declined} accepts ${[...new Set(p.peers.map((r) => `${r.peer} ${r.target}`))].join(', ')} but is a major with no migration pack, so Uptide did not upgrade ${p.name}`;
+            return p.declined && p.strategy === 'blocked'
+              ? `- **Blocker:** ${peerDescription(p)}. Tried: a peer override Uptide added to package.json (${fields}); verification failed with it. ${declined}: it needs its own migration.`
+              : p.declined
+                ? `- ${peerDescription(p)}. Uptide added a peer override to package.json: ${fields}. ${declined}; it stays at ${p.version}. Runtime compatibility needs review.`
+                : `- ${peerDescription(p)}. ${p.allowed ? 'Explicitly allowed with `--allow-peer`; the manager override is in package.json.' : 'Not overridden; the package manager may warn.'} Runtime compatibility needs review.`;
+          }),
         ].join('\n'),
       ),
       '',

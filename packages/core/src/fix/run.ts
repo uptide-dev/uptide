@@ -69,7 +69,12 @@ import { assertManagerAvailable } from './managers/availability.js';
 import { assertNpmLockSync } from './managers/npm-sync.js';
 import type { InstallReport, Upgrade } from './managers/upgrade.js';
 import { isMajorUpgrade, NO_PACK_YET } from './no-pack.js';
-import { groupPeerBlockers, type PeerPlan, writePeerOverrides } from './peer-preflight.js';
+import {
+  groupPeerBlockers,
+  overrideFields,
+  type PeerPlan,
+  writePeerOverrides,
+} from './peer-preflight.js';
 import { pinCurrentApi } from './pin.js';
 import { command, git, projectRoot } from './process.js';
 import { publicationBlockers } from './publish.js';
@@ -1417,7 +1422,19 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     ...(stays.length ? { companionStays: stays } : {}),
     ...(blockers.length ? { companionBlockers: blockers } : {}),
     ...(removals.length ? { companionRemovals: removals } : {}),
-    ...(peerPlan?.conflicts.length ? { peerConflicts: groupPeerBlockers(peerPlan.conflicts) } : {}),
+    ...(peerPlan?.conflicts.length
+      ? {
+          peerConflicts: groupPeerBlockers(peerPlan.conflicts).map((g) => ({
+            ...g,
+            ...(g.allowed ? { override: overrideFields(packageManager(root).kind, g) } : {}),
+            strategy: !g.allowed
+              ? ('none' as const)
+              : g.declined && !(checksPassed && !broken)
+                ? ('blocked' as const)
+                : ('override' as const),
+          })),
+        }
+      : {}),
     ...(report.importersNotAnalyzed?.length
       ? { importersNotAnalyzed: report.importersNotAnalyzed }
       : {}),

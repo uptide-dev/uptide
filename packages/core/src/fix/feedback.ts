@@ -208,6 +208,8 @@ function blockerOutcome(p: PeerBlockerGroup, allowPeer: readonly string[]): stri
   const peers = [
     ...new Set(p.peers.filter((r) => r.version === p.version).map((r) => `${r.peer} ${r.target}`)),
   ].join(', ');
+  if (p.declined)
+    return `${p.name} ${p.version} kept with a peer override: ${p.declined} accepts ${peers} but is a major with no migration pack`;
   if (p.newer && !allowPeer.includes(p.name))
     return `${p.name} ${p.version} → ${p.newer}, the first release that accepts ${peers}`;
   return p.via
