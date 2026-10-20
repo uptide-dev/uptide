@@ -88,7 +88,8 @@ claude)
   # secondary set) drops the sandbox: it blocked local servers (listen EPERM) and the system
   # certificate store, which Uptide's verification is not limited by. Otherwise the sandbox also
   # denies reading the key file.
-  sandboxed=$(jq -r '.claudeSandbox // true' "${BENCH_SELECTION:-$here/selection.json}")
+  # Not `.claudeSandbox // true`: jq's `//` treats false as missing.
+  sandboxed=$(jq -r 'if .claudeSandbox == false then false else true end' "${BENCH_SELECTION:-$here/selection.json}")
   jq --arg helper "$here/claude-key.sh" --arg envfile "$UPTIDE_BENCH_ENV" --argjson sandboxed "$sandboxed" \
     '.apiKeyHelper = $helper | if $sandboxed then .sandbox.filesystem.denyRead = [$envfile] else del(.sandbox) end' \
     "$here/claude-sandbox.json" >"$dir/claude-settings.json"
