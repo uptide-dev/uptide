@@ -1,0 +1,5 @@
+---
+"uptide": minor
+---
+
+Add a verified @prisma/client 6 to 7 migration pack. `check` finds what Prisma 7 rejects in the schema (`url`, `directUrl`, `shadowDatabaseUrl`, the metrics preview feature, MongoDB), in package.json (the `"prisma"` key, removed CLI flags and commands) and in `prisma.config.ts` (`engine`, `adapter`), and every `new PrismaClient()` that has no driver adapter, including clients a test or script loads with `require` or a dynamic import. `prisma` moves with `@prisma/client`, and so does each installed `@prisma/adapter-*`. `fix` drops `--skip-generate` and `--skip-seed` itself, since 7 never generates or seeds there; the adapter, the schema URL and the config move are assisted. The .env loading change, the `migrate dev` steps that no longer run, v6 connection URL pool parameters, SSL validation and the Node and TypeScript minimums are listed for the owner. Compile errors from the client Prisma 6 generated are folded into one finding at the schema's generator block instead of being reported as breaking sites.

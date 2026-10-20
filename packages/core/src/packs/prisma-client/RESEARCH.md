@@ -35,7 +35,7 @@ constructor options) is **generated** by the `prisma` CLI into `node_modules/.pr
   client gives diagnostics no real upgrade has: `packs:truth` reports TS2305 `has no exported member
   'PrismaClient'` at every `import … from '@prisma/client'` (a linked copy no longer reaches
   `.prisma/client`), and TS7006/TS7031/TS2339 wherever the generated types fell back to `any`
-  (bcgov: 130 such diagnostics). A real 7 install runs `prisma generate` at 7, after which none of
+  (bcgov: 570 such diagnostics across its two tsconfigs). A real 7 install runs `prisma generate` at 7, after which none of
   them exist. They are never ground truth (see below).
 - The compiler-visible 7 changes (TS2554/TS2345 on a constructor without `adapter`, TS2353 on
   `datasources`/`datasourceUrl`, TS2339 on `$use`/`$metrics`, TS2694 on `Prisma.Middleware`, all
@@ -72,8 +72,8 @@ constructor options) is **generated** by the `prisma` CLI into `node_modules/.pr
 ## Classified changes
 
 "Compiler" = a typed consumer gets a diagnostic once the client is generated at 7 (probe X).
-"Detect" = how this pack finds the site. Every rule here is assisted (no `rewrite`); the last
-column says why.
+"Detect" = how this pack finds the site. Every rule here is assisted except `cli-skip-flags`; the
+last column says why.
 
 | Change | Source | Compiler | Where | Rule / note (`reported`) | Why assisted |
 |---|---|---|---|---|---|
@@ -83,10 +83,11 @@ column says why.
 | `datasource.url`, `directUrl`, `shadowDatabaseUrl` not allowed in the schema; `prisma.config.ts` carries the URL | G, R0, C (P1012 "is no longer supported in schema files", probe `prisma validate`) | n/a (schema error) | schema.prisma | `schema-datasource-url` (breaking), detect | the URL moves to `prisma.config.ts` (create or edit, `env()` vs `process.env`, `directUrl` becomes `url`) |
 | `.env` no longer loaded: by the CLI (6 loaded it unless `prisma.config.ts` existed, P) and by the client at runtime (D6: `runtime/library.js` loads `relativeEnvPaths` in the constructor when no adapter is passed; nothing in D7) | G, R0, P, D6 | no | package.json scripts; schema `env("…")` | `env-not-loaded` (finding + decision, needs a look), detect on scripts that run a database command of the CLI without loading an env file; the decision names the schema's `env()` reads, where the app read the URL on 6 | behavior: whether the environment provides the variable is the owner's knowledge |
 | `migrate dev`/`migrate reset` no longer seed; `migrate dev`/`db push` no longer generate; no postinstall generate | G, R0 | no | package.json scripts | `cli-implicit-steps` (finding + decision, needs a look), detect | behavior |
-| `--skip-generate`, `--skip-seed`, `db execute --schema/--url`, `migrate diff --from-url/--to-url/--from-schema-datasource/--to-schema-datasource/--shadow-database-url/--from-schema-datamodel/--to-schema-datamodel/--from-local-d1/--to-local-d1`, `generate --data-proxy/--accelerate/--no-engine/--allow-no-models`, `db pull --local-d1`, `prisma introspect`, removed `PRISMA_*` variables | G, R0 | no | package.json scripts | `cli-removed-flags` (breaking), detect | each has its own replacement (config datasource, explicit `prisma generate`); `--skip-generate` alone could be dropped 1:1, but no real site exercises it in a package.json script (basalt's is one), see "Rewrites" |
+| `--skip-generate` (`migrate dev`, `db push`), `--skip-seed` (`migrate dev`) | G, R0 | no | package.json scripts | `cli-skip-flags` (breaking), detect, **rewrite** | not assisted: 7 neither generates nor seeds there, which is what the flags turned off, so dropping them is the same command; the rewrite declines when a skip flag belongs to another command (fixture `scripts`, `test` line) |
+| `db execute --schema/--url`, `migrate diff --from-url/--to-url/--from-schema-datasource/--to-schema-datasource/--shadow-database-url/--from-schema-datamodel/--to-schema-datamodel/--from-local-d1/--to-local-d1`, `generate --data-proxy/--accelerate/--no-engine/--allow-no-models`, `db pull --local-d1`, `prisma introspect`, removed `PRISMA_*` variables | G, R0 | no | package.json scripts | `cli-removed-flags` (breaking), detect | each has its own replacement (`--from-config-datasource`, the config's shadow database, `db pull`) |
 | `"prisma"` key in package.json (`schema`, `seed`) removed | R0 | no | package.json | `package-json-prisma` (breaking), detect | moves to `prisma.config.ts` (`schema`, `migrations.seed`) |
 | `prisma.config.ts` `engine` and `adapter` options removed | R0 | `prisma` config types only | prisma.config.* | `config-removed-options` (breaking), detect | `engine: 'classic'` is simply dropped, but `adapter` moves to the client |
-| `prisma-client-js` deprecated for `prisma-client` (generated code in the repository, imports change) | G, R0, C ("Legacy Prisma Client JS generator") | no | schema.prisma | `client-js-generator` (deprecated), detect | changes every import, the output path, ESM output (`moduleFormat`) and some generated APIs (`Prisma.dmmf`, `Prisma.validator`) |
+| `prisma-client-js` deprecated for `prisma-client` (generated code in the repository, imports change) | G, R0, C ("Legacy Prisma Client JS generator") | no | schema.prisma | `client-js-generator` (decision, names the provider lines) | 7 still supports it (X), so switching is the owner's choice, not a site: it changes every import, the output path, ESM output (`moduleFormat`) and some generated APIs (`Prisma.dmmf`, `Prisma.validator`). It was a deprecated rule with `detect` until the first score: 2 of the 5 repositories on `prisma-client-js` switched, so it reported a site the upgrade did not need in the other three |
 | `output` required | G, R0 | n/a | schema.prisma | **rejected as a 6 → 7 change**: C shows 6.19.3 already refuses `prisma-client` without `output`, and 7.10.1 `prisma-client-js` still generates into `node_modules` (X) | n/a |
 | `engineType` | G, R0 | no | schema.prisma | `engine-type` (deprecated), detect: X shows 7.10.1 still accepts `engineType = "binary"` and ignores it | deleting the line is 1:1, but no real site exists; see "Rewrites" |
 | ESM (`"type": "module"`, tsconfig `bundler`) | G | no | package.json, tsconfig | **rejected as required**: D7 has no `"type": "module"` and ships CJS `default.js`; `prisma-client` takes `moduleFormat`; X compiled 7 under CommonJS `nodenext`. Named in `client-js-generator`'s guide | n/a |
@@ -99,15 +100,16 @@ column says why.
 | Connection pool and timeouts from the driver; v6 URL parameters (`connection_limit`, `pool_timeout`, `connect_timeout`, `max_idle_connection_lifetime`, `max_connection_lifetime`) not read by the adapters | G, P | no | TS (connection strings), env | `connection-url-params` (finding + decision, needs a look), detect on those parameters in source strings | behavior |
 | SSL certificates validated by `pg` (P1010) | G | no | adapter options | `ssl-validation` (decision, PostgreSQL and CockroachDB schemas only) | behavior |
 | Mapped enum values: 7.0.0–7.2.x generate the `@map` value; 7.3.0 reverted to 6 | R0, R (7.3.0), G | no | schema.prisma | `mapped-enum-values` (decision, only for a target below 7.3.0 and a schema with a mapped enum member) | behavior |
+| The client `check` compiles against was generated at 6: with `@prisma/client` 7 linked, TS2305 (`has no exported member 'PrismaClient'`), TS7006/TS7031 and TS2339 appear wherever the generated types fell back to `any` | D6, D7, X | yes, but not the code's | TS | `generated-client` (finding, needs a look): `foldFindings` folds every compile error no rule claims into one finding at the schema's `generator` block (or the workspace's `@prisma/client` line when the schema lives outside it), as its evidence | `prisma generate` at 7 replaces the client; the code is then compiled against 7's types (`fix` regenerates after the bump) |
 | Removed client engines, `binaryTargets`, `generator.runtime = "react-native"`, `prisma introspect` | R0 | no | schema.prisma | none (`binaryTargets` is accepted and unused at 7, probe X); `generic` if ever expected | n/a |
 
 ### Rewrites
 
-None. Each candidate that is 1:1 (dropping `--skip-generate`/`--skip-seed`, dropping
-`engineType`, `runtime/library` → `runtime/client` when no missing export is imported, an import
-of a renamed adapter class) has at most one real site in the ground truth below, and a rewrite with no
-real site runs assisted anyway (UPT-48, `unexercised`). So the code would ship and never run. Add
-the rewrite together with the first ground-truth repository that exercises it.
+One: `cli-skip-flags`, exercised by basaltkit/basalt (`db:push`). The other 1:1 candidates
+(dropping `engineType`, `runtime/library` → `runtime/client` when no missing export is imported,
+an import of a renamed adapter class) have no real site in the ground truth, and a rewrite with no
+real site runs assisted anyway (UPT-48, `unexercised`): the code would ship and never run. Add each
+with the first ground-truth repository that exercises it.
 
 ## Detection scope
 
@@ -117,9 +119,118 @@ the rewrite together with the first ground-truth repository that exercises it.
   `$metrics`, a Prisma adapter or a Prisma entry point. `new PrismaClient(...)` counts only where
   `PrismaClient` is imported or required from `@prisma/client` or from a module path that ends in
   `/client` or names `prisma`/`generated` (a generated client); a local `PrismaClient` (a jest mock)
-  is never a site (fixture `client-adapter` line 9).
+  is never a site, nor is a client the file mocks with `jest.mock`/`vi.mock` (fixture
+  `client-adapter-mock`). Files a generator writes are never read: a `prisma-client` `output`
+  directory, a file with Prisma's generated header, a schema copy inside an output.
 - `schema.prisma` and any `*.prisma` file of a multi-file schema, `package.json`, `prisma.config.*`,
   `.nvmrc`/`.node-version`: the pack's inventory.
 - Fixtures for package.json and schema files follow sentry-node and the typescript pack: the file
   named by `filename.txt`, with `// @uptide` markers (comments in a Prisma schema; ignored by the
   line-based package.json detectors).
+
+## Independent ground truth
+
+Drafted with `pnpm packs:truth` from each repository's own compiler and merged upgrade, `--also
+prisma@<version>` and the adapter the upgrade added; every site read by hand and committed
+(`cac9bca`) before the first score. `packs:truth` lists changed lines in source files and
+tsconfigs only, so the lines the upgrade changed in `schema.prisma`, `package.json` and
+`prisma.config.*` were read from the same `git diff -U0 <commit> <upgrade>` with the same rules
+(one site per change, at its first line). The compiler draft contributed one site, HexaRot's TS2353 on `engine` in
+`prisma.config.ts` (the `prisma` config types at 7); every other new diagnostic was the stale-client
+artifact above (bcgov 570 across its two tsconfigs, cr-league 49, ehr-wallet 7, BearStudio 5,
+jqlang 1). Kept: the
+line the upgrade changed because of Prisma 7. Not kept: lines that only follow the repository's own
+fix (basalt's hand-typed `new () =>` signatures, ehr-wallet's `createPrismaClient()` wrapper, the
+import and mock rewrites of a generator switch) and cleanup (BearStudio's engine-binary copy plugin,
+`@@map` reordering).
+
+| Repository | Licence | Upgrade | Hop | Sites |
+|---|---|---|---|---|
+| BearStudio/start-ui-web | MIT | #781 | 6.19.2 → 7.10.0 | schema URL, client adapter, 2 env-not-loaded, 1 cli-implicit-steps |
+| jqlang/playground | MIT | #344 | 6.19.3 → 7.8.0 | schema URL, client adapter |
+| openwallet-foundation-labs/ehr-wallet | Apache-2.0 | #114 | 6.19.3 → 7.10.0 | schema URL, `"prisma"` key, 7 client adapter, generator switch (decision) |
+| bcgov/nr-permitconnect-navigator-service (`app`) | Apache-2.0 | #574 | 6.19.3 → 7.10.0 | schema URL, `"prisma"` key, `datasourceUrl`, `connection_limit`, generator switch (decision) |
+| basaltkit/basalt (root; harness in `apps/pg-integration`) | MIT | #188 | 6.19.3 → 7.9.1 | schema URL, `--skip-generate`, 2 client adapter (dynamic import) |
+| AlexAgo83/cr-league | MIT | #30 | 6.19.3 → 7.9.1 | schema URL, 3 `datasources`, 1 client adapter |
+| MarvinLeRouge/HexaRot (`backend`) | MIT | #160 | 6.19.2 → 7.10.0 | schema URL, `"prisma"` key, config `engine`, client adapter |
+
+29 breaking sites, 6 behavior-note sites. No commit of the seven carries an agent co-author
+trailer, and no PR was opened by a bot account. basalt's PR body has a stray non-ASCII word and
+ehr-wallet's commit message is a structured list; both are signed by their human authors and
+counted as human. HexaRot is scored `withoutGenerated`: its `prisma.config.ts` reads
+`env("DATABASE_URL")`, which throws when the variable is unset. basalt is scored from the root
+because `packs:truth` installs in `directory` and its lockfile is at the root.
+
+### Screened out
+
+Searched GitHub for merged PRs titled with Prisma 7 upgrades (2026-10-20, about 250 hits; most are
+Renovate/Dependabot bumps inside 7 or projects adopting Prisma 7 fresh). Of the 6 → 7 code upgrades
+screened (licence, author, trailers, `@prisma/client` range in the diff):
+
+- Authored with a coding agent (Co-Authored-By trailer or agent in the PR body): kalkulacka-one/kalkulacka#508, soundspan/soundspan#162, CruGlobal/game-ops#171, trentnbauer/QueueUp#1089, goodtribes-org/goodtribes.org#60, jonhadfield/taran#105, Fedbxy/grader#59, kkv2/m4#16, cubitsnake/keep#37, Pavelya/match#14, thomastran117x/Rentify#208, beefysalad/Wanderly#254, IgorCifer/xeque-mate#27, yaniv120892/my-expenses-website#136, umzug-meister/vega#23 (Copilot), augustosc-eu/TunarrTube#19, ecleveland/grimoire-os#338, dangxuanthangqt/ecom#18, nassim0014/Next.js-SaaS#52; and from 5 or earlier: Vivancedata/crm#63, piotrberlowski/mul-search#50 (Cursor), E5GEN2/hbp_proto#228, vohungbk/xiangqi-arena#583, alliso/recipe-aggregator#13, zhedream/blogPrisma#20 (Codex, from Prisma 1).
+- No permissive licence: julienfroidefond/stripstream#13, EdenSahile/Mimir#55, 3-Istor/qcm#11, C4G/AtlantaFoodConsortium#33, dragondad22/CrossWise#133 (none), lord007tn/nibleaf#91 (AGPL-3.0), WrongerSandwich/governance-compass#125 (NOASSERTION); mardesnic/blood-donations#61 and Nexlein/Dashboard#121 are also 5 → 7.
+- Not a 6 → 7 project upgrade: cerebruminc/typegraphql-prisma#6 (a fork, 4.8 → 7), TriplEight/TaxHacker#61 (a fork, no version change in the PR), Create-Node-App/cna-templates#427 (template files, not a compiled project).
+- Human, permissive, not drafted (more evidence for later): openai/openai-agents-js#1887 (an example package: schema URL, `options.client ?? new PrismaClient()`), yuru-sha/fuji-calendar#43, ismoilovdevml/gitlab-ci-dashboard#72 (`--skip-generate` passed as an `execFile` argument, a shape `cli-skip-flags` does not read), Zihao-Qi/Dayflow#148.
+
+## Measured pack test
+
+`uptide pack test @prisma/client --write`, 2026-10-20, ground truth as committed:
+
+```
+  rule                         precision  recall    tp   fp   fn
+  cli-implicit-steps                  0%      0%     0    3    1
+  cli-skip-flags                    100%    100%     1    0    0
+  client-adapter                    100%    100%    17    0    0
+  client-js-generator                n/a      0%     0    0    2
+  config-removed-options            100%    100%     1    0    0
+  connection-url-params             100%    100%     1    0    0
+  env-not-loaded                     67%    100%     2    1    0
+  generated-client                    0%     n/a     0    5    0
+  package-json-prisma               100%    100%     3    0    0
+  schema-datasource-url             100%    100%     7    0    0
+  overall (sites)                    78%     94%    32    9    2
+  behavior notes (sites)             25%     60%     3    9    2
+  breaking (sites)                  100%    100%    29    0    0
+
+gate          29 breaking sites, 6 behavior-note sites in public ground truth · verified
+rewrites      precision    tp   fp  (real true positives, scored false positives)
+  cli-skip-flags                    100%     1    0
+```
+
+The 9 false positives are all "needs a look": `generated-client` once per scored workspace (no
+upgrade edits the generator block for it; it is where the folded evidence goes),
+`cli-implicit-steps` at three `prisma migrate dev` scripts the repositories kept, and
+`env-not-loaded` at bcgov's `prisma db pull` script. The two misses are the `client-js-generator`
+decisions, which `check` never reports as sites. BearStudio's `db:push` line carries two notes in
+the truth and one finding in the plan (one site per line).
+
+The first score (before `90cc9fe`) had 176 breaking false positives: once the pack's inventory keeps
+the analysis going, `check` compiles against the stale client and every TS2305/TS7006 became a
+`generic` breaking finding; the generated client's own files were read; ground truth for `directory`
+entries named files from the repository root, where every other pack names them from the directory
+(`04ac449`, no site changed).
+
+## Known gaps
+
+- A class that extends `PrismaClient` without passing options to `super` (NestJS `PrismaService`)
+  throws at 7 like `new PrismaClient()`. HexaRot fixed one by inserting a constructor: an insertion
+  into a class body, which the ground-truth rules count as no site, so the pack does not report it
+  either. Its guide covers it when another site leads the agent there.
+- A workspace whose schema lives outside it (cr-league `apps/api`, schema at the root) gets its
+  schema findings only where the workspace that holds the schema declares `@prisma/client` or is
+  analyzed for it: the inventory cannot leave a workspace.
+- `?schema=` in a PostgreSQL URL: Prisma 6 applied it; `PrismaPg` takes the schema as an option.
+  cr-league handled it, but no source this pack cites says so, so there is no note.
+- `prisma db push` in 7 asks for consent when it detects an AI agent (basalt set
+  `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` in CI): not in the guide or the release notes read.
+
+## What the engine cannot express
+
+- `check` cannot compile against the 7 client without running the target's generator; it runs no
+  scripts. This pack detects in source what the compiler would report after `prisma generate`, and
+  folds what it reports before it. Follow-up: generate the target client in an isolated copy.
+- `packs:truth` drafts no site in `schema.prisma` or `package.json` (`SOURCE_FILE` in
+  `packs/tooling/truth-diff.ts`). Those were read by hand from the same diff; adding `*.prisma`,
+  `package.json` and `prisma.config.*` to its file filter would draft them.
+- `packs:truth` and `pack test` install in `directory`, so a monorepo whose lockfile is at the root
+  is scored from the root (basalt).

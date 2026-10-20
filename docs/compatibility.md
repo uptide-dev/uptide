@@ -37,6 +37,7 @@ already run as assisted ([verification gate](packs.md)).
 | `lucide-react` | 0 → 1 | 5 | 100% | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
 | `next` | 15 → 16 | 9 | 100% | 88% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
 | `openai` | 4 → 7 | 15 | 100% | — | — | 20 | zeikar/charivo, openai/openai-guardrails-js, wardby/wardby, csnyder256/ux-struggle-detector, grantsingleton/batch-ai, digitalchokro/askchokro, microsoft/prompty | candidate |
+| `@prisma/client` | 6 → 7 | 12 | 100% | 100% | 100% | 29 | BearStudio/start-ui-web, jqlang/playground, openwallet-foundation-labs/ehr-wallet, bcgov/nr-permitconnect-navigator-service, basaltkit/basalt, AlexAgo83/cr-league, MarvinLeRouge/HexaRot | verified |
 | `react` | 18 → 19 | 8 | 100% | 95% | 95% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6 → 7 | 13 | 100% | 89% | 78% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
 | `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 85% | 75% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
@@ -70,6 +71,7 @@ already run as assisted ([verification gate](packs.md)).
 | `openai` | `removed-modules` | n/a | 0 | 0 | unexercised: runs assisted |
 | `openai` | `request-options` | n/a | 0 | 0 | unexercised: runs assisted |
 | `openai` | `runner-renames` | n/a | 0 | 0 | unexercised: runs assisted |
+| `@prisma/client` | `cli-skip-flags` | 100% | 1 | 0 |  |
 | `react` | `mutable-ref-object` | 100% | 2 | 0 |  |
 | `react` | `ref-callback-return` | 100% | 1 | 0 |  |
 | `react` | `use-ref-argument` | 100% | 5 | 0 |  |
