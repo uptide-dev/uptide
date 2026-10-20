@@ -162,10 +162,21 @@ function agreeing(
       version: installed.version,
       reason: `${name} ${installed.version} accepts ${lead} ${target}`,
     };
+  // A pin the same manifest also declares as a peer the install satisfies asks nothing: the
+  // peer is what resolves (`@guardian/libs 33.0.0`: ophan-tracker-js 3.1.0 and peer ^2.2.10).
+  const peer = targetManifest.peerDependencies?.[name];
+  if (peer !== undefined && accepts(peer, installed.version))
+    return {
+      version: installed.version,
+      reason: `${lead} ${target} declares ${name} ${peer} as a peer; installed ${installed.version}`,
+    };
   const pinned = targetManifest.dependencies?.[name];
   if (pinned && EXACT.test(pinned) && versions[pinned])
     return compareVersions(pinned, installed.version) >= 0
-      ? { version: pinned, reason: `${lead} ${target} pins ${name} ${pinned}` }
+      ? {
+          version: pinned,
+          reason: `${lead} ${target} pins ${name} ${pinned} in its dependencies; installed ${installed.version}`,
+        }
       : undefined;
   // Actual release pairs (react/react-dom) must still use matching runtime versions.
   const same = versions[target];
@@ -452,9 +463,18 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
             continue;
           }
         }
+        // A member that stays where it is asks nothing new: what it pins, the install has today.
+        let unchanged: { version: string; reason: string } | undefined;
         for (const [host, at] of move ? [] : decided) {
           const hostDep = input.installed.find((d) => d.name === host);
           if (!hostDep || !related(hostDep, c)) continue;
+          if (host !== lead.name && hostDep.version === at.version) {
+            unchanged ??= {
+              version: c.version,
+              reason: `${host} ${at.version} does not move, so ${c.name} ${c.version} stays`,
+            };
+            continue;
+          }
           const left = peerConflictOf(c, host, at.version, versions, input.lockstep);
           if (left) {
             peerConflicts.set(c.name, left);
@@ -466,6 +486,7 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
             break;
           }
         }
+        if (!move && !peerConflicts.has(c.name)) move = unchanged;
       }
       moves.set(c.name, move);
       if (move) {

@@ -70,7 +70,7 @@ describe('companionsOf', () => {
         name: '@ai-sdk/provider',
         from: '3.0.3',
         to: '4.0.1',
-        reason: 'ai 7.0.9 pins @ai-sdk/provider 4.0.1',
+        reason: 'ai 7.0.9 pins @ai-sdk/provider 4.0.1 in its dependencies; installed 3.0.3',
       },
       {
         name: '@ai-sdk/react',
@@ -623,4 +623,99 @@ it('leaves a member where it is when the target accepts it, though the member sa
   });
   expect(plan.conflicts).toEqual([]);
   expect(plan.companions).toEqual([]);
+});
+
+describe('pins of members that do not move (UPT-126)', () => {
+  // guardian/support-dotcom-components at 4a256bf: @guardian/libs 33.0.0 lists ophan-tracker-js
+  // both as a dependency (3.1.0) and as a peer (^2.2.10), and the lockfile resolves the peer, 2.8.3.
+  const libs33 = {
+    dependencies: { '@guardian/ophan-tracker-js': '3.1.0' },
+    peerDependencies: {
+      '@guardian/ophan-tracker-js': '^2.2.10',
+      tslib: '^2.8.1',
+      typescript: '~6.0.3',
+    },
+  };
+  const guardian: Record<string, Versions> = {
+    typescript: { '5.9.3': {}, '6.0.3': {} },
+    '@guardian/libs': {
+      '32.0.0': { dependencies: { '@guardian/ophan-tracker-js': '2.8.3' } },
+      '33.0.0': libs33,
+    },
+    '@guardian/ophan-tracker-js': { '2.8.0': {}, '2.8.3': {}, '3.1.0': {} },
+  };
+  const installed = (name: string, version: string, workspaces = ['.']): InstalledDependency => ({
+    name,
+    version,
+    manifest: { name, version, ...guardian[name]?.[version] },
+    workspaces,
+  });
+
+  it('moves nothing through a member that stays at its installed version (guardian, typescript 6)', async () => {
+    const plan = await companionsOf({
+      name: 'typescript',
+      target: '6.0.3',
+      installed: [
+        installed('typescript', '5.9.3', ['.', 'cdk']),
+        installed('@guardian/libs', '33.0.0'),
+        installed('@guardian/ophan-tracker-js', '2.8.3'),
+      ],
+      manifests: async (name) => guardian[name] ?? {},
+    });
+    expect(plan.companions).toEqual([]);
+    expect(plan.conflicts).toEqual([]);
+  });
+
+  it('moves nothing through the exact pin of a member that stays, peer or not', async () => {
+    // The pin alone, as npm sees it: libs keeps its own nested ophan-tracker-js 3.1.0 today.
+    const pinOnly: Record<string, Versions> = {
+      ...guardian,
+      '@guardian/libs': { '33.0.0': { ...libs33, peerDependencies: { typescript: '~6.0.3' } } },
+    };
+    const plan = await companionsOf({
+      name: 'typescript',
+      target: '6.0.3',
+      installed: [
+        installed('typescript', '5.9.3'),
+        {
+          ...installed('@guardian/libs', '33.0.0'),
+          manifest: {
+            name: '@guardian/libs',
+            version: '33.0.0',
+            ...pinOnly['@guardian/libs']?.['33.0.0'],
+          },
+        },
+        installed('@guardian/ophan-tracker-js', '2.8.3'),
+      ],
+      manifests: async (name) => pinOnly[name] ?? {},
+    });
+    expect(plan.companions).toEqual([]);
+    expect(plan.conflicts).toEqual([]);
+  });
+
+  it('leaves a pin alone when the moving package also peers on it and the install satisfies the peer', async () => {
+    const plan = await companionsOf({
+      name: '@guardian/libs',
+      target: '33.0.0',
+      installed: [
+        installed('@guardian/libs', '32.0.0'),
+        installed('@guardian/ophan-tracker-js', '2.8.3'),
+      ],
+      manifests: async (name) => guardian[name] ?? {},
+    });
+    expect(plan.companions).toEqual([]);
+    expect(plan.conflicts).toEqual([]);
+  });
+
+  it('names the declaring package, its manifest field and the installed version in a pin reason', async () => {
+    const plan = await companionsOf({
+      name: 'ai',
+      target: '7.0.9',
+      installed: repository,
+      manifests,
+    });
+    expect(plan.companions.find((c) => c.name === '@ai-sdk/provider')?.reason).toBe(
+      'ai 7.0.9 pins @ai-sdk/provider 4.0.1 in its dependencies; installed 3.0.3',
+    );
+  });
 });
