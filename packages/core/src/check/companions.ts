@@ -82,6 +82,12 @@ const accepts = (range: string, version: string): boolean => {
     return false;
   }
 };
+/** A move semver does not promise compatible: a new major, or a new minor below 1.0.0. */
+const newMajor = (from: string, to: string): boolean => {
+  const a = parseVersion(from);
+  const b = parseVersion(to);
+  return !!a && !!b && (a.major !== b.major || (a.major === 0 && a.minor !== b.minor));
+};
 const exactPins = (m: Pick<Manifest, 'dependencies'>): Map<string, string> =>
   new Map(Object.entries(m.dependencies ?? {}).filter(([, v]) => EXACT.test(v)));
 
@@ -309,7 +315,12 @@ export async function companionsOf(input: CompanionInput): Promise<CompanionPlan
     manifests: input.manifests,
     planned: plan.companions,
     reported: new Set([
-      ...[...plan.conflicts, ...plan.peerConflicts, ...(plan.stays ?? [])].map(first),
+      ...[
+        ...plan.conflicts,
+        ...plan.peerConflicts,
+        ...(plan.stays ?? []),
+        ...(plan.blockers ?? []),
+      ].map(first),
       ...(plan.removals ?? []).map((r) => r.name),
     ]),
   });
@@ -323,10 +334,13 @@ export async function companionsOf(input: CompanionInput): Promise<CompanionPlan
     ),
     ...(required.blockers.length
       ? {
-          blockers: required.blockers.map(
-            (line) =>
-              `${line}; next: keep ${lead.name} at ${lead.version} and plan the required peer upgrade explicitly`,
-          ),
+          blockers: [
+            ...(plan.blockers ?? []),
+            ...required.blockers.map(
+              (line) =>
+                `${line}; next: keep ${lead.name} at ${lead.version} and plan the required peer upgrade explicitly`,
+            ),
+          ],
         }
       : {}),
   };
@@ -379,6 +393,8 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
   ]);
   const moves = new Map<string, { version: string; reason: string } | undefined>();
   const typesLinked = new Set<string>();
+  /** The decided package whose manifest moved each member, when not the lead or a pack. */
+  const movedBy = new Map<string, string>();
   /** Peer-linked packages left in place, by name. */
   const peerConflicts = new Map<string, string>();
   const names = new Set(members.map((m) => m.name));
@@ -483,6 +499,7 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
           move = agreeing(c, host, at.version, at.manifest, versions);
           if (move) {
             peerConflicts.delete(c.name);
+            if (host !== lead.name) movedBy.set(c.name, host);
             break;
           }
         }
@@ -566,6 +583,7 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
     };
   const companions: Companion[] = [];
   const conflicts: string[] = [];
+  const blockers: string[] = [];
   for (const member of candidates.filter((c) => inGroup.has(c.name))) {
     const move = moves.get(member.name);
     // Left in place on purpose: reported as a peer conflict, not as an upgrade that cannot agree.
@@ -590,6 +608,34 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
       continue;
     }
     if (move.version === member.version) continue;
+    // A new major no pack covers moves only when the lead's own target asks for it (its manifest
+    // pins the member, or the member's declares the lead) or the lead's pack names it; one that
+    // a third package asks for is a blocker (UPT-126: @guardian/libs pinning ophan-tracker-js).
+    const host = movedBy.get(member.name);
+    if (host && newMajor(member.version, move.version) && !input.lockstep?.includes(member.name)) {
+      const at = decided.get(host);
+      const own = (await input.manifests(member.name))[move.version] ?? {};
+      const declaration =
+        (['dependencies', 'peerDependencies'] as const)
+          .map((field) => [field, at?.manifest[field]?.[member.name]] as const)
+          .filter(([, range]) => range !== undefined)
+          .map(
+            ([field, range]) =>
+              `${host} ${at?.version} declares ${member.name} ${range} in ${field}`,
+          )[0] ??
+        (['dependencies', 'peerDependencies'] as const)
+          .map((field) => [field, own[field]?.[host]] as const)
+          .filter(([, range]) => range !== undefined)
+          .map(
+            ([field, range]) =>
+              `${member.name} ${move.version} declares ${host} ${range} in ${field}`,
+          )[0] ??
+        move.reason;
+      blockers.push(
+        `${member.name} ${member.version} → ${move.version} is a new major no migration pack covers, asked for by ${host}, not by ${lead.name} ${input.target}: ${declaration}; next: keep ${lead.name} at ${lead.version}, or upgrade ${member.name} on its own first`,
+      );
+      continue;
+    }
     companions.push({
       name: member.name,
       from: member.version,
@@ -610,6 +656,7 @@ async function releaseGroupOf(input: CompanionInput): Promise<CompanionPlan> {
     conflicts,
     peerConflicts: [...peerConflicts.values()].sort(),
     ...(stays.length ? { stays: stays.sort() } : {}),
+    ...(blockers.length ? { blockers: blockers.sort() } : {}),
     ...(reason ? { reason } : {}),
   };
 }
