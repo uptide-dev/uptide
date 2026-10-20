@@ -96,16 +96,16 @@
       "with": { "prisma": "7.10.0" },
       "why": "An Express API: datasourceUrl becomes the pg adapter, connection_limit moves from the URL to the pool's max, the schema path leaves package.json. It also switched to the prisma-client generator; the Prisma.dmmf, Prisma.validator and import rewrites follow that switch (prisma-client-js 7 still has them), and the reporting SQL changes are unrelated.",
       "findings": [
-        { "file": "app/src/db/prisma/schema.prisma", "line": 2, "rule": "client-js-generator" },
-        { "file": "app/src/db/prisma/schema.prisma", "line": 9, "rule": "schema-datasource-url" },
-        { "file": "app/package.json", "line": 132, "rule": "package-json-prisma" },
+        { "file": "src/db/prisma/schema.prisma", "line": 2, "rule": "client-js-generator" },
+        { "file": "src/db/prisma/schema.prisma", "line": 9, "rule": "schema-datasource-url" },
+        { "file": "package.json", "line": 132, "rule": "package-json-prisma" },
         {
-          "file": "app/src/db/database.ts",
+          "file": "src/db/database.ts",
           "line": 21,
           "rule": "connection-url-params",
           "note": "&connection_limit= dropped from the URL, max set on the adapter"
         },
-        { "file": "app/src/db/database.ts", "line": 35, "rule": "client-adapter" }
+        { "file": "src/db/database.ts", "line": 35, "rule": "client-adapter" }
       ]
     },
     {
@@ -162,15 +162,15 @@
       "withoutGenerated": "backend/prisma.config.ts reads env(\"DATABASE_URL\"), which throws when the variable is unset: prisma generate needs the project's database URL at this commit.",
       "why": "A NestJS backend already on prisma-client and prisma.config.ts: engine \"classic\" leaves the config (TS2353 at 7), the seed moves out of package.json, the clients get the pg adapter. PrismaService (extends PrismaClient) gained a constructor: an insertion into a class body, which the ground-truth rules do not count as a site.",
       "findings": [
-        { "file": "backend/prisma/schema.prisma", "line": 9, "rule": "schema-datasource-url" },
+        { "file": "prisma/schema.prisma", "line": 9, "rule": "schema-datasource-url" },
         {
-          "file": "backend/package.json",
+          "file": "package.json",
           "line": 108,
           "rule": "package-json-prisma",
           "note": "line 107 only loses the comma before the removed key"
         },
-        { "file": "backend/prisma.config.ts", "line": 12, "rule": "config-removed-options" },
-        { "file": "backend/prisma/seed.ts", "line": 3, "rule": "client-adapter" }
+        { "file": "prisma.config.ts", "line": 12, "rule": "config-removed-options" },
+        { "file": "prisma/seed.ts", "line": 3, "rule": "client-adapter" }
       ]
     }
   ]
