@@ -67,7 +67,7 @@ const DOTCOM = json({
 });
 
 /** One agent session over manual sites in both manifests; `edit` plays the agent. */
-async function session(edit: (root: string) => void, scope = ['typescript']) {
+async function session(edit: (root: string) => void) {
   const root = repo({ 'package.json': ROOT, 'src/dotcom/package.json': DOTCOM });
   const sites = [site('package.json'), site('src/dotcom/package.json')];
   const runner: TaskRunner = async () => {
@@ -85,7 +85,6 @@ async function session(edit: (root: string) => void, scope = ['typescript']) {
   const llm = await assistWithSdk({
     root,
     workspaces: ['.', 'src/dotcom'],
-    scope,
     sites,
     pack: { name: 'typescript', rules: [] } as unknown as MigrationPack,
     context: { from: '5.9.3', to: '6.0.3', includeDeprecated: false },
@@ -141,7 +140,7 @@ describe('dependency edits by the agent (UPT-126)', () => {
     ]);
     // The feedback the next round gets: the package, and that it is out of scope.
     expect(record?.rejection).toContain(
-      "outside this upgrade's scope (the upgraded package and its planned companions)",
+      "out of the agent's scope: Uptide's install sets every existing version and range",
     );
     expect(record?.rejection).toContain(
       'package.json dependencies @guardian/ophan-tracker-js: 2.8.3 → 3.1.0',
@@ -190,24 +189,40 @@ describe('dependency edits by the agent (UPT-126)', () => {
     );
   });
 
-  it('leaves the upgraded package and its planned companions to the engine, rewritten or not', async () => {
-    const { record } = await session(
-      (r) =>
-        rewrite(r, 'package.json', (m) => {
-          (m.devDependencies as Record<string, string>).typescript = '~6.0.3';
-          (m.dependencies as Record<string, string>)['@guardian/libs'] = '33.0.0';
-          (m.dependencies as Record<string, string>)['@guardian/ophan-tracker-js'] = '3.1.0';
-        }),
-      ['typescript', '@guardian/ophan-tracker-js'],
+  it("refuses a change to the upgraded package's range, as to any other", async () => {
+    const { root, record } = await session((r) =>
+      rewrite(r, 'package.json', (m) => {
+        (m.devDependencies as Record<string, string>).typescript = '~6.0.3';
+      }),
+    );
+    expect(record?.gate).toBe('rejected');
+    expect(record?.outOfScopeDependencyEdits).toEqual([
+      {
+        file: 'package.json',
+        field: 'devDependencies',
+        name: 'typescript',
+        before: '6.0.3',
+        after: '~6.0.3',
+        reverted: true,
+      },
+    ]);
+    expect(readFileSync(join(root, 'package.json'), 'utf8')).toBe(ROOT);
+  });
+
+  it('allows rewriting the manifest with every version the engine wrote unchanged', async () => {
+    // Same values, another layout: the upgraded package's included, nothing changed.
+    const { record } = await session((r) =>
+      writeFileSync(join(r, 'package.json'), JSON.stringify(JSON.parse(ROOT))),
     );
     expect(record?.gate).toBe('accepted');
     expect(record?.outOfScopeDependencyEdits).toBeUndefined();
+    expect(record?.agentAddedDependencies).toBeUndefined();
   });
 
   it('never flags overrides the engine wrote before the session, kept or reformatted', () => {
     const engine = json({ overrides: { react: '19.0.0' }, resolutions: { zod: '4.6.5' } });
     const reformatted = JSON.stringify(JSON.parse(engine));
-    expect(dependencyEdits('package.json', engine, reformatted, [])).toEqual({
+    expect(dependencyEdits('package.json', engine, reformatted)).toEqual({
       refused: [],
       added: [],
     });
@@ -219,7 +234,7 @@ it('refuses and records an edited lockfile or a new package.json after the sessi
     const root = repo({ 'package.json': ROOT, 'pnpm-lock.yaml': 'lockfileVersion: 9.0\n' });
     mkdirSync(join(root, 'src/new'), { recursive: true });
     writeFileSync(join(root, file), '{}\n');
-    const gate: DependencyGate = { scope: [], refused: [], added: [] };
+    const gate: DependencyGate = { refused: [], added: [] };
     const task = { id: 'r', rule: 'r', sites: [], files: [file] };
     expect(editRules(root, task, { ...said(''), newFiles: [file] }, [], [], gate)).toContain(
       `${file}: lockfiles, package-manager configuration and new package.json files are read-only`,

@@ -444,7 +444,7 @@ it('refuses an out-of-scope dependency bump every round, says so in the next pro
   expect(prompts[0]).not.toContain('left-pad');
   for (const prompt of prompts.slice(1))
     expect(prompt).toContain(
-      "outside this upgrade's scope (the upgraded package and its planned companions); only adding a new dependency is allowed, and a stated reason does not change that: package.json dependencies left-pad: 1.0.0 → 2.0.0",
+      "out of the agent's scope: Uptide's install sets every existing version and range, the upgraded package's and its companions' included; only adding a new dependency is allowed, and a stated reason does not change that: package.json dependencies left-pad: 1.0.0 → 2.0.0",
     );
   expect(result.llm.tasks?.map((t) => t.gate)).toEqual(['rejected', 'rejected', 'rejected']);
   for (const task of result.llm.tasks ?? [])

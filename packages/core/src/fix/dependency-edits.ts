@@ -23,15 +23,15 @@ const text = (value: unknown): string | undefined =>
 
 /**
  * What an agent's edit of an existing `package.json` did to its dependencies (UPT-126). Changing
- * or removing an existing declaration, and any edit to overrides, resolutions or the `pnpm`
- * field, is `refused`: the agent's stated reason is not evidence. `scope` (the upgraded package
- * and its planned companions) is the engine's to set and exempt. A new declaration is `added`.
+ * or removing an existing declaration (the upgraded package's and its companions' included: the
+ * engine wrote those), and any edit to overrides, resolutions or the `pnpm` field, is `refused`;
+ * the agent's stated reason is not evidence. A rewrite to the same value is no change. A new
+ * declaration is `added`.
  */
 export function dependencyEdits(
   file: string,
   before: string,
   after: string,
-  scope: readonly string[],
 ): { refused: DependencyEdit[]; added: DependencyEdit[] } {
   const refused: DependencyEdit[] = [];
   const added: DependencyEdit[] = [];
@@ -43,14 +43,14 @@ export function dependencyEdits(
   } catch {
     return { refused: [{ file, reverted: true }], added };
   }
-  const diff = (fields: readonly string[], keep: (name: string, from?: string) => boolean) => {
+  const diff = (fields: readonly string[], keep: (from?: string) => boolean) => {
     for (const field of fields) {
       const was = (old[field] ?? {}) as Json;
       const is = (now[field] ?? {}) as Json;
       for (const name of new Set([...Object.keys(was), ...Object.keys(is)])) {
         const from = text(was[name]);
         const to = text(is[name]);
-        if (from === to || keep(name, from)) continue;
+        if (from === to || keep(from)) continue;
         refused.push({
           file,
           field,
@@ -62,7 +62,7 @@ export function dependencyEdits(
       }
     }
   };
-  diff(DEPENDENCY_FIELDS, (name, from) => scope.includes(name) || from === undefined);
+  diff(DEPENDENCY_FIELDS, (from) => from === undefined);
   diff(RESOLUTION_FIELDS, () => false);
   for (const field of DEPENDENCY_FIELDS) {
     const was = (old[field] ?? {}) as Json;
@@ -79,5 +79,5 @@ export function dependencyObjection(refused: readonly DependencyEdit[]): string 
     e.name
       ? `${e.file} ${e.field} ${e.name}: ${e.before ?? '(none)'} → ${e.after ?? '(removed)'}`
       : `${e.file}: lockfiles, package-manager configuration and new package.json files are read-only`;
-  return `dependency edits refused, outside this upgrade's scope (the upgraded package and its planned companions); only adding a new dependency is allowed, and a stated reason does not change that: ${refused.map(one).join('; ')}`;
+  return `dependency edits refused, out of the agent's scope: Uptide's install sets every existing version and range, the upgraded package's and its companions' included; only adding a new dependency is allowed, and a stated reason does not change that: ${refused.map(one).join('; ')}`;
 }

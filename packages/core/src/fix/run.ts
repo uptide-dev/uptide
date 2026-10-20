@@ -1044,7 +1044,6 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
       ? assistWithSdk({
           root,
           workspaces,
-          scope: [pack.name, ...companions.map((c) => c.name)],
           sites,
           pack: sitePack,
           context: packContext,
@@ -1290,7 +1289,6 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     const next = await assistWithSdk({
       root,
       workspaces,
-      scope: [pack.name, ...companions.map((c) => c.name)],
       sites,
       pack,
       context: packContext,

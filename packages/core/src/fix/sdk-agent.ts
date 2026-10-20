@@ -95,8 +95,6 @@ export type TaskRunner = (input: {
 
 export interface SdkAssistInput {
   root: string;
-  /** The upgraded package and its planned companions: dependencies the engine set (UPT-126). */
-  scope?: readonly string[];
   workspaces: string[];
   sites: FixSite[];
   pack: MigrationPack;
@@ -245,7 +243,7 @@ export function editRules(
   summary: AgentSummary | undefined,
   before: readonly FixDiagnostic[] = [],
   fixtureProperties: FixtureProperty[] = [],
-  dependencies: DependencyGate = { scope: [], refused: [], added: [] },
+  dependencies: DependencyGate = { refused: [], added: [] },
 ): string | undefined {
   const { modified, added } = changedPaths(root);
   // Dependencies first, wherever the manifest is: each refused edit is named and recorded.
@@ -256,7 +254,7 @@ export function editRules(
     }
     if (!isManifest(file)) continue;
     const now = existsSync(join(root, file)) ? readFileSync(join(root, file), 'utf8') : '{}';
-    const edits = dependencyEdits(file, git(root, 'show', `HEAD:${file}`), now, dependencies.scope);
+    const edits = dependencyEdits(file, git(root, 'show', `HEAD:${file}`), now);
     dependencies.refused.push(...edits.refused);
     dependencies.added.push(...edits.added);
   }
@@ -296,9 +294,8 @@ export function editRules(
   return undefined;
 }
 
-/** What the dependency gate is given (`scope`) and what it found, for the task's record. */
+/** What the dependency gate found, for the task's record. */
 export interface DependencyGate {
-  scope: readonly string[];
   refused: DependencyEdit[];
   added: DependencyEdit[];
 }
@@ -732,7 +729,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     for (const file of discardedFiles) rmSync(join(root, file));
     const touched = [...modified, ...added.filter((file) => !discardedFiles.includes(file))];
     const fixtureProperties: FixtureProperty[] = [];
-    const dependencies: DependencyGate = { scope: input.scope ?? [], refused: [], added: [] };
+    const dependencies: DependencyGate = { refused: [], added: [] };
     const rejection =
       error ??
       (touched.length
