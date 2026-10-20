@@ -200,3 +200,61 @@ mongoose	3	SciCatProject/backend#2906	2026-08-31 11:28	dropped	not mongoose (@ca
 mongoose	3	benjeater/autographcraft#20	2026-08-29 07:34	dropped	bundles GraphQL 17
 mongoose	3	esclickteam/invistimo-events#72	2026-08-12 21:19	dropped	no license; commit authored by `cursoragent`
 mongoose	3	payloadcms/payload#17747	2026-08-12 11:06	dropped	feasibility rule (amendment 2): the suite that defines mergeable is Payload's sharded integration suite against MongoDB; `db-mongodb` has no test script of its own. GitHub-side rule met otherwise (MIT, human, no AI trailer, mongoose 8 → 9 with mongodb 6 → 7)
+react-router	3	Nanotheslayer/kaskad-website#8	2026-10-17 07:35	dropped	no license
+react-router	3	secrets-bridge/ui#126	2026-10-16 22:31	dropped	no license; bundles Vite 8, Tailwind 4, zod 4, ESLint 10
+react-router	3	equinor/fusion-framework#5745	2026-10-16 21:02	dropped	merged into a feature branch; docs only (a v7 → v8 guide)
+react-router	3	Cawlumm/lyftr#222	2026-10-16 16:41	dropped	changes only manifests and the lockfile
+react-router	3	keigo-hisazumi/my-profile#47	2026-10-16 08:18	dropped	no license; Dependabot PR with no human commit
+react-router	3	vibe-backend/sample-shop#79	2026-10-16 01:39	dropped	Dependabot PR with no human commit
+react-router	3	vncius/ControleDeHorasPJ#13	2026-10-15 23:45	dropped	no license; Dependabot PR with no human commit
+react-router	3	Shylee1/NeurusAGi-5-26#12	2026-10-15 22:50	dropped	no license; commit authored by `Arena Agent`
+@prisma/client	3	mk-forge/e-learning-platform#5	2026-10-18 15:19	dropped	Dependabot PR with no human commit
+@prisma/client	3	plenatthomas-dev/yvette-squash#66	2026-10-18 14:24	dropped	no license; commits authored by `claude`; bundles SimpleWebAuthn 14
+@prisma/client	3	plenatthomas-dev/yvette-squash#67	2026-10-18 14:11	dropped	no license; merged into `Recette`; commits by `claude`
+@prisma/client	3	plenatthomas-dev/yvette-squash#61	2026-10-18 13:42	dropped	no license; no Prisma move (it defers it)
+@prisma/client	3	matheusmaximianomv/smaug#10	2026-10-18 12:14	dropped	no license; 121 files; bundles Next 16, Tailwind 4
+@prisma/client	3	Tharun-code-08/Inventory-control#68	2026-10-18 11:06	dropped	no license; commit authored by `claude`
+@prisma/client	3	epolus/nfl-tipping-game#10	2026-10-18 10:29	dropped	Dependabot PR with no human commit
+@prisma/client	3	epolus/nfl-tipping-game#9	2026-10-18 10:22	dropped	Dependabot PR with no human commit
+zod	4	niclydon/nexus-public#4	2026-10-18 18:54	dropped	excluded (phase-1 list)
+zod	4	Alexi5000/ClawKeeper#35	2026-10-18 15:24	dropped	commit authored by `zocomputer`, an agent account
+zod	4	Neuravic-co/Neuravic#15	2026-10-18 13:58	dropped	no license; commits by `claude`; bundles TypeScript 7
+zod	4	irahardianto/pi-mcp-extension#97	2026-10-18 12:30	dropped	no package move (a follow-up to Dependabot #95)
+zod	4	VitiukVV/HourTrack#53	2026-10-18 12:29	dropped	no license; bundles vite-plugin-pwa 2
+zod	4	fahadsultanemirates-creator/agenticcore-agency#61	2026-10-18 11:26	dropped	no license; commit by `claude`; no package move
+zod	4	MMM-pay/payflow-backend#110	2026-10-18 10:38	dropped	Dependabot PR with no human commit
+zod	4	kukukucode/fortylove#55	2026-10-18 09:33	dropped	excluded (dev set)
+tailwindcss	4	evcallia/meal-planner#52	2026-10-14 20:37	dropped	license NOASSERTION; lockfile in `frontend/`
+tailwindcss	4	7K-Inari/inari-ui#122	2026-10-14 16:04	dropped	no license; 49 files
+tailwindcss	4	daxkensington/the-stoned-chef#11	2026-10-14 10:40	dropped	no license; no package move
+tailwindcss	4	ianlucas/cs2-inventory-simulator#671	2026-10-13 21:57	dropped	not tailwindcss (eslint-plugin-better-tailwindcss); bot commit only
+tailwindcss	4	mael-app/cv-generator-public#105	2026-10-12 10:24	dropped	a revert of the bump, lockfile only
+tailwindcss	4	saeedhosan/sendocs#62	2026-10-11 16:59	dropped	no license; 123 files
+tailwindcss	4	blissito/mailmask#57	2026-10-11 13:47	dropped	no license; authored by `ghosty-studio[bot]`; no package move
+tailwindcss	4	ngxccc/open-spend#18	2026-10-11 02:28	dropped	no `test` script (only `test:e2e`, Maestro on a device). Otherwise MIT, human, no AI trailer, with nativewind 5 as the companion
+express	4	Sergiocr16/eco#26	2026-10-17 21:52	dropped	no license; bundles zod 4, React 19, Vite 8, TS 7
+express	4	MMM-pay/payflow-backend#102	2026-10-17 19:23	**kept**	Apache-2.0; organization repository (Payflow protocol backend); human (Gabbydunkk), no AI trailer; express and @types/express 4 → 5; 5 files (src/app.ts, test/api.test.ts, CHANGELOG, manifests); base: install, typecheck, lint, 139 tests, build pass in seconds, no service
+eslint	4	Keglev/inventory-service#399	2026-10-20 08:16	dropped	no lockfile at the repository root (a Maven project with `frontend/package-lock.json`)
+eslint	4	Raheelatta1984/Central_insurance-illustration-portal#26	2026-10-20 07:54	dropped	license NOASSERTION; arena-agent trailer; bundles React 19, Vite 8, Vitest 5
+eslint	4	qiick-io/externa-nuxt-starter#13	2026-10-20 07:42	dropped	changes only manifests and the lockfile
+eslint	4	elonehoo/photo-planner#165	2026-10-20 07:32	dropped	commit authored by `codex`; bundles Antfu config 9
+eslint	4	rygit1/stash#26	2026-10-20 05:22	dropped	no license; Dependabot PR with no human commit
+eslint	4	URDJMK/fun-mem-v2#7	2026-10-20 03:17	dropped	no license; bundles TypeScript 6, vite-node 6, vitest 5
+eslint	4	cortega26/noticiencias#314	2026-10-20 00:31	dropped	license NOASSERTION
+eslint	4	quisido/quisi.do#861	2026-10-19 22:06	dropped	license NOASSERTION; Dependabot PR with no human commit
+vitest	4	AmrDab/clawdcursor#258	2026-10-20 13:59	dropped	base not green on the bench machine: `test:ci` fails 8 tests in `mac-ax-live.test.ts` and `mac-ocr-binary.test.ts` (macOS-only live tests; `swiftc` can't build the helper scripts here). Also bundles a CodeQL fix and source changes outside the upgrade
+vitest	4	apex-dev-tools/apex-log-parser#156	2026-10-20 13:56	dropped	license NOASSERTION
+vitest	4	kokoiiiiiiii/inkless-cat#2	2026-10-20 13:46	dropped	out of range (vitest 2.1.9 → 5.0.5); from a `codex/` branch
+vitest	4	teransarathchandra/jira-mcp-server#38	2026-10-20 13:33	dropped	bundles TypeScript 7 and a Node 22 floor
+vitest	4	matzekFloyd/EvoLift#286	2026-10-20 12:27	dropped	Dependabot PR with no human commit
+vitest	4	GemTalk/GemDB_Code#155	2026-10-20 12:19	dropped	Dependabot PR with no human commit
+vitest	4	Alexi5000/miro-workflows#34	2026-10-20 11:31	dropped	Dependabot PR with no human commit
+vitest	4	Setsuna-guwah/KlinikAid#145	2026-10-20 11:26	dropped	no license
+jest	4	Victor-Hndz/AtmosBlock-WebPortal#180	2026-10-17 11:11	dropped	bundles NestJS 12 and joi 18; lockfile in `backend/nestjs/`
+jest	4	nivuus/mqtt#14	2026-10-17 11:04	dropped	license NOASSERTION; changes only manifests and the lockfile
+jest	4	BoulosChaaya/distributed-engine#32	2026-10-17 01:39	dropped	no license; bundles BullMQ 6, cron-parser 5
+jest	4	rubensworks/biblio-checker#14	2026-10-16 20:00	dropped	no license; Renovate PR with no human commit
+jest	4	databricks/app-templates#282	2026-10-16 16:38	dropped	license NOASSERTION; bundles OTel 2.x
+jest	4	Ghislain89/booker-platform#30	2026-10-16 13:20	dropped	merged into `solutions`; 144 files; bundles TypeScript 7, Prisma 7
+jest	4	Automattic/wp-calypso#115271	2026-10-16 06:01	dropped	GPL-2.0; 74 files
+jest	4	opena2a-org/aicomply#179	2026-10-16 00:49	**kept**	Apache-2.0; organization repository; human (Abdel Fane), no AI trailer; jest 29.7 → 30.5.2, @types/jest 29 → 30, ts-jest 29.1 → 29.4.15 (minor); 4 files; base: install, lint (`tsc --noEmit`), 851 tests in 10 s, build pass, no service

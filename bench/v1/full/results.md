@@ -92,6 +92,13 @@ Run outputs are in the session scratchpad, not the repository, as in phase 1.
 - **Hand check, run `c4e7f538`** (`runs-0.18.2/c4e7f538/cost.json`, Sonnet 5.5 at $2 / $10 / $0.10 / $2.50 per million: input, output, cache read, 5m write). 10 × 2 + 865 × 10 + 37,908 × 0.10 + 10,515 × 2.50 = 38,748.3 → **$0.0387483**, equal to `costUsd` and `sdkReportedCostUsd`.
 - Per-run records are in `runs-0.18.2/`.
 
+## Secondary set: disclosures (before any secondary run)
+
+- **The 5:** `../secondary/selection.json` and `../repos.md`.
+- **AI co-author trailers:** 2 of the 5 human reference fixes carry one, after the replacements: onideus/context-library#300 (Claude Fable 5.1) and riseup-oss/mcp#13 (Claude Opus 5.5). Both authors are human. Before the replacements, 4 of 5 did (context-library, riseup and both davide-pi sites).
+- **Picks 2 and 4 of the first selection were replaced** under the user's amendment (personal data; one data point per author, migration and day). They were never forked.
+- **Feasibility rule** (amendment 2): every pick's suite runs locally in under 2 minutes. Only context-library needs a service (Postgres), recreated per run and check for both arms.
+
 ## Key isolation proof (phase 2, before any secondary run)
 
 `bench/keyprobe.sh`, 2026-10-20 ~21:45Z. The calling shell had `ANTHROPIC_API_KEY=set OPENAI_API_KEY=set`. Each arm ran a local probe repository whose only test prints this, never a value:

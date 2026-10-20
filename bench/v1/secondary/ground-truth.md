@@ -8,6 +8,7 @@ The headline set. It was written and committed before any secondary run, in the 
 **How it was found:**
 - Each parent was checked on a parent-only fetch, with lifecycle scripts off, TZ=UTC, Node 22.20.0, npm 11.21.0 and pnpm 10.24.0.
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `ANTHROPIC_BASE_URL` were removed from the environment. This machine's `~/.zshrc` exports both keys, and one repository's tests call the API when a key is present.
+- **Replacements:** the two davide-pi sites were dropped by the user's amendment (`../repos.md`). Their sections are removed, and sections 4 and 5 are the replacements, from the continued procedure.
 - Where noted, the parent was checked again with only the human's `package.json` and lockfile applied (the bump-only tree).
 - A behavior change that the bump-only tree's checks pass is silent.
 
@@ -53,47 +54,7 @@ The commit is by Zach Martin, with a Claude Fable 5.1 co-author trailer, and the
 - No lint script.
 - CI also runs a Snyk scan on push to main only, not on PRs.
 
-## 2. davide-pi/matrimonio-elena-e-davide: tailwindcss 3.4.19 → 4.3.3 (#30, merged 2026-10-14 21:01Z, human)
-
-The commit is by Davide Piccinini, with a `Co-Authored-By: Claude AI` trailer and a `Claude-Session:` link. **No pack** in Uptide 0.18.2.
-
-**Human (14 files):**
-- `package.json`: tailwindcss `^3.4.1` → `^4.3.3`, adds `@tailwindcss/vite`, drops `autoprefixer`.
-- `postcss.config.js` deleted. `vite.config.ts` adds `tailwindcss()`.
-- `src/index.css`:
-  - `@tailwind` directives become `@import 'tailwindcss'` + `@config '../tailwind.config.js'`.
-  - A base layer restores v3's `gray-200` default border color.
-  - 5 `@layer utilities` classes become `@utility`.
-- Class renames in 8 components:
-  - `backdrop-blur-sm` → `-xs`, `shadow-sm` → `shadow-xs`.
-  - `bg-gradient-to-b` → `bg-linear-to-b`.
-  - `z-[n]` → `z-n`.
-- `src/test/SpouseContactCard.test.tsx:77`: the expected class follows.
-
-**Bump-only:** not built. With only the manifests applied, Tailwind 4's PostCSS entry refuses the v3 `postcss.config.js` ("use @tailwindcss/postcss"), so the build catches the config change. The scale renames below are what a minimal config fix leaves behind: v3 class names that still exist in v4 at a different size. Lint, tests (jsdom, which asserts class names) and the build all pass with them.
-
-**Silent changes, 8 sites, 9 classes (`tailwind4-scale-rename`):**
-
-| site | v3 class | v4 equivalent |
-|---|---|---|
-| `src/components/CountdownTimer.tsx:111` | `backdrop-blur-sm` | `backdrop-blur-xs` |
-| `src/components/RSVP.tsx:10` | `backdrop-blur-sm` | `backdrop-blur-xs` |
-| `src/components/EventDetails.tsx:42` | `backdrop-blur-sm` | `backdrop-blur-xs` |
-| `src/components/EventDetails.tsx:102` | `shadow-sm` | `shadow-xs` |
-| `src/components/LanguageSelector.tsx:21` | `backdrop-blur-sm` | `backdrop-blur-xs` |
-| `src/components/Gift.tsx:22` | `backdrop-blur-sm` | `backdrop-blur-xs` |
-| `src/components/Gift.tsx:29` | `backdrop-blur-sm` and `shadow-sm` | both `-xs` |
-| `src/components/SpouseContactCard.tsx:7` | `shadow-sm` | `shadow-xs` |
-
-- Not a site:
-  - `bg-gradient-to-b`: v4 keeps it as an alias.
-  - `z-[0]`, `z-[10]`, `z-[50]`, `z-[60]`: arbitrary values render the same.
-  - The `space-y-*` selector change and `hover:` on touch devices: the human kept them, so they're informational.
-- **Default border color:** the only bare `border` (`CountdownTimer.tsx:111`) has an explicit `border-sage-200`, so it's not a site. The human's compatibility layer covers the rest.
-
-**Mergeable:** CI's commands: `npm ci --ignore-scripts`, `npm run lint`, `npm run test:coverage` and `npm run build`. All pass at the parent: 69 tests in 14 files. `tsc -b --noEmit` passes too, but CI doesn't run it.
-
-## 3. riseup-oss/mcp: jest 29.7.0 → 30.5.2 (#13, merged 2026-10-19 09:00Z, human)
+## 2. riseup-oss/mcp: jest 29.7.0 → 30.5.2 (#13, merged 2026-10-19 09:00Z, human)
 
 The commits are by Revital Oren, with Claude Opus 5.5 co-author trailers. **No pack** in Uptide 0.18.2.
 
@@ -117,36 +78,7 @@ The commits are by Revital Oren, with Claude Opus 5.5 co-author trailers. **No p
 
 **Unrelated-changes note:** the human's CI and Dependabot edits aren't required by the upgrade. A run that leaves them out isn't penalized: coverage counts them, but the mergeable bar doesn't. A run that adds unrelated workflow changes is judged by hand.
 
-## 4. davide-pi/wedding-uploads-elena-e-davide: tailwindcss 3.4.19 → 4.3.3 (#15, merged 2026-10-14 20:58Z, human)
-
-The same author and day as repository 2, with a `Co-Authored-By: Claude AI` trailer. It's a sibling site, with its own code and tests. **No pack.**
-
-**Human (21 files):**
-- `package.json`: tailwindcss `^4.3.3`, adds `@tailwindcss/vite`, drops `autoprefixer`.
-- `postcss.config.js` deleted. `vite.config.ts` adds `tailwindcss()`.
-- `tailwind.config.js` deleted (123 lines), and the theme moves to `@theme` in `src/index.css`, with the gray-200 border compatibility layer.
-- Class renames in 12 components:
-  - `backdrop-blur-sm` → `-xs`, `blur-sm` → `blur-xs`, `blur-0` → `blur-[0px]`.
-  - `rounded-sm` → `rounded-xs`, `rounded` → `rounded-sm`.
-  - `outline-none` → `outline-hidden`.
-  - `flex-shrink-0` → `shrink-0`, `bg-[length:…]` → `bg-size-[…]`.
-  - `bg-gradient-to-*` → `bg-linear-to-*`.
-- `vitest.config.ts` reworked (48 lines).
-
-**Bump-only:** as in repository 2, the build catches the PostCSS entry. These scale and behavior renames pass lint, tests and the build unchanged.
-
-**Silent changes, 21 sites:**
-- **`tailwind4-scale-rename`, 16 sites:**
-  - `backdrop-blur-sm`, 10: `src/components/MediaCard.tsx:67`, `:111`, `:141`; `MediaModal.tsx:43`, `:50`; `MediaCardSkeleton.tsx:36`; `LanguageSelector.tsx:63`, `:72`; `EmptyMediaState.tsx:10`; `Header.tsx:9`.
-  - `blur-sm`, 3: `src/components/MediaCard.tsx:102`, `:123`, `:132`.
-  - `rounded-sm` → `rounded-xs`, 1: `src/components/MediaModal.tsx:62`.
-  - Bare `rounded` → `rounded-sm`, 2: `src/components/MediaCardSkeleton.tsx:58`, `:63`.
-- **`tailwind4-outline-none`, 5 sites:** `src/components/buttons/ActionButton.tsx:25`, `Notification.tsx:44`, `buttons/FloatingActionButton.tsx:91`, `upload/MediaUploadForm.tsx:141`, `:158`.
-  - v3's `outline-none` was a transparent 2px outline, still drawn in forced-colors mode. v4's is `outline-style: none`, so keyboard focus disappears there. `outline-hidden` keeps v3's behavior.
-
-**Mergeable:** CI's commands: `npm ci --ignore-scripts`, `npm run lint`, `npm run test:coverage` and `npm run build`. All pass at the parent: 52 tests, 3 skipped. Lint has 1 warning, no errors.
-
-## 5. AKogut/ai-flaky-test-triage: vitest 4.1.10 → 5.0.5 (#206, merged 2026-10-20 14:32Z, human)
+## 3. AKogut/ai-flaky-test-triage: vitest 4.1.10 → 5.0.5 (#206, merged 2026-10-20 14:32Z, human)
 
 The commit is by Andrii Kohut, with no AI trailer. It supersedes Dependabot #203, whose CI failed. Uptide 0.18.2 has a **verified** vitest pack.
 
@@ -170,3 +102,44 @@ The commit is by Andrii Kohut, with no AI trailer. It supersedes Dependabot #203
 - **With `ANTHROPIC_API_KEY` set,** `eval/cli.test.ts` "exits 1 when the agent classifier has no cassette to replay" calls the live API and fails. It got HTTP 400, `output_config.format.schema: For 'number' type, properties maximum, minimum are not supported`. `npm run demo` also calls it and exits 1. `check.sh` therefore runs every check with both keys unset.
 - **Out of the bar:** `npm run test:e2e` (Playwright, Chromium). CI runs it with `continue-on-error: true`, and the suite is deliberately flaky: it's the tool's own input. At the parent, 2 of 73 fail (`find-by-name.spec.ts:89`, `visible-tasks.spec.ts:74`).
 - **Fork CI:** the eval gate needs `origin/main` history and the committed cassettes. Fork CI is compared with the human commit's.
+
+## 4. MMM-pay/payflow-backend: express 4.22.2 → 5.3.0 (#102, merged 2026-10-17 19:23Z, human)
+
+The commits are by Gabbydunkk, with no AI trailer. It's an organization repository, the Payflow protocol's indexer, keeper and REST API. Uptide 0.18.2 has a **verified** express pack.
+
+**Human (5 files, squash-merged as `1e659347`):**
+- `package.json`: express `^4.21.2` → `^5.3.0`, `@types/express` `^4.17.21` → `^5.0.6`.
+- `src/app.ts`:
+  - The inline four-argument error middleware (`src/app.ts:139-142` at the parent) becomes an exported `errorHandler`. It hands back an error whose headers are already sent, and logs `loggableError(err)`: a fresh error with only the type, message, stack and status, so body-parser's `err.body` never reaches a log line.
+- `test/api.test.ts`: 5 new tests for that boundary.
+- `CHANGELOG.md`: an entry.
+
+**Bump-only:** typecheck, lint, all 139 tests and the build pass. Nothing is caught.
+
+**Silent changes: none scored.** The human's own change is not a migration the upgrade requires:
+- **The error-boundary hardening:** checked on a minimal app with `express.json()` and the same middleware, under `express@4.22.2` and `express@5.3.0`. A truncated JSON POST reaches the error middleware as a `SyntaxError` carrying `body` (the raw request) under **both**. The log leak predates the upgrade.
+- **Async rejections:** every route handler is synchronous, and the two async admin handlers (`src/routes/admin.ts:63`, `:72`) catch their own errors. So Express 5's forwarding of rejected promises changes no route here.
+- A run that adds the hardening is judged related (the human did it). A run that doesn't isn't penalized beyond coverage.
+
+**Informational, not scored** (the human kept it as it was):
+- **The query parser:** Express 5's default query parser is `simple` (Node's `querystring`), not `extended` (`qs`). `GET /api/mandates?ids[]=1&ids[]=2` filtered by id under Express 4: `qs` gives `["1","2"]`, and `parseIds` (`src/routes/mandates.ts:21`) reads `String(raw)` = `"1,2"`.
+  - Under Express 5 the key is `ids[]`, `ids` is undefined, and the route returns every mandate up to `limit`. The tests use only `?ids=1,2`.
+  - `?ids=1&ids=2` behaves the same under both.
+
+**Mergeable:** CI's commands: `npm ci --ignore-scripts`, `npm run typecheck`, `npm run lint`, `npm test` and `npm run build`. All pass at the parent: 139 tests, in seconds, no service.
+
+## 5. opena2a-org/aicomply: jest 29.7.0 → 30.5.2 (#179, merged 2026-10-16 00:49Z, human)
+
+The commit is by Abdel Fane (thebenignhacker), with no AI trailer. It's an organization repository. **No pack** in Uptide 0.18.2.
+
+**Human (4 files):**
+- `package.json`: jest `^29.7.0` → `^30.5.2`, `@types/jest` `^29.5.0` → `^30.0.0`, ts-jest `^29.1.0` → `^29.4.15` (a minor, for jest 30).
+- `src/__tests__/lint-windows-paths.test.ts`: jest 30 keys a core module's mock by its id **without** the `node:` prefix. The three `jest.mock('node:path…')` calls go, and the mocks of `path`, `path/posix` and `path/win32` now also answer the `node:` ids.
+- `src/__tests__/dev-dependency-advisories.test.ts`: new. It asserts advisory floors on the lockfile, which the PR's lockfile refresh meets. It isn't required by the upgrade, and a run without it isn't penalized beyond coverage.
+
+**Bump-only:** lint (`tsc --noEmit`) and the build pass. `npm test` fails `src/__tests__/lint-windows-paths.test.ts` (836 of the rest pass), so the tests catch the mock-keying change.
+
+**Silent changes: none.** Jest 30's changes affect only how tests run, and the tests catch the one that matters here.
+
+**Mergeable:** `npm ci --ignore-scripts`, `npm run lint`, `npm test` and `npm run build`. All pass at the parent: 851 tests in 37 suites, 10 s, no service.
+- The repository has no PR workflow that runs the tests: they run in `release.yml` on release. So fork CI is compared with the human commit's, and the local checks are the bar.

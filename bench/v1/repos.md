@@ -320,3 +320,32 @@ The 2 slots are filled by continuing the committed procedure where it stopped: t
   - payloadcms/payload#17747 drops under it.
 - **Parent type-check gap:** Uptide's parent type-check runs the repository's TypeScript compiler with the key visible (`arms.md`, phase 2). The user accepted it on 2026-10-20 ("it cannot affect results") and will open it as an engine hygiene issue. No engine change.
 - **Extension:** 60 minutes more of screening, from 22:05Z. The procedure continues where it stopped: react-router turn 3, then Prisma turn 3, then turn 4. With 5 picks, proceed. With 4, proceed and say so. With 3 or fewer, stop.
+
+### Replacements (extension, 22:05Z to 22:17Z)
+
+Screened in order, every one in `secondary/screened.tsv` with turn and reason:
+- **react-router, turn 3:** 8 screened, 0 kept.
+- **@prisma/client, turn 3:** 8 screened, 0 kept.
+- **Turn 4:**
+  - zod: 8 screened, 0 kept.
+  - tailwindcss: 8 screened, 0 kept.
+  - express: 2 screened. Kept **MMM-pay/payflow-backend#102**.
+  - eslint: 8 screened, 0 kept.
+  - vitest: 8 screened, 0 kept. clawdcursor#258's base fails 8 macOS-only tests on this machine.
+  - jest: 8 screened. Kept **opena2a-org/aicomply#179**, jest's second and last allowed pick.
+
+Selection closed at 22:17Z with 5 picks, inside the extension.
+
+### The final 5 (secondary set, headline)
+
+| # | repo | dependency | from → to | pack in 0.18.2 | PR, merged (UTC) | license | author | AI co-author trailer |
+|---|---|---|---|---|---|---|---|---|
+| 1 | onideus/context-library | zod | 3.25.76 → 4.6.7 | **yes, verified** | #300, 2026-10-19 21:40 | MIT | Zach Martin | **yes**: Claude Fable 5.1 (and a "Generated with Claude Code" PR footer) |
+| 2 | riseup-oss/mcp | jest | 29.7.0 → 30.5.2 | no | #13, 2026-10-19 09:00 | MIT | Revital Oren | **yes**: Claude Opus 5.5 |
+| 3 | AKogut/ai-flaky-test-triage | vitest | 4.1.10 → 5.0.5 | **yes, verified** | #206, 2026-10-20 14:32 | MIT | Andrii Kohut | no |
+| 4 | MMM-pay/payflow-backend | express | 4.22.2 → 5.3.0 | **yes, verified** | #102, 2026-10-17 19:23 | Apache-2.0 | Gabbydunkk | no |
+| 5 | opena2a-org/aicomply | jest | 29.7.0 → 30.5.2 | no | #179, 2026-10-16 00:49 | Apache-2.0 | Abdel Fane | no |
+
+- **Split:** 3 with a verified pack (zod, vitest, express), 2 without (jest ×2, the most allowed per dependency).
+- **AI co-author trailers:** after the replacements, **2 of 5** human reference fixes carry one (#1, #2). The user's "4 of 5" counted the set before the replacements (context-library, both wedding sites, riseup). Each author is a human, so by the brief's clause each counts as human.
+- **Feasibility and personal data:** checked for each pick. None needs a service but #1 (Postgres, `bench/services.sh`), every suite runs in under 2 minutes, and none is a private individual's site.

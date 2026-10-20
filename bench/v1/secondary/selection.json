@@ -74,6 +74,51 @@
         "build": "npm run build"
       },
       "silent": []
+    },
+    {
+      "id": "express-payflow",
+      "repo": "MMM-pay/payflow-backend",
+      "license": "Apache-2.0",
+      "pack": "express",
+      "packVerified": true,
+      "package": "express",
+      "from": "4.22.2",
+      "to": "5.3.0",
+      "parent": "33210f54ce2d356942e2b5aa2ea5407062fa0638",
+      "upgrade": "1e65934760cfe9442017cfe89c49a475c0bb7049",
+      "pr": 102,
+      "merged": "2026-10-17T19:23:02Z",
+      "source": "human (Gabbydunkk), no AI trailer",
+      "checks": {
+        "install": "npm ci --ignore-scripts",
+        "typecheck": "npm run typecheck",
+        "lint": "npm run lint",
+        "test": "npm test",
+        "build": "npm run build"
+      },
+      "silent": []
+    },
+    {
+      "id": "jest-aicomply",
+      "repo": "opena2a-org/aicomply",
+      "license": "Apache-2.0",
+      "pack": null,
+      "packVerified": false,
+      "package": "jest",
+      "from": "29.7.0",
+      "to": "30.5.2",
+      "parent": "becae3366dd6c290e66038013795ead6ca47a908",
+      "upgrade": "8c9b95e1e9e24b331f69cdb03db279757bd1e5b2",
+      "pr": 179,
+      "merged": "2026-10-16T00:49:58Z",
+      "source": "human (Abdel Fane), no AI trailer",
+      "checks": {
+        "install": "npm ci --ignore-scripts",
+        "typecheck": "npm run lint",
+        "test": "npm test",
+        "build": "npm run build"
+      },
+      "silent": []
     }
   ]
 }
