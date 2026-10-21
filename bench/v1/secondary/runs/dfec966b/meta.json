@@ -1,0 +1,18 @@
+{
+  "id": "zod-context-library",
+  "head": "621c823c111faecb4c3f80f5b4f9e96eb9f87afe",
+  "exit": 0,
+  "costUsd": 0.3858221,
+  "wallSeconds": 188,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 1,
+  "overCapUsd": 0,
+  "version": {
+    "uptide": "0.18.2"
+  },
+  "model": "claude-sonnet-5-5",
+  "sdkReportedCostUsd": 0.3858221,
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into /private/tmp/claude-502/-Users-Deskfy-Desktop-code-uptide/713dbc85-8511-4dfe-97c3-aa8c8fc2fcb9/scratchpad/sec/runs/dfec966b/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

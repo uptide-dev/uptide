@@ -1,0 +1,27 @@
+{
+  "costUsd": 0.2071942,
+  "sdkReportedCostUsd": 0.2071942,
+  "costUnverified": null,
+  "inputTokens": 40,
+  "outputTokens": 6559,
+  "models": [
+    {
+      "model": "claude-sonnet-5-5",
+      "inputTokens": 40,
+      "outputTokens": 6559,
+      "cacheReadTokens": 346067,
+      "cacheWriteTokens": 42767,
+      "cacheWriteHourTokens": 0,
+      "rates": {
+        "input": 2,
+        "output": 10,
+        "cacheRead": 0.1,
+        "cacheWrite": 2.5,
+        "cacheWriteHour": 4
+      },
+      "costUsd": 0.2071942,
+      "sdkReportedCostUsd": 0.2071942
+    }
+  ],
+  "warnings": null
+}

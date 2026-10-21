@@ -1,0 +1,16 @@
+{
+  "id": "express-payflow",
+  "head": "c1349d046ebb9d09123bdd4cc71f41363b308055",
+  "exit": 0,
+  "costUsd": 0.2530244,
+  "wallSeconds": 83,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 5,
+  "overCapUsd": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-opus-5-5",
+  "claudeCodeCostUsd": 0.25302440000000004
+}

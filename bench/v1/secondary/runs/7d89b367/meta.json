@@ -1,0 +1,17 @@
+{
+  "id": "jest-aicomply",
+  "head": "6a7710040157884ab6ec6d13f65be579a6c0b609",
+  "exit": 0,
+  "costUsd": 0.2210394,
+  "wallSeconds": 104,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 5,
+  "overCapUsd": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-opus-5-5",
+  "claudeCodeCostUsd": 0.2210394,
+  "claudeSandbox": false
+}

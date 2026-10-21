@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(dangerouslyDisableSandbox:true)",
+      "WebFetch",
+      "WebSearch"
+    ],
+    "allow": [
+      "Bash"
+    ]
+  },
+  "apiKeyHelper": "/Users/Deskfy/Desktop/code/uptide-bench-v1-full/bench/claude-key.sh"
+}

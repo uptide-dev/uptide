@@ -1,0 +1,18 @@
+{
+  "id": "vitest-flaky-triage",
+  "head": "9171cbca3114d349ca440aa12eb7da258c5317e7",
+  "exit": 1,
+  "costUsd": 0.2313891,
+  "wallSeconds": 256,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 1,
+  "overCapUsd": 0,
+  "version": {
+    "uptide": "0.18.2"
+  },
+  "model": "claude-sonnet-5-5",
+  "sdkReportedCostUsd": 0.2313891,
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into /private/tmp/claude-502/-Users-Deskfy-Desktop-code-uptide/713dbc85-8511-4dfe-97c3-aa8c8fc2fcb9/scratchpad/sec/runs/27854a15/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

@@ -1,0 +1,1873 @@
+[
+  {
+    "run": "0c7344f9",
+    "id": "vitest-flaky-triage",
+    "head": "e5fd608d90bc6ca7199f65f2bb772cb5fbee9e41",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.31510259999999995,
+    "wallSeconds": 166,
+    "uncommittedFiles": 0,
+    "humanHunks": 12,
+    "covered": 3,
+    "missed": [
+      "contracts/reporters/playwright.test.ts:20",
+      "eslint.config.js:51",
+      "tests/fixtures/reporters/source/playwright.config.ts:0",
+      "tests/fixtures/reporters/source/specs/sample.spec.ts:0",
+      "tests/fixtures/reporters/source/specs/tasks.test.ts:0",
+      "tests/fixtures/reporters/source/vitest.config.ts:0",
+      "tests/unit/analyze.test.ts:34",
+      "tests/unit/reporter-contract.test.ts:62",
+      "tests/unit/reporter-contract.test.ts:137"
+    ],
+    "agentHunks": 3,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Agent triage",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Flakiness analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit & contract tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/E2E tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Static analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Evaluation gate",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Repository hygiene",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/PR title convention",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "0d0509dd",
+    "id": "jest-aicomply",
+    "head": "d45c8eee08f259abd05ef749e606e4cd94f93930",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.178940601,
+    "wallSeconds": 167,
+    "uncommittedFiles": 0,
+    "humanHunks": 5,
+    "covered": 0,
+    "missed": [
+      "src/__tests__/dev-dependency-advisories.test.ts:0",
+      "src/__tests__/lint-windows-paths.test.ts:11",
+      "src/__tests__/lint-windows-paths.test.ts:38",
+      "src/__tests__/lint-windows-paths.test.ts:40",
+      "src/__tests__/lint-windows-paths.test.ts:42"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "unverified",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Accuracy/Measure precision and recall",
+        "bucket": "pass"
+      },
+      {
+        "name": "ML-DSA-44 Verify Benchmark/bench",
+        "bucket": "pass"
+      },
+      {
+        "name": "Real-daemon integration/Real nanomind-daemon round-trip",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": [
+      "local test"
+    ]
+  },
+  {
+    "run": "0d05ab12",
+    "id": "vitest-flaky-triage",
+    "head": "1c9389b6bb79f71a0fae61360825b989302f6ba3",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.2071942,
+    "wallSeconds": 222,
+    "uncommittedFiles": 0,
+    "humanHunks": 12,
+    "covered": 0,
+    "missed": [
+      "contracts/reporters/playwright.test.ts:20",
+      "contracts/reporters/vitest.test.ts:10",
+      "eslint.config.js:51",
+      "tests/fixtures/reporters/source/playwright.config.ts:0",
+      "tests/fixtures/reporters/source/specs/sample.spec.ts:0",
+      "tests/fixtures/reporters/source/specs/tasks.test.ts:0",
+      "tests/fixtures/reporters/source/vitest.config.ts:0",
+      "tests/unit/analyze.test.ts:34",
+      "tests/unit/analyze.test.ts:37",
+      "tests/unit/reporter-contract.test.ts:62",
+      "tests/unit/reporter-contract.test.ts:65",
+      "tests/unit/reporter-contract.test.ts:137"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Agent triage",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Flakiness analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/E2E tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Evaluation gate",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Static analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit & contract tests",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/PR title convention",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Repository hygiene",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": [
+      "local test",
+      "ci CI/Unit & contract tests"
+    ]
+  },
+  {
+    "run": "1801b743",
+    "id": "jest-riseup-mcp",
+    "head": "3ecc69d0f7fdd782e6e2475ec8d5fcbfcd4ba595",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.1038492,
+    "wallSeconds": 49,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/test",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": [
+      "ci CI/test"
+    ]
+  },
+  {
+    "run": "27854a15",
+    "id": "vitest-flaky-triage",
+    "head": "9171cbca3114d349ca440aa12eb7da258c5317e7",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.2313891,
+    "wallSeconds": 256,
+    "uncommittedFiles": 0,
+    "humanHunks": 12,
+    "covered": 0,
+    "missed": [
+      "contracts/reporters/playwright.test.ts:20",
+      "contracts/reporters/vitest.test.ts:10",
+      "eslint.config.js:51",
+      "tests/fixtures/reporters/source/playwright.config.ts:0",
+      "tests/fixtures/reporters/source/specs/sample.spec.ts:0",
+      "tests/fixtures/reporters/source/specs/tasks.test.ts:0",
+      "tests/fixtures/reporters/source/vitest.config.ts:0",
+      "tests/unit/analyze.test.ts:34",
+      "tests/unit/analyze.test.ts:37",
+      "tests/unit/reporter-contract.test.ts:62",
+      "tests/unit/reporter-contract.test.ts:65",
+      "tests/unit/reporter-contract.test.ts:137"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Agent triage",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Flakiness analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Static analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit & contract tests",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/E2E tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Evaluation gate",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Repository hygiene",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/PR title convention",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": [
+      "local test",
+      "ci CI/Unit & contract tests"
+    ]
+  },
+  {
+    "run": "2b0a1f32",
+    "id": "vitest-flaky-triage",
+    "head": "3fbb88ea2cebab6ae23761657a299fb01aa9f36e",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 12,
+    "covered": 12,
+    "missed": [],
+    "agentHunks": 12,
+    "agentFiles": 9,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Agent triage",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Flakiness analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/E2E tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Static analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit & contract tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Evaluation gate",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Repository hygiene",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/PR title convention",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "2b12eeb2",
+    "id": "express-payflow",
+    "head": "1e65934760cfe9442017cfe89c49a475c0bb7049",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 1,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 7,
+    "missed": [],
+    "agentHunks": 7,
+    "agentFiles": 2,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Auto-merge/automerge / merge",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/typecheck",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/build",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "2ea182f7",
+    "id": "express-payflow",
+    "head": "c6545ac769a53a589667a5da8848fc42db07d202",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 22,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 0,
+    "missed": [
+      "src/app.ts:14",
+      "src/app.ts:134",
+      "src/app.ts:139",
+      "test/api.test.ts:2",
+      "test/api.test.ts:3",
+      "test/api.test.ts:5",
+      "test/api.test.ts:722"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not checked",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Auto-merge/automerge / merge",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/typecheck",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/build",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "337d7da0",
+    "id": "zod-context-library",
+    "head": "069deb73c4c77b5bb3adafdd3182f3c8cf7cca86",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 1,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 4,
+    "missed": [],
+    "agentHunks": 4,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ci/ci / ci",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "361afc2d",
+    "id": "jest-riseup-mcp",
+    "head": "0fe27c5102ced69a2c8c5527ebe2f40a38443a15",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/test",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "4084fef0",
+    "id": "jest-aicomply",
+    "head": "6baef0b6d1de57bb19e86f631adf65a430393f01",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.1298836,
+    "wallSeconds": 151,
+    "uncommittedFiles": 0,
+    "humanHunks": 5,
+    "covered": 0,
+    "missed": [
+      "src/__tests__/dev-dependency-advisories.test.ts:0",
+      "src/__tests__/lint-windows-paths.test.ts:11",
+      "src/__tests__/lint-windows-paths.test.ts:38",
+      "src/__tests__/lint-windows-paths.test.ts:40",
+      "src/__tests__/lint-windows-paths.test.ts:42"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "unverified",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ML-DSA-44 Verify Benchmark/bench",
+        "bucket": "fail"
+      },
+      {
+        "name": "Accuracy/Measure precision and recall",
+        "bucket": "pass"
+      },
+      {
+        "name": "Real-daemon integration/Real nanomind-daemon round-trip",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": [
+      "local test",
+      "ci ML-DSA-44 Verify Benchmark/bench"
+    ]
+  },
+  {
+    "run": "45d3c33e",
+    "id": "express-payflow",
+    "head": "8b106e1c808475f45abc9fbb06f2531e813acfbf",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.42864040000000003,
+    "wallSeconds": 116,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 0,
+    "missed": [
+      "src/app.ts:14",
+      "src/app.ts:134",
+      "src/app.ts:139",
+      "test/api.test.ts:2",
+      "test/api.test.ts:3",
+      "test/api.test.ts:5",
+      "test/api.test.ts:722"
+    ],
+    "agentHunks": 2,
+    "agentFiles": 2,
+    "unrelated": [
+      "src/index.ts:65"
+    ],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Auto-merge/automerge / merge",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/build",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/typecheck",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/test",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "529d4b38",
+    "id": "express-payflow",
+    "head": "13a0729abcf6740884419e38a38c7f55323a50b3",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.378771,
+    "wallSeconds": 110,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 0,
+    "missed": [
+      "src/app.ts:14",
+      "src/app.ts:134",
+      "src/app.ts:139",
+      "test/api.test.ts:2",
+      "test/api.test.ts:3",
+      "test/api.test.ts:5",
+      "test/api.test.ts:722"
+    ],
+    "agentHunks": 2,
+    "agentFiles": 2,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Auto-merge/automerge / merge",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/typecheck",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/build",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/lint",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "576734ed",
+    "id": "express-payflow",
+    "head": "48ac76dd9b42649bec7f7861a0e6b16670f88d71",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 24,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 0,
+    "missed": [
+      "src/app.ts:14",
+      "src/app.ts:134",
+      "src/app.ts:139",
+      "test/api.test.ts:2",
+      "test/api.test.ts:3",
+      "test/api.test.ts:5",
+      "test/api.test.ts:722"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not checked",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Auto-merge/automerge / merge",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/build",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/typecheck",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/lint",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "668aad00",
+    "id": "jest-riseup-mcp",
+    "head": "f581207545b4145df9cb3ac5ba1f625797622147",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 19,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not checked",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/test",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": [
+      "ci CI/test"
+    ]
+  },
+  {
+    "run": "7d89b367",
+    "id": "jest-aicomply",
+    "head": "6a7710040157884ab6ec6d13f65be579a6c0b609",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.2210394,
+    "wallSeconds": 104,
+    "uncommittedFiles": 0,
+    "humanHunks": 5,
+    "covered": 4,
+    "missed": [
+      "src/__tests__/dev-dependency-advisories.test.ts:0"
+    ],
+    "agentHunks": 4,
+    "agentFiles": 1,
+    "unrelated": [],
+    "unverified": "didn't run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Python CI/Lint, type-check, test, parity (3.9)",
+        "bucket": "pass"
+      },
+      {
+        "name": "Python CI/Lint, type-check, test, parity (3.12)",
+        "bucket": "pass"
+      },
+      {
+        "name": "Accuracy/Measure precision and recall",
+        "bucket": "pass"
+      },
+      {
+        "name": "ML-DSA-44 Verify Benchmark/bench",
+        "bucket": "pass"
+      },
+      {
+        "name": "Real-daemon integration/Real nanomind-daemon round-trip",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "811e60eb",
+    "id": "jest-riseup-mcp",
+    "head": "6a75b4c5f9c7642308ff9e30bbf6520876ac3375",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 19,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not checked",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/test",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": [
+      "ci CI/test"
+    ]
+  },
+  {
+    "run": "84becd16",
+    "id": "jest-aicomply",
+    "head": "d3668ec19fc9f31746b438acc6bca5b18497f2f4",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.2429792,
+    "wallSeconds": 102,
+    "uncommittedFiles": 0,
+    "humanHunks": 5,
+    "covered": 4,
+    "missed": [
+      "src/__tests__/dev-dependency-advisories.test.ts:0"
+    ],
+    "agentHunks": 4,
+    "agentFiles": 1,
+    "unrelated": [],
+    "unverified": "didn't run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Python CI/Lint, type-check, test, parity (3.12)",
+        "bucket": "pass"
+      },
+      {
+        "name": "Python CI/Lint, type-check, test, parity (3.9)",
+        "bucket": "pass"
+      },
+      {
+        "name": "Accuracy/Measure precision and recall",
+        "bucket": "pass"
+      },
+      {
+        "name": "ML-DSA-44 Verify Benchmark/bench",
+        "bucket": "pass"
+      },
+      {
+        "name": "Real-daemon integration/Real nanomind-daemon round-trip",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "8608696e",
+    "id": "jest-aicomply",
+    "head": "b4c731deb15f2bb79ba310a48387cf4de2455fbb",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.1658773,
+    "wallSeconds": 155,
+    "uncommittedFiles": 0,
+    "humanHunks": 5,
+    "covered": 0,
+    "missed": [
+      "src/__tests__/dev-dependency-advisories.test.ts:0",
+      "src/__tests__/lint-windows-paths.test.ts:11",
+      "src/__tests__/lint-windows-paths.test.ts:38",
+      "src/__tests__/lint-windows-paths.test.ts:40",
+      "src/__tests__/lint-windows-paths.test.ts:42"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "unverified",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Accuracy/Measure precision and recall",
+        "bucket": "pass"
+      },
+      {
+        "name": "ML-DSA-44 Verify Benchmark/bench",
+        "bucket": "pass"
+      },
+      {
+        "name": "Real-daemon integration/Real nanomind-daemon round-trip",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": [
+      "local test"
+    ]
+  },
+  {
+    "run": "990efd5e",
+    "id": "zod-context-library",
+    "head": "148e2995ca6017a6b09745f2ed2b153a8ed769d8",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.4222858,
+    "wallSeconds": 204,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 3,
+    "missed": [
+      "src/config.ts:115"
+    ],
+    "agentHunks": 5,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": "did not run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:247",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:378",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:401",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:473",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:546",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:174",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:277",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:409",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:544",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:579",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:641",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff-nav.ts:73",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff-nav.ts:169",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff.ts:535",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff.ts:703",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff.ts:805",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:272",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:352",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:394",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:466",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:534",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:624",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:669",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:711",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:829",
+      "zod/mcp-input-schema-additional-properties src/tools/search.ts:189",
+      "zod/mcp-input-schema-additional-properties src/tools/search.ts:644",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:146",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:204",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:227",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:345",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:507"
+    ],
+    "checks": {
+      "install": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ci/ci / ci",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "a3d4fb16",
+    "id": "vitest-flaky-triage",
+    "head": "dc9f5e1c816fb88fbc5fdefa054a438870597acc",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.3365686,
+    "wallSeconds": 158,
+    "uncommittedFiles": 0,
+    "humanHunks": 12,
+    "covered": 3,
+    "missed": [
+      "contracts/reporters/playwright.test.ts:20",
+      "eslint.config.js:51",
+      "tests/fixtures/reporters/source/playwright.config.ts:0",
+      "tests/fixtures/reporters/source/specs/sample.spec.ts:0",
+      "tests/fixtures/reporters/source/specs/tasks.test.ts:0",
+      "tests/fixtures/reporters/source/vitest.config.ts:0",
+      "tests/unit/analyze.test.ts:34",
+      "tests/unit/reporter-contract.test.ts:62",
+      "tests/unit/reporter-contract.test.ts:137"
+    ],
+    "agentHunks": 3,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Agent triage",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Flakiness analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit & contract tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Evaluation gate",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Static analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/E2E tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Repository hygiene",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/PR title convention",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "bee0abcb",
+    "id": "zod-context-library",
+    "head": "e6b5133dc9a808a43cfdc30155b916b3a692134e",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.3582226,
+    "wallSeconds": 111,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 4,
+    "missed": [],
+    "agentHunks": 8,
+    "agentFiles": 5,
+    "unrelated": [],
+    "unverified": "couldn't run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ci/ci / ci",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "c56ab91f",
+    "id": "express-payflow",
+    "head": "bf85d65a1bdf540f1b041e30685b93dd6eefb2c8",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.3727922,
+    "wallSeconds": 126,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 0,
+    "missed": [
+      "src/app.ts:14",
+      "src/app.ts:134",
+      "src/app.ts:139",
+      "test/api.test.ts:2",
+      "test/api.test.ts:3",
+      "test/api.test.ts:5",
+      "test/api.test.ts:722"
+    ],
+    "agentHunks": 1,
+    "agentFiles": 1,
+    "unrelated": [
+      "src/index.ts:65"
+    ],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Auto-merge/automerge / merge",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/typecheck",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/build",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "cdf336d8",
+    "id": "jest-riseup-mcp",
+    "head": "52e9a2b87f5f7375deff2134098985c860c41e68",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.123926,
+    "wallSeconds": 53,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/test",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": [
+      "ci CI/test"
+    ]
+  },
+  {
+    "run": "d16ceacc",
+    "id": "vitest-flaky-triage",
+    "head": "748f1070bf1fe9f2c79f9c497be5f11f6f159eb4",
+    "reference": false,
+    "exit": 1,
+    "costUsd": 0.2331259,
+    "wallSeconds": 245,
+    "uncommittedFiles": 0,
+    "humanHunks": 12,
+    "covered": 0,
+    "missed": [
+      "contracts/reporters/playwright.test.ts:20",
+      "contracts/reporters/vitest.test.ts:10",
+      "eslint.config.js:51",
+      "tests/fixtures/reporters/source/playwright.config.ts:0",
+      "tests/fixtures/reporters/source/specs/sample.spec.ts:0",
+      "tests/fixtures/reporters/source/specs/tasks.test.ts:0",
+      "tests/fixtures/reporters/source/vitest.config.ts:0",
+      "tests/unit/analyze.test.ts:34",
+      "tests/unit/analyze.test.ts:37",
+      "tests/unit/reporter-contract.test.ts:62",
+      "tests/unit/reporter-contract.test.ts:65",
+      "tests/unit/reporter-contract.test.ts:137"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not run",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 1,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Agent triage",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Flakiness analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/E2E tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Static analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit & contract tests",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Evaluation gate",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/PR title convention",
+        "bucket": "fail"
+      },
+      {
+        "name": "CI/Repository hygiene",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": [
+      "local test",
+      "ci CI/Unit & contract tests"
+    ]
+  },
+  {
+    "run": "db137c52",
+    "id": "jest-aicomply",
+    "head": "0c1ceafdd2dfa6ca69876940ea7a0a2c04e81294",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.187267,
+    "wallSeconds": 105,
+    "uncommittedFiles": 0,
+    "humanHunks": 5,
+    "covered": 4,
+    "missed": [
+      "src/__tests__/dev-dependency-advisories.test.ts:0"
+    ],
+    "agentHunks": 4,
+    "agentFiles": 1,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Python CI/Lint, type-check, test, parity (3.12)",
+        "bucket": "pass"
+      },
+      {
+        "name": "Accuracy/Measure precision and recall",
+        "bucket": "pass"
+      },
+      {
+        "name": "Real-daemon integration/Real nanomind-daemon round-trip",
+        "bucket": "pass"
+      },
+      {
+        "name": "ML-DSA-44 Verify Benchmark/bench",
+        "bucket": "pass"
+      },
+      {
+        "name": "Python CI/Lint, type-check, test, parity (3.9)",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "ddead1e1",
+    "id": "zod-context-library",
+    "head": "333a3f682b05a3ab6e54029246f375689ebe92a6",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.3965726,
+    "wallSeconds": 103,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 4,
+    "missed": [],
+    "agentHunks": 8,
+    "agentFiles": 5,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ci/ci / ci",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "dfec966b",
+    "id": "zod-context-library",
+    "head": "621c823c111faecb4c3f80f5b4f9e96eb9f87afe",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.3858221,
+    "wallSeconds": 188,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 3,
+    "missed": [
+      "src/config.ts:115"
+    ],
+    "agentHunks": 5,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:247",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:378",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:401",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:473",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:546",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:174",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:277",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:409",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:544",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:579",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:641",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff-nav.ts:73",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff-nav.ts:169",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff.ts:535",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff.ts:703",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff.ts:805",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:272",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:352",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:394",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:466",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:534",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:624",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:669",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:711",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:829",
+      "zod/mcp-input-schema-additional-properties src/tools/search.ts:189",
+      "zod/mcp-input-schema-additional-properties src/tools/search.ts:644",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:146",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:204",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:227",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:345",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:507"
+    ],
+    "checks": {
+      "install": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ci/ci / ci",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "e385a8a7",
+    "id": "zod-context-library",
+    "head": "3ab1cbc3fbc81349049844c80f14976e38d5a545",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.3841723,
+    "wallSeconds": 192,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 3,
+    "missed": [
+      "src/config.ts:115"
+    ],
+    "agentHunks": 5,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:247",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:378",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:401",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:473",
+      "zod/mcp-input-schema-additional-properties src/tools/artifacts.ts:546",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:174",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:277",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:409",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:544",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:579",
+      "zod/mcp-input-schema-additional-properties src/tools/entity-tools.ts:641",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff-nav.ts:73",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff-nav.ts:169",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff.ts:535",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff.ts:703",
+      "zod/mcp-input-schema-additional-properties src/tools/handoff.ts:805",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:272",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:352",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:394",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:466",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:534",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:624",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:669",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:711",
+      "zod/mcp-input-schema-additional-properties src/tools/notes.ts:829",
+      "zod/mcp-input-schema-additional-properties src/tools/search.ts:189",
+      "zod/mcp-input-schema-additional-properties src/tools/search.ts:644",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:146",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:204",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:227",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:345",
+      "zod/mcp-input-schema-additional-properties src/tools/tasks.ts:507"
+    ],
+    "checks": {
+      "install": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ci/ci / ci",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "e3f32dd1",
+    "id": "zod-context-library",
+    "head": "692520b2184a44a7c6bfb267d0f0eb54f43cf77c",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.41216620000000004,
+    "wallSeconds": 147,
+    "uncommittedFiles": 0,
+    "humanHunks": 4,
+    "covered": 4,
+    "missed": [],
+    "agentHunks": 6,
+    "agentFiles": 4,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ci/ci / ci",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "e645e9ac",
+    "id": "vitest-flaky-triage",
+    "head": "cb1b91e1646f83a39de9152950fb95d2c039d13f",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.2686038,
+    "wallSeconds": 147,
+    "uncommittedFiles": 0,
+    "humanHunks": 12,
+    "covered": 3,
+    "missed": [
+      "contracts/reporters/playwright.test.ts:20",
+      "eslint.config.js:51",
+      "tests/fixtures/reporters/source/playwright.config.ts:0",
+      "tests/fixtures/reporters/source/specs/sample.spec.ts:0",
+      "tests/fixtures/reporters/source/specs/tasks.test.ts:0",
+      "tests/fixtures/reporters/source/vitest.config.ts:0",
+      "tests/unit/analyze.test.ts:34",
+      "tests/unit/reporter-contract.test.ts:62",
+      "tests/unit/reporter-contract.test.ts:137"
+    ],
+    "agentHunks": 3,
+    "agentFiles": 3,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/Agent triage",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Flakiness analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Unit & contract tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Evaluation gate",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Static analysis",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/E2E tests",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/Repository hygiene",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/PR title convention",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "e6afb203",
+    "id": "jest-riseup-mcp",
+    "head": "c5b7a934fe4b47b11baf0c3d77e992d98c6dad76",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 26,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not checked",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/test",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": [
+      "ci CI/test"
+    ]
+  },
+  {
+    "run": "e7449a43",
+    "id": "express-payflow",
+    "head": "7ad1b6066bc7775c1f31ae61c7e41ca9353f8f53",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 38,
+    "uncommittedFiles": 0,
+    "humanHunks": 7,
+    "covered": 0,
+    "missed": [
+      "src/app.ts:14",
+      "src/app.ts:134",
+      "src/app.ts:139",
+      "test/api.test.ts:2",
+      "test/api.test.ts:3",
+      "test/api.test.ts:5",
+      "test/api.test.ts:722"
+    ],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": "not checked",
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "lint": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "Auto-merge/automerge / merge",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/lint",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/typecheck",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/test",
+        "bucket": "pass"
+      },
+      {
+        "name": "CI/build",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "f9d413b1",
+    "id": "jest-aicomply",
+    "head": "8c9b95e1e9e24b331f69cdb03db279757bd1e5b2",
+    "reference": true,
+    "exit": 0,
+    "costUsd": 0,
+    "wallSeconds": 0,
+    "uncommittedFiles": 0,
+    "humanHunks": 5,
+    "covered": 5,
+    "missed": [],
+    "agentHunks": 5,
+    "agentFiles": 2,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "ML-DSA-44 Verify Benchmark/bench",
+        "bucket": "pass"
+      },
+      {
+        "name": "Accuracy/Measure precision and recall",
+        "bucket": "pass"
+      },
+      {
+        "name": "Python CI/Lint, type-check, test, parity (3.9)",
+        "bucket": "pass"
+      },
+      {
+        "name": "Python CI/Lint, type-check, test, parity (3.12)",
+        "bucket": "pass"
+      },
+      {
+        "name": "Real-daemon integration/Real nanomind-daemon round-trip",
+        "bucket": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  {
+    "run": "fbf7eebc",
+    "id": "jest-riseup-mcp",
+    "head": "e671ca513227fcb109024e982cedb368935e7c06",
+    "reference": false,
+    "exit": 0,
+    "costUsd": 0.1016034,
+    "wallSeconds": 45,
+    "uncommittedFiles": 0,
+    "humanHunks": 0,
+    "covered": 0,
+    "missed": [],
+    "agentHunks": 0,
+    "agentFiles": 0,
+    "unrelated": [],
+    "unverified": null,
+    "silentSites": 0,
+    "silentEdited": [],
+    "silentDecided": [],
+    "silentFalsePositives": [],
+    "checks": {
+      "install": 0,
+      "typecheck": 0,
+      "test": 0,
+      "build": 0
+    },
+    "ci": [
+      {
+        "name": "CI/test",
+        "bucket": "fail"
+      }
+    ],
+    "regressions": [
+      "ci CI/test"
+    ]
+  }
+]

@@ -1,0 +1,1 @@
+[{"bucket":"pass","name":"Measure precision and recall","state":"SUCCESS","workflow":"Accuracy"},{"bucket":"pass","name":"bench","state":"SUCCESS","workflow":"ML-DSA-44 Verify Benchmark"},{"bucket":"pass","name":"Real nanomind-daemon round-trip","state":"SUCCESS","workflow":"Real-daemon integration"}]

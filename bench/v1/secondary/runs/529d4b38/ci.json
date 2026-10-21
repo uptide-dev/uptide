@@ -1,0 +1,1 @@
+[{"bucket":"pass","name":"automerge / merge","state":"SUCCESS","workflow":"Auto-merge"},{"bucket":"pass","name":"typecheck","state":"SUCCESS","workflow":"CI"},{"bucket":"pass","name":"test","state":"SUCCESS","workflow":"CI"},{"bucket":"pass","name":"build","state":"SUCCESS","workflow":"CI"},{"bucket":"pass","name":"lint","state":"SUCCESS","workflow":"CI"}]

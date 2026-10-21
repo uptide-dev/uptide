@@ -1,0 +1,42 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
+    "filesystem": {
+      "allowWrite": [
+        "~/.npm",
+        "~/Library/pnpm",
+        "~/Library/Caches",
+        "~/.cache"
+      ],
+      "denyRead": [
+        "/Users/Deskfy/.config/uptide-bench/env"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "registry.npmjs.org",
+        "registry.yarnpkg.com",
+        "repo.yarnpkg.com",
+        "github.com",
+        "codeload.github.com",
+        "objects.githubusercontent.com"
+      ],
+      "strictAllowlist": true,
+      "allowLocalBinding": true
+    }
+  },
+  "permissions": {
+    "deny": [
+      "Bash(dangerouslyDisableSandbox:true)",
+      "WebFetch",
+      "WebSearch"
+    ],
+    "allow": [
+      "Bash"
+    ]
+  },
+  "apiKeyHelper": "/Users/Deskfy/Desktop/code/uptide-bench-v1-full/bench/claude-key.sh"
+}

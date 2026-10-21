@@ -1,0 +1,17 @@
+{
+  "id": "jest-riseup-mcp",
+  "head": "f581207545b4145df9cb3ac5ba1f625797622147",
+  "exit": 0,
+  "costUsd": 0,
+  "wallSeconds": 19,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 1,
+  "overCapUsd": 0,
+  "version": {
+    "uptide": "0.18.2"
+  },
+  "model": "claude-sonnet-5-5",
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into /private/tmp/claude-502/-Users-Deskfy-Desktop-code-uptide/713dbc85-8511-4dfe-97c3-aa8c8fc2fcb9/scratchpad/sec/runs/668aad00/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

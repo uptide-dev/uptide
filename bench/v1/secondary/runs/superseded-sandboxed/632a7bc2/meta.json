@@ -1,0 +1,16 @@
+{
+  "id": "vitest-flaky-triage",
+  "head": "95e77bd6eb061576b7cdcf03ab79427a63db5778",
+  "exit": 0,
+  "costUsd": 0.3615204,
+  "wallSeconds": 138,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 5,
+  "overCapUsd": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-opus-5-5",
+  "claudeCodeCostUsd": 0.36152039999999996
+}

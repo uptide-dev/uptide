@@ -1,0 +1,17 @@
+{
+  "id": "zod-context-library",
+  "head": "333a3f682b05a3ab6e54029246f375689ebe92a6",
+  "exit": 0,
+  "costUsd": 0.3965726,
+  "wallSeconds": 103,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 5,
+  "overCapUsd": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-opus-5-5",
+  "claudeCodeCostUsd": 0.3965726,
+  "claudeSandbox": false
+}

@@ -1,4 +1,4 @@
-# UpgradeBench v1 full bench, phase 1: results (2026-10-20)
+# UpgradeBench v1 full bench: results (phase 1 dev set, phase 2 secondary set)
 
 5 headline repositories from `../repos.md` (phase 1), two arms, once each, with the human commit checked the same way as the reference. Phase 1 only: no second or third run, no secondary set. **These 5 are the v1 dev set:** Uptide 0.18.2 was fixed by looking at them, so they never give headline numbers.
 
@@ -17,7 +17,84 @@ Raw results are in `runs/`, one directory per run with `meta.json`, `checks.json
 
 **Reruns:** none. No run died on auth, a rate limit or infrastructure. strut's Uptide run ended at exit 2 on an engine refusal, not infrastructure, so it isn't rerun-eligible and stands as run.
 
-## Summary
+**The headline is the secondary set, below. Everything from "Dev set, phase 1" on is the dev set, and gives no headline numbers.**
+
+## Headline: the secondary set (phase 2, 2026-10-20/21)
+
+5 repositories the engine had never seen (`../secondary/selection.json`, ground truth `ecd0ce5`), 3 runs per arm per repository, 30 scored runs, plus the human reference per repository.
+- **Arm A:** Uptide 0.18.2, Sonnet 5.5, $1 cap.
+- **Arm B:** Claude Code 2.1.283, Opus 5.5, $5 cap, the `arms.md` prompt word for word, **without the sandbox**, key via `apiKeyHelper`.
+- **Both:** TZ=UTC; a parent-only clone with no remote (all 30 `isolation.txt`: one commit, the parent, and an empty `git remote -v`); API keys absent from every repository process (key isolation proofs below).
+- **Postgres:** context-library's tests get a fresh Postgres per run and per check, the same for both arms.
+- **Mergeable:** the ground truth's bar. Every check passes or fails where the human's does; fork CI passes or fails only where the human's does; unrelated changes judged by hand; PR-template checks out. None of the 5 has a scored silent site (each silent change found was one the human kept, so it is informational in the ground truth), so "silent caught" is n/a for the set.
+
+| repo | dependency | pack | Uptide mergeable | Claude Code mergeable | Uptide median cost / wall | Claude Code median cost / wall | why |
+|---|---|---|---|---|---|---|---|
+| onideus/context-library | zod 3→4 | verified | **3/3** | **3/3** | $0.386 / 192 s | $0.397 / 111 s | both fix the 3 `z.record` sites; both move `.uuid()` to `z.guid()` (keeps v3's accepted ids); all 866 tests pass against Postgres |
+| MMM-pay/payflow-backend | express 4→5 | verified | **3/3** | **3/3** | $0.000 / 24 s | $0.379 / 116 s | the bump alone passes everything. Uptide's PR body lists the `simple` query-parser change under "Decisions for you". Claude Code pins `extended` (1 run) or documents it (2), and handles Express 5's listen-error callback (2) |
+| AKogut/ai-flaky-test-triage | vitest 4→5 | verified | **0/3** | **3/3** | $0.231 / 245 s | $0.315 / 158 s | the reporter-contract test needs a vitest 5 fixture made by running the reporter. Claude Code regenerates it; Uptide's agent can't ("I couldn't regenerate vitest-5.0.5.json"), and CI adds a test failure the human doesn't have |
+| opena2a-org/aicomply | jest 29→30 | **no** | **0/3** | **3/3** | $0.166 / 155 s | $0.221 / 104 s | jest 30 keys core-module mocks without `node:`. Claude Code edits `lint-windows-paths.test.ts` as the human did; Uptide (generic tier) makes 0 fixes in 3 feedback rounds, so tests fail |
+| riseup-oss/mcp | jest 29→30 | **no** | **0/3** | **0/3** | $0.000 / 19 s | $0.104 / 49 s | both pass every local check. Fork CI's `npm audit --audit-level=high` fails for all 6 runs and passes for the human, whose PR also bumped the MCP SDK and the hono override and refreshed the lockfile¹ |
+| **total** | | | **6 / 15** | **12 / 15** | **$2.34** total | **$4.25** total | |
+
+- **Cost per mergeable run:** Uptide $0.39 ($2.3387 / 6), Claude Code $0.35 ($4.2481 / 12).
+- **Pack vs no pack:**
+  - With a verified pack (zod, express, vitest): Uptide **6/9**, Claude Code **9/9**.
+  - Without (jest ×2): Uptide **0/6**, Claude Code **3/6**.
+- **On local checks alone** (riseup's CI audit aside): Uptide 9/15, Claude Code 15/15.
+- **Cost:**
+  - Arm A's computed `costUsd` equals `sdkReportedCostUsd` on all 15 runs.
+  - Arm B's priced cost equals Claude Code's own `total_cost_usd` on all 15.
+  - Uptide spent $0 on riseup and payflow: the bump alone passed its type-check, build and tests, so it found 0 sites and never ran the agent. Its PR body says "No code changes were needed; only versions and the lockfile changed." and "**Changes** | 0 sites · 2 changed files · 0 auto-fixed · 0 fixed by the agent (LLM)".
+- **Unrelated changes, by hand:** none in any of the 30 runs.
+  - score.mjs counts 1 hunk in two Claude Code payflow runs: the Express 5 `listen` error callback, which is related.
+  - The human's own extra edits (riseup's CI pins, payflow's log hardening, aicomply's advisory test) aren't required, and no run is penalized for leaving them out.
+- **PR body explains decisions:** Uptide, yes in every run ("Decisions for you", or the agent's reasons). Claude Code, yes in every run (its summary lists each change with a reason and what it didn't verify).
+
+¹ **riseup's audit failure:**
+- The high and critical advisories are in `@modelcontextprotocol/sdk`, `@hono/node-server`, `hono`, `handlebars` (jest's coverage tree), `fast-uri`, `proxy-addr` and others. The human cleared them with the SDK bump, the hono floor and a full lockfile refresh. Neither arm was asked to fix advisories.
+- By the written bar, CI failing where the human's passes means not mergeable, so neither arm gets riseup.
+- The failure is the same for both arms, so the comparison is unaffected.
+
+**Hand-checked cost math, one run per arm:**
+- **Arm A, `990efd5e`** (Sonnet 5.5, $2 / $10 / $0.10 / $2.50): 36 × 2 + 18,710 × 10 + 766,013 × 0.10 + 63,405 × 2.50 = 422,285.8 / 10⁶ = **$0.4222858**, equal to `costUsd` and `sdkReportedCostUsd`.
+- **Arm B, `e3f32dd1`** (Opus 5.5, $4 / $20 / $0.20 / $5): 34 × 4 + 6,300 × 20 + 477,526 × 0.20 + 38,105 × 5 = 412,166.2 / 10⁶ = **$0.4121662**, equal to Claude Code's `costUSD`.
+
+**Reruns, superseded runs and isolation:**
+- **Superseded:** 10 sandboxed Arm B runs, out of every table (section "Superseded sandboxed Arm B runs"). That's the original 9, plus `7ddd8a4c`, which ran sandboxed through a harness bug fixed in `19e2e27`.
+- **Incomplete:** 1 Arm A run (`8d08a1f8`, vitest-flaky r2). Setup died on a full disk ("npm warn tar TAR_ENTRY_ERROR ENOSPC: no space left on device, write") before the arm started. It was rerun once, as `d16ceacc`.
+- **Isolation:** every scored run's `isolation.txt` has one commit, the parent, and an empty `git remote -v`, as in phase 1, for example:
+
+```text
+--- zod-context-library   82f8d3e chore(deps-dev): bump vite from 8.0.8 to 8.2.2 (#265)
+--- jest-riseup-mcp       0d0e55a v0.3.0: expose accountNumberHash on transactions and budget
+--- vitest-flaky-triage   3c57261 chore(deps): the minor and patch releases a full Dependabot queue held back (#207)
+--- express-payflow       33210f5 feat(api): token-protected operator endpoints (#86)
+--- jest-aicomply         becae33 Scan with the HackMyAgent dev dependency, ... (#172)
+$ git remote -v           (empty in all 30)
+```
+
+Per-run records: `../secondary/runs/`. Scores: `../secondary/scores.json`.
+
+**Phase 2 spend:** $11.77 of the $40 budget.
+- Dev rerun (Arm A): $1.42.
+- Probes and diagnostics: $0.33.
+- Secondary scored runs: Arm A $2.34, Arm B $4.25.
+- Superseded sandboxed Arm B runs: $3.43.
+
+## Candidate Linear issues from the secondary set (not filed, not fixed)
+
+9. **The generic tier can't fix a test the upgrade breaks.**
+   - aicomply, runs `8608696e`, `4084fef0`, `0d0509dd`: jest 30 keys core-module mocks without the `node:` prefix, and `src/__tests__/lint-windows-paths.test.ts` fails.
+   - Uptide reports "0 sites · … 0 fixed by the agent (LLM)" after 3 feedback rounds, then exit 1. The human's and Claude Code's fix is a 5-line edit to the mocks.
+10. **The vitest pack can't regenerate a reporter fixture.**
+    - flaky-triage, runs `27854a15`, `d16ceacc`, `0d05ab12`: the repository's contract test needs a fixture produced by running vitest 5's JSON reporter.
+    - The agent: "I couldn't regenerate vitest-5.0.5.json". It has no shell, and "SDK agent rejected: test edit needs an explanation of the changed upgrade behavior".
+11. **A false "build broken by this upgrade".**
+    - flaky-triage, same runs: "Build cannot run (contracts): build passed but required output is still missing: ./dist/index.d.ts", in 4 workspaces. `npm run build` passes in `check.sh` for all three runs.
+12. **The parent type-check runs the repository's compiler with the key in its environment** (`parent-typecheck.ts:43`). Accepted for this bench as hygiene, not a result issue. The user is filing it.
+
+## Dev set, phase 1 (Uptide 0.18.1): summary
 
 **Dev set.** These 5 repositories are the v1 dev set. Uptide 0.18.2's fixes (UPT-124, UPT-125, UPT-126, UPT-127/128) were made by looking at these runs, so no headline number comes from them. See `../repos.md`.
 

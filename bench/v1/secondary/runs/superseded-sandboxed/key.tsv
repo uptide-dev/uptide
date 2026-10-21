@@ -1,0 +1,10 @@
+def596ad	zod-context-library	claude
+86391203	jest-aicomply	claude
+4245520d	jest-aicomply	claude
+1416a7d9	vitest-flaky-triage	claude
+632a7bc2	vitest-flaky-triage	claude
+70479465	jest-riseup-mcp	claude
+78f2f3da	jest-riseup-mcp	claude
+f4d525f9	express-payflow	claude
+900691e8	express-payflow	claude
+7ddd8a4c	zod-context-library	claude	harness bug: ran sandboxed under fbba13f (jq `//` read claudeSandbox false as missing); fixed in 19e2e27

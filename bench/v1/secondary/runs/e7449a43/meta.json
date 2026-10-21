@@ -1,0 +1,17 @@
+{
+  "id": "express-payflow",
+  "head": "7ad1b6066bc7775c1f31ae61c7e41ca9353f8f53",
+  "exit": 0,
+  "costUsd": 0,
+  "wallSeconds": 38,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 1,
+  "overCapUsd": 0,
+  "version": {
+    "uptide": "0.18.2"
+  },
+  "model": "claude-sonnet-5-5",
+  "executor": "sdk",
+  "sdkDownload": "Agent SDK 0.3.296 is not installed: installing it once into /private/tmp/claude-502/-Users-Deskfy-Desktop-code-uptide/713dbc85-8511-4dfe-97c3-aa8c8fc2fcb9/scratchpad/sec/runs/e7449a43/uptide-cache/agent-sdk/0.3.296 … 280 MB, reused by later runs"
+}

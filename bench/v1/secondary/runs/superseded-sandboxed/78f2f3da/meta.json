@@ -1,0 +1,16 @@
+{
+  "id": "jest-riseup-mcp",
+  "head": "83ff503f5c85850de7fdd612bc464a25cbb9f139",
+  "exit": 0,
+  "costUsd": 0.1323892,
+  "wallSeconds": 54,
+  "uncommittedFiles": 0,
+  "tz": "UTC",
+  "capUsd": 5,
+  "overCapUsd": 0,
+  "version": {
+    "claude": "2.1.283"
+  },
+  "model": "claude-opus-5-5",
+  "claudeCodeCostUsd": 0.13238919999999998
+}
