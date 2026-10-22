@@ -1410,8 +1410,18 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     lint.every((l) => l.status !== 'failed');
   // A head build that fails where the parent's could not be checked fails the run too.
   const broken = upgradeBrokeBuild(parentBuild) || !!parentUnchecked;
+  // What each rule the sites name is, as the pack says it: the PR body's group titles.
+  const ruleSummaries = Object.fromEntries(
+    sitePack.rules.flatMap((r) => {
+      const summary = (r as { summary?: unknown }).summary;
+      return typeof summary === 'string' && sites.some((s) => s.rule === r.id)
+        ? [[r.id, summary]]
+        : [];
+    }),
+  );
   const result: FixReport = {
     ...(pins.length ? { rootPins: pins } : {}),
+    ...(Object.keys(ruleSummaries).length ? { ruleSummaries } : {}),
     ...(fallback.length ? { agentFallback: fallback } : {}),
     ...(cleanInstall ? { cleanInstall } : {}),
     ...(pending ? { verificationPending: true } : {}),

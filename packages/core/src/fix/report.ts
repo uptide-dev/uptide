@@ -195,13 +195,30 @@ function groups(report: FixReport): Group[] {
       a.rule.localeCompare(b.rule),
   );
 }
+/**
+ * A group the renderer has no words of its own for: the pack's summary of the rule; for sites no
+ * rule covers, keyed by a changed declaration's path (`e.query`), what the compiler said there or
+ * what changed; else the key.
+ */
+function fallbackTitle(g: Group, report: FixReport): string {
+  const summary = report.ruleSummaries?.[g.rule];
+  if (summary) return summary;
+  const findings = g.sites.map((s) => s.finding);
+  const ts = /^TS(\d+)$/.exec(g.rule)?.[1];
+  if (ts) return diagnosticTitle(Number(ts), findings);
+  // Rule ids are kebab-case; a key with `.` or `#` is the path of a declaration no rule covers.
+  if (!/[.#]/.test(g.rule)) return g.rule;
+  const code = findings.find((f) => f.usage.compileCode)?.usage.compileCode;
+  if (code) return diagnosticTitle(code, findings);
+  return `\`${g.rule}\` ${findings.every((f) => f.change.kind === 'removed') ? 'was removed' : 'changed'} in ${report.package} ${report.target}`;
+}
 function description(
   g: Group,
   report: FixReport,
 ): { title: string; summary: string; note?: string } {
   if (g.outcome === 'manual')
     return {
-      title: g.rule,
+      title: fallbackTitle(g, report),
       summary: `Manual migration required: ${sentence(g.sites.find((s) => s.outcome === 'manual')?.reason ?? 'review the remaining sites.')}`,
     };
   // Everything said about a rule comes from this run's own sites: the file that was edited and
@@ -285,12 +302,7 @@ function description(
   };
   return (
     known[g.rule] ?? {
-      title: /^TS\d+$/.test(g.rule)
-        ? diagnosticTitle(
-            Number(g.rule.slice(2)),
-            g.sites.map((s) => s.finding),
-          )
-        : g.rule,
+      title: fallbackTitle(g, report),
       summary: `${sentence(g.edits[0]?.attempts?.findLast((a) => a.outcome === 'accepted')?.explanation ?? g.edits[0]?.reason ?? 'Migration recorded.')} ${report.verification.passed ? 'No new type errors.' : 'Verification is incomplete.'}`,
     }
   );

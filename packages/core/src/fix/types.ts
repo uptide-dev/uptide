@@ -265,6 +265,8 @@ export interface FixPhase {
 export type FixRunKind = 'install' | 'generate' | 'build' | 'types' | 'tests' | 'lint' | 'format';
 export interface FixReport {
   rootPins?: RootPin[];
+  /** The pack's one-line summary of each rule the sites name, by rule id: what groups are titled. */
+  ruleSummaries?: Record<string, string>;
   /** Pack pipeline limitations: agent-led results can be published only as drafts. */
   agentFallback?: string[];
   /** Agent-led runs: the repository's frozen install on the final branch, run in the fix clone. */

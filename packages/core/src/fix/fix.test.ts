@@ -265,6 +265,9 @@ describe('fix transaction', () => {
     expect(typeof result.uptideDirty).toBe('boolean');
     expect(result.sites[0]?.outcome).toBe('mechanical');
     expect(result.sites[0]?.rule).toBe('error-params');
+    expect(result.ruleSummaries).toEqual({
+      'error-params': 'required_error and invalid_type_error become one error callback',
+    });
     expect(result.sites[0]?.diff).toContain('+ export const schema = z.string({ error:');
     expect(JSON.parse(readFileSync(join(root, '.uptide/report.json'), 'utf8')).head).toBe(
       git(root, 'rev-parse', 'HEAD'),
