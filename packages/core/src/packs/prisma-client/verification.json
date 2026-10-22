@@ -1,0 +1,32 @@
+{
+  "status": "verified",
+  "truth": "sha256-9ae79f811388f21d660fe6ae1cb72bb7b9e766cfd99f0d10340668489a98de25",
+  "repos": 7,
+  "breaking": {
+    "precision": 1,
+    "recall": 1,
+    "falsePositives": 0,
+    "truePositives": 29,
+    "falseNegatives": 0
+  },
+  "behavior": {
+    "precision": 0.25,
+    "recall": 0.6,
+    "falsePositives": 9,
+    "truePositives": 3,
+    "falseNegatives": 2
+  },
+  "class": "breaking",
+  "breakingSites": 29,
+  "breakingFoundAny": 29,
+  "breakingFound": 29,
+  "breakingScored": 29,
+  "behaviorSites": 6,
+  "unexercised": [],
+  "mechanical": {
+    "cli-skip-flags": {
+      "truePositives": 1,
+      "falsePositives": 0
+    }
+  }
+}

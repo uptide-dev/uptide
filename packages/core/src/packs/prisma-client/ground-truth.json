@@ -1,0 +1,177 @@
+{
+  "$comment": "Public repositories at the commit before they upgraded @prisma/client from >=6 <7 to >=7 <8, and every finding the pack must report there. See docs/packs.md, \"Ground truth\". Drafted with packs:truth; the lines the upgrade changed in schema.prisma, package.json and prisma.config.* were read from the same `git diff -U0` by hand (packs:truth lists source files and tsconfigs only), with the same rules. The compiler draft is never a site here: with @prisma/client 7 linked next to a client generated at 6 it reports TS2305/TS7006/TS7031/TS2339 that a real upgrade, which regenerates the client, never has (RESEARCH.md).",
+  "package": "@prisma/client",
+  "repos": [
+    {
+      "repo": "BearStudio/start-ui-web",
+      "commit": "7a4e236f6ac3ac341c6ef1802ea6c8c7bbc585d9",
+      "migration": "https://github.com/BearStudio/start-ui-web/pull/781",
+      "from": "6.19.2",
+      "to": "7.10.0",
+      "with": { "prisma": "7.10.0" },
+      "why": "A TanStack Start app already on the prisma-client generator: the datasource URL moves to prisma.config.ts, the client gets the pg adapter, and the CLI scripts load .env with dotenv-cli and run generate themselves. The vite plugin that copied the engine binaries (removed in 7) and the @@map reordering are cleanup, not sites.",
+      "findings": [
+        { "file": "prisma/schema.prisma", "line": 12, "rule": "schema-datasource-url" },
+        {
+          "file": "src/server/db/index.ts",
+          "line": 16,
+          "rule": "client-adapter",
+          "note": "anchor: adapter added to the constructor options"
+        },
+        {
+          "file": "package.json",
+          "line": 58,
+          "rule": "env-not-loaded",
+          "note": "db:push now runs under dotenv"
+        },
+        {
+          "file": "package.json",
+          "line": 58,
+          "rule": "cli-implicit-steps",
+          "note": "db:push now runs gen:prisma after the push"
+        },
+        {
+          "file": "package.json",
+          "line": 59,
+          "rule": "env-not-loaded",
+          "note": "db:ui (studio) now runs under dotenv"
+        }
+      ]
+    },
+    {
+      "repo": "jqlang/playground",
+      "commit": "48a8e191766c62477a54582820745983d876e6ed",
+      "migration": "https://github.com/jqlang/playground/pull/344",
+      "from": "6.19.3",
+      "to": "7.8.0",
+      "with": { "prisma": "7.8.0" },
+      "why": "A Next.js app on prisma-client-js: the smallest real upgrade, the schema URL and one client with the pg adapter.",
+      "findings": [
+        { "file": "prisma/schema.prisma", "line": 14, "rule": "schema-datasource-url" },
+        {
+          "file": "src/lib/prisma.ts",
+          "line": 11,
+          "rule": "client-adapter",
+          "note": "anchor: adapter added to the constructor options"
+        }
+      ]
+    },
+    {
+      "repo": "openwallet-foundation-labs/ehr-wallet",
+      "commit": "a574d2bae9aff47a146886d3728ab57c120196cf",
+      "migration": "https://github.com/openwallet-foundation-labs/ehr-wallet/pull/114",
+      "from": "6.19.3",
+      "to": "7.10.0",
+      "with": { "prisma": "7.10.0" },
+      "why": "A Next.js pages app with a client per API route, all without options: each throws at construction on 7. It also moved the seed out of package.json and switched to the prisma-client generator (better-sqlite3 adapter). The import and jest mock changes follow the generator switch and are not sites.",
+      "findings": [
+        { "file": "prisma/schema.prisma", "line": 5, "rule": "client-js-generator" },
+        { "file": "prisma/schema.prisma", "line": 11, "rule": "schema-datasource-url" },
+        { "file": "package.json", "line": 25, "rule": "package-json-prisma" },
+        {
+          "file": "lib/prisma.ts",
+          "line": 9,
+          "rule": "client-adapter",
+          "note": "lines 7-8 were only rewrapped into createPrismaClient(), the repository's own refactor"
+        },
+        { "file": "pages/api/fhir/Encounter/index.ts", "line": 6, "rule": "client-adapter" },
+        { "file": "pages/api/fhir/Patient/[id].ts", "line": 6, "rule": "client-adapter" },
+        {
+          "file": "pages/api/fhir/Patient/[id]/[operation].ts",
+          "line": 6,
+          "rule": "client-adapter"
+        },
+        { "file": "pages/api/fhir/Patient/index.ts", "line": 6, "rule": "client-adapter" },
+        { "file": "pages/api/shared-data/index.ts", "line": 8, "rule": "client-adapter" },
+        { "file": "scripts/seed-shared-data.ts", "line": 5, "rule": "client-adapter" }
+      ]
+    },
+    {
+      "repo": "bcgov/nr-permitconnect-navigator-service",
+      "commit": "6d63485083292eb5771b3bede1443a2b36c3e558",
+      "migration": "https://github.com/bcgov/nr-permitconnect-navigator-service/pull/574",
+      "directory": "app",
+      "from": "6.19.3",
+      "to": "7.10.0",
+      "with": { "prisma": "7.10.0" },
+      "why": "An Express API: datasourceUrl becomes the pg adapter, connection_limit moves from the URL to the pool's max, the schema path leaves package.json. It also switched to the prisma-client generator; the Prisma.dmmf, Prisma.validator and import rewrites follow that switch (prisma-client-js 7 still has them), and the reporting SQL changes are unrelated.",
+      "findings": [
+        { "file": "src/db/prisma/schema.prisma", "line": 2, "rule": "client-js-generator" },
+        { "file": "src/db/prisma/schema.prisma", "line": 9, "rule": "schema-datasource-url" },
+        { "file": "package.json", "line": 132, "rule": "package-json-prisma" },
+        {
+          "file": "src/db/database.ts",
+          "line": 21,
+          "rule": "connection-url-params",
+          "note": "&connection_limit= dropped from the URL, max set on the adapter"
+        },
+        { "file": "src/db/database.ts", "line": 35, "rule": "client-adapter" }
+      ]
+    },
+    {
+      "repo": "basaltkit/basalt",
+      "commit": "2c255d3fd97bf2e230fb8e5685b9ded799f2a3c4",
+      "migration": "https://github.com/basaltkit/basalt/pull/188",
+      "from": "6.19.3",
+      "to": "7.9.1",
+      "with": { "prisma": "7.9.1" },
+      "why": "A framework monorepo whose integration harness (apps/pg-integration) loads the generated client with a dynamic import: the clients get the pg adapter, and db:push loses --skip-generate. Scored from the root: its lockfile is there. The hand-typed constructor signatures it widened (new () => to new (opts?) =>) follow its own fix and are not sites. The reference schemas under packages/*-prisma, which no workspace with @prisma/client loads, did not change.",
+      "findings": [
+        {
+          "file": "apps/pg-integration/prisma/schema.prisma",
+          "line": 9,
+          "rule": "schema-datasource-url"
+        },
+        { "file": "apps/pg-integration/package.json", "line": 8, "rule": "cli-skip-flags" },
+        {
+          "file": "apps/pg-integration/tests/stores.integration.test.ts",
+          "line": 30,
+          "rule": "client-adapter"
+        },
+        {
+          "file": "apps/pg-integration/tests/tenancy.integration.test.ts",
+          "line": 35,
+          "rule": "client-adapter"
+        }
+      ]
+    },
+    {
+      "repo": "AlexAgo83/cr-league",
+      "commit": "67861c3c23d75e26435ae66ff21334b7e97011ef",
+      "migration": "https://github.com/AlexAgo83/cr-league/pull/30",
+      "from": "6.19.3",
+      "to": "7.9.1",
+      "with": { "prisma": "7.9.1" },
+      "why": "An npm-workspaces monorepo whose API tests point clients at other databases with datasources: each becomes the pg adapter. prisma.config.ts existed on 6 (the datasource it gained is the schema URL moving, not a site of its own). The Node engines bump and the ?schema= handling are the repository's choice; no source covers the latter.",
+      "findings": [
+        { "file": "prisma/schema.prisma", "line": 7, "rule": "schema-datasource-url" },
+        { "file": "apps/api/src/app.postgres.test.ts", "line": 18, "rule": "client-adapter" },
+        { "file": "apps/api/src/app.postgres.test.ts", "line": 28, "rule": "client-adapter" },
+        { "file": "apps/api/src/app.postgres.test.ts", "line": 39, "rule": "client-adapter" },
+        { "file": "apps/api/src/db/client.ts", "line": 3, "rule": "client-adapter" }
+      ]
+    },
+    {
+      "repo": "MarvinLeRouge/HexaRot",
+      "commit": "117ef409197e5cb3c8e308d8bc9cd09015c360a0",
+      "migration": "https://github.com/MarvinLeRouge/HexaRot/pull/160",
+      "directory": "backend",
+      "from": "6.19.2",
+      "to": "7.10.0",
+      "with": { "prisma": "7.10.0" },
+      "withoutGenerated": "backend/prisma.config.ts reads env(\"DATABASE_URL\"), which throws when the variable is unset: prisma generate needs the project's database URL at this commit.",
+      "why": "A NestJS backend already on prisma-client and prisma.config.ts: engine \"classic\" leaves the config (TS2353 at 7), the seed moves out of package.json, the clients get the pg adapter. PrismaService (extends PrismaClient) gained a constructor: an insertion into a class body, which the ground-truth rules do not count as a site.",
+      "findings": [
+        { "file": "prisma/schema.prisma", "line": 9, "rule": "schema-datasource-url" },
+        {
+          "file": "package.json",
+          "line": 108,
+          "rule": "package-json-prisma",
+          "note": "line 107 only loses the comma before the removed key"
+        },
+        { "file": "prisma.config.ts", "line": 12, "rule": "config-removed-options" },
+        { "file": "prisma/seed.ts", "line": 3, "rule": "client-adapter" }
+      ]
+    }
+  ]
+}

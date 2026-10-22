@@ -60,6 +60,7 @@ See the [pack compatibility matrix](docs/compatibility.md) and the [migration pa
 | `express` | 4 → 5 | 8 | 100% | 86% | 86% | 86 | netlify/cli, bcgov/tenant-management-system, amiantos/lurker, openhab/openhab-cloud | verified |
 | `lucide-react` | 0 → 1 | 5 | 100% | 100% | 100% | 11 | tradeblocks-org/tradeblocks, spizeck/SFPCA, cubicsteak/keep | verified |
 | `next` | 15 → 16 | 9 | 100% | 88% | 88% | 34 | sambecker/exif-photo-blog, stoczec/wortkarte, benshabbat/GamesForMyKids, HiroshiIgarash/koremina | verified |
+| `@prisma/client` | 6 → 7 | 12 | 100% | 100% | 100% | 29 | BearStudio/start-ui-web, jqlang/playground, openwallet-foundation-labs/ehr-wallet, bcgov/nr-permitconnect-navigator-service, basaltkit/basalt, AlexAgo83/cr-league, MarvinLeRouge/HexaRot | verified |
 | `react` | 18 → 19 | 8 | 100% | 95% | 95% | 130 | excalidraw/excalidraw, tldraw/tldraw | verified |
 | `react-router` | 6 → 7 | 13 | 100% | 89% | 78% | 18 | Arize-ai/phoenix, getlago/lago-front | verified |
 | `redis` | 4.x/5.x → 5.x/6.x | 14 | 100% | 85% | 75% | 20 | deanmoses/tacocat-gallery-sam, swoofer/mcp-coordinator, UNN-Devotek/FCM-Fallout-Chat-Mod, tearingItUp786/blog | verified |
