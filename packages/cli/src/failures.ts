@@ -65,7 +65,7 @@ export function missingNodeModules(
         : 'nothing is installed (no node_modules)'
     }`,
     {
-      code: 'NOT_INSTALLED',
+      code: 'PACKAGE_NOT_INSTALLED',
       why: 'Install the dependencies first, then run the same command again. The analysis compiles your code against the installed and the target version.',
       next:
         repo.manager === 'yarn' &&

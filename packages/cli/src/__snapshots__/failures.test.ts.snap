@@ -28,6 +28,18 @@ exports[`friendly failures: each says what to run next > a repository without zo
 
 exports[`friendly failures: each says what to run next > breaking found and a dependency failed: breaking is the answer (exit 1) 1`] = `[]`;
 
+exports[`friendly failures: each says what to run next > check --json answers a refusal with its code on stdout 1`] = `
+[
+  "  Next: pnpm install --frozen-lockfile",
+]
+`;
+
+exports[`friendly failures: each says what to run next > check --json answers a refusal with its code on stdout 2`] = `
+[
+  "  Next: npx uptide --json",
+]
+`;
+
 exports[`friendly failures: each says what to run next > declared but missing from the lockfile 1`] = `
 [
   "  Next: npm install",

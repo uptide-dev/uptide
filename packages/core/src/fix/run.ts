@@ -502,11 +502,18 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     const missing = declared.find((p) => p.installed === 'unknown');
     if (missing)
       throw new UptideError(
-        'NOT_INSTALLED',
+        'PACKAGE_NOT_INSTALLED',
         `${pack.name} is declared in ${join(missing.workspace, 'package.json')} but not installed. Install the dependencies first: ${frozenInstall(packageManager(root))}, then run uptide fix ${pack.name} again.`,
       );
     const behind = declared.filter((p) => compareVersions(p.installed, target) < 0);
-    if (!behind.length) throw new Error(`${pack.name} has no upgrade to ${target}`);
+    // Everything declared is at or past the target (an alternate lead declares nothing here).
+    const at = declared.map((p) => p.installed).sort(compareVersions)[0];
+    if (!behind.length)
+      throw new Error(
+        at
+          ? `${pack.name} is already at ${at} (target ${target})`
+          : `${pack.name} is not declared in any package.json of this repository`,
+      );
     const reason = `the check returned nothing to analyze for ${pack.name} ${behind[0]?.installed} → ${target} (no import or pack site found)`;
     if (!canAssist) throw new UptideError('INCOMPLETE_CHECK', `${reason}. Nothing was changed.`);
     fallback.push(`Planner refused: ${reason}`);

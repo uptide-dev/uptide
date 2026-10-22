@@ -220,7 +220,7 @@ export async function run(
       } else {
         if (err instanceof CliError && err.options.next)
           err.options.next = suggest(err.options.next);
-        // `fix --json` answers on every exit, a failure included (UPT-107).
+        // `fix --json` and `check --json` answer on every exit, a failure included (UPT-107, UPT-136).
         if (flags.json && options.jsonErrors)
           emit({
             ...(err instanceof ReportedError ? err.report : {}),
@@ -736,7 +736,7 @@ ${EXIT_CODES(
             }
             return EXIT.ok;
           },
-          { quiet: !flags.verbose },
+          { quiet: !flags.verbose, jsonErrors: true },
         ),
     );
 

@@ -140,7 +140,28 @@ describe('friendly failures: each says what to run next', () => {
     expect(engine.calls).toEqual([]);
     const json = await fail(['fix', '--only', 'zod', '--json'], root);
     expect(json.code).toBe(2);
-    expect(JSON.parse(json.stdout).error.code).toBe('NOT_INSTALLED');
+    expect(JSON.parse(json.stdout).error.code).toBe('PACKAGE_NOT_INSTALLED');
+  });
+
+  it('check --json answers a refusal with its code on stdout', async () => {
+    const missing = await fail(
+      ['check', 'zod', '--json'],
+      tempRepo({ 'package.json': manifest, 'pnpm-lock.yaml': '' }),
+    );
+    expect(missing.code).toBe(2);
+    expect(JSON.parse(missing.stdout)).toEqual({
+      error: {
+        code: 'PACKAGE_NOT_INSTALLED',
+        message:
+          'zod is declared in package.json but not installed: nothing is installed (no node_modules)',
+      },
+    });
+    const engine = fakeEngine({ declared: async () => new Map([['zod', '^3.23.8']]) });
+    const absent = await fail(['check', '--only', 'stripe', '--json'], npmRepo(), engine);
+    expect(absent.code).toBe(2);
+    expect(JSON.parse(absent.stdout)).toEqual({
+      error: { code: 'ANALYSIS_FAILED', message: 'stripe is not a dependency of shop' },
+    });
   });
 
   it('missing Berry installation names the immutable install command', async () => {
