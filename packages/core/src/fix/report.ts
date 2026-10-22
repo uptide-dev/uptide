@@ -1150,18 +1150,28 @@ export function renderMigration(
   }
   const housekeeping = report.lockfile?.housekeeping;
   if (mode === 'full' && housekeeping) {
-    const label = `Lockfile housekeeping · ${count(housekeeping.deduped.length, 'dedupe move')} · ${count(housekeeping.metadata.length, 'metadata-only change')}`;
+    const onto = housekeeping.onto ?? [];
+    const label = `Lockfile housekeeping · ${count(housekeeping.deduped.length, 'dedupe move')} · ${count(housekeeping.metadata.length, 'metadata-only change')}${onto.length ? ` · ${count(onto.length, 'move')} onto the upgrade's copies` : ''}`;
     lines.push(
       droppable(
         7,
         collapse(label, [
           'Outside resolutions retain the same package name, version and integrity; execution and platform fields are unchanged.',
+          ...(onto.length
+            ? [
+                'The exceptions below are dependencies of unchanged packages the package manager now resolves to the copy the upgrade installs, in the same major and never older; the copy they used is gone from the lockfile when nothing else needs it.',
+              ]
+            : []),
           '',
           ...housekeeping.deduped.map(
             (d) =>
               `- \`${cell(d.name)}@${cell(d.version)}\`: \`${cell(d.from)}\` → \`${cell(d.to)}\`.`,
           ),
           ...housekeeping.metadata.map((key) => `- Metadata only: \`${cell(key)}\`.`),
+          ...onto.map(
+            (o) =>
+              `- \`${cell(o.name)}\` ${cell(o.from)} → ${cell(o.to)}: onto the upgrade's copy.`,
+          ),
         ]),
         label,
       ),

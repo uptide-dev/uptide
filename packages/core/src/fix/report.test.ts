@@ -967,6 +967,28 @@ it('keeps accepted lockfile housekeeping collapsed with counts and exact placeme
   expect(migrationBody(report)).toContain('Lockfile housekeeping');
 });
 
+it('lists a dependency moved onto the upgrade’s copy as housekeeping (UPT-135)', () => {
+  const report = fixture('storefront-zod');
+  report.lockfile = {
+    manager: 'pnpm',
+    file: 'pnpm-lock.yaml',
+    added: [],
+    removed: ['snapshots:qs@6.12.0'],
+    changed: ['snapshots:http-client@2.0.0'],
+    allowed: [],
+    housekeeping: {
+      deduped: [],
+      metadata: [],
+      onto: [{ name: 'qs', from: '6.12.0', to: '6.16.1' }],
+    },
+  };
+  const body = prBody(report);
+  expect(body).toContain(
+    "<details><summary>Lockfile housekeeping · 0 dedupe moves · 0 metadata-only changes · 1 move onto the upgrade's copies</summary>",
+  );
+  expect(body).toContain("- `qs` 6.12.0 → 6.16.1: onto the upgrade's copy.");
+});
+
 it('lists each allowed transitive change under the moved package that caused it', () => {
   const report = fixture('storefront-zod');
   report.lockfile = {

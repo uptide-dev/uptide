@@ -152,6 +152,12 @@ allowed. The fix report and PR description show accepted moves in a collapsed **
 housekeeping** section. Changed outside resolutions, removed packages, and executable or
 platform metadata changes remain blocked; a shared package name is not sufficient evidence.
 
+The exception is a dependency the package manager moves onto the copy the upgrade installs,
+in the same major and forward only; the copy it leaves may go when nothing else needs it.
+Each one is listed as housekeeping, "onto the upgrade's copy". Before this, such a move read
+as "X → X (same version, different resolution)" for every package depending on it, and the run
+fell back to an agent-led draft.
+
 
 ### "The agent did not change anything"
 

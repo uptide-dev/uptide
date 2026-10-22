@@ -1,0 +1,134 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@bull-board/express':
+        specifier: 5.23.0
+        version: 5.23.0
+      express:
+        specifier: 5.3.0
+        version: 5.3.0
+      http-test:
+        specifier: ^1.0.0
+        version: 1.0.0
+      schema-cli:
+        specifier: ^1.0.0
+        version: 1.0.0
+
+packages:
+
+  '@bull-board/express@5.23.0':
+    resolution: {integrity: sha512-c7aca5441bd0526f4ca5497c39c844dad95ddec8f6a1825bb4931bb5b4fe171b}
+
+  body-parser@1.20.3:
+    resolution: {integrity: sha512-ac02c7f4de34d468bfc87444d6d5f4691f322aa0b5dbfe2c2d0c3c42fd078dec}
+
+  body-parser@2.3.0:
+    resolution: {integrity: sha512-253140cfe429361c727f808753bb1f9b3a37e473837e935fe766910ade1a4420}
+
+  editor-launcher@1.0.0:
+    resolution: {integrity: sha512-9e2b1251cc4f695d9ed245bd88e74a17fc0e3b828c85926b955165416b057ae9}
+
+  express@4.21.2:
+    resolution: {integrity: sha512-4d2041a77bd4922bcebeb1bb80240f087b10510d23d4a3142db7206a9feb739a}
+
+  express@5.3.0:
+    resolution: {integrity: sha512-2c56d0b04eabc38361478fe7a7715689b25eb8e3e9be24dc2583d70b86019baf}
+
+  http-client@2.0.0:
+    resolution: {integrity: sha512-ded3e834f6e7d758e1874d09c820573edc4ba4384e81cba52faf5d5d1c1c9bf9}
+
+  http-test@1.0.0:
+    resolution: {integrity: sha512-4aeb79a1f719ee3b744df6c2cbe269e50d20c4bc9305cbd1a7b112f92ef70dd5}
+
+  iconv-lite@0.4.24:
+    resolution: {integrity: sha512-7d9ca5eb7c6d1a6f1b3b2db04e94ca19cc04caa10d923fca7d7942d47aa505fe}
+
+  iconv-lite@0.7.3:
+    resolution: {integrity: sha512-76dc46c7125d24015248138147d9e4cde7c341cd2f40acf5fc9eb9874785cf9b}
+
+  prompt-editor@1.0.0:
+    resolution: {integrity: sha512-acc1b2ec499a500ed3440303af9ce2e6c7db0dfd30424c753a37f3869cf26ede}
+
+  qs@6.13.0:
+    resolution: {integrity: sha512-2240c454f0418501921d6b094c1f6477603b0c893c4d7a8ed2bdfcab9e75c069}
+
+  qs@6.15.0:
+    resolution: {integrity: sha512-7720197a509e4de7f30d9dc334d6b6604c0d9ab20d6b5019a0d176bd9d0ba2b6}
+
+  qs@6.16.1:
+    resolution: {integrity: sha512-415d3b31f709d0004de78a0f91efd2da4890222805f3d5f283b495f29ff9171f}
+
+  safer-buffer@2.1.2:
+    resolution: {integrity: sha512-2fb14d3728e4ebf313be4634b146bd90cd3ad3559157baec03b64eec0878a0ba}
+
+  schema-cli@1.0.0:
+    resolution: {integrity: sha512-776c9ddf3bf358c15c71d089d5c31cc77c5f032c4169e471f4e8d6ebe0b9a6f9}
+
+snapshots:
+
+  '@bull-board/express@5.23.0':
+    dependencies:
+      express: 4.21.2
+
+  body-parser@1.20.3:
+    dependencies:
+      iconv-lite: 0.4.24
+      qs: 6.13.0
+
+  body-parser@2.3.0:
+    dependencies:
+      iconv-lite: 0.7.3
+      qs: 6.16.1
+
+  editor-launcher@1.0.0:
+    dependencies:
+      iconv-lite: 0.7.3
+
+  express@4.21.2:
+    dependencies:
+      body-parser: 1.20.3
+      qs: 6.13.0
+
+  express@5.3.0:
+    dependencies:
+      body-parser: 2.3.0
+      qs: 6.16.1
+
+  http-client@2.0.0:
+    dependencies:
+      qs: 6.15.0
+
+  http-test@1.0.0:
+    dependencies:
+      http-client: 2.0.0
+
+  iconv-lite@0.4.24:
+    dependencies:
+      safer-buffer: 2.1.2
+
+  iconv-lite@0.7.3:
+    dependencies:
+      safer-buffer: 2.1.2
+
+  prompt-editor@1.0.0:
+    dependencies:
+      editor-launcher: 1.0.0
+
+  qs@6.13.0: {}
+
+  qs@6.15.0: {}
+
+  qs@6.16.1: {}
+
+  safer-buffer@2.1.2: {}
+
+  schema-cli@1.0.0:
+    dependencies:
+      prompt-editor: 1.0.0

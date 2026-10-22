@@ -200,8 +200,16 @@ execution/platform fields (`scripts`, `bin`, `os`, `cpu`) still stop the install
 ranges remain protected except for packages actually upgraded. When an integrity hash is
 absent, the source locator must remain unchanged too.
 
+One resolution change is accepted: a dependency of an unchanged package that the package
+manager moves onto the copy the upgrade installs (express 5 brings `qs` 6.16.1, and another
+package's `qs` moves there from 6.12.0). The move must stay in the same major (the same minor
+below 1.0) and go forward, and the old copy may leave the lockfile only when nothing else
+needs it. A move to any other release, a downgrade, a major apart, or a change to what your
+own `package.json` declares still stops the install.
+
 Accepted changes appear under a collapsed **Lockfile housekeeping** section in the PR body
-and HTML report, with dedupe and metadata counts and the affected lockfile placements. The
+and HTML report, with dedupe, metadata and "onto the upgrade's copy" counts and the affected
+lockfile placements. The
 terminal shows counts; the stored JSON retains the full list.
 
 ## Step by step

@@ -126,7 +126,15 @@ it('summarizes lockfile housekeeping without expanding placements in the termina
     },
   };
   const out = formatFixSummary(report, { color: false });
-  expect(out).toContain('Lockfile housekeeping · 1 dedupe move · 0 metadata-only changes');
+  expect(out).toContain('Lockfile housekeeping · 1 dedupe move · 0 metadata-only changes (');
+  report.lockfile.housekeeping = {
+    deduped: [],
+    metadata: [],
+    onto: [{ name: 'qs', from: '6.12.0', to: '6.16.1' }],
+  };
+  expect(formatFixSummary(report, { color: false })).toContain(
+    "Lockfile housekeeping · 0 dedupe moves · 0 metadata-only changes · 1 move onto the upgrade's copies (details in the report)",
+  );
   expect(out).not.toContain('node_modules/');
 });
 

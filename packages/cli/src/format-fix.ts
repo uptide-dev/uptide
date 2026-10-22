@@ -167,7 +167,7 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
   if (housekeeping)
     lines.push(
       colors.dim(
-        `Lockfile housekeeping · ${housekeeping.deduped.length} dedupe move${housekeeping.deduped.length === 1 ? '' : 's'} · ${housekeeping.metadata.length} metadata-only change${housekeeping.metadata.length === 1 ? '' : 's'} (details in the report)`,
+        `Lockfile housekeeping · ${housekeeping.deduped.length} dedupe move${housekeeping.deduped.length === 1 ? '' : 's'} · ${housekeeping.metadata.length} metadata-only change${housekeeping.metadata.length === 1 ? '' : 's'}${housekeeping.onto?.length ? ` · ${housekeeping.onto.length} move${housekeeping.onto.length === 1 ? '' : 's'} onto the upgrade's copies` : ''} (details in the report)`,
       ),
       '',
     );
