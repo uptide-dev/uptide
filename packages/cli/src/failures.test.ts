@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type PackageReport, UptideError } from '@uptide/core';
 import { describe, expect, it } from 'vitest';
@@ -86,9 +86,82 @@ describe('friendly failures: each says what to run next', () => {
     );
     expect(code).toBe(2);
     expect(stderr).toContain('✖ Dependencies');
-    expect(stderr).toContain('error: zod and stripe are in the lockfile but not installed');
+    expect(stderr).toContain(
+      'error: zod and stripe are declared in package.json but not installed: nothing is installed (no node_modules)',
+    );
     expect(stderr).toContain(`Next: ${next}\n`);
     expect(engine.calls).toEqual([]);
+  });
+
+  it('a partial install names the package and the workspace that declares it', async () => {
+    const cwd = tempRepo({
+      'package.json': '{"name":"mono"}',
+      'pnpm-lock.yaml': '',
+      'packages/api/package.json': manifest,
+      'node_modules/stripe/package.json': '{}',
+    });
+    const engine = fakeEngine({
+      workspaces: async () => ['.', 'packages/api'],
+      declared: async (dir) =>
+        new Map(dir.endsWith('api') ? [['zod', '^3.23.8']] : [['stripe', '14.25.0']]),
+    });
+    const { code, stderr } = await fail(['check', 'zod'], cwd, engine);
+    expect(code).toBe(2);
+    expect(stderr).toContain(
+      'error: zod is declared in packages/api/package.json but not installed: node_modules is there, without it',
+    );
+    expect(stderr).toContain('Next: pnpm install --frozen-lockfile\n');
+    expect(engine.calls).toEqual([]);
+  });
+
+  it('a copy above the project root is not its install (UPT-136)', async () => {
+    const parent = tempRepo({
+      'node_modules/zod/package.json': '{"name":"zod","version":"4.6.5"}',
+      'shop/package.json': manifest,
+      'shop/pnpm-lock.yaml': '',
+    });
+    const { code, stderr } = await fail(['check', 'zod'], join(parent, 'shop'));
+    expect(code).toBe(2);
+    expect(stderr).toContain(
+      'error: zod is declared in package.json but not installed: nothing is installed (no node_modules)',
+    );
+  });
+
+  it('fix stops before any work when nothing is installed', async () => {
+    const root = pnpmGitRepo();
+    rmSync(join(root, 'node_modules'), { recursive: true });
+    const { code, stderr, engine } = await fail(['fix', '--only', 'zod'], root);
+    expect(code).toBe(2);
+    expect(stderr).toContain('✖ Repository');
+    expect(stderr).toContain(
+      'error: zod is declared in package.json but not installed: nothing is installed (no node_modules)',
+    );
+    expect(stderr).toContain('Next: pnpm install --frozen-lockfile\n');
+    expect(engine.calls).toEqual([]);
+    const json = await fail(['fix', '--only', 'zod', '--json'], root);
+    expect(json.code).toBe(2);
+    expect(JSON.parse(json.stdout).error.code).toBe('PACKAGE_NOT_INSTALLED');
+  });
+
+  it('check --json answers a refusal with its code on stdout', async () => {
+    const missing = await fail(
+      ['check', 'zod', '--json'],
+      tempRepo({ 'package.json': manifest, 'pnpm-lock.yaml': '' }),
+    );
+    expect(missing.code).toBe(2);
+    expect(JSON.parse(missing.stdout)).toEqual({
+      error: {
+        code: 'PACKAGE_NOT_INSTALLED',
+        message:
+          'zod is declared in package.json but not installed: nothing is installed (no node_modules)',
+      },
+    });
+    const engine = fakeEngine({ declared: async () => new Map([['zod', '^3.23.8']]) });
+    const absent = await fail(['check', '--only', 'stripe', '--json'], npmRepo(), engine);
+    expect(absent.code).toBe(2);
+    expect(JSON.parse(absent.stdout)).toEqual({
+      error: { code: 'ANALYSIS_FAILED', message: 'stripe is not a dependency of shop' },
+    });
   });
 
   it('missing Berry installation names the immutable install command', async () => {

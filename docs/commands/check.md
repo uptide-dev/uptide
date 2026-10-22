@@ -28,7 +28,7 @@ whole-repository budgeted mode or `--max-time` flag. Install dependencies first.
 | `--all-deps` | also analyze `@types/*` and dependencies the repository never imports |
 | `--html [path]`, `--open` | a shareable report (below) |
 | `--cwd <dir>` | repository to work on |
-| `--json` | the full report as JSON on stdout |
+| `--json` | the full report as JSON on stdout; when the run stops before a report, `{"error": {"code", "message"}}` instead (exit 2) |
 | `--ci` | plain log output: no color, no spinner (`NO_COLOR` is respected too) |
 
 While it runs, a terminal shows one live line with the current phase, which disappears when

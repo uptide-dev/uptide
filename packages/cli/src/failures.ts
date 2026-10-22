@@ -50,11 +50,23 @@ export function yarnPlugAndPlay(root: string): CliError {
   });
 }
 
-export function missingNodeModules(repo: Repo, missing: readonly string[]): CliError {
+/** Each missing dependency with a workspace that declares it. */
+export function missingNodeModules(
+  repo: Repo,
+  missing: readonly { name: string; workspace: string }[],
+): CliError {
+  const and = (list: readonly string[]) => names(list).replace(' or ', ' and ');
+  const one = missing.length === 1;
+  const manifests = [...new Set(missing.map((m) => join(m.workspace, 'package.json')))];
   return new CliError(
-    `${names(missing).replace(' or ', ' and ')} ${missing.length === 1 ? 'is' : 'are'} in the lockfile but not installed in node_modules`,
+    `${and(missing.map((m) => m.name))} ${one ? 'is' : 'are'} declared in ${and(manifests)} but not installed: ${
+      existsSync(join(repo.root, 'node_modules'))
+        ? `node_modules is there, without ${one ? 'it' : 'them'}`
+        : 'nothing is installed (no node_modules)'
+    }`,
     {
-      why: 'The analysis compiles your code against the installed and the target version.',
+      code: 'PACKAGE_NOT_INSTALLED',
+      why: 'Install the dependencies first, then run the same command again. The analysis compiles your code against the installed and the target version.',
       next:
         repo.manager === 'yarn' &&
         (existsSync(join(dirname(repo.lockfile), '.yarnrc.yml')) ||
@@ -133,11 +145,16 @@ export function networkFailure(report: CheckResult): CliError | undefined {
     : undefined;
 }
 
-/** Whether `name` resolves from `dir` the way Node would look it up. */
-function installedIn(dir: string, name: string): boolean {
-  for (let current = dir; ; current = dirname(current)) {
+/**
+ * Whether `name` resolves from workspace `w` the way Node would look it up, up to the
+ * project root: a copy above it (a stray `~/node_modules`) is not this repository's install
+ * (UPT-136).
+ */
+function installedIn(repo: Repo, w: string, name: string): boolean {
+  const top = resolve(repo.root);
+  for (let current = join(top, w); ; current = dirname(current)) {
     if (existsSync(join(current, 'node_modules', name, 'package.json'))) return true;
-    if (dirname(current) === current) return false;
+    if (current === top || dirname(current) === current) return false;
   }
 }
 
@@ -145,9 +162,10 @@ function installedIn(dir: string, name: string): boolean {
 export function requireInstalled(repo: Repo, dependencies: readonly DependencyStatus[]): void {
   for (const dep of dependencies)
     if (dep.workspaces.length > 0 && !dep.installed) throw notInLockfile(repo, dep.name);
-  const missing = dependencies
-    .filter((dep) => dep.workspaces.some((w) => !installedIn(join(repo.root, w), dep.name)))
-    .map((dep) => dep.name);
+  const missing = dependencies.flatMap((dep) => {
+    const workspace = dep.workspaces.find((w) => !installedIn(repo, w, dep.name));
+    return workspace === undefined ? [] : [{ name: dep.name, workspace }];
+  });
   if (missing.length > 0) throw missingNodeModules(repo, missing);
 }
 
@@ -159,12 +177,12 @@ export function requireInstalled(repo: Repo, dependencies: readonly DependencySt
 export function requireNodeModules(repo: Repo, dependencies: readonly DependencyStatus[]): void {
   const declared = dependencies.filter((dep) => dep.workspaces.length > 0);
   const missing = declared.filter((dep) =>
-    dep.workspaces.every((w) => !installedIn(join(repo.root, w), dep.name)),
+    dep.workspaces.every((w) => !installedIn(repo, w, dep.name)),
   );
   if (declared.length > 0 && missing.length === declared.length)
     throw missingNodeModules(
       repo,
-      missing.slice(0, 3).map((dep) => dep.name),
+      missing.slice(0, 3).map((dep) => ({ name: dep.name, workspace: dep.workspaces[0] ?? '.' })),
     );
 }
 

@@ -1,8 +1,20 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`friendly failures: each says what to run next > a copy above the project root is not its install (UPT-136) 1`] = `
+[
+  "  Next: pnpm install --frozen-lockfile",
+]
+`;
+
 exports[`friendly failures: each says what to run next > a dependency asked for by name that is not there: exit 2 1`] = `
 [
   "  Next: npx uptide",
+]
+`;
+
+exports[`friendly failures: each says what to run next > a partial install names the package and the workspace that declares it 1`] = `
+[
+  "  Next: pnpm install --frozen-lockfile",
 ]
 `;
 
@@ -15,6 +27,18 @@ exports[`friendly failures: each says what to run next > a registry error thrown
 exports[`friendly failures: each says what to run next > a repository without zod or stripe is checked like any other 1`] = `[]`;
 
 exports[`friendly failures: each says what to run next > breaking found and a dependency failed: breaking is the answer (exit 1) 1`] = `[]`;
+
+exports[`friendly failures: each says what to run next > check --json answers a refusal with its code on stdout 1`] = `
+[
+  "  Next: pnpm install --frozen-lockfile",
+]
+`;
+
+exports[`friendly failures: each says what to run next > check --json answers a refusal with its code on stdout 2`] = `
+[
+  "  Next: npx uptide --json",
+]
+`;
 
 exports[`friendly failures: each says what to run next > declared but missing from the lockfile 1`] = `
 [
@@ -39,6 +63,18 @@ exports[`friendly failures: each says what to run next > fix outside git, below 
 exports[`friendly failures: each says what to run next > fix outside git, below the root, or on a dirty tree 3`] = `
 [
   "  Next: git stash --include-untracked",
+]
+`;
+
+exports[`friendly failures: each says what to run next > fix stops before any work when nothing is installed 1`] = `
+[
+  "  Next: pnpm install --frozen-lockfile",
+]
+`;
+
+exports[`friendly failures: each says what to run next > fix stops before any work when nothing is installed 2`] = `
+[
+  "  Next: pnpm install --frozen-lockfile",
 ]
 `;
 
