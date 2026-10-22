@@ -1291,6 +1291,36 @@ describe('preflight refusals become agent-led drafts with an agent (UPT-78)', ()
     expect(result.agentFallback?.join(';')).toContain('the check returned nothing to analyze');
   });
 
+  it('an empty check without an install says so, not "has no upgrade" (UPT-136)', async () => {
+    const { root, services } = zodFixture(scratch);
+    const empty = async () => ({ ...(await services.check({ cwd: root })), packages: [] });
+    rmSync(join(root, 'node_modules'), { recursive: true });
+    const error = await isolatedFix(
+      { cwd: root, ...agent },
+      { ...services, check: empty, agentRunner: runner() },
+    ).catch((e: unknown) => e);
+    expect(error).toMatchObject({
+      code: 'NOT_INSTALLED',
+      message:
+        'zod is declared in package.json but not installed. Install the dependencies first: pnpm install --frozen-lockfile, then run uptide fix zod again.',
+    });
+  });
+
+  it('"has no upgrade" is kept for a package already at the target', async () => {
+    const { root, services } = zodFixture(scratch);
+    const empty = async () => ({ ...(await services.check({ cwd: root })), packages: [] });
+    writeFileSync(
+      join(root, 'node_modules/zod/package.json'),
+      JSON.stringify({ name: 'zod', version: '4.6.5', types: 'index.d.ts' }),
+    );
+    await expect(
+      isolatedFix(
+        { cwd: root, only: 'zod', fixer: null, tool: TOOL },
+        { ...services, check: empty },
+      ),
+    ).rejects.toThrow(/^zod has no upgrade to 4\.6\.5$/);
+  });
+
   it('never falls back on a safety refusal', async () => {
     const { root, services } = zodFixture(scratch);
     const planner = vi

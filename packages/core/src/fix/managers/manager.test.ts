@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { versionRange } from '../versions.js';
 import { assertLockScope } from './lock-guard.js';
-import { berrySkipBuild, packageManager, updateArgs } from './manager.js';
+import { berrySkipBuild, frozenInstall, packageManager, updateArgs } from './manager.js';
 import { pnpmGraph, yarnGraph } from './text-lock.js';
 
 const roots: string[] = [];
@@ -18,6 +18,14 @@ function fixture(files: Record<string, string | undefined>) {
   for (const [f, t] of Object.entries(files)) if (t !== undefined) writeFileSync(join(root, f), t);
   return root;
 }
+it.each([
+  [{ 'package-lock.json': '{"lockfileVersion":3}' }, 'npm ci'],
+  [{ 'pnpm-lock.yaml': '' }, 'pnpm install --frozen-lockfile'],
+  [{ 'yarn.lock': '' }, 'yarn install --frozen-lockfile'],
+  [{ 'yarn.lock': '__metadata:\n  version: 8\n' }, 'yarn install --immutable'],
+])('the install a person runs for %j is %s', (files, command) => {
+  expect(frozenInstall(packageManager(fixture(files)))).toBe(command);
+});
 it.each(['^', '~', ''])('preserves the %s range style', (style) => {
   expect(versionRange(`${style}3.23.8`, '4.6.5')).toBe(`${style}4.6.5`);
 });

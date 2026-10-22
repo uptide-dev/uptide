@@ -2,7 +2,7 @@ import { assertManagerAvailable } from './managers/availability.js';
 import { isolatedUpgrade } from './managers/isolated-install.js';
 import type { InstallReport, Upgrade } from './managers/upgrade.js';
 
-export { packageManager } from './managers/manager.js';
+export { frozenInstall, packageManager } from './managers/manager.js';
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';

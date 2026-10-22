@@ -23,6 +23,19 @@ classic/Berry with the node-modules linker. Deno is not supported.
 lockfile` once (bun's own flag) so the repository has `bun.lock`, and `check` can read the
 installed versions.
 
+## "declared in package.json but not installed"
+
+`check` and `fix` compile your code against the version installed in `node_modules`, so
+they stop before any analysis when the package is not there, with the code `NOT_INSTALLED`
+(exit 2; `fix --json` carries it in `error.code`). "nothing is installed (no node_modules)"
+means a fresh clone: install the dependencies, then run the same command again. "node_modules
+is there, without it" means a partial install, for example a workspace package installed on
+its own. The message names the `package.json` that declares the package, and the next
+command is the frozen install for the repository's lockfile: `npm ci`, `pnpm install
+--frozen-lockfile`, `yarn install --frozen-lockfile` or `yarn install --immutable`. Uptide
+never installs into your checkout. Only the project's own `node_modules` counts: a copy in a
+directory above the project root (a stray `~/node_modules`) is not its install.
+
 ## Package manager not available, or the wrong version
 
 `fix` runs the package manager the repository names in `packageManager` (corepack's choice),

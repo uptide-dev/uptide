@@ -1,4 +1,5 @@
 import {
+  type ErrorCode,
   IntegrityError,
   NoTypesError,
   PackageNotFoundError,
@@ -13,6 +14,8 @@ export const EXIT = { ok: 0, breaking: 1, error: 2 } as const;
 /** A failure the user can act on. `next` is the exact command to run, when there is one. */
 export class CliError extends Error {
   override readonly name = 'CliError';
+  /** What `--json` reports; ANALYSIS_FAILED when unset. */
+  readonly code: ErrorCode | undefined;
   constructor(
     message: string,
     readonly options: {
@@ -20,9 +23,11 @@ export class CliError extends Error {
       next?: string;
       literalNext?: boolean;
       exitCode?: number;
+      code?: ErrorCode;
     } = {},
   ) {
     super(message);
+    this.code = options.code;
   }
 }
 

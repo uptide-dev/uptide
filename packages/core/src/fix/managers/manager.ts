@@ -102,6 +102,15 @@ export function packageManager(root: string): PackageManager {
     'fix supports npm (lockfile v2/v3), pnpm, and Yarn classic/Berry; no supported lockfile found',
   );
 }
+/** The install a person runs to get exactly what the lockfile pins. */
+export function frozenInstall(pm: PackageManager): string {
+  return {
+    npm: 'npm ci',
+    pnpm: 'pnpm install --frozen-lockfile',
+    'yarn-classic': 'yarn install --frozen-lockfile',
+    'yarn-berry': 'yarn install --immutable',
+  }[pm.kind];
+}
 /** Manifests have already been updated, so npm can preserve dependency sections with no add/save flags. */
 export function updateArgs(pm: PackageManager, root: string, workspaces: string[]): string[] {
   const args = managerArgs(pm, root, workspaces);
