@@ -75,6 +75,8 @@ export interface TaskRun extends Spend {
   durationMs: number;
   toolCalls: Record<string, number>;
   stop?: string;
+  /** The API's own error (an invalid key, no credit, a model the key cannot use): no work was possible. */
+  error?: string;
 }
 /** The checks the agent can call, bound to the task: Uptide's own judges, not a shell. */
 export interface TaskChecks {
@@ -729,8 +731,10 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     const touched = [...modified, ...added.filter((file) => !discardedFiles.includes(file))];
     const fixtureProperties: FixtureProperty[] = [];
     const dependencies: DependencyGate = { refused: [], added: [] };
+    // An API error ends the session: what it wrote before that is a partial edit, never kept.
+    const failure = error ?? run.error;
     const rejection =
-      error ??
+      failure ??
       (touched.length
         ? editRules(root, task, run.summary, before, fixtureProperties, dependencies)
         : undefined);
@@ -741,7 +745,8 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
       sites: task.sites.length,
       fixed: 0,
       ...run,
-      gate: error ? 'error' : !touched.length ? 'no-change' : rejection ? 'rejected' : 'accepted',
+      ...(error ? { error } : {}),
+      gate: failure ? 'error' : !touched.length ? 'no-change' : rejection ? 'rejected' : 'accepted',
       ...(rejection ? { rejection } : {}),
       ...(discardedFiles.length ? { discardedFiles } : {}),
       ...(!rejection && fixtureProperties.length ? { fixtureProperties } : {}),
@@ -757,7 +762,7 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
     if (rejection || !touched.length) {
       reset(taskStart);
       for (const s of task.sites)
-        s.reason = `SDK agent ${rejection ? `rejected: ${rejection}` : 'made no change'}${said ? `; agent: ${said}` : ''}`;
+        s.reason = `SDK agent ${failure ? `failed: ${failure}` : rejection ? `rejected: ${rejection}` : 'made no change'}${said ? `; agent: ${said}` : ''}`;
       continue;
     }
     commit(
@@ -792,7 +797,11 @@ export async function assistWithSdk(input: SdkAssistInput): Promise<FixReport['l
   }
 
   const spent: Spend & { costUsd: number } = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
-  for (const record of records) addSpend(spent, record);
+  for (const record of records) {
+    addSpend(spent, record);
+    const reason = noChangeReason(record);
+    if (reason) record.noChange = reason;
+  }
   return {
     provider: 'anthropic',
     model: input.model,
@@ -1035,6 +1044,7 @@ const sdkRunner: TaskRunner = async ({
   const started = Date.now();
   const toolCalls: Record<string, number> = {};
   let result: Extract<SDKMessage, { type: 'result' }> | undefined;
+  let thrown: string | undefined;
   try {
     for await (const message of sdk.query({
       prompt,
@@ -1100,8 +1110,9 @@ const sdkRunner: TaskRunner = async ({
     }))
       if (message.type === 'result') result = message;
   } catch (err) {
-    // An error result (the budget reached) is emitted, then thrown: keep what it cost.
+    // An error result (the budget reached, an API error) is emitted, then thrown: keep what it cost.
     if (!result) throw err;
+    thrown = (err as Error).message;
   }
   if (!result) throw new Error('the SDK session ended without a result');
   return {
@@ -1111,8 +1122,65 @@ const sdkRunner: TaskRunner = async ({
     toolCalls,
     ...(result.subtype !== 'success'
       ? { stop: result.subtype }
-      : result.structured_output
-        ? { summary: result.structured_output as AgentSummary }
-        : {}),
+      : result.stop_reason === 'refusal'
+        ? { stop: 'refusal' }
+        : result.structured_output
+          ? { summary: result.structured_output as AgentSummary }
+          : {}),
+    ...sessionError(result, thrown),
   };
 };
+
+/**
+ * The API's error behind a result, if any. An invalid key, an empty credit balance or a model
+ * the key cannot use comes back as a `success` result with `is_error` and the API's message,
+ * after one turn and nothing spent (UPT-134). A limit the session reached is a stop, not this.
+ */
+export function sessionError(result: SdkResult, thrown?: string): { error?: string } {
+  if (!result.is_error) return {};
+  if (result.subtype === 'success')
+    return { error: result.result.trim() || thrown || 'the API returned an error' };
+  if (result.subtype === 'error_during_execution')
+    return { error: result.errors?.join('; ') || thrown || 'the session failed during execution' };
+  return {};
+}
+
+/**
+ * Why nothing the agent did stayed in the branch, for a run where it could assist; undefined
+ * when a task kept an edit. Each distinct reason once: the site task's, then the rounds'.
+ */
+export function agentIdleReason(
+  llm: Pick<FixReport['llm'], 'tasks' | 'costLimit'>,
+  sites: FixSite[],
+): string | undefined {
+  const tasks = llm.tasks ?? [];
+  if (tasks.some((t) => t.gate === 'accepted')) return undefined;
+  const reasons = [...new Set(tasks.map((t) => t.noChange ?? noChangeReason(t)))].filter(Boolean);
+  if (reasons.length) return reasons.join('; ');
+  if (llm.costLimit || sites.some((s) => s.reason.includes('not attempted: --max-cost reached')))
+    return 'no session started: --max-cost left too little for one';
+  return sites.some((s) => s.outcome === 'manual')
+    ? 'no session started'
+    : 'nothing was left for it: no site needed it, and the type-check, tests and build had no new failure to repair';
+}
+
+/**
+ * Why a task left the repository as it was, in the words the run shows (UPT-134): the API's
+ * error, a session that never produced anything, a stop, a refusal, or every edit rejected.
+ * Undefined when the task kept an edit.
+ */
+export function noChangeReason(record: AgentTaskRecord): string | undefined {
+  if (record.gate === 'accepted') return undefined;
+  if (record.error) return `the session failed: ${record.error}`;
+  if (record.stop === 'refusal') return 'the model refused the task';
+  if (record.turns === 0) return 'the session ended before its first turn';
+  if (record.outputTokens === 0) return 'the model returned no output';
+  if (record.gate === 'rejected') return `every edit was rejected: ${record.rejection}`;
+  if (record.stop === 'error_max_budget_usd')
+    return 'the session reached --max-cost before any edit';
+  if (record.stop) return `the session stopped before any edit (${record.stop})`;
+  const said = record.summary?.couldNotDo.filter(Boolean) ?? [];
+  return said.length
+    ? `the agent made no edit; it said: ${said.join('; ')}`
+    : 'the agent made no edit and gave no reason';
+}

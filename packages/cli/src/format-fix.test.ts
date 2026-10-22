@@ -315,3 +315,13 @@ it('marks a companion major that needs its own migration (UPT-10)', () => {
     'needs its own migration: plugin 1.0.0 → 2.0.0 (major, no pack)',
   );
 });
+
+it('says in red when the agent changed nothing, and why (UPT-134)', () => {
+  const report = fixReport(true);
+  report.llm.agentIdle = 'the session failed: Invalid API key';
+  expect(formatFixSummary(report, { color: false })).toContain(
+    '  Agent     The agent did not change anything: the session failed: Invalid API key',
+  );
+  report.llm.agentIdle = undefined;
+  expect(formatFixSummary(report, { color: false })).not.toContain('did not change anything');
+});

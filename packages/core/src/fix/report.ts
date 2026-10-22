@@ -946,6 +946,8 @@ export function renderMigration(
       '',
     );
   if (report.packWarning) lines.push(`> ⚠️ ${report.packWarning}`, '');
+  if (report.llm.agentIdle)
+    lines.push(`> ⚠️ **The agent did not change anything:** ${report.llm.agentIdle}.`, '');
   // Broken before the upgrade: said first, so no reader takes the comparison for proof.
   const unhealthy = baselineHeadline(baselineHealthOf(report));
   if (mode === 'full' && unhealthy && !report.verificationPending)
@@ -989,10 +991,13 @@ export function renderMigration(
             : !report.sites.length && migrationRisk(report).level === 'Low'
               ? 'Types compile and the tests pass.'
               : 'Types compile; runtime behavior needs review.';
+    const manual = report.sites.filter((s) => s.outcome === 'manual').length;
     const what =
-      report.sites.length || hasFeedbackEdits(report)
-        ? `The code was migrated to ${report.package} ${from.split('.')[0] === report.target.split('.')[0] ? report.target : report.target.split('.')[0]}${workspaces.length ? ` in ${listed(workspaces)}` : ''}.`
-        : 'No code changes were needed; only versions and the lockfile changed.';
+      manual && manual === report.sites.length && !hasFeedbackEdits(report)
+        ? `No code was changed: ${manual === 1 ? 'the site needs' : `all ${manual} sites need`} a manual migration.`
+        : report.sites.length || hasFeedbackEdits(report)
+          ? `The code was migrated to ${report.package} ${from.split('.')[0] === report.target.split('.')[0] ? report.target : report.target.split('.')[0]}${workspaces.length ? ` in ${listed(workspaces)}` : ''}.`
+          : 'No code changes were needed; only versions and the lockfile changed.';
     lines.push(
       `**${ready ? 'Ready for review.' : 'Review required before merging.'}** ${what} ${typeVerdict}${report.apiChanges ? ` ${sentenceCase(apiChangeSummary(report.apiChanges, stripeSection(report)?.unmatched.length, report.packContext?.recordSites?.length))} between ${report.apiChanges.from} and ${report.apiChanges.to}.` : ''}`,
       '',
@@ -1655,7 +1660,7 @@ function verificationDetails(report: FixReport, bounded: boolean): (string | Pie
       `By rule: ${report.sites.filter((s) => s.outcome === 'mechanical').length} sites. By the agent before feedback: ${report.sites.filter((s) => s.outcome === 'agent').length} sites.`,
       ...feedbackTasks.map(
         (task) =>
-          `- Round ${task.id.replace('verification-', '')}: ${task.gate}${task.rejection ? ` — ${task.rejection}` : ''}${task.stop ? ` — ${task.stop}` : ''}. ${Object.keys(task.diffs ?? {}).join(', ') || 'No accepted edits.'}`,
+          `- Round ${task.id.replace('verification-', '')}: ${task.gate}${task.noChange ? ` — ${task.noChange}` : `${task.rejection ? ` — ${task.rejection}` : ''}${task.stop ? ` — ${task.stop}` : ''}`}. ${Object.keys(task.diffs ?? {}).join(', ') || 'No accepted edits.'}`,
       ),
       ...feedbackTasks.flatMap((task) =>
         task.gate === 'accepted'

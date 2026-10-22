@@ -16,10 +16,12 @@ import type { MigrationPack } from '../packs/types.js';
 import { zodPack } from '../packs/zod/index.js';
 import { fix } from './run.js';
 import {
+  agentIdleReason,
   assistWithSdk,
   editRules,
   guard,
   planTasks,
+  sessionError,
   type TaskRun,
   taskPrompt,
 } from './sdk-agent.js';
@@ -119,6 +121,8 @@ async function task(input: {
   baselineTests?: TestResult[];
   /** The failing files run again alone; absent, the gate has no rerun. */
   rerun?: TestResult[];
+  /** What the session reports besides its summary: an API error, no turns, a stop. */
+  run?: Partial<TaskRun>;
 }) {
   const reruns: string[][] = [];
   const root = repo({ 'src/a.ts': ORIGINAL, 'src/other.ts': 'export const x = 1;\n' });
@@ -164,7 +168,7 @@ async function task(input: {
     baselineTests: input.baselineTests ?? [{ workspace: '.', status: 'passed', output: '' }],
     baselineLint: [],
     affected: ['src/a.ts'],
-    runner: async ({ root }) => ran(input.agent(root)),
+    runner: async ({ root }) => ({ ...ran(input.agent(root)), ...input.run }),
     ...(input.rerun
       ? {
           rerun: async (files: string[]) => {
@@ -399,6 +403,76 @@ describe('end-of-task gate', () => {
     });
     expect(record?.gate).toBe('no-change');
     expect(sites[0]?.reason).toMatch(/made no change; agent: the period needs a product decision/);
+    expect(record?.noChange).toBe(
+      'the agent made no edit; it said: the period needs a product decision',
+    );
+  });
+});
+
+describe('a session that changed nothing says why (UPT-134)', () => {
+  it('records the API error, and never keeps what the session wrote before it', async () => {
+    const { root, sites, record } = await task({
+      agent: doing(migrate, undefined as unknown as AgentSummary),
+      after: [],
+      run: { turns: 1, inputTokens: 0, outputTokens: 0, costUsd: 0, error: 'Invalid API key' },
+    });
+    expect(record?.gate).toBe('error');
+    expect(record?.noChange).toBe('the session failed: Invalid API key');
+    expect(sites[0]?.outcome).toBe('manual');
+    expect(sites[0]?.reason).toBe('SDK agent failed: Invalid API key');
+    expect(readFileSync(join(root, 'src/a.ts'), 'utf8')).toBe(ORIGINAL);
+  });
+
+  it.each([
+    [{ turns: 0, outputTokens: 0 }, 'the session ended before its first turn'],
+    [{ outputTokens: 0 }, 'the model returned no output'],
+    [{ stop: 'refusal' }, 'the model refused the task'],
+    [{ stop: 'error_max_budget_usd' }, 'the session reached --max-cost before any edit'],
+  ] as const)('%o: %s', async (run, reason) => {
+    const { record } = await task({ agent: () => undefined, after: [], run });
+    expect(record?.gate).toBe('no-change');
+    expect(record?.noChange).toBe(reason);
+    expect(agentIdleReason({ tasks: record ? [record] : [] }, [])).toBe(reason);
+  });
+
+  it('names the gate’s rejection when every edit was rejected', async () => {
+    const { record } = await task({
+      agent: doing((root) => writeFileSync(join(root, 'src/other.ts'), 'outside')),
+      after: [],
+    });
+    expect(record?.gate).toBe('rejected');
+    expect(record?.noChange).toBe(
+      'every edit was rejected: edited files outside the task: src/other.ts',
+    );
+  });
+
+  it('is silent when an edit stayed, and says so when no session had anything to do', async () => {
+    const { record } = await task({ agent: doing(migrate), after: [] });
+    expect(record?.gate).toBe('accepted');
+    expect(record?.noChange).toBeUndefined();
+    expect(agentIdleReason({ tasks: record ? [record] : [] }, [])).toBeUndefined();
+    expect(agentIdleReason({ tasks: [] }, [])).toMatch(/^nothing was left for it/);
+    expect(agentIdleReason({ tasks: [], costLimit: { limitUsd: 0.01, notAttempted: 1 } }, [])).toBe(
+      'no session started: --max-cost left too little for one',
+    );
+  });
+});
+
+describe('sessionError', () => {
+  const result = (over: Record<string, unknown>) =>
+    ({ is_error: false, subtype: 'success', result: '', errors: [], ...over }) as never;
+  it('reads the API error a success-typed result carries, and nothing from a clean one', () => {
+    expect(
+      sessionError(result({ is_error: true, result: 'Invalid API key · Fix external API key' })),
+    ).toEqual({ error: 'Invalid API key · Fix external API key' });
+    expect(
+      sessionError(result({ is_error: true, result: ' ' }), 'Claude Code returned an error result'),
+    ).toEqual({ error: 'Claude Code returned an error result' });
+    expect(
+      sessionError(result({ is_error: true, subtype: 'error_during_execution', errors: ['boom'] })),
+    ).toEqual({ error: 'boom' });
+    expect(sessionError(result({ is_error: true, subtype: 'error_max_budget_usd' }))).toEqual({});
+    expect(sessionError(result({ result: 'done' }))).toEqual({});
   });
 });
 

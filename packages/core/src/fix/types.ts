@@ -198,8 +198,12 @@ export interface AgentTaskRecord extends Spend {
    * counted against the edits. Final verification still runs them in its full gate.
    */
   flaky?: string[];
-  /** The SDK's stop reason when it did not finish cleanly (`error_max_budget_usd`). */
+  /** The SDK's stop reason when it did not finish cleanly (`error_max_budget_usd`, `refusal`). */
   stop?: string;
+  /** The API's or the SDK's error that ended the session (an invalid key, no credit). */
+  error?: string;
+  /** Why the task left nothing (UPT-134): set whenever its gate did not accept an edit. */
+  noChange?: string;
   /** How many single-site tasks shared this task's gate. */
   batch?: number;
   /** Accepted file diffs captured before the task's working tree can change. */
@@ -388,6 +392,11 @@ export interface FixReport {
     /** The executor assisted fixes use in this run; absent when they are off or have no key. */
     executor?: 'sdk' | 'patch';
     tasks?: AgentTaskRecord[];
+    /**
+     * Set when the agent could assist and nothing it did stayed in the branch (UPT-134): why, as
+     * "The agent did not change anything: <reason>" says it in the terminal and the PR body.
+     */
+    agentIdle?: string;
     feedback?: {
       roundsUsed: number;
       maxRounds: number;

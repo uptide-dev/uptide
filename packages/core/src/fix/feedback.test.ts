@@ -121,8 +121,47 @@ it('does not send failures already present at the parent to the agent', async ()
   const { root, services } = await fixture();
   services.tests = async () => [{ workspace: '.', status: 'failed', output: 'old failure' }];
   const runner = vi.fn<TaskRunner>(async () => runResult);
-  await fix(options(root), { ...services, agentRunner: runner });
+  const result = await fix(options(root), { ...services, agentRunner: runner });
   expect(runner).not.toHaveBeenCalled();
+  expect(result.llm.agentIdle).toMatch(/^nothing was left for it: no site needed it/);
+  expect(prBody(result)).toContain('> ⚠️ **The agent did not change anything:** nothing was left');
+});
+
+it('says the agent did nothing, and why, when the API refuses the key (UPT-134)', async () => {
+  const { root, services } = await fixture();
+  // What the SDK returns for an invalid key, an empty credit balance or a model out of reach.
+  const runner = vi.fn<TaskRunner>(async () => ({
+    ...runResult,
+    inputTokens: 0,
+    outputTokens: 0,
+    costUsd: 0,
+    error: 'Invalid API key · Fix external API key',
+  }));
+  const result = await fix(options(root), { ...services, agentRunner: runner });
+  // The same error would fail every round: one session, not four.
+  expect(runner).toHaveBeenCalledTimes(1);
+  expect(result.llm.tasks?.map((t) => t.gate)).toEqual(['error']);
+  expect(result.llm.agentIdle).toBe('the session failed: Invalid API key · Fix external API key');
+  expect(prBody(result)).toContain(
+    '> ⚠️ **The agent did not change anything:** the session failed: Invalid API key · Fix external API key.',
+  );
+  expect(prBody(result)).toContain(
+    '- Round 1: error — the session failed: Invalid API key · Fix external API key. No accepted edits.',
+  );
+});
+
+it('reports no idle agent when its repair stayed', async () => {
+  const { root, services } = await fixture();
+  const runner = vi.fn<TaskRunner>(async () => {
+    writeFileSync(
+      join(root, 'index.ts'),
+      readFileSync(join(root, 'index.ts'), 'utf8').replace('.uuid()', '.guid()'),
+    );
+    return runResult;
+  });
+  const result = await fix(options(root), { ...services, agentRunner: runner });
+  expect(result.llm.agentIdle).toBeUndefined();
+  expect(prBody(result)).not.toContain('The agent did not change anything');
 });
 
 it('degrades an incomplete check to an agent-led lead upgrade', async () => {

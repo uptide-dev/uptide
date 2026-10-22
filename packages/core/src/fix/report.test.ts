@@ -1180,3 +1180,23 @@ it('says a companion major without a pack needs its own migration, and marks the
   report.companions = report.companions.map((c) => ({ ...c, migration: 'pack' as const }));
   expect(prBody(report)).not.toContain('Needs its own migration');
 });
+
+describe('a run where nothing was migrated (UPT-134)', () => {
+  it('says no code changed instead of "migrated", and why the agent did nothing', () => {
+    const base = fixture('storefront-zod');
+    const report: FixReport = {
+      ...base,
+      sites: base.sites.map((s) => ({ ...s, outcome: 'manual' as const })),
+      llm: { ...base.llm, tasks: [], agentIdle: 'the session failed: Invalid API key' },
+    };
+    const body = prBody(report);
+    expect(body).toContain(
+      `No code was changed: all ${report.sites.length} sites need a manual migration.`,
+    );
+    expect(body).not.toContain('The code was migrated');
+    expect(body).toContain(
+      '> ⚠️ **The agent did not change anything:** the session failed: Invalid API key.',
+    );
+    expect(prBody(base)).not.toContain('The agent did not change anything');
+  });
+});

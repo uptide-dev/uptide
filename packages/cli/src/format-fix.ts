@@ -98,6 +98,11 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
     ...(report.llm.costLimit
       ? [`  ${pad('Agent', 9)} ${costStopMessage(report.llm.costLimit, report.llm.estimate)}`]
       : []),
+    ...(report.llm.agentIdle
+      ? [
+          `  ${pad('Agent', 9)} ${colors.red(`The agent did not change anything: ${report.llm.agentIdle}`)}`,
+        ]
+      : []),
     ...(report.phases?.length ? [`  ${pad('Phases', 9)} ${describePhases(report.phases)}`] : []),
     // What the check behind this run could not see, per workspace (the files are in the report).
     ...(report.importersNotAnalyzed ?? []).map(
