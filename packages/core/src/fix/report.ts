@@ -195,13 +195,30 @@ function groups(report: FixReport): Group[] {
       a.rule.localeCompare(b.rule),
   );
 }
+/**
+ * A group the renderer has no words of its own for: the pack's summary of the rule; for sites no
+ * rule covers, keyed by a changed declaration's path (`e.query`), what the compiler said there or
+ * what changed; else the key.
+ */
+function fallbackTitle(g: Group, report: FixReport): string {
+  const summary = report.ruleSummaries?.[g.rule];
+  if (summary) return summary;
+  const findings = g.sites.map((s) => s.finding);
+  const ts = /^TS(\d+)$/.exec(g.rule)?.[1];
+  if (ts) return diagnosticTitle(Number(ts), findings);
+  // Rule ids are kebab-case; a key with `.` or `#` is the path of a declaration no rule covers.
+  if (!/[.#]/.test(g.rule)) return g.rule;
+  const code = findings.find((f) => f.usage.compileCode)?.usage.compileCode;
+  if (code) return diagnosticTitle(code, findings);
+  return `\`${g.rule}\` ${findings.every((f) => f.change.kind === 'removed') ? 'was removed' : 'changed'} in ${report.package} ${report.target}`;
+}
 function description(
   g: Group,
   report: FixReport,
 ): { title: string; summary: string; note?: string } {
   if (g.outcome === 'manual')
     return {
-      title: g.rule,
+      title: fallbackTitle(g, report),
       summary: `Manual migration required: ${sentence(g.sites.find((s) => s.outcome === 'manual')?.reason ?? 'review the remaining sites.')}`,
     };
   // Everything said about a rule comes from this run's own sites: the file that was edited and
@@ -285,12 +302,7 @@ function description(
   };
   return (
     known[g.rule] ?? {
-      title: /^TS\d+$/.test(g.rule)
-        ? diagnosticTitle(
-            Number(g.rule.slice(2)),
-            g.sites.map((s) => s.finding),
-          )
-        : g.rule,
+      title: fallbackTitle(g, report),
       summary: `${sentence(g.edits[0]?.attempts?.findLast((a) => a.outcome === 'accepted')?.explanation ?? g.edits[0]?.reason ?? 'Migration recorded.')} ${report.verification.passed ? 'No new type errors.' : 'Verification is incomplete.'}`,
     }
   );
@@ -946,6 +958,8 @@ export function renderMigration(
       '',
     );
   if (report.packWarning) lines.push(`> ⚠️ ${report.packWarning}`, '');
+  if (report.llm.agentIdle)
+    lines.push(`> ⚠️ **The agent did not change anything:** ${report.llm.agentIdle}.`, '');
   // Broken before the upgrade: said first, so no reader takes the comparison for proof.
   const unhealthy = baselineHeadline(baselineHealthOf(report));
   if (mode === 'full' && unhealthy && !report.verificationPending)
@@ -989,10 +1003,13 @@ export function renderMigration(
             : !report.sites.length && migrationRisk(report).level === 'Low'
               ? 'Types compile and the tests pass.'
               : 'Types compile; runtime behavior needs review.';
+    const manual = report.sites.filter((s) => s.outcome === 'manual').length;
     const what =
-      report.sites.length || hasFeedbackEdits(report)
-        ? `The code was migrated to ${report.package} ${from.split('.')[0] === report.target.split('.')[0] ? report.target : report.target.split('.')[0]}${workspaces.length ? ` in ${listed(workspaces)}` : ''}.`
-        : 'No code changes were needed; only versions and the lockfile changed.';
+      manual && manual === report.sites.length && !hasFeedbackEdits(report)
+        ? `No code was changed: ${manual === 1 ? 'the site needs' : `all ${manual} sites need`} a manual migration.`
+        : report.sites.length || hasFeedbackEdits(report)
+          ? `The code was migrated to ${report.package} ${from.split('.')[0] === report.target.split('.')[0] ? report.target : report.target.split('.')[0]}${workspaces.length ? ` in ${listed(workspaces)}` : ''}.`
+          : 'No code changes were needed; only versions and the lockfile changed.';
     lines.push(
       `**${ready ? 'Ready for review.' : 'Review required before merging.'}** ${what} ${typeVerdict}${report.apiChanges ? ` ${sentenceCase(apiChangeSummary(report.apiChanges, stripeSection(report)?.unmatched.length, report.packContext?.recordSites?.length))} between ${report.apiChanges.from} and ${report.apiChanges.to}.` : ''}`,
       '',
@@ -1145,18 +1162,28 @@ export function renderMigration(
   }
   const housekeeping = report.lockfile?.housekeeping;
   if (mode === 'full' && housekeeping) {
-    const label = `Lockfile housekeeping · ${count(housekeeping.deduped.length, 'dedupe move')} · ${count(housekeeping.metadata.length, 'metadata-only change')}`;
+    const onto = housekeeping.onto ?? [];
+    const label = `Lockfile housekeeping · ${count(housekeeping.deduped.length, 'dedupe move')} · ${count(housekeeping.metadata.length, 'metadata-only change')}${onto.length ? ` · ${count(onto.length, 'move')} onto the upgrade's copies` : ''}`;
     lines.push(
       droppable(
         7,
         collapse(label, [
           'Outside resolutions retain the same package name, version and integrity; execution and platform fields are unchanged.',
+          ...(onto.length
+            ? [
+                'The exceptions below are dependencies of unchanged packages the package manager now resolves to the copy the upgrade installs, in the same major and never older; the copy they used is gone from the lockfile when nothing else needs it.',
+              ]
+            : []),
           '',
           ...housekeeping.deduped.map(
             (d) =>
               `- \`${cell(d.name)}@${cell(d.version)}\`: \`${cell(d.from)}\` → \`${cell(d.to)}\`.`,
           ),
           ...housekeeping.metadata.map((key) => `- Metadata only: \`${cell(key)}\`.`),
+          ...onto.map(
+            (o) =>
+              `- \`${cell(o.name)}\` ${cell(o.from)} → ${cell(o.to)}: onto the upgrade's copy.`,
+          ),
         ]),
         label,
       ),
@@ -1655,7 +1682,7 @@ function verificationDetails(report: FixReport, bounded: boolean): (string | Pie
       `By rule: ${report.sites.filter((s) => s.outcome === 'mechanical').length} sites. By the agent before feedback: ${report.sites.filter((s) => s.outcome === 'agent').length} sites.`,
       ...feedbackTasks.map(
         (task) =>
-          `- Round ${task.id.replace('verification-', '')}: ${task.gate}${task.rejection ? ` — ${task.rejection}` : ''}${task.stop ? ` — ${task.stop}` : ''}. ${Object.keys(task.diffs ?? {}).join(', ') || 'No accepted edits.'}`,
+          `- Round ${task.id.replace('verification-', '')}: ${task.gate}${task.noChange ? ` — ${task.noChange}` : `${task.rejection ? ` — ${task.rejection}` : ''}${task.stop ? ` — ${task.stop}` : ''}`}. ${Object.keys(task.diffs ?? {}).join(', ') || 'No accepted edits.'}`,
       ),
       ...feedbackTasks.flatMap((task) =>
         task.gate === 'accepted'

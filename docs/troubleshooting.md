@@ -152,6 +152,30 @@ allowed. The fix report and PR description show accepted moves in a collapsed **
 housekeeping** section. Changed outside resolutions, removed packages, and executable or
 platform metadata changes remain blocked; a shared package name is not sufficient evidence.
 
+The exception is a dependency the package manager moves onto the copy the upgrade installs,
+in the same major and forward only; the copy it leaves may go when nothing else needs it.
+Each one is listed as housekeeping, "onto the upgrade's copy". Before this, such a move read
+as "X → X (same version, different resolution)" for every package depending on it, and the run
+fell back to an agent-led draft.
+
+
+### "The agent did not change anything"
+
+The terminal, the PR body and `report.json` (`llm.agentIdle`) say this when the agent could
+assist and nothing it did stayed in the branch, with the reason. Each task's own reason is in
+`llm.tasks[].noChange`:
+
+- `the session failed: …` is the API's own message: an invalid key, an empty credit balance,
+  or a model your key cannot use. Fix the key or the model and run again; no further session
+  starts after it, and nothing is spent.
+- `the session ended before its first turn`, `the model returned no output` or
+  `the model refused the task`: the session produced nothing to judge.
+- `every edit was rejected: …`: the gate's reason (new type errors, failing tests, edits
+  outside the task).
+- `the agent made no edit; it said: …`: the agent's own words.
+- `nothing was left for it`: no site needed a manual migration and verification found no
+  new failure, so no session started.
+
 
 ### npm 10 drops `libc` metadata from npm 11 lockfiles
 

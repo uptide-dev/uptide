@@ -80,7 +80,13 @@ import { command, git, projectRoot } from './process.js';
 import { publicationBlockers } from './publish.js';
 import { changeRule, editDiff, prBody } from './report.js';
 import { describeRootPin, planRootPins, writeRootPins } from './root-pins.js';
-import { assistWithSdk, sdkRequired, sdkUnavailable, type TaskRunner } from './sdk-agent.js';
+import {
+  agentIdleReason,
+  assistWithSdk,
+  sdkRequired,
+  sdkUnavailable,
+  type TaskRunner,
+} from './sdk-agent.js';
 import { selectedFindings } from './select.js';
 import { applyFollowUps, commit, type Followed, safeFile, settle } from './settle.js';
 import { stripeBehaviorPlan } from './stripe-behavior.js';
@@ -1270,7 +1276,8 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     if (!feedback && !(round === 1 && fallback.length)) break;
     const remaining =
       (nanos(maxCostUsd) - nanos(chargedUsd(llm)) - nanos(llm.unreportedCostUsd ?? 0)) / 1e9;
-    if (remaining < 0.02 || llm.unreportedCostUsd) break;
+    // An API error (an invalid key, no credit) fails every session alike: none is started again.
+    if (remaining < 0.02 || llm.unreportedCostUsd || llm.tasks?.some((t) => t.error)) break;
     // A session that would likely cross the limit is not started: one that does stops at the
     // limit mid-edit, and its spend buys nothing (UPT-111).
     // ponytail: the mean of this run's sessions; a per-pack history if sessions vary widely.
@@ -1346,6 +1353,9 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     );
   }
   if (feedbackLimits.roundsUsed) lap('feedback', (nanos(llm.costUsd) - nanos(agentSpend)) / 1e9);
+  // The run never reads as if the agent worked when nothing it did stayed (UPT-134).
+  const idle = sdkAgent && canAssist ? agentIdleReason(llm, sites) : undefined;
+  if (idle) llm.agentIdle = idle;
   // The repository's own build on the final head, reported where the pack does not gate on it:
   // the PR names its result, never "not required" in its place (UPT-110). A workspace the
   // consumed builds already built on this head is not built again.
@@ -1400,8 +1410,18 @@ async function fixPackage(options: FixOptions, services: FixServices): Promise<F
     lint.every((l) => l.status !== 'failed');
   // A head build that fails where the parent's could not be checked fails the run too.
   const broken = upgradeBrokeBuild(parentBuild) || !!parentUnchecked;
+  // What each rule the sites name is, as the pack says it: the PR body's group titles.
+  const ruleSummaries = Object.fromEntries(
+    sitePack.rules.flatMap((r) => {
+      const summary = (r as { summary?: unknown }).summary;
+      return typeof summary === 'string' && sites.some((s) => s.rule === r.id)
+        ? [[r.id, summary]]
+        : [];
+    }),
+  );
   const result: FixReport = {
     ...(pins.length ? { rootPins: pins } : {}),
+    ...(Object.keys(ruleSummaries).length ? { ruleSummaries } : {}),
     ...(fallback.length ? { agentFallback: fallback } : {}),
     ...(cleanInstall ? { cleanInstall } : {}),
     ...(pending ? { verificationPending: true } : {}),

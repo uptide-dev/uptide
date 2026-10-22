@@ -98,6 +98,11 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
     ...(report.llm.costLimit
       ? [`  ${pad('Agent', 9)} ${costStopMessage(report.llm.costLimit, report.llm.estimate)}`]
       : []),
+    ...(report.llm.agentIdle
+      ? [
+          `  ${pad('Agent', 9)} ${colors.red(`The agent did not change anything: ${report.llm.agentIdle}`)}`,
+        ]
+      : []),
     ...(report.phases?.length ? [`  ${pad('Phases', 9)} ${describePhases(report.phases)}`] : []),
     // What the check behind this run could not see, per workspace (the files are in the report).
     ...(report.importersNotAnalyzed ?? []).map(
@@ -162,7 +167,7 @@ export function formatFixSummary(report: FixReport, opts: FormatFixOptions = {})
   if (housekeeping)
     lines.push(
       colors.dim(
-        `Lockfile housekeeping · ${housekeeping.deduped.length} dedupe move${housekeeping.deduped.length === 1 ? '' : 's'} · ${housekeeping.metadata.length} metadata-only change${housekeeping.metadata.length === 1 ? '' : 's'} (details in the report)`,
+        `Lockfile housekeeping · ${housekeeping.deduped.length} dedupe move${housekeeping.deduped.length === 1 ? '' : 's'} · ${housekeeping.metadata.length} metadata-only change${housekeeping.metadata.length === 1 ? '' : 's'}${housekeeping.onto?.length ? ` · ${housekeeping.onto.length} move${housekeeping.onto.length === 1 ? '' : 's'} onto the upgrade's copies` : ''} (details in the report)`,
       ),
       '',
     );

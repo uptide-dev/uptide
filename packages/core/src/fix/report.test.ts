@@ -967,6 +967,28 @@ it('keeps accepted lockfile housekeeping collapsed with counts and exact placeme
   expect(migrationBody(report)).toContain('Lockfile housekeeping');
 });
 
+it('lists a dependency moved onto the upgrade’s copy as housekeeping (UPT-135)', () => {
+  const report = fixture('storefront-zod');
+  report.lockfile = {
+    manager: 'pnpm',
+    file: 'pnpm-lock.yaml',
+    added: [],
+    removed: ['snapshots:qs@6.12.0'],
+    changed: ['snapshots:http-client@2.0.0'],
+    allowed: [],
+    housekeeping: {
+      deduped: [],
+      metadata: [],
+      onto: [{ name: 'qs', from: '6.12.0', to: '6.16.1' }],
+    },
+  };
+  const body = prBody(report);
+  expect(body).toContain(
+    "<details><summary>Lockfile housekeeping · 0 dedupe moves · 0 metadata-only changes · 1 move onto the upgrade's copies</summary>",
+  );
+  expect(body).toContain("- `qs` 6.12.0 → 6.16.1: onto the upgrade's copy.");
+});
+
 it('lists each allowed transitive change under the moved package that caused it', () => {
   const report = fixture('storefront-zod');
   report.lockfile = {
@@ -1179,4 +1201,73 @@ it('says a companion major without a pack needs its own migration, and marks the
   );
   report.companions = report.companions.map((c) => ({ ...c, migration: 'pack' as const }));
   expect(prBody(report)).not.toContain('Needs its own migration');
+});
+
+describe('a run where nothing was migrated (UPT-134)', () => {
+  it('says no code changed instead of "migrated", and why the agent did nothing', () => {
+    const base = fixture('storefront-zod');
+    const report: FixReport = {
+      ...base,
+      sites: base.sites.map((s) => ({ ...s, outcome: 'manual' as const })),
+      llm: { ...base.llm, tasks: [], agentIdle: 'the session failed: Invalid API key' },
+    };
+    const body = prBody(report);
+    expect(body).toContain(
+      `No code was changed: all ${report.sites.length} sites need a manual migration.`,
+    );
+    expect(body).not.toContain('The code was migrated');
+    expect(body).toContain(
+      '> ⚠️ **The agent did not change anything:** the session failed: Invalid API key.',
+    );
+    expect(prBody(base)).not.toContain('The agent did not change anything');
+  });
+});
+
+describe('group titles (UPT-134)', () => {
+  const titled = (rule: string, over: Partial<FixReport> = {}, compileCode?: number) => {
+    const base = fixture('storefront-zod');
+    const site = base.sites[0] as FixReport['sites'][number];
+    const report: FixReport = {
+      ...base,
+      ...over,
+      sites: [
+        {
+          ...site,
+          rule,
+          outcome: 'manual',
+          reason: 'SDK agent made no change',
+          finding: {
+            ...site.finding,
+            rule: undefined,
+            change: { ...site.finding.change, path: rule, kind: 'removed' },
+            usage: {
+              ...site.finding.usage,
+              compileCode,
+              compileError: compileCode
+                ? "Property 'query' does not exist on type 'typeof e'."
+                : undefined,
+            },
+          },
+        },
+      ],
+    };
+    return /\*\*1\. (.+?)\*\* · /.exec(prBody(report))?.[1];
+  };
+
+  it("titles a rule's sites with the pack's summary of it, not its id", () => {
+    expect(
+      titled('query-middleware-removed', {
+        ruleSummaries: { 'query-middleware-removed': '`express.query()` middleware is removed' },
+      }),
+    ).toBe('`express.query()` middleware is removed');
+    // A report stored before the summaries were recorded keeps the id.
+    expect(titled('query-middleware-removed')).toBe('query-middleware-removed');
+  });
+
+  it('titles sites no rule covers by what the compiler said, else by what changed', () => {
+    expect(titled('e.query', {}, 2339)).toBe('A property no longer exists');
+    expect(titled('e.query')).toBe(
+      `\`e.query\` was removed in zod ${fixture('storefront-zod').target}`,
+    );
+  });
 });

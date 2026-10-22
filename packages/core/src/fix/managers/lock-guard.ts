@@ -1,3 +1,4 @@
+import { compareVersions, parseVersion } from '../../check/version.js';
 import { UptideError } from '../../errors.js';
 
 export interface LockRecord {
@@ -76,6 +77,12 @@ export function lockedIdentity(
 export interface LockHousekeeping {
   deduped: { from: string; to: string; name: string; version: string }[];
   metadata: string[];
+  /**
+   * An unmoved package's dependency the manager moved onto the copy the upgrade installs,
+   * within the same major and never older (a client's qs 6.12.0 → express 5's 6.16.1): the
+   * old copy goes when nothing else needs it (UPT-135).
+   */
+  onto?: { name: string; from: string; to: string }[];
 }
 export interface PeerReresolution {
   name: string;
@@ -247,6 +254,33 @@ export function assertLockScope(
     } else unexpected.add('lockfile metadata/importers');
   }
 
+  // The packages the upgrade installs, by content: Yarn keys `qs@npm:^6.10.0` apart from the
+  // `qs@npm:^6.14.0` express 5 reaches, though both resolve to the same qs 6.16.1. Only in a
+  // logical lockfile: an npm placement with the same content is another copy on disk.
+  const upgradeCopies = new Set(
+    after.relocate
+      ? []
+      : [...after.records]
+          .filter(([key]) => originalScope.has(key))
+          .map(([, r]) => stable(r.identity)),
+  );
+  // Moves onto the upgrade's copy the comparison in progress relied on; dropped when it fails.
+  const onto: string[] = [];
+  const ontoUpgrade = (a: string, b: string): boolean => {
+    const left = before.records.get(a),
+      right = after.records.get(b);
+    const [from, to] = [left?.identity.version, right?.identity.version].map((v) =>
+      parseVersion(String(v ?? '')),
+    );
+    if (!left || !right || left.name !== right.name || !from || !to) return false;
+    return (
+      (originalScope.has(b) || upgradeCopies.has(stable(right.identity))) &&
+      !originalScope.has(a) &&
+      from.major === to.major &&
+      (from.major > 0 || from.minor === to.minor) &&
+      compareVersions(String(right.identity.version), String(left.identity.version)) > 0
+    );
+  };
   const equivalent = (a: string, b: string, seen = new Set<string>()): boolean => {
     const left = before.records.get(a),
       right = after.records.get(b);
@@ -254,7 +288,10 @@ export function assertLockScope(
     const pair = JSON.stringify([a, b]);
     if (seen.has(pair)) return true;
     seen.add(pair);
-    return sameEdges(left.edges, right.edges, seen);
+    const mark = onto.length;
+    const same = sameEdges(left.edges, right.edges, seen);
+    if (!same) onto.length = mark;
+    return same;
   };
   const sameEdges = (
     left: Record<string, string | undefined>,
@@ -275,14 +312,22 @@ export function assertLockScope(
         return true;
       // Admitted peers may move; their transitive upgrades cannot change an outside consumer.
       if (extraRoots.includes(a) && extraRoots.includes(b)) return true;
-      return equivalent(a, b, seen);
+      if (equivalent(a, b, seen)) return true;
+      // A dependency's, never an importer's: what the repository declares moves only by the plan.
+      if (declared || !ontoUpgrade(a, b)) return false;
+      onto.push(JSON.stringify([a, b]));
+      return true;
     });
+  const moves = new Set<string>();
   for (const key of new Set([
     ...Object.keys(before.roots ?? {}),
     ...Object.keys(after.roots ?? {}),
-  ]))
+  ])) {
+    onto.length = 0;
     if (!sameEdges(before.roots?.[key] ?? {}, after.roots?.[key] ?? {}, new Set(), true))
       unexpected.add(`importer ${key || '.'} resolutions`);
+    else for (const move of onto) moves.add(move);
+  }
 
   const counterpart = (
     key: string,
@@ -305,6 +350,7 @@ export function assertLockScope(
   };
   const keys = new Set([...before.records.keys(), ...after.records.keys()]);
   const relocated = new Map<string, string>();
+  const orphans: string[] = [];
   for (const key of keys) {
     const a = before.records.get(key),
       b = after.records.get(key);
@@ -314,13 +360,22 @@ export function assertLockScope(
     if (allowed.has(key)) continue;
     // What only a removed stub reached goes with it; an outside dependent's edge to it still compares.
     if (b === undefined && dropped.has(key)) continue;
+    onto.length = 0;
     const other = a
       ? counterpart(key, before, after)
       : (counterpart(key, after, before, true) ?? relocated.get(key));
     if (other === undefined || !(a ? equivalent(key, other) : equivalent(other, key))) {
-      unexpected.add(key);
+      // Yarn moves a descriptor in place onto the upgrade's copy.
+      if (a && b && ontoUpgrade(key, key)) {
+        moves.add(JSON.stringify([key, key]));
+        continue;
+      }
+      // A copy that left may have left because its dependents moved onto the upgrade's: below.
+      if (b === undefined) orphans.push(key);
+      else unexpected.add(key);
       continue;
     }
+    for (const move of onto) moves.add(move);
     if (!a || !b) {
       // Old records are visited first; a newly hoisted copy can replace a removed one.
       if (a) relocated.set(other, key);
@@ -337,6 +392,46 @@ export function assertLockScope(
         });
     } else if (changed) housekeeping.metadata.push(key);
   }
+  // A removed copy is in scope when everything that reached it is: the upgrade's subtree, a
+  // dependent accepted above (moved onto the upgrade's copy), or another such removed copy.
+  const reachedBy = (key: string) =>
+    [...before.records].filter(([, r]) => r.dependencies.includes(key)).map(([k]) => k);
+  const excused = new Set<string>();
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const key of orphans) {
+      const by = reachedBy(key);
+      if (
+        !excused.has(key) &&
+        by.length &&
+        by.every(
+          (p) =>
+            allowed.has(p) ||
+            dropped.has(p) ||
+            excused.has(p) ||
+            (!unexpected.has(p) && !orphans.includes(p)),
+        )
+      ) {
+        excused.add(key);
+        grew = true;
+      }
+    }
+  }
+  for (const key of orphans) if (!excused.has(key)) unexpected.add(key);
+  const ontoChanges = new Map<string, { name: string; from: string; to: string }>();
+  for (const move of moves) {
+    const [a, b] = JSON.parse(move) as [string, string];
+    const [left, right] = [before.records.get(a), after.records.get(b)];
+    if (!left || !right) continue;
+    const change = {
+      name: left.name,
+      from: String(left.identity.version),
+      to: String(right.identity.version),
+    };
+    ontoChanges.set(stable(change), change);
+  }
+  if (ontoChanges.size)
+    housekeeping.onto = [...ontoChanges.values()].sort((x, y) => x.name.localeCompare(y.name));
   if (unexpected.size) {
     const versionOf = (graph: LockGraph, key: string): string | undefined => {
       const version = graph.records.get(key)?.identity.version;
@@ -369,7 +464,8 @@ export function assertLockScope(
         `Install changed resolutions outside ${names.join(', ')}'s dependency subtree: ${described.join('; ')}. No upgrade will be committed.`,
       );
   }
-  if (housekeeping.deduped.length || housekeeping.metadata.length) diff.housekeeping = housekeeping;
+  if (housekeeping.deduped.length || housekeeping.metadata.length || housekeeping.onto)
+    diff.housekeeping = housekeeping;
   const transitive = transitiveChanges(before, after, target).filter((m) => m.changes.length);
   if (transitive.length) diff.transitive = transitive;
   return diff;

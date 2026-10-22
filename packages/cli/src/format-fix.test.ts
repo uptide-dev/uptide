@@ -126,7 +126,15 @@ it('summarizes lockfile housekeeping without expanding placements in the termina
     },
   };
   const out = formatFixSummary(report, { color: false });
-  expect(out).toContain('Lockfile housekeeping · 1 dedupe move · 0 metadata-only changes');
+  expect(out).toContain('Lockfile housekeeping · 1 dedupe move · 0 metadata-only changes (');
+  report.lockfile.housekeeping = {
+    deduped: [],
+    metadata: [],
+    onto: [{ name: 'qs', from: '6.12.0', to: '6.16.1' }],
+  };
+  expect(formatFixSummary(report, { color: false })).toContain(
+    "Lockfile housekeeping · 0 dedupe moves · 0 metadata-only changes · 1 move onto the upgrade's copies (details in the report)",
+  );
   expect(out).not.toContain('node_modules/');
 });
 
@@ -314,4 +322,14 @@ it('marks a companion major that needs its own migration (UPT-10)', () => {
   expect(formatFixSummary(report, { color: false })).toContain(
     'needs its own migration: plugin 1.0.0 → 2.0.0 (major, no pack)',
   );
+});
+
+it('says in red when the agent changed nothing, and why (UPT-134)', () => {
+  const report = fixReport(true);
+  report.llm.agentIdle = 'the session failed: Invalid API key';
+  expect(formatFixSummary(report, { color: false })).toContain(
+    '  Agent     The agent did not change anything: the session failed: Invalid API key',
+  );
+  report.llm.agentIdle = undefined;
+  expect(formatFixSummary(report, { color: false })).not.toContain('did not change anything');
 });
